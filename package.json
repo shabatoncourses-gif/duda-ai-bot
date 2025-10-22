@@ -1,0 +1,12 @@
+{
+  "name": "duda-ai-bot",
+  "version": "1.0.0",
+  "main": "api/chat.js",
+  "scripts": {
+    "start": "vercel dev"
+  },
+  "dependencies": {
+    "openai": "^4.0.0",
+    "axios": "^1.6.0"
+  }
+}
