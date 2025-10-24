@@ -1,0 +1,29 @@
+# 🧩 קובץ gitignore לפרויקט duda-ai-bot
+
+# 📦 ספריות והתקנות npm
+node_modules/
+npm-debug.log
+package-lock.json.*
+
+# ⚙️ קבצי מערכת וסביבה
+.env
+.DS_Store
+Thumbs.db
+
+# 🧠 קבצים זמניים
+temp.txt
+*.tmp
+*.log
+
+# 📤 קבצים מקומיים או גיבויים
+*.bak
+*.old
+*.swp
+
+# 🧰 הגדרות עורך מקומי
+.vscode/
+.idea/
+
+# 🚫 קבצי מערכת של Windows או macOS
+desktop.ini
+ehthumbs.db
