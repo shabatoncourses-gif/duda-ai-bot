@@ -241,14 +241,21 @@ async function buildIndex(name, sitemapUrl) {
 }
 
 /**
- * הרצה בפועל
+ * ייצוא לפונקציות אחרות (כמו /api/build-index.js)
  */
-(async () => {
-  try {
-    await buildIndex("Shabaton", "https://www.shabaton.online/sitemap.xml");
-    await buildIndex("Morim", "https://www.morim.boutique/sitemap.xml");
-    console.log("🎉 האינדוקס הושלם בהצלחה!");
-  } catch (err) {
-    console.error("❌ שגיאה כללית:", err.message);
-  }
-})();
+export { buildIndex };
+
+/**
+ * הרצה ישירה (אם הקובץ מופעל בלוקאלי)
+ */
+if (process.argv[1].includes("autoBuildIndex.js")) {
+  (async () => {
+    try {
+      await buildIndex("Shabaton", "https://www.shabaton.online/sitemap.xml");
+      await buildIndex("Morim", "https://www.morim.boutique/sitemap.xml");
+      console.log("🎉 האינדוקס הושלם בהצלחה!");
+    } catch (err) {
+      console.error("❌ שגיאה כללית:", err.message);
+    }
+  })();
+}
