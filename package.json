@@ -1,11 +1,17 @@
 {
   "name": "duda-ai-bot",
   "version": "1.0.0",
+  "description": "Automated content indexing bot for Shabaton & Morim",
   "type": "module",
   "main": "api/chat.js",
   "scripts": {
-    "start": "vercel dev",
-    "index": "node scripts/autoBuildIndex.js"
+    "dev": "vercel dev",
+    "start": "node api/chat.js",
+    "index": "node scripts/autoBuildIndex.js",
+    "build-index": "node scripts/autoBuildIndex.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "openai": "^4.0.0",
@@ -14,5 +20,13 @@
     "cheerio": "^1.0.0",
     "dotenv": "^16.4.5",
     "node-fetch": "^3.3.2"
+  },
+  "vercel": {
+    "functions": {
+      "api/build-index.js": {
+        "maxDuration": 300,
+        "memory": 1024
+      }
+    }
   }
 }
