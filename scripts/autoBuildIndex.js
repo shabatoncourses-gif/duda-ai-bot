@@ -223,6 +223,12 @@ async function buildIndex(name, sitemapUrl) {
   console.log(`⚠️ דילוגים על תוכן קצר: ${skippedShort}`);
   console.log(`💥 שגיאות אחרות: ${errors}`);
   console.log(`🪵 נשמר בלוג: ${logPath}\n`);
+
+  // ✅ אם כל העמודים עובדו, מוחקים את קובץ ה-done.json כדי לאתחל לריצה הבאה
+  if (doneUrls.length >= urls.length) {
+    if (fs.existsSync(donePath)) fs.unlinkSync(donePath);
+    console.log(`🧹 כל העמודים עובדו בהצלחה — קובץ ${donePath} נמחק להכנה לריצה הבאה.`);
+  }
 }
 
 /**
