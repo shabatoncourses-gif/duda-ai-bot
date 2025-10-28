@@ -24,16 +24,35 @@ function delay(ms) {
 }
 
 /**
+ * headers מתקדמים המדמים דפדפן אמיתי
+ */
+function getBrowserHeaders(url) {
+  return {
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+    "Accept":
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Cache-Control": "no-cache",
+    "Referer": new URL(url).origin,
+    "Sec-CH-UA":
+      '"Chromium";v="127", "Not;A=Brand";v="99", "Google Chrome";v="127"',
+    "Sec-CH-UA-Mobile": "?0",
+    "Sec-CH-UA-Platform": '"Windows"'
+  };
+}
+
+/**
  * קריאת sitemap כולל headers מתאימים
  */
 async function getUrlsFromSitemap(sitemapUrl) {
   console.log(`📥 קורא sitemap: ${sitemapUrl}`);
 
   const response = await fetch(sitemapUrl, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, כמו Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0",
-      Accept: "application/xml,text/xml,*/*;q=0.9"
-    }
+    headers: getBrowserHeaders(sitemapUrl)
   });
 
   if (!response.ok)
@@ -92,17 +111,7 @@ function extractSmartContent(html) {
 async function safeFetch(url, retries = 3) {
   for (let i = 0; i < retries; i++) {
     try {
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, כמו Gecko) Chrome/127.0 Safari/537.36",
-          "Accept":
-            "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-          "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
-          "Connection": "keep-alive",
-          "Upgrade-Insecure-Requests": "1"
-        }
-      });
+      const response = await fetch(url, { headers: getBrowserHeaders(url) });
 
       if (response.status === 403) {
         console.warn(`🚫 גישה נחסמה (403): ${url} — ניסיון ${i + 1}/${retries}`);
@@ -224,7 +233,7 @@ async function buildIndex(name, sitemapUrl) {
   console.log(`💥 שגיאות אחרות: ${errors}`);
   console.log(`🪵 נשמר בלוג: ${logPath}\n`);
 
-  // ✅ אם כל העמודים עובדו, מוחקים את קובץ ה-done.json כדי לאתחל לריצה הבאה
+  // ✅ ניקוי קובץ done.json בסיום מוצלח
   if (doneUrls.length >= urls.length) {
     if (fs.existsSync(donePath)) fs.unlinkSync(donePath);
     console.log(`🧹 כל העמודים עובדו בהצלחה — קובץ ${donePath} נמחק להכנה לריצה הבאה.`);
