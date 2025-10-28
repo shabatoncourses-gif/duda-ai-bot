@@ -1,25 +1,18 @@
-import { exec } from "child_process";
+import { buildIndex } from "../scripts/autoBuildIndex.js";
 
 export default async function handler(req, res) {
   try {
-    console.log("🚀 Starting index build...");
+    console.log("🚀 Starting index build inside Vercel function...");
 
-    // מפעיל את הסקריפט שלך בדיוק כמו בלוקאלי
-    exec("node scripts/autoBuildIndex.js", (error, stdout, stderr) => {
-      if (error) {
-        console.error("❌ Error:", error.message);
-        res.status(500).json({ error: error.message });
-        return;
-      }
-      if (stderr) console.warn("⚠️ stderr:", stderr);
-      console.log(stdout);
+    await buildIndex("Shabaton", "https://www.shabaton.online/sitemap.xml");
+    await buildIndex("Morim", "https://www.morim.boutique/sitemap.xml");
 
-      res.status(200).json({
-        message: "🎉 Indexing process started successfully on Vercel!",
-        output: stdout.split("\n").slice(-20).join("\n") // רק שורות אחרונות
-      });
+    res.status(200).json({
+      success: true,
+      message: "🎉 Index build completed successfully on Vercel!"
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    console.error("❌ Error during build:", error);
+    res.status(500).json({ success: false, error: error.message });
   }
 }
