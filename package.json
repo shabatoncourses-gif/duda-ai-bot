@@ -1,14 +1,18 @@
 {
   "name": "duda-ai-bot",
   "version": "1.0.0",
+  "type": "module",
   "main": "api/chat.js",
   "scripts": {
     "start": "vercel dev",
-    "index": "node indexer.js"
+    "index": "node scripts/autoBuildIndex.js"
   },
   "dependencies": {
     "openai": "^4.0.0",
     "axios": "^1.6.0",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.5",
+    "node-fetch": "^3.3.2"
   }
 }
