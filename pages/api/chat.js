@@ -1,0 +1,120 @@
+import dotenv from "dotenv";
+dotenv.config();
+
+import OpenAI from "openai";
+import fs from "fs";
+import path from "path";
+
+// Utility: cosine similarity
+function cosineSimilarity(a, b) {
+  const dot = a.reduce((sum, ai, i) => sum + ai * b[i], 0);
+  const normA = Math.sqrt(a.reduce((sum, ai) => sum + ai * ai, 0));
+  const normB = Math.sqrt(b.reduce((sum, bi) => sum + bi * bi, 0));
+  return dot / (normA * normB);
+}
+
+export default async function handler(req, res) {
+  console.log("?? Incoming request to /api/chat");
+
+  // ? Response headers
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") return res.status(200).end();
+
+  // ? Simple GET for browser test
+  if (req.method === "GET") {
+    console.log("? GET check OK");
+    return res.status(200).json({
+      message:
+        "? ???? /api/chat ????! ??? POST ?? { message: '????? ???' } ??? ???? ?????."
+    });
+  }
+
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "?? ?????? ????? POST ????." });
+
+  try {
+    const { message } = req.body || {};
+    if (!message) {
+      console.warn("?? Missing message in request body");
+      return res.status(400).json({ error: "??? ??? 'message' ?????." });
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      console.error("? Missing OPENAI_API_KEY in environment");
+      return res.status(500).json({ error: "?? ???? ???? OpenAI" });
+    }
+
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    // Load indexes
+    const dataDir = path.join(process.cwd(), "data");
+    const shabatonIndex = JSON.parse(
+      fs.readFileSync(path.join(dataDir, "shabaton_index.json"), "utf8")
+    );
+    const morimIndex = JSON.parse(
+      fs.readFileSync(path.join(dataDir, "morim_index.json"), "utf8")
+    );
+
+    console.log("?? Loaded site indexes");
+
+    // Create embedding for query
+    const queryEmbedding = await client.embeddings.create({
+      model: "text-embedding-3-small",
+      input: message
+    });
+    const queryVector = queryEmbedding.data[0].embedding;
+
+    const allPages = [
+      ...shabatonIndex.map(p => ({ ...p, source: "Shabaton" })),
+      ...morimIndex.map(p => ({ ...p, source: "Morim" }))
+    ];
+
+    const ranked = allPages
+      .map(p => ({ ...p, score: cosineSimilarity(queryVector, p.vector) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+
+    console.log("?? Top matches:", ranked.map(r => r.title));
+
+    if (ranked.length === 0) {
+      return res.status(200).json({
+        reply: "?? ????? ?????? ??????? ???? ??, ??? ??? ???? ????."
+      });
+    }
+
+    const context = ranked
+      .map(p => `? ${p.title} (${p.source})\n${p.url}`)
+      .join("\n");
+
+    const response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "??? ???? ??? ??????, ?? ?????? ?????? ????????. ?? ???? ????, ???? '?? ???? ???? ???????'."
+        },
+        {
+          role: "user",
+          content: `????: ${message}\n\n?????? ?????????:\n${context}`
+        }
+      ],
+      temperature: 0.3
+    });
+
+    const reply = response.choices?.[0]?.message?.content || "?? ?????? ?????.";
+    console.log("?? Reply sent successfully");
+
+    return res.status(200).json({ reply });
+  } catch (err) {
+    console.error("?? Error during /api/chat:", err);
+    return res.status(500).json({
+      error: "????? ????? ?????? ??????.",
+      details: err.message
+    });
+  }
+}
