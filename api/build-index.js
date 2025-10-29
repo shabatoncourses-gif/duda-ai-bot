@@ -1,4 +1,5 @@
 import { exec } from "child_process";
+import path from "path";
 
 export default async function handler(req, res) {
   console.log("🚀 Starting index build on Vercel...");
@@ -9,15 +10,15 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
-
-  // מאפשר גם קריאה ב-GET
-  if (req.method === "GET") {
-    console.log("🟢 Manual GET trigger received — running build...");
-  }
+  if (req.method === "GET") console.log("🟢 Manual GET trigger received — running build...");
 
   try {
-    // מריץ את הקובץ שלך בדיוק כמו בלוקאלי
-    exec("node scripts/autoBuildIndex.js", (error, stdout, stderr) => {
+    // 👇 נשתמש בנתיב מלא כדי ש-Vercel ימצא את הסקריפט שלך
+    const scriptPath = path.join(process.cwd(), "scripts", "autoBuildIndex.js");
+    console.log("🧩 Script path:", scriptPath);
+
+    // 👇 מאפשר ריצה של עד 5 דקות (Vercel סוגר אחרי 10 שניות כברירת מחדל)
+    exec(`node "${scriptPath}"`, { timeout: 1000 * 60 * 5 }, (error, stdout, stderr) => {
       if (error) {
         console.error("❌ Error during index build:", error.message);
         return res.status(500).json({ error: error.message });
