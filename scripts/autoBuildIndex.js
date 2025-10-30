@@ -142,8 +142,6 @@ async function buildIndex(name, sitemapUrl, batchSize = 100) {
 
   // ⚙️ detect environment (Vercel = read-only)
   const isVercel = !!process.env.VERCEL;
-
-  // ✅ Use /tmp for writing in Vercel
   const dataDir = isVercel ? "/tmp/data" : path.join(process.cwd(), "data");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
@@ -160,6 +158,12 @@ async function buildIndex(name, sitemapUrl, batchSize = 100) {
 
   const pendingUrls = urls.filter(u => !doneUrls.includes(u));
   console.log(`🕒 Pending: ${pendingUrls.length} URLs remaining.`);
+
+  if (pendingUrls.length === 0) {
+    console.log(`✅ All pages already indexed.`);
+    return false;
+  }
+
   const batch = pendingUrls.slice(0, batchSize);
   console.log(`🚀 Processing next ${batch.length} pages...`);
 
@@ -200,41 +204,45 @@ async function buildIndex(name, sitemapUrl, batchSize = 100) {
     }
   }
 
-  console.log(`\n📦 Batch completed: ${processed}/${batch.length} pages processed.`);
-  console.log(`🪵 Progress saved (${doneUrls.length}/${urls.length} total).`);
+  await uploadToGitHub(
+    `data/${name.toLowerCase()}_index.json`,
+    `🤖 Auto index update: ${name} (${doneUrls.length}/${urls.length})`
+  );
 
-  // 📤 Upload to GitHub only if new pages processed
-  if (processed > 0) {
-    await uploadToGitHub(
-      `data/${name.toLowerCase()}_index.json`,
-      `🤖 Auto index update: ${name} (${processed}/${urls.length})`
-    );
-  } else {
-    console.log(`ℹ️ No new pages processed — skipping GitHub upload.`);
-  }
+  console.log(`📦 Batch complete: ${processed}/${batch.length} — ${doneUrls.length}/${urls.length} total`);
 
-  const duration = ((new Date() - start) / 1000 / 60).toFixed(2);
-  console.log(`[${new Date().toLocaleString()}] ${name}: ${processed}/${batch.length} pages — ${duration} min`);
-
-  if (doneUrls.length >= urls.length) {
-    console.log(`🎉 All pages processed successfully!`);
-    if (fs.existsSync(donePath)) fs.unlinkSync(donePath);
-  } else {
-    console.log(`➡️ Run again to continue with next batch.`);
-  }
+  return doneUrls.length < urls.length; // return true if more left
 }
 
-export { buildIndex };
+// 🔁 Run all batches automatically until done
+async function runFullIndexing(name, sitemapUrl, batchSize = 100) {
+  let more = true;
+  let round = 1;
 
-// 🧩 Local run
+  while (more) {
+    console.log(`\n🌀 Running batch #${round} for ${name}`);
+    more = await buildIndex(name, sitemapUrl, batchSize);
+    round++;
+    if (more) {
+      console.log(`⏳ Waiting before next batch...`);
+      await delay(5000);
+    }
+  }
+
+  console.log(`🎉 All batches completed for ${name}!`);
+}
+
+// 🧩 Local or manual run
 if (process.argv[1].includes("autoBuildIndex.js")) {
   (async () => {
     try {
-      await buildIndex("Shabaton", "https://www.shabaton.online/sitemap.xml", 100);
-      await buildIndex("Morim", "https://www.morim.boutique/sitemap.xml", 100);
-      console.log("🎉 All batches done!");
+      await runFullIndexing("Shabaton", "https://www.shabaton.online/sitemap.xml", 100);
+      await runFullIndexing("Morim", "https://www.morim.boutique/sitemap.xml", 100);
+      console.log("🎯 All sites fully indexed!");
     } catch (err) {
-      console.error("❌ General error:", err.message);
+      console.error("💥 Fatal error:", err.message);
     }
   })();
 }
+
+export { runFullIndexing, buildIndex };
