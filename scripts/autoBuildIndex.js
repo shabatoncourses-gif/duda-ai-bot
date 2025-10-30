@@ -49,7 +49,7 @@ async function getUrlsFromSitemap(sitemapUrl) {
   const urls = matches.map(m => m[1].trim()).filter(Boolean);
 
   if (!urls.length) {
-    fs.writeFileSync("debug_sitemap.xml", xml);
+    fs.writeFileSync("/tmp/debug_sitemap.xml", xml);
     throw new Error("❌ No URLs found in sitemap.");
   }
 
@@ -140,14 +140,15 @@ async function buildIndex(name, sitemapUrl, batchSize = 100) {
   const start = new Date();
   console.log(`\n🌍 Starting batch index for ${name} at ${start.toLocaleString()}...`);
 
-  const dataDir = path.join(process.cwd(), "data");
-  const logsDir = path.join(process.cwd(), "logs");
-  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
-  if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir);
+  // ⚙️ detect environment (Vercel = read-only)
+  const isVercel = !!process.env.VERCEL;
+
+  // ✅ Use /tmp for writing in Vercel
+  const dataDir = isVercel ? "/tmp/data" : path.join(process.cwd(), "data");
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
   const outputPath = path.join(dataDir, `${name.toLowerCase()}_index.json`);
   const donePath = path.join(dataDir, `${name.toLowerCase()}_done.json`);
-  const logFile = path.join(logsDir, "index_log.txt");
 
   const urls = await getUrlsFromSitemap(sitemapUrl);
   let doneUrls = fs.existsSync(donePath)
@@ -212,14 +213,12 @@ async function buildIndex(name, sitemapUrl, batchSize = 100) {
     console.log(`ℹ️ No new pages processed — skipping GitHub upload.`);
   }
 
-  // 🪵 Log run
   const duration = ((new Date() - start) / 1000 / 60).toFixed(2);
-  const logLine = `[${new Date().toLocaleString()}] ${name}: processed ${processed}/${batch.length} pages (${doneUrls.length}/${urls.length} total) — ${duration} min\n`;
-  fs.appendFileSync(logFile, logLine);
+  console.log(`[${new Date().toLocaleString()}] ${name}: ${processed}/${batch.length} pages — ${duration} min`);
 
   if (doneUrls.length >= urls.length) {
     console.log(`🎉 All pages processed successfully!`);
-    fs.unlinkSync(donePath);
+    if (fs.existsSync(donePath)) fs.unlinkSync(donePath);
   } else {
     console.log(`➡️ Run again to continue with next batch.`);
   }
