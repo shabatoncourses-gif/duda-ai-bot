@@ -4,14 +4,14 @@ dotenv.config();
 import OpenAI from "openai";
 import fetch from "node-fetch";
 
-// ?? Cache ??????? ????
+// 🧠 Cache לזיכרון זמני
 const cache = {
   data: null,
   timestamp: 0,
-  ttl: 10 * 60 * 1000 // 10 ????
+  ttl: 10 * 60 * 1000 // 10 דקות
 };
 
-// ?? ????? ????? ???????
+// 🧮 חישוב דמיון קוסינוס
 function cosineSimilarity(a, b) {
   const dot = a.reduce((sum, ai, i) => sum + ai * b[i], 0);
   const normA = Math.sqrt(a.reduce((sum, ai) => sum + ai * ai, 0));
@@ -19,12 +19,12 @@ function cosineSimilarity(a, b) {
   return dot / (normA * normB);
 }
 
-// ?? ????? ???????? ???GitHub (?? cache)
+// 📦 טעינת אינדקסים מה־GitHub (עם cache)
 async function loadIndexes() {
   const now = Date.now();
 
   if (cache.data && now - cache.timestamp < cache.ttl) {
-    console.log("? Using cached indexes from memory");
+    console.log("⚡ Using cached indexes from memory");
     return cache.data;
   }
 
@@ -36,7 +36,7 @@ async function loadIndexes() {
     morim: `https://raw.githubusercontent.com/${repo}/${branch}/data/morim_index.json`
   };
 
-  console.log("?? Fetching fresh indexes from GitHub...");
+  console.log("🌐 Fetching fresh indexes from GitHub...");
 
   const [shabatonRes, morimRes] = await Promise.all([
     fetch(urls.shabaton),
@@ -44,7 +44,7 @@ async function loadIndexes() {
   ]);
 
   if (!shabatonRes.ok || !morimRes.ok)
-    throw new Error("? Failed to load indexes from GitHub");
+    throw new Error("❌ Failed to load indexes from GitHub");
 
   const [shabatonIndex, morimIndex] = await Promise.all([
     shabatonRes.json(),
@@ -53,78 +53,85 @@ async function loadIndexes() {
 
   cache.data = { shabatonIndex, morimIndex };
   cache.timestamp = now;
-  console.log("? Indexes cached in memory");
+  console.log("✅ Indexes cached in memory");
 
   return cache.data;
 }
 
 export default async function handler(req, res) {
-  console.log("?? Incoming request to /api/chat");
+  console.log("💬 Incoming request to /api/chat");
 
+  // 🧩 הגדרות קידוד ו-CORS
   res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.charset = "utf-8";
+  res.setHeader("Content-Language", "he");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Expose-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  // ????? ????? ??????
+  // בדיקה מהירה בדפדפן
   if (req.method === "GET") {
-    console.log("?? GET check OK");
+    console.log("🟢 GET check OK");
     return res.status(200).json({
-      message: "? /api/chat ????. ??? POST ?? { message: '????? ???' } ??? ?????."
+      message: "✅ /api/chat פעיל. שלח POST עם { message: 'השאלה שלך' } כדי לשאול."
     });
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "? ?? ?????? ??POST ????." });
+    return res.status(405).json({ error: "❌ יש להשתמש ב־POST בלבד." });
   }
 
   try {
     const { message } = req.body || {};
     if (!message)
-      return res.status(400).json({ error: "? ??? ??? 'message' ?????." });
+      return res.status(400).json({ error: "❌ חסר שדה 'message' בבקשה." });
 
     if (!process.env.OPENAI_API_KEY)
-      return res.status(500).json({ error: "? ??? ???? OpenAI ??.env" });
+      return res.status(500).json({ error: "❌ חסר מפתח OpenAI ב־.env" });
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // ????? ???????? ???GitHub (?? ???cache)
+    // טעינת אינדקסים מה־GitHub (או מה־cache)
     const { shabatonIndex, morimIndex } = await loadIndexes();
-    console.log("?? Loaded indexes successfully");
+    console.log("📦 Loaded indexes successfully");
 
-    // ????? embedding ?????
+    // יצירת embedding לשאלה
     const queryEmbedding = await client.embeddings.create({
       model: "text-embedding-3-small",
       input: message
     });
     const queryVector = queryEmbedding.data[0].embedding;
 
-    // ????? ??? ??????
+    // איחוד שני האתרים
     const allPages = [
-      ...shabatonIndex.map(p => ({ ...p, source: "Shabaton" })),
-      ...morimIndex.map(p => ({ ...p, source: "Morim" }))
+      ...shabatonIndex.map((p) => ({ ...p, source: "Shabaton" })),
+      ...morimIndex.map((p) => ({ ...p, source: "Morim" }))
     ];
 
-    // ????? ??? ?????
+    // דירוג לפי דמיון
     const ranked = allPages
-      .map(p => ({ ...p, score: cosineSimilarity(queryVector, p.vector) }))
-      .filter(p => p.score > 0.75) // ? ?? ????? ????
+      .map((p) => ({ ...p, score: cosineSimilarity(queryVector, p.vector) }))
+      .filter((p) => p.score > 0.75) // סינון לפי רלוונטיות גבוהה
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
 
-    console.log("?? Relevant matches:", ranked.map(r => `${r.title} (${r.score.toFixed(2)})`));
+    console.log(
+      "🏆 Relevant matches:",
+      ranked.map((r) => `${r.title} (${r.score.toFixed(2)})`)
+    );
 
     if (ranked.length === 0) {
       return res.status(200).json({
-        reply: "?? ????? ?????? ???????. ??? ???? ???? ?? ????? ??"
+        reply: "לא נמצאו תוצאות מתאימות. נסי לנסח אחרת או להשתמש במילים נוספות."
       });
     }
 
-    // ? ???? ??????? ?????? ??????, ?? ????? ??????
+    // ✅ יצירת הקשרים עם קישורים בעברית תקינה וללא סוגריים מיותרים
     const context = ranked
-      .map(p => {
+      .map((p) => {
         const cleanUrl = p.url.trim().replace(/[)\]]+$/, "");
         let displayUrl;
         try {
@@ -132,25 +139,23 @@ export default async function handler(req, res) {
         } catch {
           displayUrl = cleanUrl;
         }
-        return `
-          ?? <strong>${p.title}</strong> [${p.source}]<br>
-          <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">${displayUrl}</a>
-        `;
+        return `🔹 <strong>${p.title}</strong> [${p.source}]<br>
+        <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">${displayUrl}</a>`;
       })
       .join("<br><br>");
 
-    // ?? ????? ???? ?????? ????
+    // יצירת תשובה בעזרת GPT
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content:
-            "??? ?? ??? ??????. ????? ?? ??? ?? ???????? ??????. ?? ????? ???? ???? ??? ????? ?? HTML. ??? ?? ???????? ???? ???."
+            "אתה עוזר חכם המספק תשובות רלוונטיות מתוך אתרי שבתון ומורים. השב בעברית בלבד, בצורה ידידותית וברורה, ותמיד הצג קישורים רלוונטיים בפורמט HTML."
         },
         {
           role: "user",
-          content: `????: ${message}\n\n??????? ??????????:\n${context}`
+          content: `שאלה: ${message}\n\nהקשרים רלוונטיים:\n${context}`
         }
       ],
       temperature: 0.3
@@ -158,14 +163,15 @@ export default async function handler(req, res) {
 
     const reply =
       response.choices?.[0]?.message?.content ||
-      "?? ????? ????? ?????? ????.";
+      "לא נמצאה תשובה מתאימה.";
 
-    console.log("? Reply sent successfully");
+    console.log("✅ Reply sent successfully");
+
     return res.status(200).json({ reply });
   } catch (err) {
-    console.error("?? Error during /api/chat:", err);
+    console.error("💥 Error during /api/chat:", err);
     return res.status(500).json({
-      error: "????? ????? ????? ????? ?????.",
+      error: "אירעה שגיאה במהלך עיבוד הבקשה.",
       details: err.message
     });
   }
