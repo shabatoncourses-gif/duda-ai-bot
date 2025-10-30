@@ -61,7 +61,7 @@ async function loadIndexes() {
 export default async function handler(req, res) {
   console.log("💬 Incoming request to /api/chat");
 
-  // 🧩 הגדרות קידוד ו-CORS
+  // 🧩 הגדרות קידוד ו־CORS
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.charset = "utf-8";
   res.setHeader("Content-Language", "he");
@@ -94,6 +94,12 @@ export default async function handler(req, res) {
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+    // ניקוי השאילתה — הסרת תווים מיותרים, רווחים, ניקוד
+    const cleanMessage = message
+      .replace(/[^\p{L}\p{N}\s]/gu, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
     // טעינת אינדקסים מה־GitHub (או מה־cache)
     const { shabatonIndex, morimIndex } = await loadIndexes();
     console.log("📦 Loaded indexes successfully");
@@ -101,7 +107,7 @@ export default async function handler(req, res) {
     // יצירת embedding לשאלה
     const queryEmbedding = await client.embeddings.create({
       model: "text-embedding-3-small",
-      input: message
+      input: cleanMessage
     });
     const queryVector = queryEmbedding.data[0].embedding;
 
@@ -111,10 +117,10 @@ export default async function handler(req, res) {
       ...morimIndex.map((p) => ({ ...p, source: "Morim" }))
     ];
 
-    // דירוג לפי דמיון
+    // דירוג לפי דמיון עם סף רגיש יותר
     const ranked = allPages
       .map((p) => ({ ...p, score: cosineSimilarity(queryVector, p.vector) }))
-      .filter((p) => p.score > 0.75) // סינון לפי רלוונטיות גבוהה
+      .filter((p) => p.score > 0.55) // ✅ סף רלוונטיות מתון
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
 
@@ -151,11 +157,11 @@ export default async function handler(req, res) {
         {
           role: "system",
           content:
-            "אתה עוזר חכם המספק תשובות רלוונטיות מתוך אתרי שבתון ומורים. השב בעברית בלבד, בצורה ידידותית וברורה, ותמיד הצג קישורים רלוונטיים בפורמט HTML."
+            "אתה עוזר חכם המספק תשובות רלוונטיות מתוך אתרי שבתון ומורים. השב בעברית בלבד, בצורה טבעית וידידותית, והצג קישורים רלוונטיים בתשובה בפורמט HTML תקין."
         },
         {
           role: "user",
-          content: `שאלה: ${message}\n\nהקשרים רלוונטיים:\n${context}`
+          content: `שאלה: ${cleanMessage}\n\nהקשרים רלוונטיים:\n${context}`
         }
       ],
       temperature: 0.3
