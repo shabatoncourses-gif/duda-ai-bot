@@ -4,14 +4,14 @@ dotenv.config();
 import OpenAI from "openai";
 import fetch from "node-fetch";
 
-// 🧠 Cache מקומי בזיכרון
+// ?? Cache ??????? ????
 const cache = {
   data: null,
   timestamp: 0,
-  ttl: 10 * 60 * 1000 // 10 דקות
+  ttl: 10 * 60 * 1000 // 10 ????
 };
 
-// חישוב דמיון קוסינוס
+// ?? ????? ????? ???????
 function cosineSimilarity(a, b) {
   const dot = a.reduce((sum, ai, i) => sum + ai * b[i], 0);
   const normA = Math.sqrt(a.reduce((sum, ai) => sum + ai * ai, 0));
@@ -19,13 +19,12 @@ function cosineSimilarity(a, b) {
   return dot / (normA * normB);
 }
 
-// 📦 טעינת אינדקסים מגיטהאב (או מה־cache)
+// ?? ????? ???????? ???GitHub (?? cache)
 async function loadIndexes() {
   const now = Date.now();
 
-  // ✅ אם יש cache בתוקף – נחזיר אותו
   if (cache.data && now - cache.timestamp < cache.ttl) {
-    console.log("⚡ Using cached indexes from memory");
+    console.log("? Using cached indexes from memory");
     return cache.data;
   }
 
@@ -37,7 +36,7 @@ async function loadIndexes() {
     morim: `https://raw.githubusercontent.com/${repo}/${branch}/data/morim_index.json`
   };
 
-  console.log("📥 Fetching fresh indexes from GitHub...");
+  console.log("?? Fetching fresh indexes from GitHub...");
 
   const [shabatonRes, morimRes] = await Promise.all([
     fetch(urls.shabaton),
@@ -45,25 +44,23 @@ async function loadIndexes() {
   ]);
 
   if (!shabatonRes.ok || !morimRes.ok)
-    throw new Error("❌ Failed to load indexes from GitHub");
+    throw new Error("? Failed to load indexes from GitHub");
 
   const [shabatonIndex, morimIndex] = await Promise.all([
     shabatonRes.json(),
     morimRes.json()
   ]);
 
-  // שמירה בזיכרון
   cache.data = { shabatonIndex, morimIndex };
   cache.timestamp = now;
-  console.log("✅ Indexes cached in memory");
+  console.log("? Indexes cached in memory");
 
   return cache.data;
 }
 
 export default async function handler(req, res) {
-  console.log("💬 Incoming request to /api/chat");
+  console.log("?? Incoming request to /api/chat");
 
-  // הגדרות תגובה בסיסיות
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -71,87 +68,89 @@ export default async function handler(req, res) {
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
+  // ????? ????? ??????
   if (req.method === "GET") {
-    console.log("🟢 GET check OK");
+    console.log("?? GET check OK");
     return res.status(200).json({
-      message: "✅ /api/chat פעיל. שלח POST עם { message: 'שאלה כלשהי' } כדי לקבל תשובה."
+      message: "? /api/chat ????. ??? POST ?? { message: '????? ???' } ??? ?????."
     });
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "❌ מותר רק POST." });
+    return res.status(405).json({ error: "? ?? ?????? ??POST ????." });
   }
 
   try {
     const { message } = req.body || {};
     if (!message)
-      return res.status(400).json({ error: "❌ חסר שדה 'message' בגוף הבקשה." });
+      return res.status(400).json({ error: "? ??? ??? 'message' ?????." });
 
     if (!process.env.OPENAI_API_KEY)
-      return res.status(500).json({ error: "❌ חסר מפתח OpenAI." });
+      return res.status(500).json({ error: "? ??? ???? OpenAI ??.env" });
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // ✅ טוען אינדקסים (מה־cache או מגיטהאב)
+    // ????? ???????? ???GitHub (?? ???cache)
     const { shabatonIndex, morimIndex } = await loadIndexes();
-    console.log("📚 Loaded indexes successfully");
+    console.log("?? Loaded indexes successfully");
 
-    // 🔍 יוצר embedding לשאלה
+    // ????? embedding ?????
     const queryEmbedding = await client.embeddings.create({
       model: "text-embedding-3-small",
       input: message
     });
     const queryVector = queryEmbedding.data[0].embedding;
 
+    // ????? ??? ??????
     const allPages = [
       ...shabatonIndex.map(p => ({ ...p, source: "Shabaton" })),
       ...morimIndex.map(p => ({ ...p, source: "Morim" }))
     ];
 
-    // מחשב דמיון לפי קוסינוס וממיין
+    // ????? ??? ?????
     const ranked = allPages
       .map(p => ({ ...p, score: cosineSimilarity(queryVector, p.vector) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
 
-    console.log("🏆 Top matches:", ranked.map(r => r.title));
+    console.log("?? Top matches:", ranked.map(r => r.title));
 
     if (ranked.length === 0) {
       return res.status(200).json({
-        reply: "לא נמצאו תוצאות רלוונטיות כרגע, נסי לשאול אחרת 🙂"
+        reply: "?? ????? ?????? ???????, ??? ???? ?? ????? ???? ??"
       });
     }
 
-    // מכין הקשר לתשובה
+    // ? ???? ??????? ?? decodeURI ?? ????? ??????
     const context = ranked
-      .map(p => `📄 ${p.title} (${p.source})\n${p.url}`)
+      .map(p => `? ${p.title} (${p.source})\n${decodeURI(p.url)}`)
       .join("\n");
 
-    // שיחה עם GPT
+    // ????? ????? ????? GPT
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content:
-            "אתה עוזר חכם המשיב על שאלות מתוך תוכן של שני אתרים: 'שבתון' ו'מורימ'. דבר בשפה טבעית וברורה."
+            "??? ???? ??????? ????? ?????? ???? ???? ?????? ????? ??????. ??? ?????? ????? ??????? ????."
         },
         {
           role: "user",
-          content: `שאלה: ${message}\n\nקטעי מידע רלוונטיים:\n${context}`
+          content: `????: ${message}\n\n?????? ?????????:\n${context}`
         }
       ],
       temperature: 0.4
     });
 
-    const reply = response.choices?.[0]?.message?.content || "לא הצלחתי להבין 😅";
-    console.log("✅ Reply sent successfully");
+    const reply = response.choices?.[0]?.message?.content || "?? ????? ????? ??????.";
+    console.log("? Reply sent successfully");
 
     return res.status(200).json({ reply });
   } catch (err) {
-    console.error("❌ Error during /api/chat:", err);
+    console.error("?? Error during /api/chat:", err);
     return res.status(500).json({
-      error: "שגיאה במהלך עיבוד הבקשה.",
+      error: "????? ????? ????? ????? ?????.",
       details: err.message
     });
   }
