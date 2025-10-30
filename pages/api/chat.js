@@ -120,7 +120,8 @@ export default async function handler(req, res) {
     // דירוג לפי דמיון עם סף רגיש יותר
     const ranked = allPages
       .map((p) => ({ ...p, score: cosineSimilarity(queryVector, p.vector) }))
-      .filter((p) => p.score > 0.55) // ✅ סף רלוונטיות מתון
+      .filter((p) => p.score > 0.3) // ✅ סף רלוונטיות מתון
+
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
 
