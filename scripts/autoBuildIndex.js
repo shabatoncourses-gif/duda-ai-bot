@@ -30,8 +30,7 @@ function getBrowserHeaders(url) {
   return {
     "User-Agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-    "Accept":
-      "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
     "Referer": new URL(url).origin,
     "Connection": "keep-alive"
@@ -101,10 +100,10 @@ async function uploadToGitHub(filePath, commitMessage) {
       return;
     }
 
-    const fileName = filePath.split("/").pop();
     const content = fs.readFileSync(filePath, "utf8");
     const encoded = Buffer.from(content).toString("base64");
-    const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${filePath}?ref=${GITHUB_BRANCH}`;
+    const relativePath = `data/${path.basename(filePath)}`;
+    const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${relativePath}?ref=${GITHUB_BRANCH}`;
     const headers = {
       Authorization: `token ${GITHUB_TOKEN}`,
       "Content-Type": "application/json"
@@ -129,7 +128,7 @@ async function uploadToGitHub(filePath, commitMessage) {
     });
 
     if (!res.ok) throw new Error(await res.text());
-    console.log(`✅ Uploaded ${fileName} to GitHub successfully.`);
+    console.log(`✅ Uploaded ${relativePath} to GitHub successfully.`);
   } catch (err) {
     console.error(`❌ GitHub upload failed for ${filePath}:`, err.message);
   }
@@ -140,7 +139,7 @@ async function buildIndex(name, sitemapUrl, batchSize = 100) {
   const start = new Date();
   console.log(`\n🌍 Starting batch index for ${name} at ${start.toLocaleString()}...`);
 
-  // ⚙️ detect environment (Vercel = read-only)
+  // detect environment (Vercel = read-only)
   const isVercel = !!process.env.VERCEL;
   const dataDir = isVercel ? "/tmp/data" : path.join(process.cwd(), "data");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -204,13 +203,13 @@ async function buildIndex(name, sitemapUrl, batchSize = 100) {
     }
   }
 
+  // 🟢 FIX: upload the actual file path, not "data/..."
   await uploadToGitHub(
-    `data/${name.toLowerCase()}_index.json`,
+    outputPath,
     `🤖 Auto index update: ${name} (${doneUrls.length}/${urls.length})`
   );
 
   console.log(`📦 Batch complete: ${processed}/${batch.length} — ${doneUrls.length}/${urls.length} total`);
-
   return doneUrls.length < urls.length; // return true if more left
 }
 
@@ -220,16 +219,23 @@ async function runFullIndexing(name, sitemapUrl, batchSize = 100) {
   let round = 1;
 
   while (more) {
+    // עצירה יזומה אם קובץ stop.txt קיים
+    if (fs.existsSync("/tmp/stop.txt")) {
+      console.log("⛔ Stop file detected — stopping indexer.");
+      break;
+    }
+
     console.log(`\n🌀 Running batch #${round} for ${name}`);
     more = await buildIndex(name, sitemapUrl, batchSize);
     round++;
+
     if (more) {
       console.log(`⏳ Waiting before next batch...`);
       await delay(5000);
     }
   }
 
-  console.log(`🎉 All batches completed for ${name}!`);
+  console.log(`🎉 All batches completed (or stopped) for ${name}!`);
 }
 
 // 🧩 Local or manual run
