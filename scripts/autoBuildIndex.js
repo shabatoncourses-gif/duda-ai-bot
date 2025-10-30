@@ -8,20 +8,24 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// בדיקת מפתח
+// 🔐 GitHub settings
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_REPO = process.env.GITHUB_REPO; // לדוגמה: "shabatoncourses-gif/duda-ai-bot"
+const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
+
+// 🔑 OpenAI
 if (!process.env.OPENAI_API_KEY) {
   console.error("❌ Missing OPENAI_API_KEY in .env");
   process.exit(1);
 }
-
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// פונקציית השהיה
+// 🕒 Delay helper
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Headers המדמים דפדפן אמיתי
+// 🧠 Browser-like headers
 function getBrowserHeaders(url) {
   return {
     "User-Agent":
@@ -29,12 +33,12 @@ function getBrowserHeaders(url) {
     "Accept":
       "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Connection": "keep-alive",
     "Referer": new URL(url).origin,
+    "Connection": "keep-alive"
   };
 }
 
-// שליפת כתובות מ־sitemap
+// 📜 Extract all <loc> from sitemap
 async function getUrlsFromSitemap(sitemapUrl) {
   console.log(`📥 Reading sitemap: ${sitemapUrl}`);
   const response = await fetch(sitemapUrl, { headers: getBrowserHeaders(sitemapUrl) });
@@ -53,7 +57,7 @@ async function getUrlsFromSitemap(sitemapUrl) {
   return urls;
 }
 
-// חילוץ תוכן סמנטי
+// 🧩 Extract meaningful content from HTML
 function extractSmartContent(html) {
   const $ = cheerio.load(html);
   const title = $("title").text().trim();
@@ -65,10 +69,11 @@ function extractSmartContent(html) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 6000);
+
   return { title: title || h1 || "Untitled", text: combined };
 }
 
-// הורדה בטוחה עם retry
+// 🌐 Safe fetch with retry logic
 async function safeFetch(url, retries = 3) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -88,17 +93,63 @@ async function safeFetch(url, retries = 3) {
   throw new Error(`❌ Failed after ${retries} attempts (${url})`);
 }
 
-// ✳️ פונקציה עיקרית עם Batch
+// ✳️ Upload JSON file to GitHub
+async function uploadToGitHub(filePath, commitMessage) {
+  try {
+    if (!GITHUB_TOKEN || !GITHUB_REPO) {
+      console.warn("⚠️ Missing GITHUB_TOKEN or GITHUB_REPO in .env — skipping upload.");
+      return;
+    }
+
+    const fileName = filePath.split("/").pop();
+    const content = fs.readFileSync(filePath, "utf8");
+    const encoded = Buffer.from(content).toString("base64");
+    const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${filePath}?ref=${GITHUB_BRANCH}`;
+    const headers = {
+      Authorization: `token ${GITHUB_TOKEN}`,
+      "Content-Type": "application/json"
+    };
+
+    let sha = null;
+    const getRes = await fetch(url, { headers });
+    if (getRes.ok) {
+      const data = await getRes.json();
+      sha = data.sha;
+    }
+
+    const res = await fetch(url, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({
+        message: commitMessage,
+        content: encoded,
+        branch: GITHUB_BRANCH,
+        sha
+      })
+    });
+
+    if (!res.ok) throw new Error(await res.text());
+    console.log(`✅ Uploaded ${fileName} to GitHub successfully.`);
+  } catch (err) {
+    console.error(`❌ GitHub upload failed for ${filePath}:`, err.message);
+  }
+}
+
+// ✳️ Main indexing function
 async function buildIndex(name, sitemapUrl, batchSize = 100) {
-  console.log(`\n🌍 Starting batch index for ${name}...`);
+  const start = new Date();
+  console.log(`\n🌍 Starting batch index for ${name} at ${start.toLocaleString()}...`);
 
   const dataDir = path.join(process.cwd(), "data");
+  const logsDir = path.join(process.cwd(), "logs");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
+  if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir);
 
   const outputPath = path.join(dataDir, `${name.toLowerCase()}_index.json`);
   const donePath = path.join(dataDir, `${name.toLowerCase()}_done.json`);
+  const logFile = path.join(logsDir, "index_log.txt");
 
-  let urls = await getUrlsFromSitemap(sitemapUrl);
+  const urls = await getUrlsFromSitemap(sitemapUrl);
   let doneUrls = fs.existsSync(donePath)
     ? JSON.parse(fs.readFileSync(donePath, "utf8"))
     : [];
@@ -106,11 +157,8 @@ async function buildIndex(name, sitemapUrl, batchSize = 100) {
     ? JSON.parse(fs.readFileSync(outputPath, "utf8"))
     : [];
 
-  // מסנן רק עמודים שעדיין לא עובדו
   const pendingUrls = urls.filter(u => !doneUrls.includes(u));
   console.log(`🕒 Pending: ${pendingUrls.length} URLs remaining.`);
-
-  // בוחר Batch
   const batch = pendingUrls.slice(0, batchSize);
   console.log(`🚀 Processing next ${batch.length} pages...`);
 
@@ -129,14 +177,14 @@ async function buildIndex(name, sitemapUrl, batchSize = 100) {
 
       const embedding = await client.embeddings.create({
         model: "text-embedding-3-small",
-        input: text,
+        input: text
       });
 
       pages.push({
         url,
         title,
         text: text.slice(0, 300),
-        vector: embedding.data[0].embedding,
+        vector: embedding.data[0].embedding
       });
       doneUrls.push(url);
       processed++;
@@ -154,6 +202,21 @@ async function buildIndex(name, sitemapUrl, batchSize = 100) {
   console.log(`\n📦 Batch completed: ${processed}/${batch.length} pages processed.`);
   console.log(`🪵 Progress saved (${doneUrls.length}/${urls.length} total).`);
 
+  // 📤 Upload to GitHub only if new pages processed
+  if (processed > 0) {
+    await uploadToGitHub(
+      `data/${name.toLowerCase()}_index.json`,
+      `🤖 Auto index update: ${name} (${processed}/${urls.length})`
+    );
+  } else {
+    console.log(`ℹ️ No new pages processed — skipping GitHub upload.`);
+  }
+
+  // 🪵 Log run
+  const duration = ((new Date() - start) / 1000 / 60).toFixed(2);
+  const logLine = `[${new Date().toLocaleString()}] ${name}: processed ${processed}/${batch.length} pages (${doneUrls.length}/${urls.length} total) — ${duration} min\n`;
+  fs.appendFileSync(logFile, logLine);
+
   if (doneUrls.length >= urls.length) {
     console.log(`🎉 All pages processed successfully!`);
     fs.unlinkSync(donePath);
@@ -164,7 +227,7 @@ async function buildIndex(name, sitemapUrl, batchSize = 100) {
 
 export { buildIndex };
 
-// הרצה מקומית
+// 🧩 Local run
 if (process.argv[1].includes("autoBuildIndex.js")) {
   (async () => {
     try {
