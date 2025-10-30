@@ -8,95 +8,82 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// 🔐 GitHub settings
+// === הגדרות GitHub ===
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_REPO = process.env.GITHUB_REPO; // לדוגמה: "shabatoncourses-gif/duda-ai-bot"
+const GITHUB_REPO = process.env.GITHUB_REPO;
 const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
 
-// 🔑 OpenAI
+// === OpenAI ===
 if (!process.env.OPENAI_API_KEY) {
   console.error("❌ Missing OPENAI_API_KEY in .env");
   process.exit(1);
 }
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// 🕒 Delay helper
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+// === עוזרים ===
+const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-// 🧠 Browser-like headers
 function getBrowserHeaders(url) {
   return {
     "User-Agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    Accept:
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Referer": new URL(url).origin,
-    "Connection": "keep-alive"
+    Referer: new URL(url).origin,
+    Connection: "keep-alive",
   };
 }
 
-// 📜 Extract all <loc> from sitemap
+// === Sitemap ===
 async function getUrlsFromSitemap(sitemapUrl) {
-  console.log(`📥 Reading sitemap: ${sitemapUrl}`);
+  console.log(`📥 קורא sitemap: ${sitemapUrl}`);
   const response = await fetch(sitemapUrl, { headers: getBrowserHeaders(sitemapUrl) });
-  if (!response.ok) throw new Error(`Failed to fetch sitemap (${response.status})`);
-
+  if (!response.ok) throw new Error(`❌ Failed to fetch sitemap (${response.status})`);
   const xml = await response.text();
   const matches = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)];
-  const urls = matches.map(m => m[1].trim()).filter(Boolean);
-
-  if (!urls.length) {
-    fs.writeFileSync("/tmp/debug_sitemap.xml", xml);
-    throw new Error("❌ No URLs found in sitemap.");
-  }
-
-  console.log(`🔗 Found ${urls.length} URLs in sitemap.`);
+  const urls = matches.map((m) => m[1].trim()).filter(Boolean);
+  if (!urls.length) throw new Error("❌ No URLs found in sitemap.");
+  console.log(`🔗 נמצאו ${urls.length} קישורים.`);
   return urls;
 }
 
-// 🧩 Extract meaningful content from HTML
+// === חילוץ תוכן רלוונטי ===
 function extractSmartContent(html) {
   const $ = cheerio.load(html);
   const title = $("title").text().trim();
   const desc = $('meta[name="description"]').attr("content") || "";
   const h1 = $("h1").map((_, el) => $(el).text().trim()).get().join(". ");
   const paragraphs = $("p").map((_, el) => $(el).text().trim()).get().join(" ");
-  const combined = [title, desc, h1, paragraphs]
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 6000);
-
-  return { title: title || h1 || "Untitled", text: combined };
+  const combined = [title, desc, h1, paragraphs].join(" ").replace(/\s+/g, " ").trim();
+  return { title: title || h1 || "Untitled", text: combined.slice(0, 6000) };
 }
 
-// 🌐 Safe fetch with retry logic
+// === Fetch בטוח עם retry ===
 async function safeFetch(url, retries = 3) {
   for (let i = 0; i < retries; i++) {
     try {
       const response = await fetch(url, { headers: getBrowserHeaders(url) });
       if (response.status === 403) {
-        console.warn(`🚫 403 Forbidden: ${url} (attempt ${i + 1}/${retries})`);
-        await delay(1500 + Math.random() * 2000);
+        console.warn(`🚫 403 Forbidden (${url}), retry ${i + 1}/${retries}`);
+        await delay(2000 + Math.random() * 1500);
         continue;
       }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response;
     } catch (err) {
       console.warn(`⚠️ Fetch error for ${url}: ${err.message}`);
-      await delay(1500 + Math.random() * 2000);
+      await delay(2000 + Math.random() * 1500);
     }
   }
   throw new Error(`❌ Failed after ${retries} attempts (${url})`);
 }
 
-// ✳️ Upload JSON file to GitHub
+// === העלאה ל־GitHub ===
 async function uploadToGitHub(filePath, commitMessage) {
   try {
     if (!GITHUB_TOKEN || !GITHUB_REPO) {
-      console.warn("⚠️ Missing GITHUB_TOKEN or GITHUB_REPO in .env — skipping upload.");
+      console.warn("⚠️ Missing GitHub token/repo — skipping upload.");
       return;
     }
 
@@ -106,15 +93,12 @@ async function uploadToGitHub(filePath, commitMessage) {
     const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${relativePath}?ref=${GITHUB_BRANCH}`;
     const headers = {
       Authorization: `token ${GITHUB_TOKEN}`,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     };
 
     let sha = null;
     const getRes = await fetch(url, { headers });
-    if (getRes.ok) {
-      const data = await getRes.json();
-      sha = data.sha;
-    }
+    if (getRes.ok) sha = (await getRes.json()).sha;
 
     const res = await fetch(url, {
       method: "PUT",
@@ -123,128 +107,138 @@ async function uploadToGitHub(filePath, commitMessage) {
         message: commitMessage,
         content: encoded,
         branch: GITHUB_BRANCH,
-        sha
-      })
+        sha,
+      }),
     });
 
     if (!res.ok) throw new Error(await res.text());
-    console.log(`✅ Uploaded ${relativePath} to GitHub successfully.`);
+    console.log(`✅ Uploaded ${relativePath} successfully.`);
   } catch (err) {
-    console.error(`❌ GitHub upload failed for ${filePath}:`, err.message);
+    console.error(`❌ GitHub upload failed:`, err.message);
   }
 }
 
-// ✳️ Main indexing function
-async function buildIndex(name, sitemapUrl, batchSize = 100) {
-  const start = new Date();
-  console.log(`\n🌍 Starting batch index for ${name} at ${start.toLocaleString()}...`);
+// === יצירת embedding לדף ===
+async function processPage(url) {
+  try {
+    const response = await safeFetch(url);
+    const html = await response.text();
+    const { title, text } = extractSmartContent(html);
 
-  // detect environment (Vercel = read-only)
+    if (!text || text.length < 100) {
+      console.log(`⚠️ Skipping short/empty page: ${url}`);
+      return null;
+    }
+
+    const embedding = await client.embeddings.create({
+      model: "text-embedding-3-small",
+      input: text,
+    });
+
+    return { url, title, text: text.slice(0, 300), vector: embedding.data[0].embedding };
+  } catch (err) {
+    console.warn(`❌ Failed ${url}: ${err.message}`);
+    return null;
+  }
+}
+
+// === תהליך בנייה עם resume ===
+async function buildIndex(name, sitemapUrl, batchSize = 100, concurrency = 10) {
+  console.log(`\n🌍 Indexing ${name}...`);
+  const startTime = Date.now();
+
   const isVercel = !!process.env.VERCEL;
   const dataDir = isVercel ? "/tmp/data" : path.join(process.cwd(), "data");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
   const outputPath = path.join(dataDir, `${name.toLowerCase()}_index.json`);
   const donePath = path.join(dataDir, `${name.toLowerCase()}_done.json`);
+  const partialPath = path.join(dataDir, `${name.toLowerCase()}_partial.json`);
 
   const urls = await getUrlsFromSitemap(sitemapUrl);
-  let doneUrls = fs.existsSync(donePath)
-    ? JSON.parse(fs.readFileSync(donePath, "utf8"))
-    : [];
-  let pages = fs.existsSync(outputPath)
-    ? JSON.parse(fs.readFileSync(outputPath, "utf8"))
-    : [];
+  let done = fs.existsSync(donePath) ? JSON.parse(fs.readFileSync(donePath, "utf8")) : [];
+  let pages = fs.existsSync(outputPath) ? JSON.parse(fs.readFileSync(outputPath, "utf8")) : [];
 
-  const pendingUrls = urls.filter(u => !doneUrls.includes(u));
-  console.log(`🕒 Pending: ${pendingUrls.length} URLs remaining.`);
+  // 🧩 טעינת partial resume אם קיים
+  let partial = [];
+  if (fs.existsSync(partialPath)) {
+    try {
+      partial = JSON.parse(fs.readFileSync(partialPath, "utf8"));
+      console.log(`♻️ Found partial batch (${partial.length} URLs) — resuming...`);
+    } catch {
+      partial = [];
+    }
+  }
 
-  if (pendingUrls.length === 0) {
-    console.log(`✅ All pages already indexed.`);
+  const pending = [...partial, ...urls.filter((u) => !done.includes(u))];
+  console.log(`🕓 ${pending.length} URLs pending.`);
+
+  if (!pending.length) {
+    console.log(`✅ ${name} already fully indexed.`);
     return false;
   }
 
-  const batch = pendingUrls.slice(0, batchSize);
-  console.log(`🚀 Processing next ${batch.length} pages...`);
+  const batch = pending.slice(0, batchSize);
+  console.log(`🚀 Processing ${batch.length} pages (concurrency ${concurrency})...`);
 
   let processed = 0;
-  for (const rawUrl of batch) {
-    const url = encodeURI(rawUrl); // ✅ תיקון כאן – קידוד מלא של URL עם עברית/אנגלית
-    console.log(`📄 Fetching: ${url}`);
-    try {
-      const response = await safeFetch(url);
-      const html = await response.text();
-      const { title, text } = extractSmartContent(html);
 
-      if (!text || text.length < 50) {
-        console.log(`⚠️ Skipping short page: ${url}`);
-        continue;
-      }
+  for (let i = 0; i < batch.length; i += concurrency) {
+    const slice = batch.slice(i, i + concurrency);
+    fs.writeFileSync(partialPath, JSON.stringify(batch.slice(i), null, 2)); // נשמרת נקודת שחזור
 
-      const embedding = await client.embeddings.create({
-        model: "text-embedding-3-small",
-        input: text
-      });
+    const results = await Promise.allSettled(slice.map((url) => processPage(encodeURI(url))));
+    const valid = results
+      .filter((r) => r.status === "fulfilled" && r.value)
+      .map((r) => r.value);
 
-      pages.push({
-        url, // כבר מקודד
-        title,
-        text: text.slice(0, 300),
-        vector: embedding.data[0].embedding
-      });
-      doneUrls.push(rawUrl);
-      processed++;
-
-      fs.writeFileSync(outputPath, JSON.stringify(pages, null, 2), "utf8");
-      fs.writeFileSync(donePath, JSON.stringify(doneUrls, null, 2), "utf8");
-
-      console.log(`✅ Indexed (${processed}/${batch.length})`);
-      await delay(500 + Math.random() * 1000);
-    } catch (err) {
-      console.warn(`⚠️ Error: ${err.message}`);
+    for (const v of valid) {
+      if (!pages.find((p) => p.url === v.url)) pages.push(v);
     }
+
+    done.push(...slice.filter((u) => !done.includes(u)));
+    processed += valid.length;
+
+    if (i % 5 === 0 || i + concurrency >= batch.length) {
+      fs.writeFileSync(outputPath, JSON.stringify(pages, null, 2));
+      fs.writeFileSync(donePath, JSON.stringify(done, null, 2));
+      console.log(`💾 Progress saved (${done.length}/${urls.length})`);
+    }
+
+    await delay(1500 + Math.random() * 1500);
   }
 
-  await uploadToGitHub(
-    outputPath,
-    `🤖 Auto index update: ${name} (${doneUrls.length}/${urls.length})`
-  );
+  if (fs.existsSync(partialPath)) fs.unlinkSync(partialPath); // ניקוי partial
+  await uploadToGitHub(outputPath, `🤖 Auto index update: ${name} (${done.length}/${urls.length})`);
 
-  console.log(`📦 Batch complete: ${processed}/${batch.length} — ${doneUrls.length}/${urls.length} total`);
-  return doneUrls.length < urls.length; // return true if more left
+  const duration = ((Date.now() - startTime) / 60000).toFixed(1);
+  console.log(`✅ ${name} batch done: ${processed} processed in ${duration} min`);
+  return done.length < urls.length;
 }
 
-// 🔁 Run all batches automatically until done
+// === הפעלה מלאה עם Resume ===
 async function runFullIndexing(name, sitemapUrl, batchSize = 100) {
   let more = true;
   let round = 1;
-
   while (more) {
-    // עצירה יזומה אם קובץ stop.txt קיים
-    if (fs.existsSync("/tmp/stop.txt")) {
-      console.log("⛔ Stop file detected — stopping indexer.");
-      break;
-    }
-
-    console.log(`\n🌀 Running batch #${round} for ${name}`);
+    console.log(`\n🌀 Batch #${round} for ${name}`);
     more = await buildIndex(name, sitemapUrl, batchSize);
     round++;
-
     if (more) {
-      console.log(`⏳ Waiting before next batch...`);
+      console.log("⏳ Waiting before next batch...");
       await delay(5000);
     }
   }
-
-  console.log(`🎉 All batches completed (or stopped) for ${name}!`);
+  console.log(`🎯 ${name} indexing fully complete!`);
 }
 
-// 🧩 Local or manual run
+// === הרצה מקומית ===
 if (process.argv[1].includes("autoBuildIndex.js")) {
   (async () => {
     try {
-      await runFullIndexing("Shabaton", "https://www.shabaton.online/sitemap.xml", 100);
-      await runFullIndexing("Morim", "https://www.morim.boutique/sitemap.xml", 100);
-      console.log("🎯 All sites fully indexed!");
+      await runFullIndexing("Shabaton", "https://www.shabaton.online/sitemap.xml", 150);
+      await runFullIndexing("Morim", "https://www.morim.boutique/sitemap.xml", 150);
+      console.log("🎉 All indexing complete!");
     } catch (err) {
       console.error("💥 Fatal error:", err.message);
     }
