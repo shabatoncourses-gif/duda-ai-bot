@@ -13,6 +13,7 @@ const cache = {
 
 // 🧮 חישוב דמיון קוסינוס
 function cosineSimilarity(a, b) {
+  if (!a || !b || a.length !== b.length) return 0;
   const dot = a.reduce((sum, ai, i) => sum + ai * b[i], 0);
   const normA = Math.sqrt(a.reduce((sum, ai) => sum + ai * ai, 0));
   const normB = Math.sqrt(b.reduce((sum, bi) => sum + bi * bi, 0));
@@ -94,7 +95,7 @@ export default async function handler(req, res) {
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // ניקוי השאילתה — הסרת תווים מיותרים, רווחים, ניקוד
+    // ✨ ניקוי השאילתה (הסרת תווים מיותרים, ניקוד ורווחים)
     const cleanMessage = message
       .replace(/[^\p{L}\p{N}\s]/gu, "")
       .replace(/\s+/g, " ")
@@ -120,8 +121,7 @@ export default async function handler(req, res) {
     // דירוג לפי דמיון עם סף רגיש יותר
     const ranked = allPages
       .map((p) => ({ ...p, score: cosineSimilarity(queryVector, p.vector) }))
-      .filter((p) => p.score > 0.3) // ✅ סף רלוונטיות מתון
-
+      .filter((p) => p.score > 0.3)
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
 
@@ -136,18 +136,17 @@ export default async function handler(req, res) {
       });
     }
 
-    // ✅ יצירת הקשרים עם קישורים בעברית תקינה וללא סוגריים מיותרים
+    // ✅ הצגת כפתור 'למידע נוסף' במקום URL מלא
     const context = ranked
       .map((p) => {
         const cleanUrl = p.url.trim().replace(/[)\]]+$/, "");
-        let displayUrl;
-        try {
-          displayUrl = decodeURI(cleanUrl);
-        } catch {
-          displayUrl = cleanUrl;
-        }
-        return `🔹 <strong>${p.title}</strong> [${p.source}]<br>
-        <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">${displayUrl}</a>`;
+        return `
+        🔹 <strong>${p.title}</strong> [${p.source}]<br>
+        <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer"
+           style="display:inline-block; background:#0078ff; color:white; padding:6px 10px;
+           border-radius:6px; font-weight:bold; text-decoration:none; margin-top:4px;">
+           למידע נוסף ↗️
+        </a>`;
       })
       .join("<br><br>");
 
@@ -158,7 +157,7 @@ export default async function handler(req, res) {
         {
           role: "system",
           content:
-            "אתה עוזר חכם המספק תשובות רלוונטיות מתוך אתרי שבתון ומורים. השב בעברית בלבד, בצורה טבעית וידידותית, והצג קישורים רלוונטיים בתשובה בפורמט HTML תקין."
+            "אתה עוזר חכם המספק תשובות רלוונטיות מתוך אתרי שבתון ומורים. השב בעברית בלבד, בצורה טבעית וידידותית. כלול בתשובה קישורי HTML מעוצבים עם כפתור למידע נוסף בלבד."
         },
         {
           role: "user",
