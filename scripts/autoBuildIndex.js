@@ -167,7 +167,8 @@ async function buildIndex(name, sitemapUrl, batchSize = 100) {
   console.log(`🚀 Processing next ${batch.length} pages...`);
 
   let processed = 0;
-  for (const url of batch) {
+  for (const rawUrl of batch) {
+    const url = encodeURI(rawUrl); // ✅ תיקון כאן – קידוד מלא של URL עם עברית/אנגלית
     console.log(`📄 Fetching: ${url}`);
     try {
       const response = await safeFetch(url);
@@ -185,12 +186,12 @@ async function buildIndex(name, sitemapUrl, batchSize = 100) {
       });
 
       pages.push({
-        url,
+        url, // כבר מקודד
         title,
         text: text.slice(0, 300),
         vector: embedding.data[0].embedding
       });
-      doneUrls.push(url);
+      doneUrls.push(rawUrl);
       processed++;
 
       fs.writeFileSync(outputPath, JSON.stringify(pages, null, 2), "utf8");
@@ -203,7 +204,6 @@ async function buildIndex(name, sitemapUrl, batchSize = 100) {
     }
   }
 
-  // 🟢 FIX: upload the actual file path, not "data/..."
   await uploadToGitHub(
     outputPath,
     `🤖 Auto index update: ${name} (${doneUrls.length}/${urls.length})`
