@@ -142,7 +142,7 @@ async function processPage(url) {
   }
 }
 
-// === תהליך בנייה עם resume ===
+// === תהליך בנייה עם Resume ===
 async function buildIndex(name, sitemapUrl, batchSize = 100, concurrency = 10) {
   console.log(`\n🌍 Indexing ${name}...`);
   const startTime = Date.now();
@@ -185,7 +185,7 @@ async function buildIndex(name, sitemapUrl, batchSize = 100, concurrency = 10) {
 
   for (let i = 0; i < batch.length; i += concurrency) {
     const slice = batch.slice(i, i + concurrency);
-    fs.writeFileSync(partialPath, JSON.stringify(batch.slice(i), null, 2)); // נשמרת נקודת שחזור
+    fs.writeFileSync(partialPath, JSON.stringify(batch.slice(i))); // ✅ שמירה דחוסה ללא שבירות שורה
 
     const results = await Promise.allSettled(slice.map((url) => processPage(encodeURI(url))));
     const valid = results
@@ -199,9 +199,10 @@ async function buildIndex(name, sitemapUrl, batchSize = 100, concurrency = 10) {
     done.push(...slice.filter((u) => !done.includes(u)));
     processed += valid.length;
 
+    // ✅ שמירה דחוסה ללא ירידות שורה
     if (i % 5 === 0 || i + concurrency >= batch.length) {
-      fs.writeFileSync(outputPath, JSON.stringify(pages, null, 2));
-      fs.writeFileSync(donePath, JSON.stringify(done, null, 2));
+      fs.writeFileSync(outputPath, JSON.stringify(pages), "utf8");
+      fs.writeFileSync(donePath, JSON.stringify(done), "utf8");
       console.log(`💾 Progress saved (${done.length}/${urls.length})`);
     }
 
@@ -216,7 +217,7 @@ async function buildIndex(name, sitemapUrl, batchSize = 100, concurrency = 10) {
   return done.length < urls.length;
 }
 
-// === הפעלה מלאה עם Resume ===
+// === הרצה מלאה ===
 async function runFullIndexing(name, sitemapUrl, batchSize = 100) {
   let more = true;
   let round = 1;
