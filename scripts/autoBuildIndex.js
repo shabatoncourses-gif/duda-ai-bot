@@ -10,7 +10,7 @@ dotenv.config();
 
 // === הגדרות GitHub ===
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_REPO = process.env.GITHUB_REPO;
+const GITHUB_REPO = process.env.GITHUB_REPO; // למשל: "shabatoncourses-gif/duda-ai-bot"
 const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
 
 // === OpenAI ===
@@ -159,18 +159,7 @@ async function buildIndex(name, sitemapUrl, batchSize = 100, concurrency = 10) {
   let done = fs.existsSync(donePath) ? JSON.parse(fs.readFileSync(donePath, "utf8")) : [];
   let pages = fs.existsSync(outputPath) ? JSON.parse(fs.readFileSync(outputPath, "utf8")) : [];
 
-  // 🧩 טעינת partial resume אם קיים
-  let partial = [];
-  if (fs.existsSync(partialPath)) {
-    try {
-      partial = JSON.parse(fs.readFileSync(partialPath, "utf8"));
-      console.log(`♻️ Found partial batch (${partial.length} URLs) — resuming...`);
-    } catch {
-      partial = [];
-    }
-  }
-
-  const pending = [...partial, ...urls.filter((u) => !done.includes(u))];
+  const pending = urls.filter((u) => !done.includes(u));
   console.log(`🕓 ${pending.length} URLs pending.`);
 
   if (!pending.length) {
@@ -182,15 +171,11 @@ async function buildIndex(name, sitemapUrl, batchSize = 100, concurrency = 10) {
   console.log(`🚀 Processing ${batch.length} pages (concurrency ${concurrency})...`);
 
   let processed = 0;
-
   for (let i = 0; i < batch.length; i += concurrency) {
     const slice = batch.slice(i, i + concurrency);
-    fs.writeFileSync(partialPath, JSON.stringify(batch.slice(i))); // ✅ שמירה דחוסה ללא שבירות שורה
 
     const results = await Promise.allSettled(slice.map((url) => processPage(encodeURI(url))));
-    const valid = results
-      .filter((r) => r.status === "fulfilled" && r.value)
-      .map((r) => r.value);
+    const valid = results.filter((r) => r.status === "fulfilled" && r.value).map((r) => r.value);
 
     for (const v of valid) {
       if (!pages.find((p) => p.url === v.url)) pages.push(v);
@@ -199,18 +184,17 @@ async function buildIndex(name, sitemapUrl, batchSize = 100, concurrency = 10) {
     done.push(...slice.filter((u) => !done.includes(u)));
     processed += valid.length;
 
-    // ✅ שמירה דחוסה ללא ירידות שורה
-    if (i % 5 === 0 || i + concurrency >= batch.length) {
-      fs.writeFileSync(outputPath, JSON.stringify(pages), "utf8");
-      fs.writeFileSync(donePath, JSON.stringify(done), "utf8");
-      console.log(`💾 Progress saved (${done.length}/${urls.length})`);
-    }
+    // ✅ כתיבה דחוסה וללא ירידת שורות
+    fs.writeFileSync(outputPath, JSON.stringify(pages), "utf8");
+    fs.writeFileSync(donePath, JSON.stringify(done), "utf8");
 
+    console.log(`💾 Progress saved (${done.length}/${urls.length})`);
     await delay(1500 + Math.random() * 1500);
   }
 
-  if (fs.existsSync(partialPath)) fs.unlinkSync(partialPath); // ניקוי partial
+  // ✅ מעלה גם את done.json ל-GitHub
   await uploadToGitHub(outputPath, `🤖 Auto index update: ${name} (${done.length}/${urls.length})`);
+  await uploadToGitHub(donePath, `📘 Progress checkpoint for ${name} (${done.length}/${urls.length})`);
 
   const duration = ((Date.now() - startTime) / 60000).toFixed(1);
   console.log(`✅ ${name} batch done: ${processed} processed in ${duration} min`);
