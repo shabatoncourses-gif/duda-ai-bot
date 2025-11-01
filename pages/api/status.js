@@ -3,8 +3,6 @@ import fs from "fs";
 import path from "path";
 
 export default async function handler(req, res) {
-  console.log("📊 Checking indexing status...");
-
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -13,55 +11,49 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
-    const logsDir = path.join(process.cwd(), "logs");
-    const logFile = path.join(logsDir, "index_log.txt");
+    const dataDir = process.env.VERCEL ? "/tmp/data" : "data";
 
-    if (!fs.existsSync(logFile)) {
-      return res.status(200).json({
-        status: "no_logs",
-        message: "❌ No index log found. Try running /api/build-index first."
-      });
+    const sites = ["Shabaton", "Morim"];
+    const status = {};
+
+    for (const site of sites) {
+      const lower = site.toLowerCase();
+
+      const indexPath = path.join(dataDir, `${lower}_index.json`);
+      const donePath = path.join(dataDir, `${lower}_done.json`);
+
+      const indexExists = fs.existsSync(indexPath);
+      const doneExists = fs.existsSync(donePath);
+
+      let indexed = 0;
+      let done = 0;
+
+      if (indexExists) {
+        const indexData = JSON.parse(fs.readFileSync(indexPath, "utf8"));
+        indexed = Array.isArray(indexData) ? indexData.length : 0;
+      }
+
+      if (doneExists) {
+        const doneData = JSON.parse(fs.readFileSync(donePath, "utf8"));
+        done = Array.isArray(doneData) ? doneData.length : 0;
+      }
+
+      status[site] = {
+        indexed,
+        done,
+        indexFile: indexExists ? `${lower}_index.json` : "❌ missing",
+        doneFile: doneExists ? `${lower}_done.json` : "❌ missing",
+        progress: done > 0 ? `${((indexed / done) * 100).toFixed(1)}%` : "0%",
+      };
     }
-
-    // קורא את הלוג ומנתח את השורה האחרונה
-    const lines = fs.readFileSync(logFile, "utf8").trim().split("\n");
-    const lastEntries = lines.slice(-20).join("\n"); // לשם תצוגה
-    const lastLine = lines.reverse().find(l => l.includes("processed")) || "";
-
-    let lastRun = null;
-    let total = null;
-    let processed = null;
-    let site = null;
-
-    // מנסה לחלץ מידע בסיסי מהלוג
-    const match = lastLine.match(/\[(.*?)\]\s*(\w+):\s*processed\s*(\d+)\/(\d+)/);
-    if (match) {
-      lastRun = match[1];
-      site = match[2];
-      processed = match[3];
-      total = match[4];
-    }
-
-    const status = lastLine.includes("🎉")
-      ? "success"
-      : lastLine.includes("⚠️")
-      ? "warning"
-      : "running";
 
     res.status(200).json({
+      success: true,
+      timestamp: new Date().toISOString(),
       status,
-      lastRun,
-      site,
-      processed,
-      total,
-      message:
-        status === "success"
-          ? "✅ Indexing completed successfully"
-          : "🕒 Indexing in progress or incomplete",
-      logPreview: lastEntries
     });
   } catch (err) {
-    console.error("❌ Error reading index log:", err);
-    res.status(500).json({ error: "Failed to read index log", details: err.message });
+    console.error("❌ Error reading status:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 }
