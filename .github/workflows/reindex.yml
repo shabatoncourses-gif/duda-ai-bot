@@ -1,40 +1,20 @@
-name: Auto Reindex Bot
+name: Weekly Reindex via Vercel
 
 on:
-  # ✅ ריצה אוטומטית פעם בשבוע ביום ראשון ב-03:00 בלילה
   schedule:
-    - cron: "0 3 * * 0"
-
-  # ✅ ריצה ידנית לפי דרישה
-  workflow_dispatch:
+    # ריצה אוטומטית פעם בשבוע ביום ראשון בשעה 03:00 בבוקר (שעון ישראל)
+    - cron: "0 1 * * 0"
+  workflow_dispatch:  # מאפשר להריץ ידנית
 
 jobs:
-  reindex:
+  trigger-vercel:
     runs-on: ubuntu-latest
-    timeout-minutes: 360  # מאפשר עד 6 שעות ריצה
 
     steps:
-      # 🔹 שלב 1: הורדת הקוד מהמאגר
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # 🔹 שלב 2: התקנת Node.js (גרסה 20)
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      # 🔹 שלב 3: התקנת תלויות
-      - name: Install dependencies
-        run: npm install
-
-      # 🔹 שלב 4: הפעלת תהליך האינדוקס המלא
-      - name: Run full indexing
-        run: node scripts/autoBuildIndex.js
-
-        # 🔑 הגדרת משתני סביבה לשימוש בסקריפט
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GH_CONTENT_TOKEN }}
-          GITHUB_REPO: "shabatoncourses-gif/duda-ai-bot"
-          GITHUB_BRANCH: "main"
+      - name: Trigger reindex on Vercel
+        run: |
+          echo "🚀 קורא ל-API של Vercel כדי להריץ אינדוקס..."
+          curl -X GET "https://duda-ai-bot.vercel.app/api/reindex" \
+            -H "Accept: application/json" \
+            -H "Cache-Control: no-cache" \
+            -m 600
