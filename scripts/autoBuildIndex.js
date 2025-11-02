@@ -47,20 +47,44 @@ async function getUrlsFromSitemap(sitemapUrl) {
   return urls;
 }
 
-// === חילוץ תוכן חכם (כולל כותרות ורשימות) ===
+// === חילוץ תוכן חכם ומסונן ===
 function extractSmartContent(html) {
   const $ = cheerio.load(html);
 
+  // 🧹 הסרת אזורים קבועים ותפריטים
+  const selectorsToRemove = [
+    "header", "nav", "footer", ".menu", ".navbar",
+    ".breadcrumbs", ".sidebar", ".widget", ".share-buttons",
+    ".social-icons", "#menu", "#footer", "#header",
+    ".related", ".related-courses", ".more-courses", ".recommend",
+    ".similar", ".post-list", ".course-list", ".grid", ".cards"
+  ];
+  $(selectorsToRemove.join(",")).remove();
+
+  // 🧹 הסרת קישורים פנימיים וקישורים כלליים
+  $("a").each((_, el) => {
+    const text = $(el).text().trim();
+    const href = $(el).attr("href") || "";
+    if (
+      /אודות|צור\s?קשר|כניסה|התחברות|English|קורסים\s?נוספים|מאמרים\s?קשורים|פרטים\s?נוספים/i.test(text) ||
+      href.startsWith("/") ||
+      href.includes("shabaton.online") ||
+      href.includes("morim.boutique")
+    ) {
+      $(el).remove();
+    }
+  });
+
+  // ✨ חילוץ טקסט רלוונטי בלבד
   const title = $("title").text().trim();
   const desc = $('meta[name="description"]').attr("content") || "";
   const h1 = $("h1").map((_, el) => $(el).text().trim()).get().join(". ");
   const h2 = $("h2").map((_, el) => $(el).text().trim()).get().join(". ");
   const h3 = $("h3").map((_, el) => $(el).text().trim()).get().join(". ");
   const strong = $("strong,b").map((_, el) => $(el).text().trim()).get().join(". ");
-  const lists = $("ul li").map((_, el) => $(el).text().trim()).get().join(". ");
   const paragraphs = $("p").map((_, el) => $(el).text().trim()).get().join(" ");
 
-  const combined = [title, desc, h1, h2, h3, strong, lists, paragraphs]
+  const combined = [title, desc, h1, h2, h3, strong, paragraphs]
     .join(" ")
     .replace(/\s+/g, " ")
     .trim()
@@ -101,7 +125,6 @@ async function uploadToGitHub(filePath, commitMessage) {
     const encoded = Buffer.from(content).toString("base64");
     const relativePath = `data/${path.basename(filePath)}`;
     const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${relativePath}?ref=${GITHUB_BRANCH}`;
-
     const headers = {
       Authorization: `token ${GITHUB_TOKEN}`,
       "Content-Type": "application/json",
@@ -136,7 +159,7 @@ async function processPage(url) {
     const html = await res.text();
     const { title, text } = extractSmartContent(html);
 
-    if (!text || text.length < 50) {
+    if (!text || text.length < 80) {
       console.log(`⚠️ Skipping short/empty page: ${url}`);
       return null;
     }
@@ -153,7 +176,7 @@ async function processPage(url) {
   }
 }
 
-// === בניית אינדקס עם אחוזי התקדמות ===
+// === בניית אינדקס עם Resume ===
 async function buildIndex(name, sitemapUrl, batchSize = 50, concurrency = 5) {
   console.log(`\n🌍 Indexing ${name}...`);
   const startTime = Date.now();
@@ -204,7 +227,7 @@ async function buildIndex(name, sitemapUrl, batchSize = 50, concurrency = 5) {
   await uploadToGitHub(donePath, `📘 Progress checkpoint for ${name} (${done.length}/${urls.length})`);
 
   const duration = ((Date.now() - startTime) / 60000).toFixed(1);
-  console.log(`✅ ${name} batch done: ${processed} processed in ${duration} min — ${(done.length / urls.length * 100).toFixed(1)}% total`);
+  console.log(`✅ ${name} batch done: ${processed} processed in ${duration} min`);
   return done.length < urls.length;
 }
 
