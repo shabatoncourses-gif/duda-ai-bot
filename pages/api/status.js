@@ -1,8 +1,11 @@
 // pages/api/status.js
 import fs from "fs";
 import path from "path";
+import fetch from "node-fetch";
 
 export default async function handler(req, res) {
+  console.log("📊 Checking indexing status...");
+
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -11,49 +14,62 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
-    const dataDir = process.env.VERCEL ? "/tmp/data" : "data";
+    const repo = process.env.GITHUB_REPO || "shabatoncourses-gif/duda-ai-bot";
+    const branch = process.env.GITHUB_BRANCH || "main";
 
-    const sites = ["Shabaton", "Morim"];
-    const status = {};
+    // מיקומים בקבצי GitHub
+    const baseUrl = `https://raw.githubusercontent.com/${repo}/${branch}/data`;
+    const files = {
+      shabatonIndex: `${baseUrl}/shabaton_index.json`,
+      shabatonDone: `${baseUrl}/shabaton_done.json`,
+      morimIndex: `${baseUrl}/morim_index.json`,
+      morimDone: `${baseUrl}/morim_done.json`,
+    };
 
-    for (const site of sites) {
-      const lower = site.toLowerCase();
+    const results = {};
 
-      const indexPath = path.join(dataDir, `${lower}_index.json`);
-      const donePath = path.join(dataDir, `${lower}_done.json`);
-
-      const indexExists = fs.existsSync(indexPath);
-      const doneExists = fs.existsSync(donePath);
-
-      let indexed = 0;
-      let done = 0;
-
-      if (indexExists) {
-        const indexData = JSON.parse(fs.readFileSync(indexPath, "utf8"));
-        indexed = Array.isArray(indexData) ? indexData.length : 0;
+    for (const [key, url] of Object.entries(files)) {
+      try {
+        const resFile = await fetch(url);
+        if (resFile.ok) {
+          const json = await resFile.json();
+          results[key] = Array.isArray(json) ? json.length : 0;
+        } else {
+          results[key] = 0;
+        }
+      } catch {
+        results[key] = 0;
       }
-
-      if (doneExists) {
-        const doneData = JSON.parse(fs.readFileSync(donePath, "utf8"));
-        done = Array.isArray(doneData) ? doneData.length : 0;
-      }
-
-      status[site] = {
-        indexed,
-        done,
-        indexFile: indexExists ? `${lower}_index.json` : "❌ missing",
-        doneFile: doneExists ? `${lower}_done.json` : "❌ missing",
-        progress: done > 0 ? `${((indexed / done) * 100).toFixed(1)}%` : "0%",
-      };
     }
 
-    res.status(200).json({
+    // חישוב סטטוס עבור כל אתר
+    const status = {
+      Shabaton: {
+        total: results.shabatonIndex,
+        done: results.shabatonDone,
+        progress: results.shabatonIndex
+          ? ((results.shabatonDone / results.shabatonIndex) * 100).toFixed(1)
+          : "0",
+      },
+      Morim: {
+        total: results.morimIndex,
+        done: results.morimDone,
+        progress: results.morimIndex
+          ? ((results.morimDone / results.morimIndex) * 100).toFixed(1)
+          : "0",
+      },
+    };
+
+    return res.status(200).json({
       success: true,
-      timestamp: new Date().toISOString(),
+      updated: new Date().toLocaleString("he-IL"),
       status,
     });
   } catch (err) {
-    console.error("❌ Error reading status:", err);
-    res.status(500).json({ success: false, error: err.message });
+    console.error("❌ Error in /api/status:", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
   }
 }
