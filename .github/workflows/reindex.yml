@@ -47,3 +47,4 @@ jobs:
       # 6) לראות לוג נעים בסוף
       - name: Done
         run: echo "✅ Reindex job finished"
+
