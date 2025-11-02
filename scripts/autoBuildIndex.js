@@ -19,15 +19,12 @@ if (!process.env.OPENAI_API_KEY) {
 }
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
 // === 🧩 טיפול נכון בכתובות עברית/אנגלית ===
 function normalizeUrl(url) {
   try {
-    // הסרת רווחים ותווים לא חוקיים
     url = url.trim().replace(/\s+/g, "");
-    // נוודא קידוד עברית רק בנתיב, לא בכל הכתובת
     const u = new URL(url);
     u.pathname = encodeURI(decodeURI(u.pathname));
     return u.toString();
@@ -36,7 +33,7 @@ function normalizeUrl(url) {
   }
 }
 
-// === קריאת Sitemap ===
+// === קריאת Sitemap עם headers אמינים ===
 async function getUrlsFromSitemap(sitemapUrl) {
   console.log(`📥 קורא sitemap: ${sitemapUrl}`);
   const res = await fetch(sitemapUrl, {
@@ -50,7 +47,13 @@ async function getUrlsFromSitemap(sitemapUrl) {
       "Connection": "keep-alive",
     },
   });
+
+  if (res.status === 403) {
+    console.warn(`🚫 חסימת גישה ל-sitemap (${sitemapUrl}) — ייתכן שהאתר חוסם בוטים`);
+  }
+
   if (!res.ok) throw new Error(`❌ שגיאה בקריאת sitemap (${res.status})`);
+
   const xml = await res.text();
   const matches = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)];
   const urls = matches.map((m) => m[1].trim()).filter(Boolean);
@@ -58,22 +61,22 @@ async function getUrlsFromSitemap(sitemapUrl) {
   return urls;
 }
 
-
-// === Fetch בטוח עם תמיכה בעברית ===
+// === Fetch בטוח עם תמיכה בעברית וחסימות ===
 async function safeFetch(url, retries = 3) {
   const cleaned = normalizeUrl(url);
   for (let i = 0; i < retries; i++) {
     try {
       const res = await fetch(cleaned, {
         headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
           "Accept-Language": "he,en;q=0.9",
+          "Connection": "keep-alive",
         },
       });
 
-      // דילוג אם דף לא קיים
       if (res.status === 404) {
-        // ניסיון שני: אולי השרת לא קולט עברית
         const altUrl = encodeURI(url);
         if (altUrl !== cleaned) {
           console.warn(`🌀 ניסיון נוסף ל-${altUrl}`);
@@ -84,13 +87,33 @@ async function safeFetch(url, retries = 3) {
         return null;
       }
 
+      if (res.status === 403) {
+        console.warn(`⚠️ חסימה זמנית ב-${url} — ממתין ל-retry`);
+        await delay(3000);
+        continue;
+      }
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res;
     } catch (err) {
-      console.warn(`⚠️ Fetch error (${i + 1}/${retries}) for ${url}: ${err.message}`);
-      await delay(2000 + Math.random() * 1000);
+      console.warn(`⚠️ שגיאת חיבור (${i + 1}/${retries}) עבור ${url}: ${err.message}`);
+      await delay(3000 + Math.random() * 1500);
     }
   }
+
+  // 🔁 Fallback: ניסיון דרך proxy פשוט (אם קיים)
+  try {
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(cleaned)}`;
+    console.log(`🔁 ניסיון גיבוי דרך proxy: ${proxyUrl}`);
+    const proxyRes = await fetch(proxyUrl);
+    if (proxyRes.ok) {
+      const json = await proxyRes.json();
+      return { ok: true, text: async () => json.contents };
+    }
+  } catch (proxyErr) {
+    console.warn(`❌ גם proxy נכשל (${url}): ${proxyErr.message}`);
+  }
+
   console.error(`❌ נכשל לאחר ${retries} ניסיונות (${url})`);
   return null;
 }
@@ -98,7 +121,6 @@ async function safeFetch(url, retries = 3) {
 // === חילוץ תוכן רלוונטי ===
 function extractSmartContent(html) {
   const $ = cheerio.load(html);
-
   const title = $("title").text().trim();
   const desc = $('meta[name="description"]').attr("content") || "";
   const h1 = $("h1").map((_, el) => $(el).text().trim()).get().join(". ");
@@ -108,7 +130,6 @@ function extractSmartContent(html) {
     .join(" ")
     .replace(/\s+/g, " ")
     .trim();
-
   return { title: title || h1 || "ללא כותרת", text: [desc, h1, text].join(" ").slice(0, 7000) };
 }
 
@@ -117,19 +138,16 @@ async function processPage(url) {
   try {
     const res = await safeFetch(url);
     if (!res) return null;
-
     const html = await res.text();
     const { title, text } = extractSmartContent(html);
     if (!text || text.length < 50) {
       console.log(`⚠️ דילוג על דף קצר/ריק: ${url}`);
       return null;
     }
-
     const embedding = await client.embeddings.create({
       model: "text-embedding-3-small",
       input: text,
     });
-
     console.log(`✅ ${url}`);
     return { url, title, text: text.slice(0, 300), vector: embedding.data[0].embedding };
   } catch (err) {
@@ -199,6 +217,7 @@ async function buildIndex(name, sitemapUrl, batchSize = 40) {
   console.log(`✅ ${name} הסתיים (${count} נוספו, ${done.length}/${urls.length})`);
 }
 
+// === הרצה מקומית ===
 if (process.argv[1].includes("autoBuildIndex.js")) {
   (async () => {
     await buildIndex("Shabaton", "https://www.shabaton.online/sitemap.xml", 40);
