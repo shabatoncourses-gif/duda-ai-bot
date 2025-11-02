@@ -39,14 +39,25 @@ function normalizeUrl(url) {
 // === קריאת Sitemap ===
 async function getUrlsFromSitemap(sitemapUrl) {
   console.log(`📥 קורא sitemap: ${sitemapUrl}`);
-  const res = await fetch(sitemapUrl);
+  const res = await fetch(sitemapUrl, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+      "Accept": "application/xml,text/xml,*/*;q=0.9",
+      "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
   if (!res.ok) throw new Error(`❌ שגיאה בקריאת sitemap (${res.status})`);
   const xml = await res.text();
   const matches = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)];
-  const urls = matches.map((m) => normalizeUrl(m[1])).filter(Boolean);
-  console.log(`🔗 נמצאו ${urls.length} קישורים`);
+  const urls = matches.map((m) => m[1].trim()).filter(Boolean);
+  console.log(`🔗 נמצאו ${urls.length} דפים.`);
   return urls;
 }
+
 
 // === Fetch בטוח עם תמיכה בעברית ===
 async function safeFetch(url, retries = 3) {
