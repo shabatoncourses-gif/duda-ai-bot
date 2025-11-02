@@ -1,50 +1,40 @@
 name: Auto Reindex Bot
 
 on:
-  # ▶️ כפתור ידני ב-GitHub → Actions → Run workflow
-  workflow_dispatch:
-
-  # ⏰ ריצה אוטומטית פעם בשבוע: יום ראשון 03:00 UTC
+  # ✅ ריצה אוטומטית פעם בשבוע ביום ראשון ב-03:00 בלילה
   schedule:
     - cron: "0 3 * * 0"
+
+  # ✅ ריצה ידנית לפי דרישה
+  workflow_dispatch:
 
 jobs:
   reindex:
     runs-on: ubuntu-latest
+    timeout-minutes: 360  # מאפשר עד 6 שעות ריצה
 
     steps:
-      # 1) קלאסיקה – להביא את הקוד
-      - name: Checkout repo
+      # 🔹 שלב 1: הורדת הקוד מהמאגר
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2) Node
+      # 🔹 שלב 2: התקנת Node.js (גרסה 20)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # 3) התקנת תלויות (אם יש package.json)
+      # 🔹 שלב 3: התקנת תלויות
       - name: Install dependencies
-        run: |
-          if [ -f package.json ]; then
-            npm ci
-          fi
+        run: npm install
 
-      # 4) ליצור תיקיית data אם לא קיימת
-      - name: Ensure data dir exists
-        run: mkdir -p data
+      # 🔹 שלב 4: הפעלת תהליך האינדוקס המלא
+      - name: Run full indexing
+        run: node scripts/autoBuildIndex.js
 
-      # 5) להריץ את האינדוקס
-      - name: Run autoBuildIndex
+        # 🔑 הגדרת משתני סביבה לשימוש בסקריפט
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GH_CONTENT_TOKEN }}
-          GITHUB_REPO: shabatoncourses-gif/duda-ai-bot
-          GITHUB_BRANCH: main
-        run: |
-          node scripts/autoBuildIndex.js
-
-      # 6) לראות לוג נעים בסוף
-      - name: Done
-        run: echo "✅ Reindex job finished"
-
+          GITHUB_REPO: "shabatoncourses-gif/duda-ai-bot"
+          GITHUB_BRANCH: "main"
