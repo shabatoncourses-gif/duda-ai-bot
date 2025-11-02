@@ -8,19 +8,19 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// === הגדרות GitHub ===
+// === ⚙️ הגדרות כלליות ===
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_REPO = process.env.GITHUB_REPO; // למשל: "shabatoncourses-gif/duda-ai-bot"
+const GITHUB_REPO = process.env.GITHUB_REPO;
 const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
 
-// === OpenAI ===
 if (!process.env.OPENAI_API_KEY) {
   console.error("❌ Missing OPENAI_API_KEY in .env");
   process.exit(1);
 }
+
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// === עוזרים ===
+// === 🧩 עוזרים ===
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
 function getBrowserHeaders(url) {
@@ -38,39 +38,49 @@ function getBrowserHeaders(url) {
 // === Sitemap ===
 async function getUrlsFromSitemap(sitemapUrl) {
   console.log(`📥 קורא sitemap: ${sitemapUrl}`);
-  const response = await fetch(sitemapUrl, { headers: getBrowserHeaders(sitemapUrl) });
-  if (!response.ok) throw new Error(`❌ Failed to fetch sitemap (${response.status})`);
-  const xml = await response.text();
+  const res = await fetch(sitemapUrl, { headers: getBrowserHeaders(sitemapUrl) });
+  if (!res.ok) throw new Error(`❌ שגיאה בקריאת sitemap (${res.status})`);
+  const xml = await res.text();
   const matches = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)];
   const urls = matches.map((m) => m[1].trim()).filter(Boolean);
-  if (!urls.length) throw new Error("❌ No URLs found in sitemap.");
-  console.log(`🔗 נמצאו ${urls.length} קישורים.`);
+  console.log(`🔗 נמצאו ${urls.length} דפים.`);
   return urls;
 }
 
-// === חילוץ תוכן רלוונטי ===
+// === חילוץ תוכן חכם (כולל כותרות ורשימות) ===
 function extractSmartContent(html) {
   const $ = cheerio.load(html);
+
   const title = $("title").text().trim();
   const desc = $('meta[name="description"]').attr("content") || "";
   const h1 = $("h1").map((_, el) => $(el).text().trim()).get().join(". ");
+  const h2 = $("h2").map((_, el) => $(el).text().trim()).get().join(". ");
+  const h3 = $("h3").map((_, el) => $(el).text().trim()).get().join(". ");
+  const strong = $("strong,b").map((_, el) => $(el).text().trim()).get().join(". ");
+  const lists = $("ul li").map((_, el) => $(el).text().trim()).get().join(". ");
   const paragraphs = $("p").map((_, el) => $(el).text().trim()).get().join(" ");
-  const combined = [title, desc, h1, paragraphs].join(" ").replace(/\s+/g, " ").trim();
-  return { title: title || h1 || "Untitled", text: combined.slice(0, 6000) };
+
+  const combined = [title, desc, h1, h2, h3, strong, lists, paragraphs]
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 8000);
+
+  return { title: title || h1 || h2 || "Untitled", text: combined };
 }
 
 // === Fetch בטוח עם retry ===
 async function safeFetch(url, retries = 3) {
   for (let i = 0; i < retries; i++) {
     try {
-      const response = await fetch(url, { headers: getBrowserHeaders(url) });
-      if (response.status === 403) {
+      const res = await fetch(url, { headers: getBrowserHeaders(url) });
+      if (res.status === 403) {
         console.warn(`🚫 403 Forbidden (${url}), retry ${i + 1}/${retries}`);
         await delay(2000 + Math.random() * 1500);
         continue;
       }
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response;
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res;
     } catch (err) {
       console.warn(`⚠️ Fetch error for ${url}: ${err.message}`);
       await delay(2000 + Math.random() * 1500);
@@ -79,11 +89,11 @@ async function safeFetch(url, retries = 3) {
   throw new Error(`❌ Failed after ${retries} attempts (${url})`);
 }
 
-// === העלאה ל־GitHub ===
+// === העלאה ל-GitHub ===
 async function uploadToGitHub(filePath, commitMessage) {
   try {
     if (!GITHUB_TOKEN || !GITHUB_REPO) {
-      console.warn("⚠️ Missing GitHub token/repo — skipping upload.");
+      console.warn("⚠️ Missing GitHub credentials — skipping upload.");
       return;
     }
 
@@ -91,14 +101,15 @@ async function uploadToGitHub(filePath, commitMessage) {
     const encoded = Buffer.from(content).toString("base64");
     const relativePath = `data/${path.basename(filePath)}`;
     const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${relativePath}?ref=${GITHUB_BRANCH}`;
+
     const headers = {
       Authorization: `token ${GITHUB_TOKEN}`,
       "Content-Type": "application/json",
     };
 
     let sha = null;
-    const getRes = await fetch(url, { headers });
-    if (getRes.ok) sha = (await getRes.json()).sha;
+    const existing = await fetch(url, { headers });
+    if (existing.ok) sha = (await existing.json()).sha;
 
     const res = await fetch(url, {
       method: "PUT",
@@ -112,20 +123,20 @@ async function uploadToGitHub(filePath, commitMessage) {
     });
 
     if (!res.ok) throw new Error(await res.text());
-    console.log(`✅ Uploaded ${relativePath} successfully.`);
+    console.log(`✅ Uploaded ${path.basename(filePath)} successfully.`);
   } catch (err) {
-    console.error(`❌ GitHub upload failed:`, err.message);
+    console.error(`❌ GitHub upload failed: ${err.message}`);
   }
 }
 
 // === יצירת embedding לדף ===
 async function processPage(url) {
   try {
-    const response = await safeFetch(url);
-    const html = await response.text();
+    const res = await safeFetch(url);
+    const html = await res.text();
     const { title, text } = extractSmartContent(html);
 
-    if (!text || text.length < 100) {
+    if (!text || text.length < 50) {
       console.log(`⚠️ Skipping short/empty page: ${url}`);
       return null;
     }
@@ -137,13 +148,13 @@ async function processPage(url) {
 
     return { url, title, text: text.slice(0, 300), vector: embedding.data[0].embedding };
   } catch (err) {
-    console.warn(`❌ Failed ${url}: ${err.message}`);
+    console.warn(`❌ Failed to process ${url}: ${err.message}`);
     return null;
   }
 }
 
-// === תהליך בנייה עם Resume ===
-async function buildIndex(name, sitemapUrl, batchSize = 100, concurrency = 10) {
+// === בניית אינדקס עם אחוזי התקדמות ===
+async function buildIndex(name, sitemapUrl, batchSize = 50, concurrency = 5) {
   console.log(`\n🌍 Indexing ${name}...`);
   const startTime = Date.now();
 
@@ -153,17 +164,14 @@ async function buildIndex(name, sitemapUrl, batchSize = 100, concurrency = 10) {
 
   const outputPath = path.join(dataDir, `${name.toLowerCase()}_index.json`);
   const donePath = path.join(dataDir, `${name.toLowerCase()}_done.json`);
-  const partialPath = path.join(dataDir, `${name.toLowerCase()}_partial.json`);
 
   const urls = await getUrlsFromSitemap(sitemapUrl);
   let done = fs.existsSync(donePath) ? JSON.parse(fs.readFileSync(donePath, "utf8")) : [];
   let pages = fs.existsSync(outputPath) ? JSON.parse(fs.readFileSync(outputPath, "utf8")) : [];
 
   const pending = urls.filter((u) => !done.includes(u));
-  console.log(`🕓 ${pending.length} URLs pending.`);
-
   if (!pending.length) {
-    console.log(`✅ ${name} already fully indexed.`);
+    console.log(`✅ ${name}: Index already complete (${urls.length} pages).`);
     return false;
   }
 
@@ -173,7 +181,6 @@ async function buildIndex(name, sitemapUrl, batchSize = 100, concurrency = 10) {
   let processed = 0;
   for (let i = 0; i < batch.length; i += concurrency) {
     const slice = batch.slice(i, i + concurrency);
-
     const results = await Promise.allSettled(slice.map((url) => processPage(encodeURI(url))));
     const valid = results.filter((r) => r.status === "fulfilled" && r.value).map((r) => r.value);
 
@@ -184,29 +191,29 @@ async function buildIndex(name, sitemapUrl, batchSize = 100, concurrency = 10) {
     done.push(...slice.filter((u) => !done.includes(u)));
     processed += valid.length;
 
-    // ✅ כתיבה דחוסה וללא ירידת שורות
-    fs.writeFileSync(outputPath, JSON.stringify(pages), "utf8");
-    fs.writeFileSync(donePath, JSON.stringify(done), "utf8");
+    const percent = ((done.length / urls.length) * 100).toFixed(1);
+    console.log(`💾 Saved progress (${done.length}/${urls.length}) — ${percent}% done`);
 
-    console.log(`💾 Progress saved (${done.length}/${urls.length})`);
-    await delay(1500 + Math.random() * 1500);
+    fs.writeFileSync(outputPath, JSON.stringify(pages));
+    fs.writeFileSync(donePath, JSON.stringify(done));
+
+    await delay(1000 + Math.random() * 500);
   }
 
-  // ✅ מעלה גם את done.json ל-GitHub
   await uploadToGitHub(outputPath, `🤖 Auto index update: ${name} (${done.length}/${urls.length})`);
   await uploadToGitHub(donePath, `📘 Progress checkpoint for ${name} (${done.length}/${urls.length})`);
 
   const duration = ((Date.now() - startTime) / 60000).toFixed(1);
-  console.log(`✅ ${name} batch done: ${processed} processed in ${duration} min`);
+  console.log(`✅ ${name} batch done: ${processed} processed in ${duration} min — ${(done.length / urls.length * 100).toFixed(1)}% total`);
   return done.length < urls.length;
 }
 
-// === הרצה מלאה ===
-async function runFullIndexing(name, sitemapUrl, batchSize = 100) {
+// === ריצה מלאה ===
+async function runFullIndexing(name, sitemapUrl, batchSize = 50) {
   let more = true;
   let round = 1;
   while (more) {
-    console.log(`\n🌀 Batch #${round} for ${name}`);
+    console.log(`\n🌀 Batch #${round} (${name})`);
     more = await buildIndex(name, sitemapUrl, batchSize);
     round++;
     if (more) {
@@ -221,8 +228,8 @@ async function runFullIndexing(name, sitemapUrl, batchSize = 100) {
 if (process.argv[1].includes("autoBuildIndex.js")) {
   (async () => {
     try {
-      await runFullIndexing("Shabaton", "https://www.shabaton.online/sitemap.xml", 150);
-      await runFullIndexing("Morim", "https://www.morim.boutique/sitemap.xml", 150);
+      await runFullIndexing("Shabaton", "https://www.shabaton.online/sitemap.xml", 50);
+      await runFullIndexing("Morim", "https://www.morim.boutique/sitemap.xml", 50);
       console.log("🎉 All indexing complete!");
     } catch (err) {
       console.error("💥 Fatal error:", err.message);
