@@ -1,28 +1,30 @@
 // pages/api/reindex.js
-import { runFullIndexing } from "../../scripts/autoBuildIndex.js";
+import { buildIndex } from "../../scripts/autoBuildIndex.js";
 
 export default async function handler(req, res) {
   console.log("🚀 Triggered /api/reindex");
 
+  // כותרות בסיסיות
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  // מאפשר גם GET להרצה ידנית מדפדפן
+  // ✅ מאפשר גם קריאה מדפדפן וגם מ-cron
   if (req.method === "GET" || req.method === "POST") {
     try {
-      console.log("🧩 Starting full reindex process for Shabaton and Morim...");
+      console.log("🧩 Starting incremental reindex for Shabaton & Morim...");
 
-      await runFullIndexing("Shabaton", "https://www.shabaton.online/sitemap.xml", 150);
-      await runFullIndexing("Morim", "https://www.morim.boutique/sitemap.xml", 150);
+      // 🧠 מריץ batch קטן בכל ריצה (כדי למנוע timeout)
+      await buildIndex("Shabaton", "https://www.shabaton.online/sitemap.xml", 50);
+      await buildIndex("Morim", "https://www.morim.boutique/sitemap.xml", 50);
 
-      console.log("✅ All indexing completed successfully!");
+      console.log("✅ Batch indexing completed successfully.");
+
       return res.status(200).json({
         success: true,
-        message: "Full reindex completed successfully!"
+        message: "Batch indexing completed successfully (50 pages per site)."
       });
     } catch (err) {
       console.error("❌ Error during reindex:", err);
