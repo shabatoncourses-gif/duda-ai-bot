@@ -1,13 +1,16 @@
 name: 🧠 Auto Reindex Bot
 
 on:
+  # מריץ פעם ביום בלילה (אפשר לשנות)
   schedule:
     - cron: "0 0 * * *"
+  # מאפשר גם הרצה ידנית מה-GitHub UI
   workflow_dispatch:
 
 jobs:
   reindex:
     runs-on: ubuntu-latest
+
     steps:
       - name: 🛠 Checkout repository
         uses: actions/checkout@v4
@@ -26,7 +29,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPO: "shabatoncourses-gif/duda-ai-bot"
           GITHUB_BRANCH: "main"
-        run: node scripts/reindex_runner.js
+        - run: node scripts/autoBuildIndex.js --batch 50
 
       - name: ✅ Done!
         run: echo "🎉 Indexing finished successfully."
