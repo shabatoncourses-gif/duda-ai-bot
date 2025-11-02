@@ -61,6 +61,16 @@ function extractSmartContent(html) {
   ];
   $(selectorsToRemove.join(",")).remove();
 
+  // 🧹 מחיקת בלוקים שבהם רוב התוכן הוא קישורים בלבד
+  $("div, section, ul, ol").each((_, el) => {
+    const linkCount = $(el).find("a").length;
+    const totalWords = $(el).text().split(/\s+/).length;
+    const ratio = linkCount / Math.max(totalWords, 1);
+    if (ratio > 0.5) {
+      $(el).remove();
+    }
+  });
+
   // 🧹 הסרת קישורים פנימיים וקישורים כלליים
   $("a").each((_, el) => {
     const text = $(el).text().trim();
