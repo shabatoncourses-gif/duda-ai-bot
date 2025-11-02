@@ -1,0 +1,32 @@
+name: 🧠 Auto Reindex Bot
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  reindex:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🛠 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 📦 Install dependencies
+        run: npm install
+
+      - name: ⚙️ Run full reindex
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: "shabatoncourses-gif/duda-ai-bot"
+          GITHUB_BRANCH: "main"
+        run: node scripts/reindex_runner.js
+
+      - name: ✅ Done!
+        run: echo "🎉 Indexing finished successfully."
