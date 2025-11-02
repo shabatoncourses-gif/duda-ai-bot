@@ -1,5 +1,6 @@
 name: 🧠 Auto Reindex Bot
-
+permissions:
+  contents: write
 on:
   # מריץ פעם ביום בלילה (אפשר לשנות)
   schedule:
@@ -33,3 +34,4 @@ jobs:
 
       - name: ✅ Done!
         run: echo "🎉 Indexing finished successfully."
+
