@@ -8,171 +8,109 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// === ⚙️ הגדרות כלליות ===
+// === הגדרות כלליות ===
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GH_CONTENT_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO;
 const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
 
 if (!process.env.OPENAI_API_KEY) {
-  console.error("❌ Missing OPENAI_API_KEY in .env");
+  console.error("❌ חסר מפתח OPENAI_API_KEY");
   process.exit(1);
 }
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// === 🧩 עוזרים ===
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-function getBrowserHeaders(url) {
-  return {
-    "User-Agent":
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-    Accept:
-      "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-    "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
-    Referer: new URL(url).origin,
-    Connection: "keep-alive",
-  };
+// === 🧩 טיפול נכון בכתובות עברית/אנגלית ===
+function normalizeUrl(url) {
+  try {
+    // הסרת רווחים ותווים לא חוקיים
+    url = url.trim().replace(/\s+/g, "");
+    // נוודא קידוד עברית רק בנתיב, לא בכל הכתובת
+    const u = new URL(url);
+    u.pathname = encodeURI(decodeURI(u.pathname));
+    return u.toString();
+  } catch {
+    return encodeURI(url);
+  }
 }
 
-// === Sitemap ===
+// === קריאת Sitemap ===
 async function getUrlsFromSitemap(sitemapUrl) {
   console.log(`📥 קורא sitemap: ${sitemapUrl}`);
-  const res = await fetch(sitemapUrl, { headers: getBrowserHeaders(sitemapUrl) });
+  const res = await fetch(sitemapUrl);
   if (!res.ok) throw new Error(`❌ שגיאה בקריאת sitemap (${res.status})`);
   const xml = await res.text();
   const matches = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)];
-  const urls = matches.map((m) => m[1].trim()).filter(Boolean);
-  console.log(`🔗 נמצאו ${urls.length} דפים.`);
+  const urls = matches.map((m) => normalizeUrl(m[1])).filter(Boolean);
+  console.log(`🔗 נמצאו ${urls.length} קישורים`);
   return urls;
 }
 
-// === חילוץ תוכן חכם ומסונן ===
-function extractSmartContent(html) {
-  const $ = cheerio.load(html);
-
-  // 🧹 הסרת אזורים קבועים ותפריטים
-  const selectorsToRemove = [
-    "header", "nav", "footer", ".menu", ".navbar",
-    ".breadcrumbs", ".sidebar", ".widget", ".share-buttons",
-    ".social-icons", "#menu", "#footer", "#header",
-    ".related", ".related-courses", ".more-courses", ".recommend",
-    ".similar", ".post-list", ".course-list", ".grid", ".cards"
-  ];
-  $(selectorsToRemove.join(",")).remove();
-
-  // 🧹 מחיקת בלוקים שבהם רוב התוכן הוא קישורים בלבד
-  $("div, section, ul, ol").each((_, el) => {
-    const linkCount = $(el).find("a").length;
-    const totalWords = $(el).text().split(/\s+/).length;
-    const ratio = linkCount / Math.max(totalWords, 1);
-    if (ratio > 0.5) $(el).remove();
-  });
-
-  // ✨ חילוץ טקסט רלוונטי בלבד
-  const title = $("title").text().trim();
-  const desc = $('meta[name="description"]').attr("content") || "";
-  const h1 = $("h1").map((_, el) => $(el).text().trim()).get().join(". ");
-  const h2 = $("h2").map((_, el) => $(el).text().trim()).get().join(". ");
-  const h3 = $("h3").map((_, el) => $(el).text().trim()).get().join(". ");
-  const strong = $("strong,b").map((_, el) => $(el).text().trim()).get().join(". ");
-  const paragraphs = $("p").map((_, el) => $(el).text().trim()).get().join(" ");
-
-  const combined = [title, desc, h1, h2, h3, strong, paragraphs]
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 8000);
-
-  return { title: title || h1 || h2 || "Untitled", text: combined };
-}
-
-// === Fetch בטוח עם retry וחסימת Cloudflare ===
-async function safeFetch(url, retries = 4) {
+// === Fetch בטוח עם תמיכה בעברית ===
+async function safeFetch(url, retries = 3) {
+  const cleaned = normalizeUrl(url);
   for (let i = 0; i < retries; i++) {
     try {
-      const res = await fetch(encodeURI(url), {
+      const res = await fetch(cleaned, {
         headers: {
-          ...getBrowserHeaders(url),
-          "Upgrade-Insecure-Requests": "1",
-          "Cache-Control": "no-cache",
-          "Pragma": "no-cache",
-          "DNT": "1",
-          "Accept-Encoding": "gzip, deflate, br",
+          "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+          "Accept-Language": "he,en;q=0.9",
         },
       });
 
-      const text = await res.text();
-
-      if (text.includes("Cloudflare") && text.includes("Attention Required")) {
-        console.warn(`⚠️ Cloudflare blocked access to ${url}`);
-        await delay(3000 + Math.random() * 2000);
-        continue;
-      }
-
-      if (res.status >= 500) {
-        console.warn(`🔁 Server error (${res.status}) on ${url}`);
-        await delay(2000 + Math.random() * 1000);
-        continue;
+      // דילוג אם דף לא קיים
+      if (res.status === 404) {
+        // ניסיון שני: אולי השרת לא קולט עברית
+        const altUrl = encodeURI(url);
+        if (altUrl !== cleaned) {
+          console.warn(`🌀 ניסיון נוסף ל-${altUrl}`);
+          const retry = await fetch(altUrl);
+          if (retry.ok) return retry;
+        }
+        console.warn(`🚫 דף לא נמצא (${res.status}): ${url}`);
+        return null;
       }
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return { text, res };
+      return res;
     } catch (err) {
-      console.warn(`⚠️ Fetch error [${i + 1}/${retries}] for ${url}: ${err.message}`);
-      await delay(2500 + Math.random() * 1000);
+      console.warn(`⚠️ Fetch error (${i + 1}/${retries}) for ${url}: ${err.message}`);
+      await delay(2000 + Math.random() * 1000);
     }
   }
-  throw new Error(`❌ Failed after ${retries} retries (${url})`);
+  console.error(`❌ נכשל לאחר ${retries} ניסיונות (${url})`);
+  return null;
 }
 
-// === העלאה ל-GitHub ===
-async function uploadToGitHub(filePath, commitMessage) {
-  try {
-    if (!GITHUB_TOKEN || !GITHUB_REPO) {
-      console.warn("⚠️ Missing GitHub credentials — skipping upload.");
-      return;
-    }
+// === חילוץ תוכן רלוונטי ===
+function extractSmartContent(html) {
+  const $ = cheerio.load(html);
 
-    const content = fs.readFileSync(filePath, "utf8");
-    const encoded = Buffer.from(content).toString("base64");
-    const relativePath = `data/${path.basename(filePath)}`;
-    const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${relativePath}?ref=${GITHUB_BRANCH}`;
-    const headers = {
-      Authorization: `token ${GITHUB_TOKEN}`,
-      "Content-Type": "application/json",
-    };
+  const title = $("title").text().trim();
+  const desc = $('meta[name="description"]').attr("content") || "";
+  const h1 = $("h1").map((_, el) => $(el).text().trim()).get().join(". ");
+  const text = $("p, h2, h3, li")
+    .map((_, el) => $(el).text().trim())
+    .get()
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-    let sha = null;
-    const existing = await fetch(url, { headers });
-    if (existing.ok) sha = (await existing.json()).sha;
-
-    const res = await fetch(url, {
-      method: "PUT",
-      headers,
-      body: JSON.stringify({
-        message: commitMessage,
-        content: encoded,
-        branch: GITHUB_BRANCH,
-        sha,
-      }),
-    });
-
-    if (!res.ok) throw new Error(await res.text());
-    console.log(`✅ Uploaded ${path.basename(filePath)} successfully.`);
-  } catch (err) {
-    console.error(`❌ GitHub upload failed: ${err.message}`);
-  }
+  return { title: title || h1 || "ללא כותרת", text: [desc, h1, text].join(" ").slice(0, 7000) };
 }
 
-// === יצירת embedding לדף ===
+// === יצירת embedding ===
 async function processPage(url) {
   try {
-    const { text: html } = await safeFetch(url);
-    const { title, text } = extractSmartContent(html);
+    const res = await safeFetch(url);
+    if (!res) return null;
 
-    if (!text || text.length < 80) {
-      console.log(`⚠️ Skipping short/empty page: ${url}`);
+    const html = await res.text();
+    const { title, text } = extractSmartContent(html);
+    if (!text || text.length < 50) {
+      console.log(`⚠️ דילוג על דף קצר/ריק: ${url}`);
       return null;
     }
 
@@ -181,96 +119,79 @@ async function processPage(url) {
       input: text,
     });
 
-    console.log(`✅ Indexed: ${url}`);
+    console.log(`✅ ${url}`);
     return { url, title, text: text.slice(0, 300), vector: embedding.data[0].embedding };
   } catch (err) {
-    console.warn(`❌ Failed to process ${url}: ${err.message}`);
+    console.warn(`❌ ${url} => ${err.message}`);
     return null;
   }
 }
 
-// === בניית אינדקס עם Resume ===
-async function buildIndex(name, sitemapUrl, batchSize = 50, concurrency = 5) {
-  console.log(`\n🌍 Indexing ${name}...`);
-  const startTime = Date.now();
+// === העלאה ל-GitHub ===
+async function uploadToGitHub(filePath, message) {
+  try {
+    if (!GITHUB_TOKEN || !GITHUB_REPO) return console.warn("⚠️ חסרים פרטי GitHub");
+    const content = fs.readFileSync(filePath, "utf8");
+    const encoded = Buffer.from(content).toString("base64");
+    const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/data/${path.basename(filePath)}?ref=${GITHUB_BRANCH}`;
+    const headers = { Authorization: `token ${GITHUB_TOKEN}`, "Content-Type": "application/json" };
 
-  const isVercel = !!process.env.VERCEL;
-  const dataDir = isVercel ? "/tmp/data" : path.join(process.cwd(), "data");
+    let sha = null;
+    const existing = await fetch(url, { headers });
+    if (existing.ok) sha = (await existing.json()).sha;
+
+    const res = await fetch(url, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ message, content: encoded, branch: GITHUB_BRANCH, sha }),
+    });
+
+    if (!res.ok) throw new Error(await res.text());
+    console.log(`📤 הועלה ל-GitHub: ${path.basename(filePath)}`);
+  } catch (err) {
+    console.error("❌ שגיאת העלאה:", err.message);
+  }
+}
+
+// === תהליך אינדוקס ===
+async function buildIndex(name, sitemapUrl, batchSize = 40) {
+  const dataDir = path.join(process.cwd(), "data");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-  const outputPath = path.join(dataDir, `${name.toLowerCase()}_index.json`);
+  const indexPath = path.join(dataDir, `${name.toLowerCase()}_index.json`);
   const donePath = path.join(dataDir, `${name.toLowerCase()}_done.json`);
 
   const urls = await getUrlsFromSitemap(sitemapUrl);
   let done = fs.existsSync(donePath) ? JSON.parse(fs.readFileSync(donePath, "utf8")) : [];
-  let pages = fs.existsSync(outputPath) ? JSON.parse(fs.readFileSync(outputPath, "utf8")) : [];
+  let pages = fs.existsSync(indexPath) ? JSON.parse(fs.readFileSync(indexPath, "utf8")) : [];
 
   const pending = urls.filter((u) => !done.includes(u));
-  if (!pending.length) {
-    console.log(`✅ ${name}: Index already complete (${urls.length} pages).`);
-    return false;
-  }
+  console.log(`🕓 נותרו ${pending.length} דפים לאינדוקס`);
 
   const batch = pending.slice(0, batchSize);
-  console.log(`🚀 Processing ${batch.length} pages (concurrency ${concurrency})...`);
+  let count = 0;
 
-  let processed = 0;
-  for (let i = 0; i < batch.length; i += concurrency) {
-    const slice = batch.slice(i, i + concurrency);
-    const results = await Promise.allSettled(slice.map((url) => processPage(encodeURI(url))));
-    const valid = results.filter((r) => r.status === "fulfilled" && r.value).map((r) => r.value);
-
-    for (const v of valid) {
-      if (!pages.find((p) => p.url === v.url)) pages.push(v);
+  for (const url of batch) {
+    const page = await processPage(url);
+    if (page) {
+      pages.push(page);
+      count++;
     }
-
-    done.push(...slice.filter((u) => !done.includes(u)));
-    processed += valid.length;
-
-    const percent = ((done.length / urls.length) * 100).toFixed(1);
-    console.log(`💾 Saved progress (${done.length}/${urls.length}) — ${percent}% done`);
-
-    fs.writeFileSync(outputPath, JSON.stringify(pages));
+    done.push(url);
+    fs.writeFileSync(indexPath, JSON.stringify(pages));
     fs.writeFileSync(donePath, JSON.stringify(done));
-
-    await delay(1000 + Math.random() * 500);
   }
 
-  await uploadToGitHub(outputPath, `🤖 Auto index update: ${name} (${done.length}/${urls.length})`);
-  await uploadToGitHub(donePath, `📘 Progress checkpoint for ${name} (${done.length}/${urls.length})`);
+  await uploadToGitHub(indexPath, `🤖 עדכון ${name} (${done.length}/${urls.length})`);
+  await uploadToGitHub(donePath, `📘 שמירת התקדמות ${name}`);
 
-  const duration = ((Date.now() - startTime) / 60000).toFixed(1);
-  console.log(`✅ ${name} batch done: ${processed} processed in ${duration} min`);
-  return done.length < urls.length;
+  console.log(`✅ ${name} הסתיים (${count} נוספו, ${done.length}/${urls.length})`);
 }
 
-// === ריצה מלאה ===
-async function runFullIndexing(name, sitemapUrl, batchSize = 50) {
-  let more = true;
-  let round = 1;
-  while (more) {
-    console.log(`\n🌀 Batch #${round} (${name})`);
-    more = await buildIndex(name, sitemapUrl, batchSize);
-    round++;
-    if (more) {
-      console.log("⏳ Waiting before next batch...");
-      await delay(5000);
-    }
-  }
-  console.log(`🎯 ${name} indexing fully complete!`);
-}
-
-// === הרצה מקומית ===
 if (process.argv[1].includes("autoBuildIndex.js")) {
   (async () => {
-    try {
-      await runFullIndexing("Shabaton", "https://www.shabaton.online/sitemap.xml", 50);
-      await runFullIndexing("Morim", "https://www.morim.boutique/sitemap.xml", 50);
-      console.log("🎉 All indexing complete!");
-    } catch (err) {
-      console.error("💥 Fatal error:", err.message);
-    }
+    await buildIndex("Shabaton", "https://www.shabaton.online/sitemap.xml", 40);
+    await buildIndex("Morim", "https://www.morim.boutique/sitemap.xml", 40);
+    console.log("🎉 כל האינדוקסים הושלמו!");
   })();
 }
-
-export { runFullIndexing, buildIndex };
