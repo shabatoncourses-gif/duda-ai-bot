@@ -4,14 +4,14 @@ dotenv.config();
 import OpenAI from "openai";
 import fetch from "node-fetch";
 
-// 🧠 Cache לזיכרון זמני
+// ?? Cache ??????? ???? ??? ????? ??????
 const cache = {
   data: null,
   timestamp: 0,
-  ttl: 10 * 60 * 1000 // 10 דקות
+  ttl: 10 * 60 * 1000, // 10 ????
 };
 
-// 🧮 חישוב דמיון קוסינוס
+// ?? ????? ????? ???????
 function cosineSimilarity(a, b) {
   if (!a || !b || a.length !== b.length) return 0;
   const dot = a.reduce((sum, ai, i) => sum + ai * b[i], 0);
@@ -20,12 +20,12 @@ function cosineSimilarity(a, b) {
   return dot / (normA * normB);
 }
 
-// 📦 טעינת אינדקסים מה־GitHub (עם cache)
+// ?? ????? ???????? ???GitHub
 async function loadIndexes() {
   const now = Date.now();
 
   if (cache.data && now - cache.timestamp < cache.ttl) {
-    console.log("⚡ Using cached indexes from memory");
+    console.log("? Using cached indexes from memory");
     return cache.data;
   }
 
@@ -34,151 +34,145 @@ async function loadIndexes() {
 
   const urls = {
     shabaton: `https://raw.githubusercontent.com/${repo}/${branch}/data/shabaton_index.json`,
-    morim: `https://raw.githubusercontent.com/${repo}/${branch}/data/morim_index.json`
+    morim: `https://raw.githubusercontent.com/${repo}/${branch}/data/morim_index.json`,
   };
 
-  console.log("🌐 Fetching fresh indexes from GitHub...");
+  console.log("?? Fetching fresh indexes from GitHub...");
 
   const [shabatonRes, morimRes] = await Promise.all([
     fetch(urls.shabaton),
-    fetch(urls.morim)
+    fetch(urls.morim),
   ]);
 
   if (!shabatonRes.ok || !morimRes.ok)
-    throw new Error("❌ Failed to load indexes from GitHub");
+    throw new Error("? Failed to load indexes from GitHub");
 
   const [shabatonIndex, morimIndex] = await Promise.all([
     shabatonRes.json(),
-    morimRes.json()
+    morimRes.json(),
   ]);
 
   cache.data = { shabatonIndex, morimIndex };
   cache.timestamp = now;
-  console.log("✅ Indexes cached in memory");
+  console.log("? Indexes cached in memory");
 
   return cache.data;
 }
 
 export default async function handler(req, res) {
-  console.log("💬 Incoming request to /api/chat");
+  console.log("?? Incoming request to /api/chat");
 
-  // 🧩 הגדרות קידוד ו־CORS
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.charset = "utf-8";
   res.setHeader("Content-Language", "he");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Access-Control-Expose-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  // בדיקה מהירה בדפדפן
+  // ????? ????? ??? ?????
   if (req.method === "GET") {
-    console.log("🟢 GET check OK");
+    console.log("? GET check OK");
     return res.status(200).json({
-      message: "✅ /api/chat פעיל. שלח POST עם { message: 'השאלה שלך' } כדי לשאול."
+      message: "? /api/chat ????. ??? POST ?? { message: '????? ???' } ??? ?????.",
     });
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "❌ יש להשתמש ב־POST בלבד." });
+    return res.status(405).json({ error: "? ?? ?????? ????? POST ????." });
   }
 
   try {
     const { message } = req.body || {};
     if (!message)
-      return res.status(400).json({ error: "❌ חסר שדה 'message' בבקשה." });
+      return res.status(400).json({ error: "? ??? ??? 'message' ?????." });
 
     if (!process.env.OPENAI_API_KEY)
-      return res.status(500).json({ error: "❌ חסר מפתח OpenAI ב־.env" });
+      return res.status(500).json({ error: "? ??? ???? OpenAI ????? .env" });
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // ✨ ניקוי השאילתה (הסרת תווים מיותרים, ניקוד ורווחים)
+    // ? ????? ?????
     const cleanMessage = message
       .replace(/[^\p{L}\p{N}\s]/gu, "")
       .replace(/\s+/g, " ")
       .trim();
 
-    // טעינת אינדקסים מה־GitHub (או מה־cache)
+    // ?? ????? ???????? ??-GitHub
     const { shabatonIndex, morimIndex } = await loadIndexes();
-    console.log("📦 Loaded indexes successfully");
+    console.log("?? Indexes loaded successfully");
 
-    // יצירת embedding לשאלה
+    // ?? ????? embedding ?????
     const queryEmbedding = await client.embeddings.create({
       model: "text-embedding-3-small",
-      input: cleanMessage
+      input: cleanMessage,
     });
     const queryVector = queryEmbedding.data[0].embedding;
 
-    // איחוד שני האתרים
+    // ?? ????? ???????
     const allPages = [
       ...shabatonIndex.map((p) => ({ ...p, source: "Shabaton" })),
-      ...morimIndex.map((p) => ({ ...p, source: "Morim" }))
+      ...morimIndex.map((p) => ({ ...p, source: "Morim" })),
     ];
 
-    // דירוג לפי דמיון עם סף רגיש יותר
+    // ?? ????? ??? ?????
     const ranked = allPages
       .map((p) => ({ ...p, score: cosineSimilarity(queryVector, p.vector) }))
       .filter((p) => p.score > 0.3)
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
 
-    console.log(
-      "🏆 Relevant matches:",
-      ranked.map((r) => `${r.title} (${r.score.toFixed(2)})`)
-    );
-
     if (ranked.length === 0) {
       return res.status(200).json({
-        reply: "לא נמצאו תוצאות מתאימות. נסי לנסח אחרת או להשתמש במילים נוספות."
+        reply:
+          "?? ????? ?????? ???????. ??? ???? ???? ?? ?????? ????? ?????????.",
       });
     }
 
-    // ✅ הצגת כפתור 'למידע נוסף' במקום URL מלא
+    // ?? ????? ??????? ??? ?????? ?? ??????? ??????
     const context = ranked
       .map((p) => {
-        const cleanUrl = p.url.trim().replace(/[)\]]+$/, "");
+        const cleanUrl = decodeURIComponent(p.url.trim());
+        const cleanTitle = p.title?.replace(/["<>]/g, "") || "??? ?????";
         return `
-        🔹 <strong>${p.title}</strong> [${p.source}]<br>
+        ?? <strong>${cleanTitle}</strong><br>
         <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer"
            style="display:inline-block; background:#0078ff; color:white; padding:6px 10px;
            border-radius:6px; font-weight:bold; text-decoration:none; margin-top:4px;">
-           למידע נוסף ↗️
+           ????? ???? �J?
         </a>`;
       })
       .join("<br><br>");
 
-    // יצירת תשובה בעזרת GPT
+    // ?? ????? ????? ?? GPT
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content:
-            "אתה עוזר חכם המספק תשובות רלוונטיות מתוך אתרי שבתון ומורים. השב בעברית בלבד, בצורה טבעית וידידותית. כלול בתשובה קישורי HTML מעוצבים עם כפתור למידע נוסף בלבד."
+            "??? ???? ??? ????? ?????? ????????? ???? ???? ??????. ??? ?????? ????, ????? ????? ??????. ???? ??????? ?? ?????? '????? ???? �J?' (?????? HTML).",
         },
         {
           role: "user",
-          content: `שאלה: ${cleanMessage}\n\nהקשרים רלוונטיים:\n${context}`
-        }
+          content: `????: ${cleanMessage}\n\n?????? ?????????:\n${context}`,
+        },
       ],
-      temperature: 0.3
+      temperature: 0.3,
     });
 
     const reply =
       response.choices?.[0]?.message?.content ||
-      "לא נמצאה תשובה מתאימה.";
+      "?? ????? ????? ??????.";
 
-    console.log("✅ Reply sent successfully");
-
+    console.log("? Reply sent successfully");
     return res.status(200).json({ reply });
   } catch (err) {
-    console.error("💥 Error during /api/chat:", err);
+    console.error("?? Error during /api/chat:", err);
     return res.status(500).json({
-      error: "אירעה שגיאה במהלך עיבוד הבקשה.",
-      details: err.message
+      error: "????? ????? ????? ????? ?????.",
+      details: err.message,
     });
   }
 }
