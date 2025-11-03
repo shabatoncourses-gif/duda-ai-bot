@@ -20,10 +20,16 @@ function cosineSimilarity(a, b) {
   return dot / (normA * normB);
 }
 
+// 🧹 רשימת מילות עצירה בעברית (ננקה אותן מהחיפוש)
+const stopWords = [
+  "קורס", "קורסים", "קורסי", "לימוד", "לימודים", "לימודי",
+  "מורה", "מורם", "מורים", "של", "על", "עם", "האם", "יש",
+  "ואם", "או", "מה", "איך", "איפה", "ל", "ב", "ו", "את"
+];
+
 // 📦 טעינת אינדקסים מה־GitHub (עם cache)
 async function loadIndexes() {
   const now = Date.now();
-
   if (cache.data && now - cache.timestamp < cache.ttl) {
     console.log("⚡ Using cached indexes from memory");
     return cache.data;
@@ -55,7 +61,6 @@ async function loadIndexes() {
   cache.data = { shabatonIndex, morimIndex };
   cache.timestamp = now;
   console.log("✅ Indexes cached in memory");
-
   return cache.data;
 }
 
@@ -63,24 +68,19 @@ export default async function handler(req, res) {
   console.log("💬 Incoming request to /api/chat");
 
   res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.charset = "utf-8";
-  res.setHeader("Content-Language", "he");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  if (req.method === "GET") {
-    console.log("✅ GET check OK");
+  if (req.method === "GET")
     return res.status(200).json({
       message: "✅ /api/chat פעיל. שלח POST עם { message: 'השאלה שלך' } כדי לשאול.",
     });
-  }
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "❌ יש להשתמש בבקשת POST בלבד." });
-  }
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "❌ יש להשתמש ב־POST בלבד." });
 
   try {
     const { message, debug } = req.body || {};
@@ -92,20 +92,25 @@ export default async function handler(req, res) {
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // ✨ ניקוי השאלה
+    // ✨ ניקוי השאלה ומחיקת מילות עצירה
     const cleanMessage = message
       .replace(/[^\p{L}\p{N}\s]/gu, "")
       .replace(/\s+/g, " ")
       .trim();
 
+    const words = cleanMessage
+      .split(" ")
+      .filter((w) => w.length > 2 && !stopWords.includes(w));
+
+    console.log("🔎 After cleaning:", words.join(" "));
+
     // 📚 טעינת אינדקסים
     const { shabatonIndex, morimIndex } = await loadIndexes();
-    console.log("📦 Indexes loaded successfully");
 
     // 🧠 יצירת embedding לשאלה
     const queryEmbedding = await client.embeddings.create({
       model: "text-embedding-3-small",
-      input: cleanMessage,
+      input: words.join(" "),
     });
     const queryVector = queryEmbedding.data[0].embedding;
 
@@ -115,24 +120,16 @@ export default async function handler(req, res) {
       ...morimIndex.map((p) => ({ ...p, source: "Morim" })),
     ];
 
-    // 🧠 מילות מפתח מתוך השאלה
-    const keywords = cleanMessage
-      .split(" ")
-      .filter((w) => w.length > 2)
-      .map((w) => w.toLowerCase());
-
-    // 📊 דירוג לפי דמיון + בוסט למילות מפתח תואמות
+    // 📊 דירוג
     const ranked = allPages
       .map((p) => {
         const score = cosineSimilarity(queryVector, p.vector);
         const text = (p.text + " " + p.title).toLowerCase();
-        const matched = keywords.filter((kw) => text.includes(kw));
-        const keywordBoost = matched.length > 0 ? 0.15 * matched.length : 0;
-        const finalScore = score + keywordBoost;
-
+        const matched = words.filter((kw) => text.includes(kw));
+        const keywordBoost = matched.length > 0 ? 0.12 * matched.length : 0;
         return {
           ...p,
-          score: finalScore,
+          score: score + keywordBoost,
           matches: matched,
         };
       })
@@ -140,48 +137,35 @@ export default async function handler(req, res) {
       .sort((a, b) => b.score - a.score)
       .slice(0, 6);
 
-    // 🔍 Debug mode — מציג מידע בקונסול
-    console.log("🔎 Query:", cleanMessage);
-    console.log("🧩 Keywords:", keywords);
-    console.table(
-      ranked.map((r) => ({
-        Title: r.title,
-        Score: r.score.toFixed(3),
-        Matches: r.matches.join(", ") || "—",
-      }))
-    );
-
-    if (ranked.length === 0) {
+    if (ranked.length === 0)
       return res.status(200).json({
-        reply:
-          "לא נמצאו תוצאות מתאימות. נסי לנסח אחרת או להוסיף מילות מפתח רלוונטיות.",
-        debug: debug ? { keywords } : undefined,
+        reply: "לא נמצאו תוצאות מתאימות. נסי לנסח אחרת או להוסיף מילות מפתח רלוונטיות.",
+        ...(debug && { debug: { cleaned: words } }),
       });
-    }
 
-    // 🧩 יצירת קונטקסט יפה בעברית עם קישורים תקינים
-   const context = ranked
-  .map((p) => {
-    const decodedUrl = decodeURI(p.url.trim());
-    const safeTitle = p.title?.replace(/["<>]/g, "") || "קישור";
-    return `
-      🔹 <strong>${safeTitle}</strong><br>
-      <a href="${decodedUrl}" target="_blank" rel="noopener noreferrer"
-         style="display:inline-block; background:#0078ff; color:white; padding:6px 10px;
-         border-radius:6px; font-weight:bold; text-decoration:none; margin-top:4px;">
-         למידע נוסף ↗️
-      </a>`;
-  })
-  .join("<br><br>");
+    // 🧩 יצירת קונטקסט נקי (ללא ציון אתר)
+    const context = ranked
+      .map((p) => {
+        const decodedUrl = decodeURI(p.url.trim());
+        const safeTitle = p.title?.replace(/["<>]/g, "") || "קישור";
+        return `
+          🔹 <strong>${safeTitle}</strong><br>
+          <a href="${decodedUrl}" target="_blank" rel="noopener noreferrer"
+             style="display:inline-block; background:#0078ff; color:white; padding:6px 10px;
+             border-radius:6px; font-weight:bold; text-decoration:none; margin-top:4px;">
+             למידע נוסף ↗️
+          </a>`;
+      })
+      .join("<br><br>");
 
-    // 🤖 יצירת תשובה עם GPT
+    // 🤖 תשובה מ-GPT
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content:
-            "אתה עוזר חכם המספק תשובות רלוונטיות מתוך אתרי שבתון ומורים. השב בעברית בלבד ובצורה טבעית וברורה. הצג תשובה תמציתית, ידידותית וברורה. כלול קישורים רק ככפתור 'למידע נוסף ↗️' (בפורמט HTML).",
+            "אתה עוזר חכם המספק תשובות רלוונטיות מתוך תוכן אתרי שבתון ומורים אך מבלי להזכיר את שם האתר. השב בעברית בלבד, קצר וברור.",
         },
         {
           role: "user",
@@ -191,13 +175,8 @@ export default async function handler(req, res) {
       temperature: 0.3,
     });
 
-    const reply =
-      response.choices?.[0]?.message?.content ||
-      "לא נמצאה תשובה מתאימה.";
+    const reply = response.choices?.[0]?.message?.content || "לא נמצאה תשובה מתאימה.";
 
-    console.log("✅ Reply sent successfully");
-
-    // ✅ החזרה ללקוח (כולל debug אם הופעל)
     return res.status(200).json({
       reply,
       ...(debug && {
@@ -205,7 +184,6 @@ export default async function handler(req, res) {
           title: r.title,
           score: r.score.toFixed(3),
           matches: r.matches,
-          url: r.url,
         })),
       }),
     });
@@ -217,14 +195,3 @@ export default async function handler(req, res) {
     });
   }
 }
-return res.status(200).json({
-  reply,
-  ...(debug && {
-    debug: ranked.map((r) => ({
-      title: r.title,
-      score: r.score.toFixed(3),
-      matches: r.matches,
-      url: r.url,
-    })),
-  }),
-});
