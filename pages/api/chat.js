@@ -160,19 +160,19 @@ export default async function handler(req, res) {
     }
 
     // 🧩 יצירת קונטקסט יפה בעברית עם קישורים תקינים
-    const context = ranked
-      .map((p) => {
-        const cleanUrl = decodeURIComponent(p.url.trim());
-        const cleanTitle = p.title?.replace(/["<>]/g, "") || "ללא כותרת";
-        return `
-        🔹 <strong>${cleanTitle}</strong><br>
-        <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer"
-           style="display:inline-block; background:#0078ff; color:white; padding:6px 10px;
-           border-radius:6px; font-weight:bold; text-decoration:none; margin-top:4px;">
-           למידע נוסף ↗️
-        </a>`;
-      })
-      .join("<br><br>");
+   const context = ranked
+  .map((p) => {
+    const decodedUrl = decodeURI(p.url.trim());
+    const safeTitle = p.title?.replace(/["<>]/g, "") || "קישור";
+    return `
+      🔹 <strong>${safeTitle}</strong><br>
+      <a href="${decodedUrl}" target="_blank" rel="noopener noreferrer"
+         style="display:inline-block; background:#0078ff; color:white; padding:6px 10px;
+         border-radius:6px; font-weight:bold; text-decoration:none; margin-top:4px;">
+         למידע נוסף ↗️
+      </a>`;
+  })
+  .join("<br><br>");
 
     // 🤖 יצירת תשובה עם GPT
     const response = await client.chat.completions.create({
@@ -217,3 +217,14 @@ export default async function handler(req, res) {
     });
   }
 }
+return res.status(200).json({
+  reply,
+  ...(debug && {
+    debug: ranked.map((r) => ({
+      title: r.title,
+      score: r.score.toFixed(3),
+      matches: r.matches,
+      url: r.url,
+    })),
+  }),
+});
