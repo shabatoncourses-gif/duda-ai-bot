@@ -18,15 +18,17 @@ function cosineSimilarity(a, b) {
 
 // ===== מילים כלליות להסרה =====
 const STOP_WORDS = new Set([
-  "לימוד","לימודים","לימודי","בלימודי","קורס","קורסים","קורסי",
-  "של","עם","על","ב","ל","ה","מה","איך","יש","אין","או","אם","וכן",
-  "מורה","מורים","גננות","גננת","חינוך","תחום","תחומים","לימודיים","מסלול","מסלולים"
+  "לימוד", "לימודים", "לימודי", "בלימודי",
+  "קורס", "קורסים", "קורסי", "קורסון",
+  "של", "עם", "על", "ב", "ל", "ה", "מה", "איך", "יש", "אין", "או", "אם", "וכן",
+  "מורה", "מורים", "גננות", "גננת", "חינוך", "תחום", "תחומים", "לימודיים", "מסלול", "מסלולים",
+  "לימודית", "במסלול", "בתחום", "בתחומים", "להוראה", "בהוראה", "הוראה", "להשתלמות", "בהשתלמות",
 ]);
 
 function normalizeHebrew(text) {
   return (text || "")
     .toLowerCase()
-    .replace(/[\u0591-\u05C7]/g, "")
+    .replace(/[\u0591-\u05C7]/g, "") // הסרת ניקוד
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -102,7 +104,6 @@ export default async function handler(req, res) {
         const keywordBoost = matched.length * 0.1;
         return { ...p, score: score + keywordBoost, matches: matched };
       })
-      // הורדתי את הסף מ-0.30 ל-0.22 כדי להחזיר יותר תוצאות
       .filter((p) => p.score > 0.22)
       .sort((a, b) => b.score - a.score)
       .slice(0, 6);
@@ -132,7 +133,7 @@ export default async function handler(req, res) {
         {
           role: "system",
           content:
-            "השב בעברית בלבד ובצורה ידידותית. הצג תשובה תמציתית וברורה. אין לציין מקור האתר."
+            "השב בעברית בלבד ובצורה ידידותית. הצג תשובה תמציתית וברורה. אין לציין מאיזה אתר נלקח המידע."
         },
         { role: "user", content: `שאלה: ${cleanMsg}\n\nעמודים רלוונטיים:\n${context}` }
       ],
@@ -141,6 +142,7 @@ export default async function handler(req, res) {
 
     const reply = completion.choices?.[0]?.message?.content || "לא נמצאה תשובה.";
 
+    // === תשובה עם DEBUG מפורט ===
     return res.status(200).json({
       reply,
       ...(debug && {
