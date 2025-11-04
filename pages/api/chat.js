@@ -26,7 +26,7 @@ const STOP_WORDS = new Set([
   "בתחומים", "להוראה", "בהוראה", "הוראה", "להשתלמות", "בהשתלמות"
 ]);
 
-// ===== ניקוי טקסט בעברית =====
+// ===== ניקוי טקסט עברי =====
 function normalizeHebrew(text) {
   return (text || "")
     .toLowerCase()
@@ -75,6 +75,16 @@ async function loadIndexes() {
   return cache.data;
 }
 
+// ====== סינון תוכן תפריטים פנימיים ======
+function removeMenuText(text) {
+  if (!text) return "";
+  return text
+    .replace(/(\||\•|\-|\–|\—|›|»|<|>|\[|\]|\(|\)).{0,30}(https?:\/\/|www\.|shabaton|morim)/gi, "")
+    .replace(/(קורסים|מאמרים|יצירת קשר|צרו קשר|כניסה|כניסת מורים|אודות|שבתון|מורִים בוטיק)/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 // ===== נתיב API =====
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -96,32 +106,37 @@ export default async function handler(req, res) {
     const cleanMsg = normalizeHebrew(message);
     const keywords = extractKeywordsHeb(cleanMsg);
 
-    const { shabatonIndex, morimIndex } = await loadIndexes();
+    // === נבנה גם רצף מלא וגם גרסה מקוצרת ===
+    const [embeddingFull, embeddingKeywords] = await Promise.all([
+      client.embeddings.create({ model: "text-embedding-3-small", input: cleanMsg }),
+      client.embeddings.create({ model: "text-embedding-3-small", input: keywords.join(" ") || cleanMsg })
+    ]);
 
-    const queryEmbedding = await client.embeddings.create({
-      model: "text-embedding-3-small",
-      input: cleanMsg
-    });
-    const queryVector = queryEmbedding.data[0].embedding;
+    const queryVectorFull = embeddingFull.data[0].embedding;
+    const queryVectorKeywords = embeddingKeywords.data[0].embedding;
+
+    const { shabatonIndex, morimIndex } = await loadIndexes();
 
     const allPages = [
       ...shabatonIndex.map((p) => ({ ...p, source: "Shabaton" })),
       ...morimIndex.map((p) => ({ ...p, source: "Morim" }))
     ];
 
-    // === דירוג לפי דמיון ו-Booster למילות מפתח ===
+    // === ניקוי טקסטים לפני השוואה (הסרת תפריטים) ===
     const ranked = allPages
       .map((p) => {
-        const score = cosineSimilarity(queryVector, p.vector);
-        const text = normalizeHebrew((p.text || "") + " " + (p.title || ""));
-        const matched = keywords.filter((kw) => text.includes(kw));
-        const keywordBoost = matched.length * 0.1;
-        return { ...p, score: score + keywordBoost, matches: matched };
+        const cleanText = removeMenuText(normalizeHebrew((p.text || "") + " " + (p.title || "")));
+        const simFull = cosineSimilarity(queryVectorFull, p.vector);
+        const simKey = cosineSimilarity(queryVectorKeywords, p.vector);
+        const matched = keywords.filter((kw) => cleanText.includes(kw));
+        const phraseBonus = cleanText.includes(cleanMsg) ? 0.25 : 0;
+        const keywordBoost = matched.length * 0.05;
+        const score = Math.max(simFull, simKey) + phraseBonus + keywordBoost;
+        return { ...p, score, matches: matched };
       })
       .filter((p) => p.score > 0.25)
       .sort((a, b) => b.score - a.score);
 
-    // 🔁 סינון כפילויות לפי כתובת
     const uniqueRanked = ranked.filter(
       (p, i, arr) => arr.findIndex((x) => x.url === p.url) === i
     ).slice(0, 6);
@@ -138,10 +153,9 @@ export default async function handler(req, res) {
       .map((p) => {
         const decodedUrl = decodeURI(p.url.trim());
         const cleanTitle = (p.title || "")
-          .replace(/\[.*?\]/g, "") // הסרת [Shabaton] / [Morim]
+          .replace(/\[.*?\]/g, "")
           .replace(/["<>]/g, "")
           .trim();
-
         return `
           🔹 <strong>${cleanTitle}</strong><br>
           <a href="${decodedUrl}" target="_blank" rel="noopener noreferrer"
@@ -152,14 +166,14 @@ export default async function handler(req, res) {
       })
       .join("<br><br>");
 
-    // === קריאה למודל GPT ===
+    // === יצירת תשובה עם GPT ===
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content:
-            "אתה עוזר חכם המספק תשובות רלוונטיות מתוך אתרי שבתון ומורים בלבד. השב בעברית טבעית וברורה. אל תציין את שם האתר או את מקור המידע. הצג תשובה תמציתית, ידידותית וברורה בלבד."
+            "אתה עוזר חכם המספק תשובות רלוונטיות מתוך מאגרי שבתון ומורים בלבד. השב בעברית בלבד, בצורה ידידותית וברורה. אל תציין מאיזה אתר נלקח המידע ואל תשתמש בסוגריים מרובעים. הצג קישורים רק ככפתור 'למידע נוסף ↗️'."
         },
         {
           role: "user",
@@ -171,7 +185,7 @@ export default async function handler(req, res) {
 
     const reply = completion.choices?.[0]?.message?.content || "לא נמצאה תשובה.";
 
-    // ✅ החזרה ללקוח כולל debug
+    // ✅ תשובה ללקוח כולל debug
     return res.status(200).json({
       reply,
       ...(debug && {
