@@ -21,25 +21,32 @@ const STOP_WORDS = new Set([
   "לימוד", "לימודים", "לימודי", "בלימודי",
   "קורס", "קורסים", "קורסי", "קורסון",
   "של", "עם", "על", "ב", "ל", "ה", "מה", "איך", "יש", "אין", "או", "אם", "וכן",
-  "מורה", "מורים", "גננות", "גננת", "חינוך", "תחום", "תחומים", "לימודיים", "מסלול", "מסלולים",
-  "לימודית", "במסלול", "בתחום", "בתחומים", "להוראה", "בהוראה", "הוראה", "להשתלמות", "בהשתלמות",
+  "מורה", "מורים", "גננות", "גננת", "חינוך", "תחום", "תחומים",
+  "לימודיים", "מסלול", "מסלולים", "לימודית", "במסלול", "בתחום",
+  "בתחומים", "להוראה", "בהוראה", "הוראה", "להשתלמות", "בהשתלמות"
 ]);
 
+// ===== ניקוי טקסט בעברית =====
 function normalizeHebrew(text) {
   return (text || "")
     .toLowerCase()
-    .replace(/[\u0591-\u05C7]/g, "") // הסרת ניקוד
+    .replace(/[\u0591-\u05C7]/g, "") // ניקוד
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
+// ===== חילוץ מילות מפתח חכמות =====
 function extractKeywordsHeb(str) {
-  const words = normalizeHebrew(str)
+  return normalizeHebrew(str)
     .split(" ")
-    .map((w) => w.replace(/^[לבכמוהו]/, "").replace(/(יים|ים|ות|ית|יי|י)$/, ""))
-    .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
-  return Array.from(new Set(words));
+    .map((w) =>
+      w
+        .replace(/^[לבכמוהשה]/, "") // הסרת תחיליות
+        .replace(/(יים|ים|ות|ית|יי|י)$/, "") // סיומות
+    )
+    .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
+    .filter((w, i, arr) => arr.indexOf(w) === i);
 }
 
 // ===== טעינת אינדקסים =====
@@ -55,14 +62,20 @@ async function loadIndexes() {
     fetch(`https://raw.githubusercontent.com/${repo}/${branch}/data/morim_index.json`)
   ]);
 
-  if (!shRes.ok || !moRes.ok) throw new Error("? Failed to load indexes");
-  const [shabatonIndex, morimIndex] = await Promise.all([shRes.json(), moRes.json()]);
+  if (!shRes.ok || !moRes.ok)
+    throw new Error("❌ Failed to load indexes");
+
+  const [shabatonIndex, morimIndex] = await Promise.all([
+    shRes.json(),
+    moRes.json()
+  ]);
 
   cache.data = { shabatonIndex, morimIndex };
   cache.timestamp = now;
   return cache.data;
 }
 
+// ===== נתיב API =====
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -71,13 +84,13 @@ export default async function handler(req, res) {
 
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method === "GET")
-    return res.status(200).json({ message: "? /api/chat פעיל." });
+    return res.status(200).json({ message: "✅ /api/chat פעיל." });
   if (req.method !== "POST")
-    return res.status(405).json({ error: "? POST בלבד." });
+    return res.status(405).json({ error: "❌ יש להשתמש בבקשת POST בלבד." });
 
   try {
     const { message, debug } = req.body || {};
-    if (!message) return res.status(400).json({ error: "? חסר message." });
+    if (!message) return res.status(400).json({ error: "❌ חסר message." });
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const cleanMsg = normalizeHebrew(message);
@@ -104,25 +117,29 @@ export default async function handler(req, res) {
         const keywordBoost = matched.length * 0.1;
         return { ...p, score: score + keywordBoost, matches: matched };
       })
-      .filter((p) => p.score > 0.22)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 6);
+      .filter((p) => p.score > 0.25)
+      .sort((a, b) => b.score - a.score);
 
-    if (ranked.length === 0) {
+    // 🔁 סינון כפילויות לפי כתובת
+    const uniqueRanked = ranked.filter(
+      (p, i, arr) => arr.findIndex((x) => x.url === p.url) === i
+    ).slice(0, 6);
+
+    if (uniqueRanked.length === 0) {
       return res.status(200).json({
         reply: "לא נמצאו תוצאות רלוונטיות.",
         ...(debug && { debug: [], debug_keywords: keywords })
       });
     }
 
-    const context = ranked
+    const context = uniqueRanked
       .map(
         (p) => `
-      ?? <strong>${p.title?.replace(/["<>]/g, "")}</strong><br>
+      🔹 <strong>${p.title?.replace(/["<>]/g, "")}</strong><br>
       <a href="${decodeURI(p.url)}" target="_blank" rel="noopener noreferrer"
          style="display:inline-block; background:#0078ff; color:white; padding:6px 10px;
          border-radius:6px; font-weight:bold; text-decoration:none; margin-top:4px;">
-         למידע נוסף ??
+         למידע נוסף ↗️
       </a>`
       )
       .join("<br><br>");
@@ -133,7 +150,7 @@ export default async function handler(req, res) {
         {
           role: "system",
           content:
-            "השב בעברית בלבד ובצורה ידידותית. הצג תשובה תמציתית וברורה. אין לציין מאיזה אתר נלקח המידע."
+            "אתה עוזר חכם המספק תשובות רלוונטיות מתוך אתרי שבתון ומורים בלבד. השב בעברית טבעית וברורה. אין לציין מאיזה אתר נלקח המידע. הצג תשובה תמציתית וברורה בלבד."
         },
         { role: "user", content: `שאלה: ${cleanMsg}\n\nעמודים רלוונטיים:\n${context}` }
       ],
@@ -142,11 +159,11 @@ export default async function handler(req, res) {
 
     const reply = completion.choices?.[0]?.message?.content || "לא נמצאה תשובה.";
 
-    // === תשובה עם DEBUG מפורט ===
+    // ✅ החזרה ללקוח (כולל Debug)
     return res.status(200).json({
       reply,
       ...(debug && {
-        debug: ranked.map((r) => ({
+        debug: uniqueRanked.map((r) => ({
           title: r.title,
           score: r.score.toFixed(3),
           matches: r.matches,
@@ -156,7 +173,7 @@ export default async function handler(req, res) {
       })
     });
   } catch (err) {
-    console.error("??", err);
+    console.error("💥 Error during /api/chat:", err);
     return res.status(500).json({ error: err.message });
   }
 }
