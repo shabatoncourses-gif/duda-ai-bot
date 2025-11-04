@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+﻿import dotenv from "dotenv";
 dotenv.config();
 
 import OpenAI from "openai";
@@ -42,7 +42,7 @@ function extractKeywordsHeb(str) {
     .split(" ")
     .map((w) =>
       w
-        .replace(/^[לבכמוהשה]/, "") // הסרת תחיליות
+        .replace(/^[לבכמוהשה]/, "") // תחיליות
         .replace(/(יים|ים|ות|ית|יי|י)$/, "") // סיומות
     )
     .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
@@ -109,6 +109,7 @@ export default async function handler(req, res) {
       ...morimIndex.map((p) => ({ ...p, source: "Morim" }))
     ];
 
+    // === דירוג לפי דמיון ו-Booster למילות מפתח ===
     const ranked = allPages
       .map((p) => {
         const score = cosineSimilarity(queryVector, p.vector);
@@ -132,34 +133,45 @@ export default async function handler(req, res) {
       });
     }
 
+    // === יצירת קונטקסט יפה ללא ציון מקור ===
     const context = uniqueRanked
-      .map(
-        (p) => `
-      🔹 <strong>${p.title?.replace(/["<>]/g, "")}</strong><br>
-      <a href="${decodeURI(p.url)}" target="_blank" rel="noopener noreferrer"
-         style="display:inline-block; background:#0078ff; color:white; padding:6px 10px;
-         border-radius:6px; font-weight:bold; text-decoration:none; margin-top:4px;">
-         למידע נוסף ↗️
-      </a>`
-      )
+      .map((p) => {
+        const decodedUrl = decodeURI(p.url.trim());
+        const cleanTitle = (p.title || "")
+          .replace(/\[.*?\]/g, "") // הסרת [Shabaton] / [Morim]
+          .replace(/["<>]/g, "")
+          .trim();
+
+        return `
+          🔹 <strong>${cleanTitle}</strong><br>
+          <a href="${decodedUrl}" target="_blank" rel="noopener noreferrer"
+             style="display:inline-block; background:#0078ff; color:white; padding:6px 10px;
+             border-radius:6px; font-weight:bold; text-decoration:none; margin-top:4px;">
+             למידע נוסף ↗️
+          </a>`;
+      })
       .join("<br><br>");
 
+    // === קריאה למודל GPT ===
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content:
-            "אתה עוזר חכם המספק תשובות רלוונטיות מתוך אתרי שבתון ומורים בלבד. השב בעברית טבעית וברורה. אין לציין מאיזה אתר נלקח המידע. הצג תשובה תמציתית וברורה בלבד."
+            "אתה עוזר חכם המספק תשובות רלוונטיות מתוך אתרי שבתון ומורים בלבד. השב בעברית טבעית וברורה. אל תציין את שם האתר או את מקור המידע. הצג תשובה תמציתית, ידידותית וברורה בלבד."
         },
-        { role: "user", content: `שאלה: ${cleanMsg}\n\nעמודים רלוונטיים:\n${context}` }
+        {
+          role: "user",
+          content: `שאלה: ${cleanMsg}\n\nעמודים רלוונטיים:\n${context}`
+        }
       ],
       temperature: 0.3
     });
 
     const reply = completion.choices?.[0]?.message?.content || "לא נמצאה תשובה.";
 
-    // ✅ החזרה ללקוח (כולל Debug)
+    // ✅ החזרה ללקוח כולל debug
     return res.status(200).json({
       reply,
       ...(debug && {
