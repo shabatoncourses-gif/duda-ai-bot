@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+﻿import dotenv from "dotenv";
 dotenv.config();
 
 import OpenAI from "openai";
@@ -55,7 +55,7 @@ async function loadIndexes() {
     fetch(`https://raw.githubusercontent.com/${repo}/${branch}/data/morim_index.json`)
   ]);
 
-  if (!shRes.ok || !moRes.ok) throw new Error("❌ Failed to load indexes");
+  if (!shRes.ok || !moRes.ok) throw new Error("? Failed to load indexes");
   const [shabatonIndex, morimIndex] = await Promise.all([shRes.json(), moRes.json()]);
 
   cache.data = { shabatonIndex, morimIndex };
@@ -71,13 +71,13 @@ export default async function handler(req, res) {
 
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method === "GET")
-    return res.status(200).json({ message: "✅ /api/chat פעיל." });
+    return res.status(200).json({ message: "? /api/chat פעיל." });
   if (req.method !== "POST")
-    return res.status(405).json({ error: "❌ POST בלבד." });
+    return res.status(405).json({ error: "? POST בלבד." });
 
   try {
     const { message, debug } = req.body || {};
-    if (!message) return res.status(400).json({ error: "❌ חסר message." });
+    if (!message) return res.status(400).json({ error: "? חסר message." });
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const cleanMsg = normalizeHebrew(message);
@@ -118,11 +118,11 @@ export default async function handler(req, res) {
     const context = ranked
       .map(
         (p) => `
-      🔹 <strong>${p.title?.replace(/["<>]/g, "")}</strong><br>
+      ?? <strong>${p.title?.replace(/["<>]/g, "")}</strong><br>
       <a href="${decodeURI(p.url)}" target="_blank" rel="noopener noreferrer"
          style="display:inline-block; background:#0078ff; color:white; padding:6px 10px;
          border-radius:6px; font-weight:bold; text-decoration:none; margin-top:4px;">
-         למידע נוסף ↗️
+         למידע נוסף ??
       </a>`
       )
       .join("<br><br>");
@@ -156,7 +156,7 @@ export default async function handler(req, res) {
       })
     });
   } catch (err) {
-    console.error("💥", err);
+    console.error("??", err);
     return res.status(500).json({ error: err.message });
   }
 }
