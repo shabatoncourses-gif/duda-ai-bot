@@ -223,11 +223,15 @@ export async function buildIndex(name, sitemapUrl, batchSize = 40) {
   console.log(`✅ ${name} הסתיים (${count} נוספו, ${done.length}/${urls.length})`);
 }
 
-// === ריצה ישירה ===
-if (process.argv[1].includes("autoBuildIndex.js")) {
-  (async () => {
-    await buildIndex("Shabaton", "https://www.shabaton.online/sitemap.xml", 40);
-    await buildIndex("Morim", "https://www.morim.boutique/sitemap.xml", 40);
-    console.log("🎉 כל האינדוקסים הושלמו!");
-  })();
+
+// === ריצה ישירה (לא בהרצה מתוך import) ===
+if (typeof process !== "undefined" && process.argv && Array.isArray(process.argv)) {
+  const entry = process.argv[1] || "";
+  if (entry.includes("autoBuildIndex.js")) {
+    (async () => {
+      await buildIndex("Shabaton", "https://www.shabaton.online/sitemap.xml", 40);
+      await buildIndex("Morim", "https://www.morim.boutique/sitemap.xml", 40);
+      console.log("🎉 כל האינדוקסים הושלמו!");
+    })();
+  }
 }
