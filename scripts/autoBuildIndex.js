@@ -24,21 +24,46 @@ const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 // === 🧩 טיפול מתקדם בכתובות עברית/אנגלית ===
 function normalizeUrl(url) {
   try {
+    if (!url) return "";
     url = url.trim();
+
+    // אם אין http או https, נוסיף
     if (!/^https?:\/\//i.test(url)) url = "https://" + url;
 
+    // נבנה אובייקט URL אמיתי
     const u = new URL(url);
-    u.pathname = u.pathname
-      .split("/")
-      .map(seg => encodeURIComponent(decodeURIComponent(seg)))
-      .join("/");
 
-    return u.toString().replace(/\s+/g, "");
+    // נפרק את הנתיב למקטעים (path segments)
+    const parts = u.pathname.split("/").map(seg => {
+      if (!seg) return "";
+      try {
+        // נבדוק אם המקטע כבר מכיל תווים תקינים
+        const decoded = decodeURIComponent(seg);
+        // אם יש עברית או רווחים - נקודד, אחרת נשאיר
+        return /[^\u0000-\u007F]/.test(decoded)
+          ? encodeURIComponent(decoded)
+          : decoded;
+      } catch {
+        // fallback אם decode נכשל
+        return encodeURIComponent(seg);
+      }
+    });
+
+    u.pathname = parts.join("/");
+
+    // ניקוי רווחים או תווים לא חוקיים
+    let clean = u.toString().replace(/\s+/g, "");
+
+    // הסרה של קידוד יתר כפול (%25)
+    clean = clean.replace(/%25/g, "%");
+
+    return clean;
   } catch (err) {
-    console.warn("⚠️ normalizeUrl error:", err.message, "→", url);
+    console.warn("⚠️ normalizeUrl failed:", err.message, url);
     return encodeURI(url);
   }
 }
+
 
 // === קריאת Sitemap ===
 async function getUrlsFromSitemap(sitemapUrl) {
