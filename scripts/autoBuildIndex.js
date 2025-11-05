@@ -21,46 +21,21 @@ if (!process.env.OPENAI_API_KEY) {
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-// === 🧩 טיפול מתקדם בכתובות עברית/אנגלית ===
-function normalizeUrl(url) {
+// === 🧩 טיפול מתקדם בכתובות עברית/אנגלית ===function normalizeUrl(url) {
   try {
     if (!url) return "";
-    url = url.trim();
+    let clean = url.trim();
 
-    // אם אין http או https, נוסיף
-    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+    // הוספת https אם חסר
+    if (!/^https?:\/\//i.test(clean)) clean = "https://" + clean;
 
-    // נבנה אובייקט URL אמיתי
-    const u = new URL(url);
-
-    // נפרק את הנתיב למקטעים (path segments)
-    const parts = u.pathname.split("/").map(seg => {
-      if (!seg) return "";
-      try {
-        // נבדוק אם המקטע כבר מכיל תווים תקינים
-        const decoded = decodeURIComponent(seg);
-        // אם יש עברית או רווחים - נקודד, אחרת נשאיר
-        return /[^\u0000-\u007F]/.test(decoded)
-          ? encodeURIComponent(decoded)
-          : decoded;
-      } catch {
-        // fallback אם decode נכשל
-        return encodeURIComponent(seg);
-      }
-    });
-
-    u.pathname = parts.join("/");
-
-    // ניקוי רווחים או תווים לא חוקיים
-    let clean = u.toString().replace(/\s+/g, "");
-
-    // הסרה של קידוד יתר כפול (%25)
-    clean = clean.replace(/%25/g, "%");
+    // ניקוי רווחים, סימני שאלה מיותרים, תווים לא חוקיים
+    clean = clean.replace(/\s+/g, "").replace(/(?<=https?:)\/{3,}/, "//");
 
     return clean;
   } catch (err) {
     console.warn("⚠️ normalizeUrl failed:", err.message, url);
-    return encodeURI(url);
+    return url;
   }
 }
 
@@ -102,15 +77,9 @@ async function safeFetch(url, retries = 3) {
           "Accept":
             "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
           "Accept-Language": "he,en-US;q=0.9,en;q=0.8",
+          "Accept-Charset": "utf-8", // ✅ קריטי
           "Cache-Control": "no-cache",
-          "Pragma": "no-cache",
-          "Upgrade-Insecure-Requests": "1",
-          "DNT": "1",
           "Connection": "keep-alive",
-          "Sec-Fetch-Dest": "document",
-          "Sec-Fetch-Mode": "navigate",
-          "Sec-Fetch-Site": "none",
-          "Sec-Fetch-User": "?1"
         },
         timeout: 20000,
       });
@@ -120,21 +89,19 @@ async function safeFetch(url, retries = 3) {
         console.warn(`🚫 דף לא נמצא (${res.status}): ${url}`);
         return null;
       }
-
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
       return res;
 
     } catch (err) {
       console.warn(`⚠️ ניסיון ${attempt}/${retries} נכשל עבור ${url}: ${err.message}`);
-      if (attempt < retries) {
-        await delay(4000 + Math.random() * 2000);
-      } else {
-        console.error(`❌ נכשל לצמיתות: ${url}`);
-      }
+      if (attempt < retries) await delay(4000 + Math.random() * 2000);
+      else console.error(`❌ נכשל לצמיתות: ${url}`);
     }
   }
   return null;
 }
+
 
 // === חילוץ תוכן חכם עם סינון תפריטים ===
 function extractSmartContent(html) {
