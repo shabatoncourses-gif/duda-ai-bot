@@ -19,33 +19,26 @@ if (!process.env.OPENAI_API_KEY) {
 }
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-
 
 // === 🧩 טיפול מתקדם בכתובות עברית/אנגלית ===
 function normalizeUrl(url) {
   try {
     url = url.trim();
-
-    // במידה ואין פרוטוקול
     if (!/^https?:\/\//i.test(url)) url = "https://" + url;
 
     const u = new URL(url);
-    // קידוד חלקי של path (עברית, רווחים וכו')
     u.pathname = u.pathname
       .split("/")
       .map(seg => encodeURIComponent(decodeURIComponent(seg)))
       .join("/");
 
-    // ניקוי רווחים ושאריות
     return u.toString().replace(/\s+/g, "");
   } catch (err) {
     console.warn("⚠️ normalizeUrl error:", err.message, "→", url);
     return encodeURI(url);
   }
 }
-
 
 // === קריאת Sitemap ===
 async function getUrlsFromSitemap(sitemapUrl) {
@@ -66,14 +59,14 @@ async function getUrlsFromSitemap(sitemapUrl) {
   console.log(`🔗 נמצאו ${urls.length} דפים.`);
   return urls;
 }
-// === safeFetch מתקדם עם headers מלאים והשהייה בין בקשות ===
+
+// === safeFetch יציב ===
 async function safeFetch(url, retries = 3) {
   const cleaned = normalizeUrl(url);
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      // עיכוב אקראי בין בקשות (1.5–4 שניות)
-      await new Promise(r => setTimeout(r, 1500 + Math.random() * 2500));
+      await delay(1500 + Math.random() * 2500);
 
       const res = await fetch(cleaned, {
         method: "GET",
@@ -109,50 +102,25 @@ async function safeFetch(url, retries = 3) {
     } catch (err) {
       console.warn(`⚠️ ניסיון ${attempt}/${retries} נכשל עבור ${url}: ${err.message}`);
       if (attempt < retries) {
-        await new Promise(r => setTimeout(r, 4000 + Math.random() * 2000));
+        await delay(4000 + Math.random() * 2000);
       } else {
         console.error(`❌ נכשל לצמיתות: ${url}`);
       }
     }
   }
-
   return null;
 }
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res;
-    } catch (err) {
-      console.warn(`⚠️ Fetch error (${i + 1}/${retries}) for ${url}: ${err.message}`);
-      await delay(3000 + Math.random() * 2000);
-    }
-  }
-  console.error(`❌ נכשל לאחר ${retries} ניסיונות (${url})`);
-  return null;
-}
 // === חילוץ תוכן חכם עם סינון תפריטים ===
 function extractSmartContent(html) {
   const $ = cheerio.load(html);
 
-  // מחיקת אזורים לא רלוונטיים
   [
-    "header",
-    "footer",
-    "nav",
-    ".menu",
-    ".breadcrumb",
-    ".breadcrumbs",
-    ".sidebar",
-    ".footer",
-    ".header",
-    ".navbar",
-    ".topbar",
-    "script",
-    "style",
-    "noscript",
-    "form",
+    "header", "footer", "nav", ".menu", ".breadcrumb", ".breadcrumbs",
+    ".sidebar", ".footer", ".header", ".navbar", ".topbar",
+    "script", "style", "noscript", "form"
   ].forEach((sel) => $(sel).remove());
 
-  // הסרת רצפי קישורים פנימיים (תפריטים בתוך גוף הדף)
   $("a").each((_, el) => {
     const txt = $(el).text().trim();
     if (txt.length < 3 || /^[|›»•\s]+$/.test(txt)) $(el).remove();
@@ -161,7 +129,6 @@ function extractSmartContent(html) {
   const title = $("title").text().trim() || $("h1").first().text().trim();
   const desc = $('meta[name="description"]').attr("content") || "";
 
-  // איסוף טקסטים משמעותיים בלבד
   const parts = [];
   $("h1,h2,h3,h4,h5,h6,p,li,blockquote").each((_, el) => {
     const t = $(el).text().trim();
@@ -170,13 +137,9 @@ function extractSmartContent(html) {
     }
   });
 
-  // סינון כפילויות וטקסטים חוזרים
   const unique = Array.from(new Set(parts));
-
   const fullText = [desc, ...unique].join(" ").replace(/\s+/g, " ").trim();
-  const clean = fullText.slice(0, 7000); // מגבלת תוכן
-
-  return { title: title || "ללא כותרת", text: clean };
+  return { title: title || "ללא כותרת", text: fullText.slice(0, 7000) };
 }
 
 // === יצירת embedding ===
@@ -234,19 +197,21 @@ async function uploadToGitHub(filePath, message) {
   }
 }
 
-// === תהליך אינדוקס ===
+// === בניית אינדקס ===
 export async function buildIndex(name, sitemapUrl, batchSize = 40) {
   const dataDir = path.join(process.cwd(), "data");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
   const indexPath = path.join(dataDir, `${name.toLowerCase()}_index.json`);
   const donePath = path.join(dataDir, `${name.toLowerCase()}_done.json`);
+  const failedPath = path.join(dataDir, `${name.toLowerCase()}_failed.json`);
 
   const urls = await getUrlsFromSitemap(sitemapUrl);
   let done = fs.existsSync(donePath) ? JSON.parse(fs.readFileSync(donePath, "utf8")) : [];
+  let failed = fs.existsSync(failedPath) ? JSON.parse(fs.readFileSync(failedPath, "utf8")) : [];
   let pages = fs.existsSync(indexPath) ? JSON.parse(fs.readFileSync(indexPath, "utf8")) : [];
 
-  const pending = urls.filter((u) => !done.includes(u));
+  const pending = urls.filter((u) => !done.includes(u) && !failed.includes(u));
   console.log(`🕓 נותרו ${pending.length} דפים לאינדוקס`);
 
   const batch = pending.slice(0, batchSize);
@@ -257,27 +222,44 @@ export async function buildIndex(name, sitemapUrl, batchSize = 40) {
     if (page) {
       pages.push(page);
       count++;
+      done.push(url);
+    } else {
+      failed.push(url);
     }
-    done.push(url);
+
     fs.writeFileSync(indexPath, JSON.stringify(pages, null, 2));
     fs.writeFileSync(donePath, JSON.stringify(done, null, 2));
+    fs.writeFileSync(failedPath, JSON.stringify(failed, null, 2));
   }
 
   await uploadToGitHub(indexPath, `🤖 עדכון ${name} (${done.length}/${urls.length})`);
   await uploadToGitHub(donePath, `📘 שמירת התקדמות ${name}`);
+  await uploadToGitHub(failedPath, `❗ רשימת כשלונות ${name}`);
 
   console.log(`✅ ${name} הסתיים (${count} נוספו, ${done.length}/${urls.length})`);
+  return pending.length > batchSize;
 }
 
-
-// === ריצה ישירה (לא בהרצה מתוך import) ===
-if (typeof process !== "undefined" && process.argv && Array.isArray(process.argv)) {
-  const entry = process.argv[1] || "";
-  if (entry.includes("autoBuildIndex.js")) {
-    (async () => {
-      await buildIndex("Shabaton", "https://www.shabaton.online/sitemap.xml", 40);
-      await buildIndex("Morim", "https://www.morim.boutique/sitemap.xml", 40);
-      console.log("🎉 כל האינדוקסים הושלמו!");
-    })();
+// === ריצה מלאה עד לסיום ===
+export async function runFullIndexing(name, sitemapUrl, batchSize = 40) {
+  console.log(`🏁 מתחיל אינדוקס מלא ל-${name}`);
+  let more = true;
+  while (more) {
+    more = await buildIndex(name, sitemapUrl, batchSize);
+    if (more) {
+      console.log("⏳ מחכה 5 שניות לפני קבוצה הבאה...");
+      await delay(5000);
+    }
   }
+  console.log(`✅ אינדוקס ${name} הסתיים בהצלחה`);
+}
+
+// === זיהוי ריצה ישירה ===
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const name = process.argv[2] || "Shabaton";
+  const sitemap = process.argv[3] || "https://www.shabaton.online/sitemap.xml";
+  const batchSize = Number(process.env.BATCH_SIZE) || 40;
+
+  console.log(`🚀 מריץ אינדוקס ישיר עבור ${name}`);
+  runFullIndexing(name, sitemap, batchSize);
 }
