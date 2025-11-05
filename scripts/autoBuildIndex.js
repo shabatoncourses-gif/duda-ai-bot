@@ -22,17 +22,30 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-// === 🧩 טיפול נכון בכתובות עברית/אנגלית ===
+
+// === 🧩 טיפול מתקדם בכתובות עברית/אנגלית ===
 function normalizeUrl(url) {
   try {
-    url = url.trim().replace(/\s+/g, "");
+    url = url.trim();
+
+    // במידה ואין פרוטוקול
+    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+
     const u = new URL(url);
-    u.pathname = encodeURI(decodeURI(u.pathname));
-    return u.toString();
-  } catch {
+    // קידוד חלקי של path (עברית, רווחים וכו')
+    u.pathname = u.pathname
+      .split("/")
+      .map(seg => encodeURIComponent(decodeURIComponent(seg)))
+      .join("/");
+
+    // ניקוי רווחים ושאריות
+    return u.toString().replace(/\s+/g, "");
+  } catch (err) {
+    console.warn("⚠️ normalizeUrl error:", err.message, "→", url);
     return encodeURI(url);
   }
 }
+
 
 // === קריאת Sitemap ===
 async function getUrlsFromSitemap(sitemapUrl) {
@@ -54,19 +67,32 @@ async function getUrlsFromSitemap(sitemapUrl) {
   return urls;
 }
 
-// === Fetch בטוח עם תמיכה בעברית ===
+// === Fetch בטוח עם תמיכה בקידוד ו-retry אמיתי ===
 async function safeFetch(url, retries = 3) {
   const cleaned = normalizeUrl(url);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
   for (let i = 0; i < retries; i++) {
     try {
       const res = await fetch(cleaned, {
+        method: "GET",
+        redirect: "follow",
+        signal: controller.signal,
         headers: {
           "User-Agent":
-            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
-          "Accept-Language": "he,en;q=0.9",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127 Safari/537.36",
+          "Accept":
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "he,en-US;q=0.8,en;q=0.7",
+          "Connection": "keep-alive",
+          "Cache-Control": "no-cache",
         },
       });
 
+      clearTimeout(timeout);
+
+      if (res.status >= 500) throw new Error(`Server error ${res.status}`);
       if (res.status === 404) {
         console.warn(`🚫 דף לא נמצא (${res.status}): ${url}`);
         return null;
@@ -76,13 +102,12 @@ async function safeFetch(url, retries = 3) {
       return res;
     } catch (err) {
       console.warn(`⚠️ Fetch error (${i + 1}/${retries}) for ${url}: ${err.message}`);
-      await delay(2000 + Math.random() * 1000);
+      await delay(3000 + Math.random() * 2000);
     }
   }
   console.error(`❌ נכשל לאחר ${retries} ניסיונות (${url})`);
   return null;
 }
-
 // === חילוץ תוכן חכם עם סינון תפריטים ===
 function extractSmartContent(html) {
   const $ = cheerio.load(html);
