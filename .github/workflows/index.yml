@@ -1,0 +1,65 @@
+# .github/workflows/index.yml
+name: Index Sites (Manual + Weekly)
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: 'Batch size per cycle (recommended 60–120)'
+        required: false
+        default: '80'
+  schedule:
+    # כל יום ראשון 01:00 Asia/Jerusalem בערך (GitHub עובד ב-UTC; 23:00 UTC = 01:00 IL בחורף)
+    - cron: '0 23 * * 6'
+
+jobs:
+  index:
+    name: Run full indexing on GitHub runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 360   # עד 6 שעות
+
+    env:
+      # חובה: שימי את המפתחות ב-Secrets של הרפו
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      # אם יש לך Personal Access Token בשם GH_CONTENT_TOKEN עם repo:contents
+      GITHUB_TOKEN: ${{ secrets.GH_CONTENT_TOKEN }}
+      # או, אם אין – uploadToGitHub יוכל לעבוד גם עם github.token, אבל עדיף PAT
+      GITHUB_REPO: shabatoncourses-gif/duda-ai-bot
+      GITHUB_BRANCH: main
+      # בחירת batch מהקלט, עם ברירת מחדל חכמה
+      BATCH_SIZE: ${{ github.event.inputs.batch_size || '80' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        run: npm ci || npm i
+
+      - name: Show inputs
+        run: |
+          echo "Batch size: ${BATCH_SIZE}"
+
+      - name: Run Shabaton full indexing (looping batches until done)
+        run: |
+          node -e "import('./scripts/autoBuildIndex.js').then(m => m.runFullIndexing ? m.runFullIndexing('Shabaton','https://www.shabaton.online/sitemap.xml', Number(process.env.BATCH_SIZE)) : (async()=>{let more=true;while(more){more=await m.buildIndex('Shabaton','https://www.shabaton.online/sitemap.xml', Number(process.env.BATCH_SIZE)); if(more) await new Promise(r=>setTimeout(r,3000));}})())"
+
+      - name: Run Morim full indexing (looping batches until done)
+        run: |
+          node -e "import('./scripts/autoBuildIndex.js').then(m => m.runFullIndexing ? m.runFullIndexing('Morim','https://www.morim.boutique/sitemap.xml', Number(process.env.BATCH_SIZE)) : (async()=>{let more=true;while(more){more=await m.buildIndex('Morim','https://www.morim.boutique/sitemap.xml', Number(process.env.BATCH_SIZE)); if(more) await new Promise(r=>setTimeout(r,3000));}})())"
+
+      # לא חובה, אבל נוח לשימור לוגים/JSON גם כ-Artifact
+      - name: Upload data/ as artifact (optional)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-json-snap
+          path: data/*.json
+          if-no-files-found: ignore
