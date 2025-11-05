@@ -66,37 +66,58 @@ async function getUrlsFromSitemap(sitemapUrl) {
   console.log(`🔗 נמצאו ${urls.length} דפים.`);
   return urls;
 }
-
-// === Fetch בטוח עם תמיכה בקידוד ו-retry אמיתי ===
+// === safeFetch מתקדם עם headers מלאים והשהייה בין בקשות ===
 async function safeFetch(url, retries = 3) {
   const cleaned = normalizeUrl(url);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
 
-  for (let i = 0; i < retries; i++) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
     try {
+      // עיכוב אקראי בין בקשות (1.5–4 שניות)
+      await new Promise(r => setTimeout(r, 1500 + Math.random() * 2500));
+
       const res = await fetch(cleaned, {
         method: "GET",
         redirect: "follow",
-        signal: controller.signal,
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127 Safari/537.36",
           "Accept":
             "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-          "Accept-Language": "he,en-US;q=0.8,en;q=0.7",
-          "Connection": "keep-alive",
+          "Accept-Language": "he,en-US;q=0.9,en;q=0.8",
           "Cache-Control": "no-cache",
+          "Pragma": "no-cache",
+          "Upgrade-Insecure-Requests": "1",
+          "DNT": "1",
+          "Connection": "keep-alive",
+          "Sec-Fetch-Dest": "document",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Site": "none",
+          "Sec-Fetch-User": "?1"
         },
+        timeout: 20000,
       });
-
-      clearTimeout(timeout);
 
       if (res.status >= 500) throw new Error(`Server error ${res.status}`);
       if (res.status === 404) {
         console.warn(`🚫 דף לא נמצא (${res.status}): ${url}`);
         return null;
       }
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res;
+
+    } catch (err) {
+      console.warn(`⚠️ ניסיון ${attempt}/${retries} נכשל עבור ${url}: ${err.message}`);
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, 4000 + Math.random() * 2000));
+      } else {
+        console.error(`❌ נכשל לצמיתות: ${url}`);
+      }
+    }
+  }
+
+  return null;
+}
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res;
