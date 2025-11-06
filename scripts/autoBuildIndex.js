@@ -5,7 +5,6 @@ import path from "path";
 import fetch from "node-fetch";
 import OpenAI from "openai";
 import dotenv from "dotenv";
-
 dotenv.config();
 
 // === הגדרות כלליות ===
@@ -15,6 +14,12 @@ const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
 
 if (!process.env.OPENAI_API_KEY) {
   console.error("❌ חסר מפתח OPENAI_API_KEY בקובץ .env");
+  process.exit(1);
+}
+
+if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.startsWith("sk-")) {
+  console.error("❌ OPENAI_API_KEY לא תקין או לא נטען");
+  console.error("ערך שקיבלתי:", process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.slice(0, 8) + "..." : "(ריק)");
   process.exit(1);
 }
 
