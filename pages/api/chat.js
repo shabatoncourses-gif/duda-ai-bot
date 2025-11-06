@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+﻿import dotenv from "dotenv";
 dotenv.config();
 
 import OpenAI from "openai";
@@ -148,33 +148,45 @@ export default async function handler(req, res) {
       });
     }
 
-    // === יצירת קונטקסט יפה ללא ציון מקור ===
-    const context = uniqueRanked
-      .map((p) => {
-        const decodedUrl = decodeURI(p.url.trim());
-        const cleanTitle = (p.title || "")
-          .replace(/\[.*?\]/g, "")
-          .replace(/["<>]/g, "")
-          .trim();
-        return `
-          🔹 <strong>${cleanTitle}</strong><br>
-          <a href="${decodedUrl}" target="_blank" rel="noopener noreferrer"
-             style="display:inline-block; background:#0078ff; color:white; padding:6px 10px;
-             border-radius:6px; font-weight:bold; text-decoration:none; margin-top:4px;">
-             למידע נוסף ↗️
-          </a>`;
-      })
-      .join("<br><br>");
+    // === יצירת קונטקסט יפה ונקי ===
+const context = uniqueRanked
+  .map((p) => {
+    const decodedUrl = decodeURI(p.url.trim());
+    const cleanTitle = (p.title || "")
+      .replace(/\[.*?\]/g, "")              // הסרת סוגריים מרובעים
+      .replace(/\(.*?\)/g, "")              // הסרת סוגריים עגולים
+      .replace(/["<>]/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
+    return `
+      🔹 <strong>${cleanTitle}</strong><br>
+      <a href="${decodedUrl}" target="_blank" rel="noopener noreferrer"
+         style="display:inline-block; background:#0078ff; color:white; padding:6px 10px;
+         border-radius:6px; font-weight:bold; text-decoration:none; margin-top:4px;">
+         למידע נוסף ↗️
+      </a>`;
+  })
+  .join("<br><br>");
 
     // === יצירת תשובה עם GPT ===
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        {
+        	
+		{
           role: "system",
-          content:
-            "אתה עוזר חכם המספק תשובות רלוונטיות מתוך מאגרי שבתון ומורים בלבד. השב בעברית בלבד, בצורה ידידותית וברורה. אל תציין מאיזה אתר נלקח המידע ואל תשתמש בסוגריים מרובעים. הצג קישורים רק ככפתור 'למידע נוסף ↗️'."
-        },
+          content: `
+            אתה עוזר חכם המספק תשובות מדויקות על קורסים מתוך מאגרי שבתון ומורים בלבד.
+            עליך לזהות היטב את כוונת המשתמש – אם הוא מבקש "לימודי גישור" או "קורסי גישור",
+            התייחס לכך כרצף אחד ("קורס גישור") ולא כמילים נפרדות.
+            השב בעברית בלבד, בניסוח טבעי וברור.
+            אל תציין מאיזה אתר נלקח המידע.
+            אל תשתמש בסוגריים מרובעים או עגולים כלל.
+            הצג רק קישורים ככפתור 'למידע נוסף ↗️', בלי טקסט טכני נוסף.
+            `
+},
+
         {
           role: "user",
           content: `שאלה: ${cleanMsg}\n\nעמודים רלוונטיים:\n${context}`
