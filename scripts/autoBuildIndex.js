@@ -21,39 +21,34 @@ if (!process.env.OPENAI_API_KEY) {
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-// === 🧩 טיפול נכון בכתובות עברית/אנגלית ===
+// === 🧩 קידוד תקין לעברית באנגלית ב־URL ===
 function normalizeUrl(url) {
   try {
-    url = url.trim().replace(/\s+/g, "");
-    const u = new URL(url);
-    u.pathname = encodeURI(decodeURI(u.pathname));
+    if (!url) return "";
+    let clean = url.trim();
+    if (!/^https?:\/\//i.test(clean)) clean = "https://" + clean;
+    const u = new URL(clean);
+    u.pathname = encodeURI(decodeURI(u.pathname)); // קידוד תקני
     return u.toString();
   } catch {
     return encodeURI(url);
   }
 }
 
-// === קריאת Sitemap עם headers אמינים ===
+// === קריאת sitemap עם headers אמינים ===
 async function getUrlsFromSitemap(sitemapUrl) {
   console.log(`📥 קורא sitemap: ${sitemapUrl}`);
   const res = await fetch(sitemapUrl, {
     headers: {
       "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
       "Accept": "application/xml,text/xml,*/*;q=0.9",
       "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
-      "Cache-Control": "no-cache",
-      "Pragma": "no-cache",
       "Connection": "keep-alive",
     },
   });
 
-  if (res.status === 403) {
-    console.warn(`🚫 חסימת גישה ל-sitemap (${sitemapUrl}) — ייתכן שהאתר חוסם בוטים`);
-  }
-
   if (!res.ok) throw new Error(`❌ שגיאה בקריאת sitemap (${res.status})`);
-
   const xml = await res.text();
   const matches = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)];
   const urls = matches.map((m) => m[1].trim()).filter(Boolean);
@@ -61,67 +56,72 @@ async function getUrlsFromSitemap(sitemapUrl) {
   return urls;
 }
 
-// === Fetch בטוח עם תמיכה בעברית וחסימות ===
+// === Fetch בטוח עם retry ו־Proxy ===
 async function safeFetch(url, retries = 3) {
   const cleaned = normalizeUrl(url);
-  for (let i = 0; i < retries; i++) {
+
+  for (let i = 1; i <= retries; i++) {
     try {
+      // השהייה אקראית כדי לא לעורר חסימה
+      await delay(1500 + Math.random() * 2000);
+
       const res = await fetch(cleaned, {
+        method: "GET",
+        redirect: "follow",
         headers: {
           "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "he,en;q=0.9",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+          "Accept":
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "he,en-US;q=0.9,en;q=0.8",
+          "Referer": "https://www.google.com/",
           "Connection": "keep-alive",
+          "DNT": "1",
         },
+        timeout: 20000,
       });
 
+      if (res.ok) return res;
+
+      if ([403, 429].includes(res.status)) {
+        console.warn(`⏳ חסימה זמנית (${res.status}) עבור ${url}`);
+        await delay(5000);
+        continue;
+      }
+
       if (res.status === 404) {
-        const altUrl = encodeURI(url);
-        if (altUrl !== cleaned) {
-          console.warn(`🌀 ניסיון נוסף ל-${altUrl}`);
-          const retry = await fetch(altUrl);
-          if (retry.ok) return retry;
-        }
         console.warn(`🚫 דף לא נמצא (${res.status}): ${url}`);
         return null;
       }
 
-      if (res.status === 403) {
-        console.warn(`⚠️ חסימה זמנית ב-${url} — ממתין ל-retry`);
-        await delay(3000);
-        continue;
-      }
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res;
+      throw new Error(`HTTP ${res.status}`);
     } catch (err) {
-      console.warn(`⚠️ שגיאת חיבור (${i + 1}/${retries}) עבור ${url}: ${err.message}`);
-      await delay(3000 + Math.random() * 1500);
+      console.warn(`⚠️ שגיאת ניסיון ${i}/${retries} עבור ${url}: ${err.message}`);
+      if (i === retries) {
+        // ניסיון אחרון דרך Proxy
+        try {
+          const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(cleaned)}`;
+          console.log(`🔁 ניסיון דרך proxy: ${proxyUrl}`);
+          const proxyRes = await fetch(proxyUrl);
+          if (proxyRes.ok) {
+            const json = await proxyRes.json();
+            return { ok: true, text: async () => json.contents };
+          }
+        } catch (proxyErr) {
+          console.warn(`❌ גם proxy נכשל: ${proxyErr.message}`);
+        }
+      }
+      await delay(3000 + Math.random() * 2000);
     }
   }
 
-  // 🔁 Fallback: ניסיון דרך proxy פשוט (אם קיים)
-  try {
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(cleaned)}`;
-    console.log(`🔁 ניסיון גיבוי דרך proxy: ${proxyUrl}`);
-    const proxyRes = await fetch(proxyUrl);
-    if (proxyRes.ok) {
-      const json = await proxyRes.json();
-      return { ok: true, text: async () => json.contents };
-    }
-  } catch (proxyErr) {
-    console.warn(`❌ גם proxy נכשל (${url}): ${proxyErr.message}`);
-  }
-
-  console.error(`❌ נכשל לאחר ${retries} ניסיונות (${url})`);
+  console.error(`❌ נכשל סופית: ${url}`);
   return null;
 }
 
-// === חילוץ תוכן חכם עם סינון תפריטים ===
+// === חילוץ טקסט משמעותי בלבד ===
 function extractSmartContent(html) {
   const $ = cheerio.load(html);
-
   [
     "header", "footer", "nav", ".menu", ".breadcrumb", ".breadcrumbs",
     ".sidebar", ".footer", ".header", ".navbar", ".topbar",
@@ -139,9 +139,7 @@ function extractSmartContent(html) {
   const parts = [];
   $("h1,h2,h3,h4,h5,h6,p,li,blockquote").each((_, el) => {
     const t = $(el).text().trim();
-    if (t && t.length > 15 && !/^(\s*קורסים\s*|\s*מאמרים\s*|\s*כניסה\s*)$/i.test(t)) {
-      parts.push(t);
-    }
+    if (t && t.length > 15) parts.push(t);
   });
 
   const unique = Array.from(new Set(parts));
@@ -149,7 +147,7 @@ function extractSmartContent(html) {
   return { title: title || "ללא כותרת", text: fullText.slice(0, 7000) };
 }
 
-// === יצירת embedding ===
+// === יצירת embedding לכל דף ===
 async function processPage(url) {
   try {
     const res = await safeFetch(url);
@@ -157,8 +155,9 @@ async function processPage(url) {
 
     const html = await res.text();
     const { title, text } = extractSmartContent(html);
-    if (!text || text.length < 50) {
-      console.log(`⚠️ דילוג על דף קצר או ריק: ${url}`);
+
+    if (!text || text.length < 80) {
+      console.log(`⚠️ דף קצר מדי: ${url}`);
       return null;
     }
 
@@ -182,6 +181,7 @@ async function uploadToGitHub(filePath, message) {
       console.warn("⚠️ חסרים פרטי GitHub (לא יועלה)");
       return;
     }
+
     const content = fs.readFileSync(filePath, "utf8");
     const encoded = Buffer.from(content).toString("base64");
     const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/data/${path.basename(filePath)}?ref=${GITHUB_BRANCH}`;
@@ -204,7 +204,7 @@ async function uploadToGitHub(filePath, message) {
   }
 }
 
-// === בניית אינדקס ===
+// === תהליך האינדוקס בפועל ===
 export async function buildIndex(name, sitemapUrl, batchSize = 40) {
   const dataDir = path.join(process.cwd(), "data");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -247,7 +247,7 @@ export async function buildIndex(name, sitemapUrl, batchSize = 40) {
   return pending.length > batchSize;
 }
 
-// === ריצה מלאה עד לסיום ===
+// === ריצה מלאה ===
 export async function runFullIndexing(name, sitemapUrl, batchSize = 40) {
   console.log(`🏁 מתחיל אינדוקס מלא ל-${name}`);
   let more = true;
@@ -262,22 +262,12 @@ export async function runFullIndexing(name, sitemapUrl, batchSize = 40) {
 }
 
 // === זיהוי ריצה ישירה ===
-async function main() {
-  try {
+if (import.meta.url === `file://${process.argv[1]}`) {
+  (async () => {
     const name = process.argv[2] || "Shabaton";
     const sitemap = process.argv[3] || "https://www.shabaton.online/sitemap.xml";
     const batchSize = Number(process.env.BATCH_SIZE) || 40;
-
     console.log(`🚀 מריץ אינדוקס ישיר עבור ${name}`);
     await runFullIndexing(name, sitemap, batchSize);
-  } catch (err) {
-    console.error("💥 שגיאה בריצה הראשית:", err.message);
-    process.exit(1);
-  }
+  })();
 }
-
-// נבדוק אם הקובץ מורץ ישירות
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
-}
-
