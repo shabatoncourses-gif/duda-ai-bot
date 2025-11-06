@@ -20,16 +20,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360   # עד 6 שעות
 
-    env:
-      # חובה: שימי את המפתחות ב-Secrets של הרפו
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      # אם יש לך Personal Access Token בשם GH_CONTENT_TOKEN עם repo:contents
-      GITHUB_TOKEN: ${{ secrets.GH_CONTENT_TOKEN }}
-      # או, אם אין – uploadToGitHub יוכל לעבוד גם עם github.token, אבל עדיף PAT
-      GITHUB_REPO: shabatoncourses-gif/duda-ai-bot
-      GITHUB_BRANCH: main
-      # בחירת batch מהקלט, עם ברירת מחדל חכמה
-      BATCH_SIZE: ${{ github.event.inputs.batch_size || '80' }}
+env:
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GITHUB_REPO: shabatoncourses-gif/duda-ai-bot
+  GITHUB_BRANCH: main
+  BATCH_SIZE: ${{ github.event.inputs.batch_size || '80' }}
 
     steps:
       - name: Checkout
