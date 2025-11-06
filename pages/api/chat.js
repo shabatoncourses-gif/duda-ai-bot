@@ -49,6 +49,17 @@ function extractKeywordsHeb(str) {
     .filter((w, i, arr) => arr.indexOf(w) === i);
 }
 
+// ===== זיהוי אזור גיאוגרפי או אונליין =====
+function detectRegion(text) {
+  const t = normalizeHebrew(text);
+  if (/ירושלים|ירושלמ/i.test(t)) return "jerusalem";
+  if (/תל ?אביב|מרכז|גוש דן|הרצליה|פתח תקוה|רמת גן|גבעתיים|חולון|בת ים|המרכז/i.test(t)) return "merkaz";
+  if (/צפון|חיפה|גליל|נהריה|טבריה|עמק/i.test(t)) return "north";
+  if (/דרום|באר ?שבע|אשדוד|אשקלון|נגב/i.test(t)) return "south";
+  if (/אונליין|מקוון|zoom|זום|למידה מרחוק|למידה מקוונת|קורס מקוון|קורס בזום/i.test(t)) return "online";
+  return null;
+}
+
 // ===== טעינת אינדקסים =====
 async function loadIndexes() {
   const now = Date.now();
@@ -105,6 +116,7 @@ export default async function handler(req, res) {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const cleanMsg = normalizeHebrew(message);
     const keywords = extractKeywordsHeb(cleanMsg);
+    const userRegion = detectRegion(cleanMsg);
 
     // === נבנה גם רצף מלא וגם גרסה מקוצרת ===
     const [embeddingFull, embeddingKeywords] = await Promise.all([
@@ -131,7 +143,16 @@ export default async function handler(req, res) {
         const matched = keywords.filter((kw) => cleanText.includes(kw));
         const phraseBonus = cleanText.includes(cleanMsg) ? 0.25 : 0;
         const keywordBoost = matched.length * 0.05;
-        const score = Math.max(simFull, simKey) + phraseBonus + keywordBoost;
+
+        // === 🎯 בונוס לפי אזור ===
+        let regionBoost = 0;
+        if (userRegion) {
+          if (p.url.includes(userRegion)) regionBoost = 0.25; // התאמה ישירה
+          else if (/results-all|courses-per-month/.test(p.url)) regionBoost = 0.05; // עמוד כללי - בונוס קטן
+          else regionBoost = -0.15; // לא באותו אזור - ניקוד שלילי
+        }
+
+        const score = Math.max(simFull, simKey) + phraseBonus + keywordBoost + regionBoost;
         return { ...p, score, matches: matched };
       })
       .filter((p) => p.score > 0.25)
@@ -149,44 +170,42 @@ export default async function handler(req, res) {
     }
 
     // === יצירת קונטקסט יפה ונקי ===
-const context = uniqueRanked
-  .map((p) => {
-    const decodedUrl = decodeURI(p.url.trim());
-    const cleanTitle = (p.title || "")
-      .replace(/\[.*?\]/g, "")              // הסרת סוגריים מרובעים
-      .replace(/\(.*?\)/g, "")              // הסרת סוגריים עגולים
-      .replace(/["<>]/g, "")
-      .replace(/\s{2,}/g, " ")
-      .trim();
+    const context = uniqueRanked
+      .map((p) => {
+        const decodedUrl = decodeURI(p.url.trim());
+        const cleanTitle = (p.title || "")
+          .replace(/\[.*?\]/g, "")
+          .replace(/\(.*?\)/g, "")
+          .replace(/["<>]/g, "")
+          .replace(/\s{2,}/g, " ")
+          .trim();
 
-    return `
-      🔹 <strong>${cleanTitle}</strong><br>
-      <a href="${decodedUrl}" target="_blank" rel="noopener noreferrer"
-         style="display:inline-block; background:#0078ff; color:white; padding:6px 10px;
-         border-radius:6px; font-weight:bold; text-decoration:none; margin-top:4px;">
-         למידע נוסף ↗️
-      </a>`;
-  })
-  .join("<br><br>");
+        return `
+          🔹 <strong>${cleanTitle}</strong><br>
+          <a href="${decodedUrl}" target="_blank" rel="noopener noreferrer"
+             style="display:inline-block; background:#0078ff; color:white; padding:6px 10px;
+             border-radius:6px; font-weight:bold; text-decoration:none; margin-top:4px;">
+             למידע נוסף ↗️
+          </a>`;
+      })
+      .join("<br><br>");
 
     // === יצירת תשובה עם GPT ===
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        	
-		{
+        {
           role: "system",
           content: `
             אתה עוזר חכם המספק תשובות מדויקות על קורסים מתוך מאגרי שבתון ומורים בלבד.
-            עליך לזהות היטב את כוונת המשתמש – אם הוא מבקש "לימודי גישור" או "קורסי גישור",
-            התייחס לכך כרצף אחד ("קורס גישור") ולא כמילים נפרדות.
-            השב בעברית בלבד, בניסוח טבעי וברור.
+            עליך לזהות היטב את כוונת המשתמש – כולל אזור גיאוגרפי (כמו ירושלים, תל אביב, אונליין, בצפון וכו').
+            אם המשתמש מציין אזור, הצג רק תוצאות מתאימות לאותו אזור.
+            השב בעברית בלבד, בצורה ברורה וידידותית.
             אל תציין מאיזה אתר נלקח המידע.
             אל תשתמש בסוגריים מרובעים או עגולים כלל.
-            הצג רק קישורים ככפתור 'למידע נוסף ↗️', בלי טקסט טכני נוסף.
-            `
-},
-
+            הצג רק קישורים ככפתור 'למידע נוסף ↗️'.
+          `
+        },
         {
           role: "user",
           content: `שאלה: ${cleanMsg}\n\nעמודים רלוונטיים:\n${context}`
@@ -197,7 +216,6 @@ const context = uniqueRanked
 
     const reply = completion.choices?.[0]?.message?.content || "לא נמצאה תשובה.";
 
-    // ✅ תשובה ללקוח כולל debug
     return res.status(200).json({
       reply,
       ...(debug && {
@@ -207,7 +225,8 @@ const context = uniqueRanked
           matches: r.matches,
           url: r.url
         })),
-        debug_keywords: keywords
+        debug_keywords: keywords,
+        debug_region: userRegion
       })
     });
   } catch (err) {
