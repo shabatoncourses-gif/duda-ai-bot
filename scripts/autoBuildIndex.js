@@ -21,34 +21,39 @@ if (!process.env.OPENAI_API_KEY) {
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-// === 🧩 קידוד תקין לעברית באנגלית ב־URL ===
+// === 🧩 טיפול נכון בכתובות עברית/אנגלית ===
 function normalizeUrl(url) {
   try {
-    if (!url) return "";
-    let clean = url.trim();
-    if (!/^https?:\/\//i.test(clean)) clean = "https://" + clean;
-    const u = new URL(clean);
-    u.pathname = encodeURI(decodeURI(u.pathname)); // קידוד תקני
+    url = url.trim().replace(/\s+/g, "");
+    const u = new URL(url);
+    u.pathname = encodeURI(decodeURI(u.pathname));
     return u.toString();
   } catch {
     return encodeURI(url);
   }
 }
 
-// === קריאת sitemap עם headers אמינים ===
+// === קריאת Sitemap עם headers אמינים ===
 async function getUrlsFromSitemap(sitemapUrl) {
   console.log(`📥 קורא sitemap: ${sitemapUrl}`);
   const res = await fetch(sitemapUrl, {
     headers: {
       "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
       "Accept": "application/xml,text/xml,*/*;q=0.9",
       "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache",
       "Connection": "keep-alive",
     },
   });
 
+  if (res.status === 403) {
+    console.warn(`🚫 חסימת גישה ל-sitemap (${sitemapUrl}) — ייתכן שהאתר חוסם בוטים`);
+  }
+
   if (!res.ok) throw new Error(`❌ שגיאה בקריאת sitemap (${res.status})`);
+
   const xml = await res.text();
   const matches = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)];
   const urls = matches.map((m) => m[1].trim()).filter(Boolean);
@@ -56,66 +61,60 @@ async function getUrlsFromSitemap(sitemapUrl) {
   return urls;
 }
 
-// === Fetch בטוח עם retry ו־Proxy ===
+// === Fetch בטוח עם תמיכה בעברית וחסימות ===
 async function safeFetch(url, retries = 3) {
   const cleaned = normalizeUrl(url);
-
-  for (let i = 1; i <= retries; i++) {
+  for (let i = 0; i < retries; i++) {
     try {
-      // השהייה אקראית כדי לא לעורר חסימה
-      await delay(1500 + Math.random() * 2000);
-
       const res = await fetch(cleaned, {
-        method: "GET",
-        redirect: "follow",
         headers: {
           "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
-          "Accept":
-            "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-          "Accept-Language": "he,en-US;q=0.9,en;q=0.8",
-          "Referer": "https://www.google.com/",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "he,en;q=0.9",
           "Connection": "keep-alive",
-          "DNT": "1",
         },
-        timeout: 20000,
       });
 
-      if (res.ok) return res;
-
-      if ([403, 429].includes(res.status)) {
-        console.warn(`⏳ חסימה זמנית (${res.status}) עבור ${url}`);
-        await delay(5000);
-        continue;
-      }
-
       if (res.status === 404) {
+        const altUrl = encodeURI(url);
+        if (altUrl !== cleaned) {
+          console.warn(`🌀 ניסיון נוסף ל-${altUrl}`);
+          const retry = await fetch(altUrl);
+          if (retry.ok) return retry;
+        }
         console.warn(`🚫 דף לא נמצא (${res.status}): ${url}`);
         return null;
       }
 
-      throw new Error(`HTTP ${res.status}`);
-    } catch (err) {
-      console.warn(`⚠️ שגיאת ניסיון ${i}/${retries} עבור ${url}: ${err.message}`);
-      if (i === retries) {
-        // ניסיון אחרון דרך Proxy
-        try {
-          const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(cleaned)}`;
-          console.log(`🔁 ניסיון דרך proxy: ${proxyUrl}`);
-          const proxyRes = await fetch(proxyUrl);
-          if (proxyRes.ok) {
-            const json = await proxyRes.json();
-            return { ok: true, text: async () => json.contents };
-          }
-        } catch (proxyErr) {
-          console.warn(`❌ גם proxy נכשל: ${proxyErr.message}`);
-        }
+      if (res.status === 403) {
+        console.warn(`⚠️ חסימה זמנית ב-${url} — ממתין ל-retry`);
+        await delay(3000);
+        continue;
       }
-      await delay(3000 + Math.random() * 2000);
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res;
+    } catch (err) {
+      console.warn(`⚠️ שגיאת חיבור (${i + 1}/${retries}) עבור ${url}: ${err.message}`);
+      await delay(3000 + Math.random() * 1500);
     }
   }
 
-  console.error(`❌ נכשל סופית: ${url}`);
+  // 🔁 Fallback: ניסיון דרך proxy פשוט (אם קיים)
+  try {
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(cleaned)}`;
+    console.log(`🔁 ניסיון גיבוי דרך proxy: ${proxyUrl}`);
+    const proxyRes = await fetch(proxyUrl);
+    if (proxyRes.ok) {
+      const json = await proxyRes.json();
+      return { ok: true, text: async () => json.contents };
+    }
+  } catch (proxyErr) {
+    console.warn(`❌ גם proxy נכשל (${url}): ${proxyErr.message}`);
+  }
+
+  console.error(`❌ נכשל לאחר ${retries} ניסיונות (${url})`);
   return null;
 }
 
