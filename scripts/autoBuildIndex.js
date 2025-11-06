@@ -245,13 +245,22 @@ export async function runFullIndexing(name, sitemapUrl, batchSize = 40) {
   }
   console.log(`✅ אינדוקס ${name} הסתיים בהצלחה`);
 }
-
 // === זיהוי ריצה ישירה ===
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const name = process.argv[2] || "Shabaton";
-  const sitemap = process.argv[3] || "https://www.shabaton.online/sitemap.xml";
-  const batchSize = Number(process.env.BATCH_SIZE) || 40;
+async function main() {
+  try {
+    const name = process.argv[2] || "Shabaton";
+    const sitemap = process.argv[3] || "https://www.shabaton.online/sitemap.xml";
+    const batchSize = Number(process.env.BATCH_SIZE) || 40;
 
-  console.log(`🚀 מריץ אינדוקס ישיר עבור ${name}`);
-  runFullIndexing(name, sitemap, batchSize);
+    console.log(`🚀 מריץ אינדוקס ישיר עבור ${name}`);
+    await runFullIndexing(name, sitemap, batchSize);
+  } catch (err) {
+    console.error("💥 שגיאה בריצה הראשית:", err.message);
+    process.exit(1);
+  }
+}
+
+// נבדוק אם הקובץ מורץ ישירות
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
 }
