@@ -1,4 +1,4 @@
-# .github/workflows/index.yml
+# .github/workflows/index.yaml
 name: Index Sites (Manual + Weekly)
 permissions:
   contents: write
@@ -61,3 +61,4 @@ env:
           name: data-json-snap
           path: data/*.json
           if-no-files-found: ignore
+
