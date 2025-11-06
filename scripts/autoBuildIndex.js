@@ -25,18 +25,22 @@ const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 function normalizeUrl(url) {
   try {
     if (!url) return "";
-    let clean = url.trim();
 
-    // הוספת https אם חסר
+    // ודא שיש https
+    let clean = url.trim();
     if (!/^https?:\/\//i.test(clean)) clean = "https://" + clean;
 
-    // ניקוי רווחים ותווים מיותרים
-    clean = clean.replace(/\s+/g, "").replace(/(?<=https?:)\/{3,}/, "//");
+    const u = new URL(clean);
 
-    return clean;
+    // קידוד מלא של הנתיב (path) כולל עברית, רווחים, פסיקים וכו'
+    u.pathname = encodeURI(decodeURI(u.pathname));
+
+    // השאר query ו-hash כמו שהם
+    return u.toString();
   } catch (err) {
-    console.warn("⚠️ normalizeUrl failed:", err.message, url);
-    return url;
+    console.warn("⚠️ normalizeUrl error:", err.message, "→", url);
+    // fallback פשוט
+    return encodeURI(url);
   }
 }
 
