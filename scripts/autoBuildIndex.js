@@ -21,7 +21,8 @@ if (!process.env.OPENAI_API_KEY) {
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-// === 🧩 טיפול מתקדם בכתובות עברית/אנגלית ===function normalizeUrl(url) {
+// === 🧩 טיפול מתקדם בכתובות עברית/אנגלית ===
+function normalizeUrl(url) {
   try {
     if (!url) return "";
     let clean = url.trim();
@@ -29,7 +30,7 @@ const delay = (ms) => new Promise((res) => setTimeout(res, ms));
     // הוספת https אם חסר
     if (!/^https?:\/\//i.test(clean)) clean = "https://" + clean;
 
-    // ניקוי רווחים, סימני שאלה מיותרים, תווים לא חוקיים
+    // ניקוי רווחים ותווים מיותרים
     clean = clean.replace(/\s+/g, "").replace(/(?<=https?:)\/{3,}/, "//");
 
     return clean;
@@ -38,6 +39,7 @@ const delay = (ms) => new Promise((res) => setTimeout(res, ms));
     return url;
   }
 }
+
 
 
 // === קריאת Sitemap ===
