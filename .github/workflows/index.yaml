@@ -1,5 +1,5 @@
-# .github/workflows/index.yaml
 name: Index Sites (Manual + Weekly)
+
 permissions:
   contents: write
 
@@ -11,7 +11,7 @@ on:
         required: false
         default: '80'
   schedule:
-    # כל יום ראשון 01:00 Asia/Jerusalem בערך (GitHub עובד ב-UTC; 23:00 UTC = 01:00 IL בחורף)
+    # כל יום ראשון 01:00 Asia/Jerusalem (23:00 UTC)
     - cron: '0 23 * * 6'
 
 jobs:
@@ -20,12 +20,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360   # עד 6 שעות
 
-env:
-  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  GITHUB_REPO: shabatoncourses-gif/duda-ai-bot
-  GITHUB_BRANCH: main
-  BATCH_SIZE: ${{ github.event.inputs.batch_size || '80' }}
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_REPO: shabatoncourses-gif/duda-ai-bot
+      GITHUB_BRANCH: main
+      BATCH_SIZE: ${{ github.event.inputs.batch_size || '80' }}
 
     steps:
       - name: Checkout
@@ -53,7 +53,6 @@ env:
         run: |
           node -e "import('./scripts/autoBuildIndex.js').then(m => m.runFullIndexing ? m.runFullIndexing('Morim','https://www.morim.boutique/sitemap.xml', Number(process.env.BATCH_SIZE)) : (async()=>{let more=true;while(more){more=await m.buildIndex('Morim','https://www.morim.boutique/sitemap.xml', Number(process.env.BATCH_SIZE)); if(more) await new Promise(r=>setTimeout(r,3000));}})())"
 
-      # לא חובה, אבל נוח לשימור לוגים/JSON גם כ-Artifact
       - name: Upload data/ as artifact (optional)
         if: always()
         uses: actions/upload-artifact@v4
@@ -61,4 +60,3 @@ env:
           name: data-json-snap
           path: data/*.json
           if-no-files-found: ignore
-
