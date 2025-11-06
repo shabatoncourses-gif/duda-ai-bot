@@ -245,6 +245,7 @@ export async function runFullIndexing(name, sitemapUrl, batchSize = 40) {
   }
   console.log(`✅ אינדוקס ${name} הסתיים בהצלחה`);
 }
+
 // === זיהוי ריצה ישירה ===
 async function main() {
   try {
@@ -264,3 +265,4 @@ async function main() {
 if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
+
