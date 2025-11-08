@@ -28,7 +28,7 @@ function normalizeUrl(url) {
     const u = new URL(url);
     u.pathname = u.pathname
       .split("/")
-      .map(seg => encodeURIComponent(decodeURIComponent(seg)))
+      .map((seg) => encodeURIComponent(decodeURIComponent(seg)))
       .join("/");
     return u.toString().replace(/\s+/g, "");
   } catch (err) {
@@ -42,7 +42,7 @@ const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17 Safari/605.1.15",
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129 Safari/537.36",
-  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile Safari/605.1.15"
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile Safari/605.1.15",
 ];
 function randomUA() {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
@@ -54,14 +54,14 @@ async function getUrlsFromSitemap(sitemapUrl) {
   const res = await fetch(sitemapUrl, {
     headers: {
       "User-Agent": randomUA(),
-      "Accept": "application/xml,text/xml,*/*;q=0.9",
+      Accept: "application/xml,text/xml,*/*;q=0.9",
       "Accept-Language": "he,en;q=0.9",
     },
   });
   if (!res.ok) throw new Error(`❌ שגיאה בקריאת sitemap (${res.status})`);
   const xml = await res.text();
   const matches = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)];
-  const urls = matches.map(m => m[1].trim()).filter(Boolean);
+  const urls = matches.map((m) => m[1].trim()).filter(Boolean);
   console.log(`🔗 נמצאו ${urls.length} דפים.`);
   return urls;
 }
@@ -74,9 +74,9 @@ async function safeFetch(url, retries = 3) {
       const res = await fetch(cleaned, {
         headers: {
           "User-Agent": randomUA(),
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
           "Accept-Language": "he,en;q=0.9",
-          "Connection": "keep-alive",
+          Connection: "keep-alive",
           "Cache-Control": "no-cache",
         },
       });
@@ -114,11 +114,7 @@ async function safeFetch(url, retries = 3) {
 // === חילוץ טקסט משמעותי כולל כותרות וסיווג type ===
 function extractSmartContent(html, url) {
   const $ = cheerio.load(html);
-
-  [
-    "header", "footer", "nav", ".menu", ".breadcrumb", ".breadcrumbs",
-    ".sidebar", ".navbar", "script", "style", "noscript", "form"
-  ].forEach(sel => $(sel).remove());
+  ["header", "footer", "nav", ".menu", ".breadcrumb", ".sidebar", ".navbar", "script", "style", "noscript", "form"].forEach((sel) => $(sel).remove());
 
   const title = $("title").text().trim();
   const metaDesc = $('meta[name="description"]').attr("content")?.trim() || "";
@@ -133,27 +129,17 @@ function extractSmartContent(html, url) {
   });
 
   const uniqueParts = [...new Set([title, metaDesc, ...h1s, ...h2s, ...h3s, ...bodyParts])];
-  const cleanText = uniqueParts
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .replace(/(\||›|»|·|•)/g, "")
-    .trim();
+  const cleanText = uniqueParts.join(" ").replace(/\s+/g, " ").replace(/(\||›|»|·|•)/g, "").trim();
 
-  // === סיווג type אוטומטי ===
+  // === סיווג type ===
   const lowerUrl = url.toLowerCase();
   let type = "general";
-  if (lowerUrl.includes("results") || lowerUrl.includes("course") || lowerUrl.includes("search"))
-    type = "course";
-  else if (lowerUrl.includes("blog") || lowerUrl.includes("article"))
-    type = "article";
+  if (lowerUrl.includes("results") || lowerUrl.includes("course") || lowerUrl.includes("search")) type = "course";
+  else if (lowerUrl.includes("blog") || lowerUrl.includes("article")) type = "article";
   else if (lowerUrl.includes("btl") || lowerUrl.includes("gimel") || lowerUrl.includes("info") || lowerUrl.includes("faq") || lowerUrl.includes("שבתון"))
     type = "info";
 
-  return {
-    title: title || h1s[0] || "ללא כותרת",
-    text: cleanText.slice(0, 7000),
-    type
-  };
+  return { title: title || h1s[0] || "ללא כותרת", text: cleanText.slice(0, 7000), type };
 }
 
 // === Embedding לדף ===
@@ -163,8 +149,6 @@ async function processPage(url) {
 
   const html = await res.text();
   const { title, text, type } = extractSmartContent(html, url);
-
-  // 🩵 לא לדלג על דפי info גם אם קצרים
   const isInfoPage = /(btl|info|faq|gimel|שבתון)/i.test(url);
   if (!text || (!isInfoPage && text.length < 50)) {
     console.log(`⚠️ דף קצר מדי: ${url}`);
@@ -183,8 +167,7 @@ async function processPage(url) {
 // === העלאה ל-GitHub ===
 async function uploadToGitHub(filePath, message) {
   try {
-    if (!GITHUB_TOKEN || !GITHUB_REPO)
-      return console.warn("⚠️ חסרים פרטי GitHub (לא יועלה)");
+    if (!GITHUB_TOKEN || !GITHUB_REPO) return console.warn("⚠️ חסרים פרטי GitHub (לא יועלה)");
     const content = fs.readFileSync(filePath, "utf8");
     const encoded = Buffer.from(content).toString("base64");
     const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/data/${path.basename(filePath)}?ref=${GITHUB_BRANCH}`;
@@ -205,7 +188,7 @@ async function uploadToGitHub(filePath, message) {
 }
 
 // === תהליך האינדוקס ===
-export async function buildIndex(name, sitemapUrl, batchSize = 40) {
+export async function buildIndex(name, sitemapUrl, batchSize = 40, manualUrls = []) {
   const dataDir = path.join(process.cwd(), "data");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
@@ -215,24 +198,16 @@ export async function buildIndex(name, sitemapUrl, batchSize = 40) {
   const notFoundPath = path.join(dataDir, `${name.toLowerCase()}_404.json`);
 
   const urls = await getUrlsFromSitemap(sitemapUrl);
-
-  // ✅ הוספת דפי מידע ידניים
-  const manualUrls = [
-    "https://www.shabaton.online/btl_shabaton",
-    "https://www.shabaton.online/gimel",
-    "https://www.shabaton.online/faq_shabaton",
-    "https://www.shabaton.online/info_shabaton",
-    "https://www.shabaton.online/credit_shabaton"
-  ];
   const allUrls = Array.from(new Set([...urls, ...manualUrls]));
+  console.log(`📘 נוספו ${manualUrls.length} דפי מידע ידניים`);
 
   let done = fs.existsSync(donePath) ? JSON.parse(fs.readFileSync(donePath, "utf8")) : [];
   let failed = fs.existsSync(failedPath) ? JSON.parse(fs.readFileSync(failedPath, "utf8")) : [];
   let notFound = fs.existsSync(notFoundPath) ? JSON.parse(fs.readFileSync(notFoundPath, "utf8")) : [];
   let pages = fs.existsSync(indexPath) ? JSON.parse(fs.readFileSync(indexPath, "utf8")) : [];
 
-  const pending = allUrls.filter(u => !done.includes(u) && !failed.includes(u) && !notFound.includes(u));
-  console.log(`🕓 נותרו ${pending.length} דפים לאינדוקס`);
+  const pending = allUrls.filter((u) => !done.includes(u) && !failed.includes(u) && !notFound.includes(u));
+  console.log(`🕓 נותרו ${pending.length} דפים לאינדוקס (כולל דפים ידניים)`);
 
   const batch = pending.slice(0, batchSize);
   let count = 0;
@@ -269,14 +244,40 @@ export async function buildIndex(name, sitemapUrl, batchSize = 40) {
 // === ריצה מלאה ===
 export async function runFullIndexing(name, sitemapUrl, batchSize = 40) {
   console.log(`🏁 מתחיל אינדוקס מלא ל-${name}`);
+
+  // ✅ רשימת דפי מידע קבועים
+  const manualUrls = [
+    "https://www.shabaton.online/btl_shabaton",
+    "https://www.shabaton.online/shabaton-video",
+    "https://www.shabaton.online/learning_programs_shabaton",
+    "https://www.shabaton.online/luz_shabaton",
+    "https://www.shabaton.online/end_shabaton",
+    "https://www.shabaton.online/halforfull_shabaton",
+    "https://www.shabaton.online/phones_shabaton",
+    "https://www.shabaton.online/forms_shabaton",
+    "https://www.shabaton.online/Payments_shabaton",
+    "https://www.shabaton.online/tlush_maanak_shabaton",
+    "https://www.shabaton.online/kabalot_shabaton",
+    "https://www.shabaton.online/tuition_reimbursement",
+    "https://www.shabaton.online/shabaton-maanak",
+    "https://www.shabaton.online/birth_shabatgon",
+    "https://www.shabaton.online/pension_shabaton",
+    "https://www.shabaton.online/keren_makor_mishor",
+    "https://www.shabaton.online/tofes_101",
+    "https://www.morim.online/rights",
+  ];
+
+  console.log(`📘 דפי מידע ידניים נטענו (${manualUrls.length})`);
+
   let more = true;
   while (more) {
-    more = await buildIndex(name, sitemapUrl, batchSize);
+    more = await buildIndex(name, sitemapUrl, batchSize, manualUrls);
     if (more) {
       console.log("⏳ מחכה 6 שניות לפני קבוצה הבאה...");
       await delay(6000 + Math.random() * 4000);
     }
   }
+
   console.log(`✅ אינדוקס ${name} הסתיים בהצלחה`);
 }
 
