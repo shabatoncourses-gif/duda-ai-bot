@@ -169,18 +169,46 @@ export default async function handler(req, res) {
       return res.status(200).json({ reply: "לא נמצאו תוצאות רלוונטיות." });
     }
 
-    // === הצגת תשובה יפה ===
-    const context = uniqueRanked.map((p) => {
-      const decodedUrl = decodeURI(p.url.trim());
-      const cleanTitle = (p.title || "").replace(/\[.*?\]|\(.*?\)/g, "").trim();
-      return `
-        🔹 <strong>${cleanTitle}</strong><br>
+
+// === יצירת קונטקסט מעוצב וידידותי ===
+const context = uniqueRanked
+  .map((p) => {
+    const decodedUrl = decodeURI(p.url.trim());
+    const cleanTitle = (p.title || "")
+      .replace(/\[.*?\]/g, "")
+      .replace(/\(.*?\)/g, "")
+      .replace(/["<>]/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
+    const shortText = (p.text || "").slice(0, 160).trim() + (p.text.length > 160 ? "..." : "");
+
+    return `
+      <div style="
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-bottom: 14px;
+        background-color: #fafafa;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      ">
+        <div style="font-weight:600; font-size:1.05em; color:#111; margin-bottom:6px;">
+          ${cleanTitle}
+        </div>
+        <div style="font-size:0.95em; color:#444; line-height:1.45;">
+          ${shortText}
+        </div>
         <a href="${decodedUrl}" target="_blank" rel="noopener noreferrer"
-           style="display:inline-block; background:#0078ff; color:white; padding:6px 10px;
-           border-radius:6px; font-weight:bold; text-decoration:none; margin-top:4px;">
-           למידע נוסף ↗️
-        </a>`;
-    }).join("<br><br>");
+          style="display:inline-block; margin-top:10px; background:#0078ff;
+          color:white; padding:6px 12px; border-radius:8px; font-weight:bold;
+          text-decoration:none; transition:background 0.2s ease;">
+          למידע נוסף ↗️
+        </a>
+      </div>
+    `;
+  })
+  .join("");
+
 
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
