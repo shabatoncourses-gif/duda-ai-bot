@@ -47,16 +47,16 @@ function extractKeywordsHeb(str) {
     .filter((w, i, arr) => arr.indexOf(w) === i);
 }
 
-// ===== זיהוי אזורים ופורמטים מרובים =====
+// ===== זיהוי אזורים ופורמטים =====
 function detectRegions(text) {
   const t = normalizeHebrew(text);
   const regions = [];
 
-  if (/ירושלים|ירושלמ/.test(t)) regions.push("jerusalem");
-  if (/תל ?אביב|מרכז|גוש דן|הרצליה|פתח תקוה|רמת גן|גבעתיים|חולון|בת ים|המרכז/.test(t)) regions.push("merkaz");
-  if (/צפון|חיפה|גליל|נהריה|טבריה|עמק/.test(t)) regions.push("north");
-  if (/דרום|באר ?שבע|אשדוד|אשקלון|נגב/.test(t)) regions.push("south");
-  if (/אונליין|מקוון|zoom|זום|למידה מרחוק|למידה מקוונת|קורס מקוון|קורס בזום/.test(t)) regions.push("online");
+  if (/תל.?אביב|מרכז|גוש.?דן|הרצליה|רמת.?גן|פתח.?תקוה|בת.?ים|חולון/.test(t)) regions.push("merkaz");
+  if (/שרון|נתניה|רעננה|כפר.?סבא|השרון/.test(t)) regions.push("sharon");
+  if (/חיפה|צפון|גליל|נהריה|עכו|טבריה|עמק/.test(t)) regions.push("north");
+  if (/דרום|שפלה|אשדוד|אשקלון|באר.?שבע|נגב/.test(t)) regions.push("south");
+  if (/אונליין|מקוון|zoom|זום|למידה.?מרחוק|למידה.?מקוונת|קורס.?מקוון/.test(t)) regions.push("online");
 
   return regions.length ? regions : null;
 }
@@ -74,7 +74,8 @@ async function loadIndexes() {
     fetch(`https://raw.githubusercontent.com/${repo}/${branch}/data/morim_index.json`)
   ]);
 
-  if (!shRes.ok || !moRes.ok) throw new Error("❌ Failed to load indexes");
+  if (!shRes.ok || !moRes.ok)
+    throw new Error("❌ Failed to load indexes");
 
   const [shabatonIndex, morimIndex] = await Promise.all([
     shRes.json(),
@@ -86,7 +87,7 @@ async function loadIndexes() {
   return cache.data;
 }
 
-// ===== ניקוי טקסטים פנימיים =====
+// ===== ניקוי תפריטים ומידע טכני =====
 function removeMenuText(text) {
   if (!text) return "";
   return text
@@ -96,7 +97,7 @@ function removeMenuText(text) {
     .trim();
 }
 
-// ===== API =====
+// ===== API ראשי =====
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -114,8 +115,9 @@ export default async function handler(req, res) {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const cleanMsg = normalizeHebrew(message);
     const keywords = extractKeywordsHeb(cleanMsg);
-    const userRegions = detectRegions(cleanMsg); // ⬅️ רשימה של אזורים/פורמטים שזוהו
+    const userRegions = detectRegions(cleanMsg);
 
+    // === Embeddings ===
     const [embeddingFull, embeddingKeywords] = await Promise.all([
       client.embeddings.create({ model: "text-embedding-3-small", input: cleanMsg }),
       client.embeddings.create({ model: "text-embedding-3-small", input: keywords.join(" ") || cleanMsg })
@@ -130,27 +132,36 @@ export default async function handler(req, res) {
       ...morimIndex.map((p) => ({ ...p, source: "Morim" }))
     ];
 
-    // === דירוג חכם עם אזורים מרובים ===
+    // === דירוג חכם ===
     const ranked = allPages
       .map((p) => {
-        const cleanText = removeMenuText(normalizeHebrew((p.text || "") + " " + (p.title || "")));
+        const cleanText = removeMenuText(normalizeHebrew(`${p.title || ""} ${p.text || ""}`));
         const simFull = cosineSimilarity(queryVectorFull, p.vector);
         const simKey = cosineSimilarity(queryVectorKeywords, p.vector);
         const matched = keywords.filter((kw) => cleanText.includes(kw));
-        const phraseBonus = cleanText.includes(cleanMsg) ? 0.25 : 0;
-        const keywordBoost = matched.length * 0.05;
 
-        // 🎯 בונוס לפי אזור ופורמט
+        // 🧭 אזור
         let regionBoost = 0;
         if (userRegions) {
           for (const region of userRegions) {
-            if (p.url.includes(region)) regionBoost += 0.25; // התאמה מלאה
+            if (p.url.toLowerCase().includes(region)) regionBoost += 0.25;
           }
-          if (/results-all|courses-per-month/.test(p.url)) regionBoost += 0.05;
-          if (regionBoost === 0 && userRegions.length) regionBoost = -0.15; // לא באזורים שצוינו
+          if (regionBoost === 0 && userRegions.length) regionBoost = -0.15;
         }
 
-        const score = Math.max(simFull, simKey) + phraseBonus + keywordBoost + regionBoost;
+        // 🧩 עדיפויות לפי סוג עמוד
+        let priorityBoost = 0;
+        const url = p.url.toLowerCase();
+        if (url.includes("/results-all/")) priorityBoost = 0.5;
+        else if (url.includes("/search-results-")) priorityBoost = 0.3;
+        else if (url.includes("/courses-per-month/")) priorityBoost = -0.1;
+        else if (url.includes("/articles/") || url.includes("/blog/")) priorityBoost = -0.25;
+
+        // 🎯 בונוס מיוחד: התאמה בכותרות
+        const titleMatch = keywords.some((kw) => (p.title || "").includes(kw)) ? 0.25 : 0;
+        const descMatch = keywords.some((kw) => (p.text || "").slice(0, 250).includes(kw)) ? 0.15 : 0;
+
+        const score = Math.max(simFull, simKey) + regionBoost + priorityBoost + titleMatch + descMatch;
         return { ...p, score, matches: matched };
       })
       .filter((p) => p.score > 0.25)
@@ -164,14 +175,13 @@ export default async function handler(req, res) {
       return res.status(200).json({ reply: "לא נמצאו תוצאות רלוונטיות." });
     }
 
-    // === הצגת קונטקסט יפה ===
+    // === יצירת קונטקסט יפה ===
     const context = uniqueRanked.map((p) => {
       const decodedUrl = decodeURI(p.url.trim());
       const cleanTitle = (p.title || "")
         .replace(/\[.*?\]|\(.*?\)/g, "")
         .replace(/["<>]/g, "")
         .trim();
-
       return `
         🔹 <strong>${cleanTitle}</strong><br>
         <a href="${decodedUrl}" target="_blank" rel="noopener noreferrer"
@@ -189,10 +199,9 @@ export default async function handler(req, res) {
           role: "system",
           content: `
             אתה עוזר חכם המספק תשובות מדויקות על קורסים מתוך מאגרי שבתון ומורים בלבד.
-            עליך להבין את כוונת המשתמש, כולל אזור (כמו ירושלים, תל אביב, צפון, דרום)
-            וגם סוג למידה (כמו אונליין, בזום, למידה מרחוק).
-            אם המשתמש מזכיר אזור ופורמט, הצג רק קורסים הרלוונטיים לשניהם.
-            השב בעברית בלבד, בצורה ברורה וידידותית.
+            חשוב מאוד שתשתמש במידע מתוך כותרות הדפים, תיאורי המטא, h1–h3 והטקסט עצמו.
+            עליך להבין גם אזור (תל אביב והמרכז, שרון, חיפה והצפון, שפלה ודרום, למידה מרחוק).
+            השב רק בעברית, בצורה ברורה וידידותית.
             אל תציין מאיזה אתר נלקח המידע, ואל תשתמש בסוגריים מכל סוג.
             הצג רק קישורים ככפתור 'למידע נוסף ↗️'.
           `
@@ -213,7 +222,6 @@ export default async function handler(req, res) {
         debug: uniqueRanked.map((r) => ({
           title: r.title,
           score: r.score.toFixed(3),
-          matches: r.matches,
           url: r.url
         })),
         debug_regions: userRegions
