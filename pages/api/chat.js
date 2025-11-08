@@ -131,49 +131,55 @@ export default async function handler(req, res) {
       ...shabatonIndex.map((p) => ({ ...p, source: "Shabaton" })),
       ...morimIndex.map((p) => ({ ...p, source: "Morim" }))
     ];
+// === דירוג חכם ומעמיק ===
+const ranked = allPages
+  .map((p) => {
+    const cleanTitle = normalizeHebrew(p.title || "");
+    const cleanText = removeMenuText(normalizeHebrew(`${p.text || ""}`));
+    const fullContent = `${cleanTitle} ${cleanText}`;
 
-    // === דירוג חכם ===
-    const ranked = allPages
-      .map((p) => {
-        const cleanText = removeMenuText(normalizeHebrew(`${p.title || ""} ${p.text || ""}`));
-        const simFull = cosineSimilarity(queryVectorFull, p.vector);
-        const simKey = cosineSimilarity(queryVectorKeywords, p.vector);
-        const matched = keywords.filter((kw) => cleanText.includes(kw));
+    const simFull = cosineSimilarity(queryVectorFull, p.vector);
+    const simKey = cosineSimilarity(queryVectorKeywords, p.vector);
+    const matched = keywords.filter((kw) => fullContent.includes(kw));
 
-        // 🧭 אזור
-        let regionBoost = 0;
-        if (userRegions) {
-          for (const region of userRegions) {
-            if (p.url.toLowerCase().includes(region)) regionBoost += 0.25;
-          }
-          if (regionBoost === 0 && userRegions.length) regionBoost = -0.15;
-        }
-
-        // 🧩 עדיפויות לפי סוג עמוד
-        let priorityBoost = 0;
-        const url = p.url.toLowerCase();
-        if (url.includes("/results-all/")) priorityBoost = 0.5;
-        else if (url.includes("/search-results-")) priorityBoost = 0.3;
-        else if (url.includes("/courses-per-month/")) priorityBoost = -0.1;
-        else if (url.includes("/articles/") || url.includes("/blog/")) priorityBoost = -0.25;
-
-        // 🎯 בונוס מיוחד: התאמה בכותרות
-        const titleMatch = keywords.some((kw) => (p.title || "").includes(kw)) ? 0.25 : 0;
-        const descMatch = keywords.some((kw) => (p.text || "").slice(0, 250).includes(kw)) ? 0.15 : 0;
-
-        const score = Math.max(simFull, simKey) + regionBoost + priorityBoost + titleMatch + descMatch;
-        return { ...p, score, matches: matched };
-      })
-      .filter((p) => p.score > 0.25)
-      .sort((a, b) => b.score - a.score);
-
-    const uniqueRanked = ranked.filter(
-      (p, i, arr) => arr.findIndex((x) => x.url === p.url) === i
-    ).slice(0, 6);
-
-    if (uniqueRanked.length === 0) {
-      return res.status(200).json({ reply: "לא נמצאו תוצאות רלוונטיות." });
+    // 🧭 זיהוי אזור
+    let regionBoost = 0;
+    if (userRegions) {
+      for (const region of userRegions) {
+        if (p.url.toLowerCase().includes(region)) regionBoost += 0.25;
+      }
+      if (regionBoost === 0 && userRegions.length) regionBoost = -0.15;
     }
+
+    // 🗂️ עדיפות לפי סוג עמוד
+    let priorityBoost = 0;
+    const url = p.url.toLowerCase();
+    if (url.includes("/results-all/")) priorityBoost = 0.5;
+    else if (url.includes("/search-results-")) priorityBoost = 0.3;
+    else if (url.includes("/courses-per-month/")) priorityBoost = -0.1;
+    else if (url.includes("/articles/") || url.includes("/blog/")) priorityBoost = -0.25;
+
+    // 💬 דפי מידע כלליים (לא קורסים)
+    const infoPages = ["btl", "שבתון", "קרן", "faq", "מסים", "גמול"];
+    const isInfoPage = infoPages.some((kw) => url.includes(kw) || cleanTitle.includes(kw));
+    const infoBoost = (!cleanMsg.includes("קורס") && isInfoPage) ? 0.6 : 0;
+
+    // 🎯 בונוס חזק להתאמה בכותרת / H1 / description
+    const titleMatch = keywords.some((kw) => cleanTitle.includes(kw)) ? 0.5 : 0;
+    const descMatch = keywords.some((kw) => fullContent.slice(0, 300).includes(kw)) ? 0.2 : 0;
+
+    const score =
+      Math.max(simFull, simKey) +
+      regionBoost +
+      priorityBoost +
+      infoBoost +
+      titleMatch +
+      descMatch;
+
+    return { ...p, score, matches: matched };
+  })
+  .filter((p) => p.score > 0.25)
+  .sort((a, b) => b.score - a.score);
 
     // === יצירת קונטקסט יפה ===
     const context = uniqueRanked.map((p) => {
