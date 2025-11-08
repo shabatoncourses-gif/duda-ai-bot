@@ -112,6 +112,10 @@ async function safeFetch(url, retries = 3) {
 }
 
 // === חילוץ תוכן כולל title, description, h1, h2 ===
+
+  // ❌ מתעלמים מ-"keywords"
+  $('meta[name="keywords"]').remove();
+  
 function extractSmartContent(html, url) {
   const $ = cheerio.load(html);
   [
