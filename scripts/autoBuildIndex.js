@@ -163,7 +163,10 @@ async function processPage(url) {
 
   const html = await res.text();
   const { title, text, type } = extractSmartContent(html, url);
-  if (!text || text.length < 80) {
+
+  // 🩵 לא לדלג על דפי info גם אם קצרים
+  const isInfoPage = /(btl|info|faq|gimel|שבתון)/i.test(url);
+  if (!text || (!isInfoPage && text.length < 50)) {
     console.log(`⚠️ דף קצר מדי: ${url}`);
     return null;
   }
@@ -212,12 +215,23 @@ export async function buildIndex(name, sitemapUrl, batchSize = 40) {
   const notFoundPath = path.join(dataDir, `${name.toLowerCase()}_404.json`);
 
   const urls = await getUrlsFromSitemap(sitemapUrl);
+
+  // ✅ הוספת דפי מידע ידניים
+  const manualUrls = [
+    "https://www.shabaton.online/btl_shabaton",
+    "https://www.shabaton.online/gimel",
+    "https://www.shabaton.online/faq_shabaton",
+    "https://www.shabaton.online/info_shabaton",
+    "https://www.shabaton.online/credit_shabaton"
+  ];
+  const allUrls = Array.from(new Set([...urls, ...manualUrls]));
+
   let done = fs.existsSync(donePath) ? JSON.parse(fs.readFileSync(donePath, "utf8")) : [];
   let failed = fs.existsSync(failedPath) ? JSON.parse(fs.readFileSync(failedPath, "utf8")) : [];
   let notFound = fs.existsSync(notFoundPath) ? JSON.parse(fs.readFileSync(notFoundPath, "utf8")) : [];
   let pages = fs.existsSync(indexPath) ? JSON.parse(fs.readFileSync(indexPath, "utf8")) : [];
 
-  const pending = urls.filter(u => !done.includes(u) && !failed.includes(u) && !notFound.includes(u));
+  const pending = allUrls.filter(u => !done.includes(u) && !failed.includes(u) && !notFound.includes(u));
   console.log(`🕓 נותרו ${pending.length} דפים לאינדוקס`);
 
   const batch = pending.slice(0, batchSize);
@@ -234,6 +248,7 @@ export async function buildIndex(name, sitemapUrl, batchSize = 40) {
     } else {
       failed.push(url);
     }
+
     fs.writeFileSync(indexPath, JSON.stringify(pages, null, 2));
     fs.writeFileSync(donePath, JSON.stringify(done, null, 2));
     fs.writeFileSync(failedPath, JSON.stringify(failed, null, 2));
@@ -242,12 +257,12 @@ export async function buildIndex(name, sitemapUrl, batchSize = 40) {
 
   console.log(`📊 סיכום: ✅ ${count} הצליחו | 🚫 ${notFound.length} 404 | ⚠️ ${failed.length} כשלו`);
 
-  await uploadToGitHub(indexPath, `🤖 עדכון ${name} (${done.length}/${urls.length})`);
+  await uploadToGitHub(indexPath, `🤖 עדכון ${name} (${done.length}/${allUrls.length})`);
   await uploadToGitHub(donePath, `📘 שמירת התקדמות ${name}`);
   await uploadToGitHub(failedPath, `❗ רשימת כשלונות ${name}`);
   await uploadToGitHub(notFoundPath, `🚫 רשימת 404 ${name}`);
 
-  console.log(`✅ ${name} הסתיים (${count} נוספו, ${done.length}/${urls.length})`);
+  console.log(`✅ ${name} הסתיים (${count} נוספו, ${done.length}/${allUrls.length})`);
   return pending.length > batchSize;
 }
 
