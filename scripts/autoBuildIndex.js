@@ -12,14 +12,8 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GH_CONTENT_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO;
 const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
 
-if (!process.env.OPENAI_API_KEY) {
-  console.error("❌ חסר מפתח OPENAI_API_KEY בקובץ .env");
-  process.exit(1);
-}
-
 if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.startsWith("sk-")) {
-  console.error("❌ OPENAI_API_KEY לא תקין או לא נטען");
-  console.error("ערך שקיבלתי:", process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.slice(0, 8) + "..." : "(ריק)");
+  console.error("❌ חסר או לא תקין OPENAI_API_KEY");
   process.exit(1);
 }
 
@@ -72,7 +66,7 @@ async function getUrlsFromSitemap(sitemapUrl) {
   return urls;
 }
 
-// === Fetch בטוח עם ניסיונות חוזרים, רוטציית User-Agent ועיכוב ===
+// === Fetch בטוח עם ניסיונות חוזרים ===
 async function safeFetch(url, retries = 3) {
   const cleaned = normalizeUrl(url);
   for (let i = 1; i <= retries; i++) {
@@ -87,12 +81,9 @@ async function safeFetch(url, retries = 3) {
         },
       });
 
-      if (res.status === 404) {
-        console.warn(`🚫 דף לא נמצא (${res.status}): ${url}`);
-        return { status: 404, ok: false };
-      }
+      if (res.status === 404) return { status: 404, ok: false };
       if (res.status === 403) {
-        console.warn(`⚠️ חסימה זמנית ב-${url} — ממתין`);
+        console.warn(`⚠️ חסימה זמנית ב-${url}`);
         await delay(4000 + Math.random() * 2000);
         continue;
       }
@@ -105,7 +96,7 @@ async function safeFetch(url, retries = 3) {
     }
   }
 
-  // Fallback דרך proxy
+  // fallback דרך proxy
   try {
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(cleaned)}`;
     console.log(`🔁 ניסיון דרך proxy: ${proxyUrl}`);
@@ -117,26 +108,52 @@ async function safeFetch(url, retries = 3) {
   } catch (proxyErr) {
     console.warn(`❌ גם proxy נכשל (${url}): ${proxyErr.message}`);
   }
-
   return null;
 }
 
-// === חילוץ טקסט משמעותי ===
-function extractSmartContent(html) {
+// === חילוץ טקסט משמעותי כולל כותרות וסיווג type ===
+function extractSmartContent(html, url) {
   const $ = cheerio.load(html);
+
   [
     "header", "footer", "nav", ".menu", ".breadcrumb", ".breadcrumbs",
     ".sidebar", ".navbar", "script", "style", "noscript", "form"
   ].forEach(sel => $(sel).remove());
-  const title = $("title").text().trim() || $("h1").first().text().trim();
-  const desc = $('meta[name="description"]').attr("content") || "";
-  const parts = [];
-  $("h1,h2,h3,h4,h5,h6,p,li,blockquote").each((_, el) => {
+
+  const title = $("title").text().trim();
+  const metaDesc = $('meta[name="description"]').attr("content")?.trim() || "";
+  const h1s = $("h1").map((_, el) => $(el).text().trim()).get();
+  const h2s = $("h2").map((_, el) => $(el).text().trim()).get();
+  const h3s = $("h3").map((_, el) => $(el).text().trim()).get();
+
+  const bodyParts = [];
+  $("p,li,blockquote").each((_, el) => {
     const t = $(el).text().trim();
-    if (t && t.length > 15) parts.push(t);
+    if (t && t.length > 20) bodyParts.push(t);
   });
-  const unique = [...new Set(parts)];
-  return { title: title || "ללא כותרת", text: [desc, ...unique].join(" ").slice(0, 7000) };
+
+  const uniqueParts = [...new Set([title, metaDesc, ...h1s, ...h2s, ...h3s, ...bodyParts])];
+  const cleanText = uniqueParts
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .replace(/(\||›|»|·|•)/g, "")
+    .trim();
+
+  // === סיווג type אוטומטי ===
+  const lowerUrl = url.toLowerCase();
+  let type = "general";
+  if (lowerUrl.includes("results") || lowerUrl.includes("course") || lowerUrl.includes("search"))
+    type = "course";
+  else if (lowerUrl.includes("blog") || lowerUrl.includes("article"))
+    type = "article";
+  else if (lowerUrl.includes("btl") || lowerUrl.includes("gimel") || lowerUrl.includes("info") || lowerUrl.includes("faq") || lowerUrl.includes("שבתון"))
+    type = "info";
+
+  return {
+    title: title || h1s[0] || "ללא כותרת",
+    text: cleanText.slice(0, 7000),
+    type
+  };
 }
 
 // === Embedding לדף ===
@@ -145,7 +162,7 @@ async function processPage(url) {
   if (!res || res.status === 404) return res?.status === 404 ? "404" : null;
 
   const html = await res.text();
-  const { title, text } = extractSmartContent(html);
+  const { title, text, type } = extractSmartContent(html, url);
   if (!text || text.length < 80) {
     console.log(`⚠️ דף קצר מדי: ${url}`);
     return null;
@@ -156,14 +173,15 @@ async function processPage(url) {
     input: text,
   });
 
-  console.log(`✅ ${url}`);
-  return { url, title, text: text.slice(0, 300), vector: embedding.data[0].embedding };
+  console.log(`✅ ${url} (${type})`);
+  return { url, title, type, text: text.slice(0, 300), vector: embedding.data[0].embedding };
 }
 
 // === העלאה ל-GitHub ===
 async function uploadToGitHub(filePath, message) {
   try {
-    if (!GITHUB_TOKEN || !GITHUB_REPO) return console.warn("⚠️ חסרים פרטי GitHub (לא יועלה)");
+    if (!GITHUB_TOKEN || !GITHUB_REPO)
+      return console.warn("⚠️ חסרים פרטי GitHub (לא יועלה)");
     const content = fs.readFileSync(filePath, "utf8");
     const encoded = Buffer.from(content).toString("base64");
     const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/data/${path.basename(filePath)}?ref=${GITHUB_BRANCH}`;
