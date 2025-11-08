@@ -111,35 +111,37 @@ async function safeFetch(url, retries = 3) {
   return null;
 }
 
-// === חילוץ טקסט משמעותי כולל כותרות וסיווג type ===
+// === חילוץ תוכן כולל title, description, h1, h2 ===
 function extractSmartContent(html, url) {
   const $ = cheerio.load(html);
-  ["header", "footer", "nav", ".menu", ".breadcrumb", ".sidebar", ".navbar", "script", "style", "noscript", "form"].forEach((sel) => $(sel).remove());
+  [
+    "header", "footer", "nav", ".menu", ".breadcrumb", ".breadcrumbs",
+    ".sidebar", ".navbar", "script", "style", "noscript", "form"
+  ].forEach(sel => $(sel).remove());
 
   const title = $("title").text().trim();
-  const metaDesc = $('meta[name="description"]').attr("content")?.trim() || "";
-  const h1s = $("h1").map((_, el) => $(el).text().trim()).get();
+  const description = $('meta[name="description"]').attr("content")?.trim() || "";
+  const h1 = $("h1").first().text().trim();
   const h2s = $("h2").map((_, el) => $(el).text().trim()).get();
-  const h3s = $("h3").map((_, el) => $(el).text().trim()).get();
 
+  const h3s = $("h3").map((_, el) => $(el).text().trim()).get();
   const bodyParts = [];
   $("p,li,blockquote").each((_, el) => {
     const t = $(el).text().trim();
     if (t && t.length > 20) bodyParts.push(t);
   });
 
-  const uniqueParts = [...new Set([title, metaDesc, ...h1s, ...h2s, ...h3s, ...bodyParts])];
+  const uniqueParts = [...new Set([title, description, h1, ...h2s, ...h3s, ...bodyParts])];
   const cleanText = uniqueParts.join(" ").replace(/\s+/g, " ").replace(/(\||›|»|·|•)/g, "").trim();
 
-  // === סיווג type ===
   const lowerUrl = url.toLowerCase();
   let type = "general";
   if (lowerUrl.includes("results") || lowerUrl.includes("course") || lowerUrl.includes("search")) type = "course";
   else if (lowerUrl.includes("blog") || lowerUrl.includes("article")) type = "article";
-  else if (lowerUrl.includes("btl") || lowerUrl.includes("gimel") || lowerUrl.includes("info") || lowerUrl.includes("faq") || lowerUrl.includes("שבתון"))
+  else if (lowerUrl.includes("btl") || lowerUrl.includes("info") || lowerUrl.includes("faq") || lowerUrl.includes("שבתון"))
     type = "info";
 
-  return { title: title || h1s[0] || "ללא כותרת", text: cleanText.slice(0, 7000), type };
+  return { title: title || h1 || "ללא כותרת", h1, h2: h2s, description, text: cleanText.slice(0, 7000), type };
 }
 
 // === Embedding לדף ===
@@ -148,7 +150,7 @@ async function processPage(url) {
   if (!res || res.status === 404) return res?.status === 404 ? "404" : null;
 
   const html = await res.text();
-  const { title, text, type } = extractSmartContent(html, url);
+  const { title, h1, h2, description, text, type } = extractSmartContent(html, url);
   const isInfoPage = /(btl|info|faq|gimel|שבתון)/i.test(url);
   if (!text || (!isInfoPage && text.length < 50)) {
     console.log(`⚠️ דף קצר מדי: ${url}`);
@@ -161,7 +163,16 @@ async function processPage(url) {
   });
 
   console.log(`✅ ${url} (${type})`);
-  return { url, title, type, text: text.slice(0, 300), vector: embedding.data[0].embedding };
+  return {
+    url,
+    title,
+    h1,
+    h2,
+    description,
+    type,
+    text: text.slice(0, 300),
+    vector: embedding.data[0].embedding,
+  };
 }
 
 // === העלאה ל-GitHub ===
@@ -187,7 +198,7 @@ async function uploadToGitHub(filePath, message) {
   }
 }
 
-// === תהליך האינדוקס ===
+// === אינדוקס כולל דפי מידע ידניים ===
 export async function buildIndex(name, sitemapUrl, batchSize = 40, manualUrls = []) {
   const dataDir = path.join(process.cwd(), "data");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -206,7 +217,7 @@ export async function buildIndex(name, sitemapUrl, batchSize = 40, manualUrls = 
   let notFound = fs.existsSync(notFoundPath) ? JSON.parse(fs.readFileSync(notFoundPath, "utf8")) : [];
   let pages = fs.existsSync(indexPath) ? JSON.parse(fs.readFileSync(indexPath, "utf8")) : [];
 
-  const pending = allUrls.filter((u) => !done.includes(u) && !failed.includes(u) && !notFound.includes(u));
+  const pending = allUrls.filter(u => !done.includes(u) && !failed.includes(u) && !notFound.includes(u));
   console.log(`🕓 נותרו ${pending.length} דפים לאינדוקס (כולל דפים ידניים)`);
 
   const batch = pending.slice(0, batchSize);
@@ -245,7 +256,6 @@ export async function buildIndex(name, sitemapUrl, batchSize = 40, manualUrls = 
 export async function runFullIndexing(name, sitemapUrl, batchSize = 40) {
   console.log(`🏁 מתחיל אינדוקס מלא ל-${name}`);
 
-  // ✅ רשימת דפי מידע קבועים
   const manualUrls = [
     "https://www.shabaton.online/btl_shabaton",
     "https://www.shabaton.online/shabaton-video",
