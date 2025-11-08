@@ -39,10 +39,10 @@ function normalizeUrl(url) {
 
 // === מערך User-Agents למניעת חסימות ===
 const USER_AGENTS = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17 Safari/605.1.15",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129 Safari/537.36",
-  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile Safari/605.1.15",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+  "Mozilla/5.0 (X11; Linux x86_64) Chrome/129 Safari/537.36",
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1) Safari/605.1.15",
 ];
 function randomUA() {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
@@ -111,11 +111,7 @@ async function safeFetch(url, retries = 3) {
   return null;
 }
 
-// === חילוץ תוכן כולל title, description, h1, h2 ===
-
-  // ❌ מתעלמים מ-"keywords"
-  $('meta[name="keywords"]').remove();
-  
+// === חילוץ תוכן כולל title, description, h1, h2 — מתעלם מ-Page Keywords ===
 function extractSmartContent(html, url) {
   const $ = cheerio.load(html);
   [
@@ -123,12 +119,15 @@ function extractSmartContent(html, url) {
     ".sidebar", ".navbar", "script", "style", "noscript", "form"
   ].forEach(sel => $(sel).remove());
 
+  // ❌ הסרת תגיות meta keywords
+  $('meta[name="keywords"]').remove();
+
   const title = $("title").text().trim();
   const description = $('meta[name="description"]').attr("content")?.trim() || "";
   const h1 = $("h1").first().text().trim();
   const h2s = $("h2").map((_, el) => $(el).text().trim()).get();
-
   const h3s = $("h3").map((_, el) => $(el).text().trim()).get();
+
   const bodyParts = [];
   $("p,li,blockquote").each((_, el) => {
     const t = $(el).text().trim();
