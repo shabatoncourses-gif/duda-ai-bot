@@ -49,27 +49,49 @@ function extractKeywordsHeb(str) {
     .filter((w, i, arr) => arr.indexOf(w) === i);
 }
 
-// ===== טעינת אינדקסים =====
+
+// ===== טעינת אינדקסים (כולל חלקים) =====
 async function loadIndexes() {
   const now = Date.now();
   if (cache.data && now - cache.timestamp < cache.ttl) return cache.data;
 
   const repo = process.env.GITHUB_REPO || "shabatoncourses-gif/duda-ai-bot";
   const branch = process.env.GITHUB_BRANCH || "main";
+  const baseUrl = `https://raw.githubusercontent.com/${repo}/${branch}/data`;
 
-  const [shRes, moRes] = await Promise.all([
-    fetch(`https://raw.githubusercontent.com/${repo}/${branch}/data/shabaton_index.json`),
-    fetch(`https://raw.githubusercontent.com/${repo}/${branch}/data/morim_index.json`)
-  ]);
+  // רשימת קבצי אינדקסים לפי דפוס
+  const indexFiles = [
+    "shabaton_index.json",
+    "morim_index.json",
+    // נוסיף חלקים באופן אוטומטי עד 20 (מספיק לרוב)
+    ...Array.from({ length: 20 }, (_, i) => `shabaton_index_part${i + 1}.json`),
+    ...Array.from({ length: 20 }, (_, i) => `morim_index_part${i + 1}.json`)
+  ];
 
-  if (!shRes.ok || !moRes.ok)
-    throw new Error("❌ Failed to load indexes");
+  const shabatonAll = [];
+  const morimAll = [];
 
-  const [shabatonIndex, morimIndex] = await Promise.all([shRes.json(), moRes.json()]);
-  cache.data = { shabatonIndex, morimIndex };
+  for (const file of indexFiles) {
+    const url = `${baseUrl}/${file}`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (file.startsWith("shabaton")) shabatonAll.push(...data);
+      if (file.startsWith("morim")) morimAll.push(...data);
+      console.log(`📦 נטען ${file} (${data.length})`);
+    } catch (err) {
+      // מתעלמים אם הקובץ לא קיים
+    }
+  }
+
+  console.log(`✅ סה״כ שבתון: ${shabatonAll.length} | מורים: ${morimAll.length}`);
+
+  cache.data = { shabatonIndex: shabatonAll, morimIndex: morimAll };
   cache.timestamp = now;
   return cache.data;
 }
+
 
 // ===== זיהוי אזורים ואונליין =====
 const REGION_HINTS = [
