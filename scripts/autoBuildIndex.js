@@ -111,15 +111,13 @@ async function safeFetch(url, retries = 3) {
   return null;
 }
 
-// === חילוץ תוכן כולל title, description, h1, h2 — מתעלם מ-Page Keywords ===
+// === חילוץ תוכן כולל title, description, h1, h2 — ללא keywords ===
 function extractSmartContent(html, url) {
   const $ = cheerio.load(html);
   [
     "header", "footer", "nav", ".menu", ".breadcrumb", ".breadcrumbs",
     ".sidebar", ".navbar", "script", "style", "noscript", "form"
   ].forEach(sel => $(sel).remove());
-
-  // ❌ הסרת תגיות meta keywords
   $('meta[name="keywords"]').remove();
 
   const title = $("title").text().trim();
@@ -127,13 +125,11 @@ function extractSmartContent(html, url) {
   const h1 = $("h1").first().text().trim();
   const h2s = $("h2").map((_, el) => $(el).text().trim()).get();
   const h3s = $("h3").map((_, el) => $(el).text().trim()).get();
-
   const bodyParts = [];
   $("p,li,blockquote").each((_, el) => {
     const t = $(el).text().trim();
     if (t && t.length > 20) bodyParts.push(t);
   });
-
   const uniqueParts = [...new Set([title, description, h1, ...h2s, ...h3s, ...bodyParts])];
   const cleanText = uniqueParts.join(" ").replace(/\s+/g, " ").replace(/(\||›|»|·|•)/g, "").trim();
 
@@ -178,7 +174,7 @@ async function processPage(url) {
   };
 }
 
-// === העלאה ל-GitHub ===
+// === העלאה ל-GitHub רגילה ===
 async function uploadToGitHub(filePath, message) {
   try {
     if (!GITHUB_TOKEN || !GITHUB_REPO) return console.warn("⚠️ חסרים פרטי GitHub (לא יועלה)");
@@ -201,7 +197,7 @@ async function uploadToGitHub(filePath, message) {
   }
 }
 
-// === אינדוקס כולל דפי מידע ידניים ===
+// === בניית אינדקס עם פיצול אוטומטי ===
 export async function buildIndex(name, sitemapUrl, batchSize = 40, manualUrls = []) {
   const dataDir = path.join(process.cwd(), "data");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -238,20 +234,27 @@ export async function buildIndex(name, sitemapUrl, batchSize = 40, manualUrls = 
       failed.push(url);
     }
 
-    fs.writeFileSync(indexPath, JSON.stringify(pages, null, 2));
-    fs.writeFileSync(donePath, JSON.stringify(done, null, 2));
-    fs.writeFileSync(failedPath, JSON.stringify(failed, null, 2));
-    fs.writeFileSync(notFoundPath, JSON.stringify(notFound, null, 2));
+    fs.writeFileSync(indexPath, JSON.stringify(pages));
+    fs.writeFileSync(donePath, JSON.stringify(done));
+    fs.writeFileSync(failedPath, JSON.stringify(failed));
+    fs.writeFileSync(notFoundPath, JSON.stringify(notFound));
+  }
+
+  // === פיצול אוטומטי לקבצים קטנים יותר ===
+  const MAX_PER_FILE = 500;
+  const chunks = [];
+  for (let i = 0; i < pages.length; i += MAX_PER_FILE) {
+    chunks.push(pages.slice(i, i + MAX_PER_FILE));
+  }
+  for (let i = 0; i < chunks.length; i++) {
+    const chunkPath = path.join(dataDir, `${name.toLowerCase()}_index_part${i + 1}.json`);
+    fs.writeFileSync(chunkPath, JSON.stringify(chunks[i]));
+    await uploadToGitHub(chunkPath, `🤖 חלק ${i + 1}/${chunks.length} של ${name}`);
   }
 
   console.log(`📊 סיכום: ✅ ${count} הצליחו | 🚫 ${notFound.length} 404 | ⚠️ ${failed.length} כשלו`);
-
-  await uploadToGitHub(indexPath, `🤖 עדכון ${name} (${done.length}/${allUrls.length})`);
-  await uploadToGitHub(donePath, `📘 שמירת התקדמות ${name}`);
-  await uploadToGitHub(failedPath, `❗ רשימת כשלונות ${name}`);
-  await uploadToGitHub(notFoundPath, `🚫 רשימת 404 ${name}`);
-
   console.log(`✅ ${name} הסתיים (${count} נוספו, ${done.length}/${allUrls.length})`);
+
   return pending.length > batchSize;
 }
 
