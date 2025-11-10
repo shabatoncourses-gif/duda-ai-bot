@@ -1,4 +1,4 @@
-﻿import dotenv from "dotenv";
+import dotenv from "dotenv";
 dotenv.config();
 
 import OpenAI from "openai";
@@ -63,17 +63,15 @@ function removeMenuText(text) {
     .replace(/\s{2,}/g, " ")
     .trim();
 }
-
-// ===== טעינת אינדקסים (כולל חלקים, דרך GitHub API רשמי) =====
 async function loadIndexes() {
   const now = Date.now();
   if (cache.data && now - cache.timestamp < cache.ttl) return cache.data;
 
   const repo = process.env.GITHUB_REPO || "shabatoncourses-gif/duda-ai-bot";
   const branch = process.env.GITHUB_BRANCH || "main";
-  const token = process.env.GITHUB_TOKEN || process.env.GH_CONTENT_TOKEN || null;
+  const token = process.env.GITHUB_TOKEN || null;
+  const baseRaw = `https://raw.githubusercontent.com/${repo}/${branch}/data`;
 
-  // רשימת כל קבצי האינדקס הקיימים בפועל
   const indexFiles = [
     "morim_index_part1.json",
     "shabaton_index_part1.json",
@@ -83,32 +81,40 @@ async function loadIndexes() {
 
   const shabatonAll = [];
   const morimAll = [];
-  let loaded = 0;
+  let successCount = 0;
 
   for (const file of indexFiles) {
-    const url = `https://api.github.com/repos/${repo}/contents/data/${file}?ref=${branch}`;
+    const apiUrl = `https://api.github.com/repos/${repo}/contents/data/${file}?ref=${branch}`;
+    const rawUrl = `${baseRaw}/${file}`;
+
     try {
-      const res = await fetch(url, {
+      // ניסיון דרך GitHub API
+      let res = await fetch(apiUrl, {
         headers: token ? { Authorization: `token ${token}` } : {},
       });
+
       if (!res.ok) {
-        console.warn(`⚠️ ${file} → ${res.status}`);
+        console.warn(`⚠️ ${file} דרך API נכשל (${res.status}), מנסה raw...`);
+        res = await fetch(rawUrl);
+        if (!res.ok) {
+          console.warn(`⚠️ ${file} דרך raw נכשל (${res.status})`);
+          continue;
+        }
+        const data = await res.json();
+        if (file.startsWith("shabaton")) shabatonAll.push(...data);
+        if (file.startsWith("morim")) morimAll.push(...data);
+        successCount++;
+        console.log(`📦 נטען ${file} (raw, ${data.length})`);
         continue;
       }
 
+      // אם הצליח דרך API
       const json = await res.json();
-      if (!json.content) {
-        console.warn(`⚠️ ${file} → no content`);
-        continue;
-      }
-
       const decoded = Buffer.from(json.content, "base64").toString("utf8");
       const data = JSON.parse(decoded);
-
       if (file.startsWith("shabaton")) shabatonAll.push(...data);
       if (file.startsWith("morim")) morimAll.push(...data);
-
-      loaded++;
+      successCount++;
       console.log(`📦 נטען ${file} (${data.length})`);
     } catch (err) {
       console.warn(`⚠️ שגיאה בקריאת ${file}: ${err.message}`);
@@ -116,10 +122,7 @@ async function loadIndexes() {
   }
 
   console.log(`✅ שבתון: ${shabatonAll.length} | מורים: ${morimAll.length}`);
-
-  if (loaded === 0) {
-    throw new Error("❌ Failed to load indexes from GitHub");
-  }
+  if (successCount === 0) throw new Error("❌ Failed to load indexes from GitHub");
 
   cache.data = { shabatonIndex: shabatonAll, morimIndex: morimAll };
   cache.timestamp = now;
