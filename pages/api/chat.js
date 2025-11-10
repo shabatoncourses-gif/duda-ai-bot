@@ -25,6 +25,45 @@ function normalizeHebrew(text) {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+// ===== מילות חיבור להסרה =====
+const STOP_WORDS = new Set([
+  "של", "עם", "על", "ב", "ל", "ה", "מה", "איך", "יש", "אין", "או", "אם", "וכן",
+  "קורס", "קורסים", "לימודים", "בלימודי", "לימודי", "בהוראה", "להוראה",
+  "להשתלמות", "בהשתלמות", "תחום", "תחומים"
+]);
+
+// ===== חילוץ מילות מפתח =====
+function extractKeywordsHeb(str) {
+  return normalizeHebrew(str)
+    .split(" ")
+    .map((w) => w.replace(/^[לבכמוהשה]/, "").replace(/(יים|ים|ות|ית|יי|י)$/, ""))
+    .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
+    .filter((w, i, arr) => arr.indexOf(w) === i);
+}
+
+// ===== זיהוי אזורים =====
+function detectRegions(text) {
+  const t = normalizeHebrew(text);
+  const regions = [];
+  if (/תל.?אביב|מרכז|גוש.?דן|הרצליה|רמת.?גן|פתח.?תקוה|בת.?ים|חולון/.test(t)) regions.push("merkaz");
+  if (/שרון|נתניה|רעננה|כפר.?סבא|השרון/.test(t)) regions.push("sharon");
+  if (/חיפה|צפון|גליל|נהריה|עכו|טבריה|עמק/.test(t)) regions.push("north");
+  if (/דרום|שפלה|אשדוד|אשקלון|באר.?שבע|נגב/.test(t)) regions.push("south");
+  if (/אונליין|מקוון|zoom|זום|למידה.?מרחוק|למידה.?מקוונת|קורס.?מקוון/.test(t)) regions.push("online");
+  return regions.length ? regions : null;
+}
+
+// ===== ניקוי תפריטים =====
+function removeMenuText(text) {
+  if (!text) return "";
+  return text
+    .replace(/(\||\•|\-|\–|\—|›|»|<|>|\[|\]|\(|\)).{0,30}(https?:\/\/|www\.|shabaton|morim)/gi, "")
+    .replace(/(קורסים|מאמרים|יצירת קשר|צרו קשר|כניסה|כניסת מורים|אודות|שבתון|מורִים בוטיק)/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 // ===== טעינת אינדקסים (כולל חלקים, דרך GitHub API רשמי) =====
 async function loadIndexes() {
   const now = Date.now();
@@ -88,8 +127,7 @@ async function loadIndexes() {
 }
 
 
-
-// ===== API =====
+// ===== מסלול API =====
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -97,72 +135,158 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method === "GET") return res.status(200).json({ message: "✅ /api/chat פעיל." });
+  if (req.method !== "POST") return res.status(405).json({ error: "❌ POST בלבד" });
 
   try {
-    const { message } = req.body || {};
-    if (!message) return res.status(400).json({ error: "❌ חסר message." });
+    const { message, debug } = req.body || {};
+    if (!message) return res.status(400).json({ error: "❌ חסר message" });
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const cleanMsg = normalizeHebrew(message);
+    const keywords = extractKeywordsHeb(cleanMsg);
+    const userRegions = detectRegions(cleanMsg);
 
-    // === יצירת embedding לשאילתה ===
-    const emb = await client.embeddings.create({
-      model: "text-embedding-3-small",
-      input: cleanMsg,
-    });
-    const qv = emb.data[0].embedding;
+    const [embeddingFull, embeddingKeywords] = await Promise.all([
+      client.embeddings.create({ model: "text-embedding-3-small", input: cleanMsg }),
+      client.embeddings.create({ model: "text-embedding-3-small", input: keywords.join(" ") || cleanMsg })
+    ]);
 
-    // === טעינת האינדקסים (כולל חלקים) ===
+    const queryVectorFull = embeddingFull.data[0].embedding;
+    const queryVectorKeywords = embeddingKeywords.data[0].embedding;
+
     const { shabatonIndex, morimIndex } = await loadIndexes();
-    const allPages = [...shabatonIndex, ...morimIndex];
+    const allPages = [
+      ...shabatonIndex.map((p) => ({ ...p, source: "Shabaton" })),
+      ...morimIndex.map((p) => ({ ...p, source: "Morim" }))
+    ];
 
-    // === חישוב דמיון ומיון ===
+    // === דירוג משופר עם חיזוק חזק ל-title ועמודי מידע ===
     const ranked = allPages
       .map((p) => {
-        const sim = cosineSimilarity(qv, p.vector);
-        return { ...p, score: sim };
+        const url = p.url.toLowerCase();
+        const title = normalizeHebrew(p.title || "");
+        const text = removeMenuText(normalizeHebrew(p.text || ""));
+        const fullContent = `${title} ${text}`;
+        const simFull = cosineSimilarity(queryVectorFull, p.vector);
+        const simKey = cosineSimilarity(queryVectorKeywords, p.vector);
+        const matched = keywords.filter((kw) => fullContent.includes(kw));
+
+        // 🧠 זיהוי דפי מידע כלליים
+        const infoPages = ["btl", "שבתון", "גמול", "קרן", "faq", "tax", "מס"];
+        const isInfoPage = infoPages.some((kw) => url.includes(kw) || title.includes(kw));
+        const infoBoost = (!cleanMsg.includes("קורס") && isInfoPage) ? 0.8 : 0;
+
+        // 🧭 אזור
+        let regionBoost = 0;
+        if (userRegions) {
+          for (const region of userRegions) {
+            if (url.includes(region)) regionBoost += 0.25;
+          }
+          if (regionBoost === 0 && userRegions.length) regionBoost = -0.15;
+        }
+
+        // ⚙️ סדר עדיפויות לפי סוג עמוד
+        let priorityBoost = 0;
+        if (url.includes("/results-all/")) priorityBoost = 0.5;
+        else if (url.includes("/search-results-")) priorityBoost = 0.3;
+        else if (url.includes("/courses-per-month/")) priorityBoost = -0.1;
+        else if (url.includes("/articles/") || url.includes("/blog/")) priorityBoost = -0.3;
+
+        // 🎯 חיזוק חזק לכותרת ולתיאור
+        const titleMatch = keywords.some((kw) => title.includes(kw)) ? 0.8 : 0;
+        const descMatch = keywords.some((kw) => text.slice(0, 300).includes(kw)) ? 0.2 : 0;
+
+        const score = Math.max(simFull, simKey) + infoBoost + titleMatch + descMatch + regionBoost + priorityBoost;
+
+        return { ...p, score, matches: matched };
       })
       .filter((p) => p.score > 0.25)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 8);
+      .sort((a, b) => b.score - a.score);
 
-    if (ranked.length === 0)
+    const uniqueRanked = ranked.filter(
+      (p, i, arr) => arr.findIndex((x) => x.url === p.url) === i
+    ).slice(0, 6);
+
+    if (uniqueRanked.length === 0) {
       return res.status(200).json({ reply: "לא נמצאו תוצאות רלוונטיות." });
+    }
 
-    // === בניית הקשר להצגה ===
-    const context = ranked
-      .map(
-        (p) => `
-        <div style="margin:0 0 10px 0;">
-          <div style="font-weight:700;">${p.h1 || p.title}</div>
-          <div style="font-size:13px;color:#444;">${p.description || ""}</div>
-          <a href="${decodeURI(p.url)}" target="_blank" rel="noopener noreferrer"
-            style="display:inline-block;background:#0078ff;color:#fff;padding:6px 10px;
-            border-radius:6px;font-weight:bold;text-decoration:none;margin-top:6px;">
-            למידע נוסף ↗️
-          </a>
-        </div>`
-      )
-      .join("");
 
-    // === תשובה מסכמת של GPT ===
+// === יצירת קונטקסט מעוצב וידידותי ===
+const context = uniqueRanked
+  .map((p) => {
+    const decodedUrl = decodeURI(p.url.trim());
+    const cleanTitle = (p.title || "")
+      .replace(/\[.*?\]/g, "")
+      .replace(/\(.*?\)/g, "")
+      .replace(/["<>]/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
+    const shortText = (p.text || "").slice(0, 160).trim() + (p.text.length > 160 ? "..." : "");
+
+    return `
+      <div style="
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-bottom: 14px;
+        background-color: #fafafa;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      ">
+        <div style="font-weight:600; font-size:1.05em; color:#111; margin-bottom:6px;">
+          ${cleanTitle}
+        </div>
+        <div style="font-size:0.95em; color:#444; line-height:1.45;">
+          ${shortText}
+        </div>
+        <a href="${decodedUrl}" target="_blank" rel="noopener noreferrer"
+          style="display:inline-block; margin-top:10px; background:#0078ff;
+          color:white; padding:6px 12px; border-radius:8px; font-weight:bold;
+          text-decoration:none; transition:background 0.2s ease;">
+          למידע נוסף ↗️
+        </a>
+      </div>
+    `;
+  })
+  .join("");
+
+
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      temperature: 0.25,
       messages: [
         {
           role: "system",
-          content: `אתה עוזר חכם המספק תשובות מתוך מאגרי שבתון ומורים בלבד. 
-          השב בעברית בלבד, בלי להזכיר את שם האתר.`,
+          content: `
+          אתה עוזר חכם המספק תשובות מדויקות על קורסים ודפי מידע מתוך מאגרי שבתון ומורים בלבד.
+          חשוב מאוד להשתמש בכותרות (title, h1–h3) ובתיאורי הדפים.
+          אם השאלה אינה כוללת את המילה "קורס", העדף דפי מידע כלליים (כמו ביטוח לאומי, גמול השתלמות, קרן השתלמות).
+          אל תציין מאיזה אתר נלקח המידע, ואל תשתמש בסוגריים.
+          הצג רק קישורים ככפתור 'למידע נוסף ↗️' והקפד לנסח תשובה בעברית טבעית וברורה.
+          `
         },
-        { role: "user", content: `שאלה: ${cleanMsg}\n\nדפים רלוונטיים:\n${context}` },
+        {
+          role: "user",
+          content: `שאלה: ${cleanMsg}\n\nעמודים רלוונטיים:\n${context}`
+        }
       ],
+      temperature: 0.3
     });
 
     const reply = completion.choices?.[0]?.message?.content || "לא נמצאה תשובה.";
-    return res.status(200).json({ reply });
+
+    return res.status(200).json({
+      reply,
+      ...(debug && {
+        debug: uniqueRanked.map((r) => ({
+          title: r.title,
+          score: r.score.toFixed(3),
+          url: r.url
+        }))
+      })
+    });
   } catch (err) {
-    console.error("💥 Error during /api/chat:", err);
+    console.error("💥 Error in /api/chat:", err);
     return res.status(500).json({ error: err.message });
   }
 }
