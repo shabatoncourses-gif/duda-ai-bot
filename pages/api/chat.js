@@ -49,8 +49,7 @@ function extractKeywordsHeb(str) {
     .filter((w, i, arr) => arr.indexOf(w) === i);
 }
 
-
-// ===== טעינת אינדקסים (כולל חלקים) =====
+// ===== טעינת אינדקסים (כולל חלקים מרובים) =====
 async function loadIndexes() {
   const now = Date.now();
   if (cache.data && now - cache.timestamp < cache.ttl) return cache.data;
@@ -59,41 +58,40 @@ async function loadIndexes() {
   const branch = process.env.GITHUB_BRANCH || "main";
   const baseUrl = `https://raw.githubusercontent.com/${repo}/${branch}/data`;
 
-  // רשימת קבצי אינדקסים לפי דפוס
-  const indexFiles = [
-    "shabaton_index.json",
-    "morim_index.json",
-    // נוסיף חלקים באופן אוטומטי עד 20 (מספיק לרוב)
-    ...Array.from({ length: 20 }, (_, i) => `shabaton_index_part${i + 1}.json`),
-    ...Array.from({ length: 20 }, (_, i) => `morim_index_part${i + 1}.json`)
-  ];
-
   const shabatonAll = [];
   const morimAll = [];
 
-  for (const file of indexFiles) {
-    const url = `${baseUrl}/${file}`;
-    try {
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (file.startsWith("shabaton")) shabatonAll.push(...data);
-      if (file.startsWith("morim")) morimAll.push(...data);
-      console.log(`📦 נטען ${file} (${data.length})`);
-    } catch (err) {
-      // מתעלמים אם הקובץ לא קיים
+  // ננסה לטעון את כל הקבצים הקיימים כולל חלקים (עד 30)
+  for (const site of ["shabaton", "morim"]) {
+    for (let i = 0; i < 30; i++) {
+      const file = i === 0 ? `${site}_index.json` : `${site}_index_part${i}.json`;
+      const url = `${baseUrl}/${file}`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          if (site === "shabaton") shabatonAll.push(...data);
+          else morimAll.push(...data);
+          console.log(`📦 נטען ${file} (${data.length})`);
+        }
+      } catch (err) {
+        // מתעלמים אם לא נמצא
+      }
     }
   }
 
-  console.log(`✅ סה״כ שבתון: ${shabatonAll.length} | מורים: ${morimAll.length}`);
+  console.log(`✅ שבתון: ${shabatonAll.length} דפים | מורים: ${morimAll.length} דפים`);
+
+  if (shabatonAll.length === 0 && morimAll.length === 0)
+    throw new Error("❌ לא נטענו אינדקסים - בדוק את GitHub/data");
 
   cache.data = { shabatonIndex: shabatonAll, morimIndex: morimAll };
   cache.timestamp = now;
   return cache.data;
 }
 
-
-// ===== זיהוי אזורים ואונליין =====
+// ===== זיהוי אזורים =====
 const REGION_HINTS = [
   { key: "all", terms: ["כל הארץ","result all","results-all"], urlMatch: /results-all/i, boost: 0.35 },
   { key: "merkaz", terms: ["מרכז","תל אביב","תל־אביב","גוש דן"], urlMatch: /results-merkaz/i, boost: 0.25 },
@@ -149,15 +147,16 @@ export default async function handler(req, res) {
   if (req.method === "GET") return res.status(200).json({ message: "✅ /api/chat פעיל." });
 
   try {
-    const { message, debug } = req.body || {};
+    const { message } = req.body || {};
     if (!message) return res.status(400).json({ error: "❌ חסר message." });
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const cleanMsg = normalizeHebrew(message);
     const keywords = extractKeywordsHeb(cleanMsg);
     const regionHits = detectRegionHints(message);
     const infoIntent = /(ביטוח לאומי|שבתון|זכאות|זכויות|מענק|פנסיה|קרן|טופס|תשלום|מידע|FAQ|שאלות נפוצות)/i.test(message);
 
+    // יצירת embeddings
     const [embFull, embKeys] = await Promise.all([
       client.embeddings.create({ model:"text-embedding-3-small", input: cleanMsg }),
       client.embeddings.create({ model:"text-embedding-3-small", input: keywords.join(" ")||cleanMsg }),
@@ -165,9 +164,11 @@ export default async function handler(req, res) {
     const qvFull = embFull.data[0].embedding;
     const qvKeys = embKeys.data[0].embedding;
 
+    // טעינת האינדקסים
     const { shabatonIndex, morimIndex } = await loadIndexes();
     const allPages = [...shabatonIndex.map(p=>({...p,source:"Shabaton"})),...morimIndex.map(p=>({...p,source:"Morim"}))];
 
+    // דירוג
     const ranked = allPages.map(p=>{
       const fullText = removeMenuText(normalizeHebrew([
         p.title, p.h1, ...(p.h2||[]), p.description, p.text
@@ -175,7 +176,6 @@ export default async function handler(req, res) {
 
       const sim = Math.max(cosineSimilarity(qvFull,p.vector),cosineSimilarity(qvKeys,p.vector));
       let score = sim;
-
       if (/results-all/i.test(p.url)) score += 0.35;
       if (regionHits.size===0 && /results-all/i.test(p.url)) score += 0.15;
       for (const r of REGION_HINTS) if(regionHits.has(r.key)&&r.urlMatch.test(p.url)) score += r.boost;
@@ -190,7 +190,7 @@ export default async function handler(req, res) {
 
     let uniqueRanked = ranked.filter((p,i,a)=>a.findIndex(x=>x.url===p.url)===i).slice(0,8);
 
-    // === מיון קורסים נפתחים בקרוב לפי חודשים ===
+    // מיון קורסים נפתחים בקרוב לפי חודשים
     const soonCourses = uniqueRanked.filter(p =>
       /(נפתח|יפתח|פתיחה|נפתחים בקרוב)/i.test([p.title,p.h1,...(p.h2||[])].join(" "))
     );
@@ -210,7 +210,7 @@ export default async function handler(req, res) {
     if(uniqueRanked.length===0)
       return res.status(200).json({ reply:"לא נמצאו תוצאות רלוונטיות." });
 
-    // === בניית קונטקסט להצגה ===
+    // === בניית הקשר להצגה ===
     const context = uniqueRanked.map(p=>{
       const H1 = p.h1 || p.title || "פרטים";
       const desc = p.description ? `<div style='font-size:13px;color:#444;'>${p.description}</div>` : "";
@@ -229,7 +229,7 @@ export default async function handler(req, res) {
         </div>`;
     }).join("");
 
-    // === תשובת GPT ===
+    // תשובת GPT
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.25,
