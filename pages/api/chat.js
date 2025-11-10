@@ -48,8 +48,7 @@ function extractKeywordsHeb(str) {
     .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
     .filter((w, i, arr) => arr.indexOf(w) === i);
 }
-
-// ===== טעינת אינדקסים (כולל חלקים מרובים) =====
+// ===== טעינת אינדקסים (כולל חלקים + טיפול בשגיאות GitHub) =====
 async function loadIndexes() {
   const now = Date.now();
   if (cache.data && now - cache.timestamp < cache.ttl) return cache.data;
@@ -58,38 +57,55 @@ async function loadIndexes() {
   const branch = process.env.GITHUB_BRANCH || "main";
   const baseUrl = `https://raw.githubusercontent.com/${repo}/${branch}/data`;
 
+  // אם מוגדר GH_CONTENT_TOKEN נוסיף הרשאה
+  const headers = process.env.GH_CONTENT_TOKEN
+    ? { Authorization: `token ${process.env.GH_CONTENT_TOKEN}` }
+    : {};
+
+  // רשימת קבצים צפויים
+  const indexFiles = [
+    "shabaton_index.json",
+    "morim_index.json",
+    ...Array.from({ length: 20 }, (_, i) => `shabaton_index_part${i + 1}.json`),
+    ...Array.from({ length: 20 }, (_, i) => `morim_index_part${i + 1}.json`),
+  ];
+
   const shabatonAll = [];
   const morimAll = [];
+  let loadedFiles = 0;
 
-  // ננסה לטעון את כל הקבצים הקיימים כולל חלקים (עד 30)
-  for (const site of ["shabaton", "morim"]) {
-    for (let i = 0; i < 30; i++) {
-      const file = i === 0 ? `${site}_index.json` : `${site}_index_part${i}.json`;
-      const url = `${baseUrl}/${file}`;
-      try {
-        const res = await fetch(url);
-        if (!res.ok) continue;
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          if (site === "shabaton") shabatonAll.push(...data);
-          else morimAll.push(...data);
-          console.log(`📦 נטען ${file} (${data.length})`);
-        }
-      } catch (err) {
-        // מתעלמים אם לא נמצא
+  for (const file of indexFiles) {
+    const url = `${baseUrl}/${file}`;
+    try {
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        if (res.status !== 404) console.warn(`⚠️ ${file} (${res.status})`);
+        continue;
       }
+      const data = await res.json();
+      if (!Array.isArray(data)) {
+        console.warn(`⚠️ ${file} לא מכיל מערך תקין`);
+        continue;
+      }
+      if (file.startsWith("shabaton")) shabatonAll.push(...data);
+      if (file.startsWith("morim")) morimAll.push(...data);
+      loadedFiles++;
+      console.log(`📦 נטען ${file} (${data.length} רשומות)`);
+    } catch (err) {
+      console.error(`❌ שגיאה בקריאת ${file}:`, err.message);
     }
   }
 
-  console.log(`✅ שבתון: ${shabatonAll.length} דפים | מורים: ${morimAll.length} דפים`);
+  if (loadedFiles === 0) {
+    throw new Error("❌ Failed to load indexes from GitHub — no files were read.");
+  }
 
-  if (shabatonAll.length === 0 && morimAll.length === 0)
-    throw new Error("❌ לא נטענו אינדקסים - בדוק את GitHub/data");
-
+  console.log(`✅ סה״כ שבתון: ${shabatonAll.length} | מורים: ${morimAll.length}`);
   cache.data = { shabatonIndex: shabatonAll, morimIndex: morimAll };
   cache.timestamp = now;
   return cache.data;
 }
+
 
 // ===== זיהוי אזורים =====
 const REGION_HINTS = [
