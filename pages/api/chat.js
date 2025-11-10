@@ -63,7 +63,10 @@ function removeMenuText(text) {
     .replace(/\s{2,}/g, " ")
     .trim();
 }
+
+// ===== טעינת אינדקסים (כולל חלקים, דרך GitHub API רשמי) =====
 async function loadIndexes() {
+  console.log("🌐 Fetching fresh indexes from GitHub...");
   const now = Date.now();
   if (cache.data && now - cache.timestamp < cache.ttl) return cache.data;
 
@@ -73,10 +76,10 @@ async function loadIndexes() {
   const baseRaw = `https://raw.githubusercontent.com/${repo}/${branch}/data`;
 
   const indexFiles = [
-    "morim_index_part1.json",
     "shabaton_index_part1.json",
     "shabaton_index_part2.json",
     "shabaton_index_part3.json",
+    "morim_index_part1.json",
   ];
 
   const shabatonAll = [];
@@ -88,40 +91,42 @@ async function loadIndexes() {
     const rawUrl = `${baseRaw}/${file}`;
 
     try {
-      // ניסיון דרך GitHub API
       let res = await fetch(apiUrl, {
         headers: token ? { Authorization: `token ${token}` } : {},
       });
 
       if (!res.ok) {
-        console.warn(`⚠️ ${file} דרך API נכשל (${res.status}), מנסה raw...`);
+        console.warn(`⚠️ API fetch ${file} failed: ${res.status}`);
+        console.warn(`➡️ Trying RAW URL...`);
         res = await fetch(rawUrl);
-        if (!res.ok) {
-          console.warn(`⚠️ ${file} דרך raw נכשל (${res.status})`);
-          continue;
-        }
-        const data = await res.json();
-        if (file.startsWith("shabaton")) shabatonAll.push(...data);
-        if (file.startsWith("morim")) morimAll.push(...data);
-        successCount++;
-        console.log(`📦 נטען ${file} (raw, ${data.length})`);
+      }
+
+      if (!res.ok) {
+        console.warn(`❌ RAW fetch ${file} failed: ${res.status}`);
         continue;
       }
 
-      // אם הצליח דרך API
-      const json = await res.json();
-      const decoded = Buffer.from(json.content, "base64").toString("utf8");
-      const data = JSON.parse(decoded);
+      let data;
+      // אם זה מה־API — יש content base64
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        const json = await res.json();
+        const decoded = Buffer.from(json.content, "base64").toString("utf8");
+        data = JSON.parse(decoded);
+      }
+
       if (file.startsWith("shabaton")) shabatonAll.push(...data);
       if (file.startsWith("morim")) morimAll.push(...data);
       successCount++;
-      console.log(`📦 נטען ${file} (${data.length})`);
+      console.log(`📦 Loaded ${file} (${data.length})`);
     } catch (err) {
-      console.warn(`⚠️ שגיאה בקריאת ${file}: ${err.message}`);
+      console.warn(`⚠️ Error reading ${file}: ${err.message}`);
     }
   }
 
-  console.log(`✅ שבתון: ${shabatonAll.length} | מורים: ${morimAll.length}`);
+  console.log(`✅ Shabaton: ${shabatonAll.length} | Morim: ${morimAll.length}`);
   if (successCount === 0) throw new Error("❌ Failed to load indexes from GitHub");
 
   cache.data = { shabatonIndex: shabatonAll, morimIndex: morimAll };
