@@ -1,4 +1,5 @@
-﻿import dotenv from "dotenv";
+﻿// ===== /api/chat.js =====
+import dotenv from "dotenv";
 dotenv.config();
 
 import OpenAI from "openai";
@@ -26,34 +27,28 @@ const STOP_WORDS = new Set([
   "להשתלמות","בהשתלמות"
 ]);
 
-// ===== ניקוי טקסט עברי =====
+// ===== ניקוי טקסט =====
 function normalizeHebrew(text) {
   return (text || "")
     .toLowerCase()
-    .replace(/[\u0591-\u05C7]/g, "") // ניקוד
+    .replace(/[\u0591-\u05C7]/g, "")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-// ===== חילוץ מילות מפתח חכמות =====
 function extractKeywordsHeb(str) {
   return normalizeHebrew(str)
     .split(" ")
     .map((w) =>
-      w
-        .replace(/^[לבכמוהשה]/, "") // תחיליות
-        .replace(/(יים|ים|ות|ית|יי|י)$/, "") // סיומות
+      w.replace(/^[לבכמוהשה]/, "").replace(/(יים|ים|ות|ית|יי|י)$/, "")
     )
     .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
     .filter((w, i, arr) => arr.indexOf(w) === i);
 }
 
-
-
-
-// ===== טעינת אינדקסים (כולל חלקים + טיפול בשגיאות GitHub) =====
-  async function loadIndexes() {
+// ===== טעינת אינדקסים עם GH_TOKEN =====
+async function loadIndexes() {
   const now = Date.now();
   if (cache.data && now - cache.timestamp < cache.ttl) return cache.data;
 
@@ -76,10 +71,7 @@ function extractKeywordsHeb(str) {
     const url = `${base}/${file}?ref=${branch}`;
     try {
       const res = await fetch(url, { headers });
-      if (!res.ok) {
-        console.warn(`⚠️ ${file} → ${res.status} ${res.statusText}`);
-        continue;
-      }
+      if (!res.ok) continue;
       const json = await res.json();
       if (!json.content) continue;
       const content = Buffer.from(json.content, "base64").toString("utf8");
@@ -88,25 +80,22 @@ function extractKeywordsHeb(str) {
       if (file.startsWith("morim")) morimAll.push(...data);
       console.log(`📦 נטען ${file} (${data.length})`);
     } catch (err) {
-      console.error(`❌ ${file} error:`, err.message);
+      console.warn(`⚠️ ${file}: ${err.message}`);
     }
   }
 
-  if (!shabatonAll.length && !morimAll.length) {
+  if (!shabatonAll.length && !morimAll.length)
     throw new Error("❌ Failed to load indexes from GitHub");
-  }
 
-  console.log(`✅ סה״כ שבתון: ${shabatonAll.length} | מורים: ${morimAll.length}`);
+  console.log(`✅ שבתון: ${shabatonAll.length} | מורים: ${morimAll.length}`);
   cache.data = { shabatonIndex: shabatonAll, morimIndex: morimAll };
   cache.timestamp = now;
   return cache.data;
 }
 
-
-
-// ===== זיהוי אזורים =====
+// ===== אזורים =====
 const REGION_HINTS = [
-  { key: "all", terms: ["כל הארץ","result all","results-all"], urlMatch: /results-all/i, boost: 0.35 },
+  { key: "all", terms: ["כל הארץ"], urlMatch: /results-all/i, boost: 0.35 },
   { key: "merkaz", terms: ["מרכז","תל אביב","תל־אביב","גוש דן"], urlMatch: /results-merkaz/i, boost: 0.25 },
   { key: "sharon", terms: ["שרון"], urlMatch: /results-sharon/i, boost: 0.22 },
   { key: "zafon", terms: ["צפון","חיפה"], urlMatch: /results-zafon/i, boost: 0.22 },
@@ -117,20 +106,16 @@ const REGION_HINTS = [
 function detectRegionHints(q) {
   const nq = normalizeHebrew(q);
   const hits = new Set();
-  for (const r of REGION_HINTS) {
+  for (const r of REGION_HINTS)
     if (r.terms.some(t => nq.includes(normalizeHebrew(t)))) hits.add(r.key);
-  }
   return hits;
 }
 
-// ===== מיון לפי תאריכי פתיחה =====
+// ===== מיון לפי תאריכים =====
 const MONTHS_MAP = {
   ינואר:1, פברואר:2, מרץ:3, אפריל:4, מאי:5, יוני:6,
-  יולי:7, אוגוסט:8, ספטמבר:9, אוקטובר:10, נובמבר:11, דצמבר:12,
-  jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12,
-  דצמ:12, ינ:1, פבר:2, מר:3, אפר:4, יול:7, אוג:8, ספט:9, אוק:10, נוב:11
+  יולי:7, אוגוסט:8, ספטמבר:9, אוקטובר:10, נובמבר:11, דצמבר:12
 };
-
 function extractStartDate(str) {
   if (!str) return null;
   const text = str.toLowerCase();
@@ -140,14 +125,10 @@ function extractStartDate(str) {
   return (monthNum&&yearNum)?new Date(yearNum,monthNum-1,1):null;
 }
 
-// ===== ניקוי תפריטים =====
+// ===== ניקוי טקסט תפריטים =====
 function removeMenuText(text) {
   if (!text) return "";
-  return text
-    .replace(/(\||›|»|<|>|\[|\]|\(|\)).{0,20}(https?:\/\/|www\.|shabaton|morim)/gi, "")
-    .replace(/(קורסים|מאמרים|צרו קשר|אודות|כניסה|מורים)/gi, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
+  return text.replace(/(קורסים|מאמרים|צרו קשר|אודות|כניסה|מורים)/gi, "").trim();
 }
 
 // ===== API =====
@@ -167,9 +148,8 @@ export default async function handler(req, res) {
     const cleanMsg = normalizeHebrew(message);
     const keywords = extractKeywordsHeb(cleanMsg);
     const regionHits = detectRegionHints(message);
-    const infoIntent = /(ביטוח לאומי|שבתון|זכאות|זכויות|מענק|פנסיה|קרן|טופס|תשלום|מידע|FAQ|שאלות נפוצות)/i.test(message);
+    const infoIntent = /(ביטוח לאומי|שבתון|זכאות|זכויות|מענק|פנסיה|קרן|טופס|תשלום|מידע|faq|שאלות נפוצות)/i.test(message);
 
-    // יצירת embeddings
     const [embFull, embKeys] = await Promise.all([
       client.embeddings.create({ model:"text-embedding-3-small", input: cleanMsg }),
       client.embeddings.create({ model:"text-embedding-3-small", input: keywords.join(" ")||cleanMsg }),
@@ -177,18 +157,14 @@ export default async function handler(req, res) {
     const qvFull = embFull.data[0].embedding;
     const qvKeys = embKeys.data[0].embedding;
 
-    // טעינת האינדקסים
     const { shabatonIndex, morimIndex } = await loadIndexes();
-    const allPages = [...shabatonIndex.map(p=>({...p,source:"Shabaton"})),...morimIndex.map(p=>({...p,source:"Morim"}))];
+    const allPages = [...shabatonIndex.map(p=>({...p,source:"Shabaton"})), ...morimIndex.map(p=>({...p,source:"Morim"}))];
 
-    // דירוג
     const ranked = allPages.map(p=>{
-      const fullText = removeMenuText(normalizeHebrew([
-        p.title, p.h1, ...(p.h2||[]), p.description, p.text
-      ].filter(Boolean).join(" ")));
-
-      const sim = Math.max(cosineSimilarity(qvFull,p.vector),cosineSimilarity(qvKeys,p.vector));
+      const fullText = removeMenuText(normalizeHebrew([p.title,p.h1,...(p.h2||[]),p.description,p.text].filter(Boolean).join(" ")));
+      const sim = Math.max(cosineSimilarity(qvFull,p.vector), cosineSimilarity(qvKeys,p.vector));
       let score = sim;
+
       if (/results-all/i.test(p.url)) score += 0.35;
       if (regionHits.size===0 && /results-all/i.test(p.url)) score += 0.15;
       for (const r of REGION_HINTS) if(regionHits.has(r.key)&&r.urlMatch.test(p.url)) score += r.boost;
@@ -196,18 +172,16 @@ export default async function handler(req, res) {
 
       const matched = keywords.filter(kw=>fullText.includes(kw));
       score += matched.length*0.03;
-      return {...p,score,matched};
-    })
-    .filter(p=>p.score>0.25)
-    .sort((a,b)=>b.score-a.score);
+      return {...p,score};
+    }).filter(p=>p.score>0.25).sort((a,b)=>b.score-a.score);
 
     let uniqueRanked = ranked.filter((p,i,a)=>a.findIndex(x=>x.url===p.url)===i).slice(0,8);
 
-    // מיון קורסים נפתחים בקרוב לפי חודשים
+    // מיון קורסים לפי חודשים
     const soonCourses = uniqueRanked.filter(p =>
       /(נפתח|יפתח|פתיחה|נפתחים בקרוב)/i.test([p.title,p.h1,...(p.h2||[])].join(" "))
     );
-    if (soonCourses.length>0){
+    if (soonCourses.length>0) {
       soonCourses.sort((a,b)=>{
         const da=extractStartDate([a.title,a.h1,...(a.h2||[])].join(" "));
         const db=extractStartDate([b.title,b.h1,...(b.h2||[])].join(" "));
@@ -223,13 +197,11 @@ export default async function handler(req, res) {
     if(uniqueRanked.length===0)
       return res.status(200).json({ reply:"לא נמצאו תוצאות רלוונטיות." });
 
-    // === בניית הקשר להצגה ===
     const context = uniqueRanked.map(p=>{
       const H1 = p.h1 || p.title || "פרטים";
       const desc = p.description ? `<div style='font-size:13px;color:#444;'>${p.description}</div>` : "";
-      const h2List = (p.h2||[]).filter(Boolean).slice(0,3)
-        .map(h=>`• ${h}`).join("<br>");
-      const h2Html = h2List?`<div style='margin-top:5px;font-size:13px;color:#333;'>${h2List}</div>`:"";
+      const h2List = (p.h2||[]).filter(Boolean).slice(0,3).map(h=>`• ${h}`).join("<br>");
+      const h2Html = h2List ? `<div style='margin-top:5px;font-size:13px;color:#333;'>${h2List}</div>` : "";
       return `
         <div style="margin:0 0 10px 0;">
           <div style="font-weight:700;">${H1}</div>
@@ -242,7 +214,6 @@ export default async function handler(req, res) {
         </div>`;
     }).join("");
 
-    // תשובת GPT
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.25,
@@ -257,8 +228,9 @@ export default async function handler(req, res) {
 
     const reply = completion.choices?.[0]?.message?.content || "לא נמצאה תשובה.";
     return res.status(200).json({ reply });
+
   } catch (err) {
-    console.error("💥 Error /api/chat:", err);
+    console.error("💥 Error during /api/chat:", err);
     return res.status(500).json({ error: err.message });
   }
 }
