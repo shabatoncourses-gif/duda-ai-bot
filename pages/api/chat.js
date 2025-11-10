@@ -48,56 +48,52 @@ function extractKeywordsHeb(str) {
     .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
     .filter((w, i, arr) => arr.indexOf(w) === i);
 }
+
+
+
+
 // ===== טעינת אינדקסים (כולל חלקים + טיפול בשגיאות GitHub) =====
-async function loadIndexes() {
+  async function loadIndexes() {
   const now = Date.now();
   if (cache.data && now - cache.timestamp < cache.ttl) return cache.data;
 
   const repo = process.env.GITHUB_REPO || "shabatoncourses-gif/duda-ai-bot";
   const branch = process.env.GITHUB_BRANCH || "main";
-  const baseUrl = `https://raw.githubusercontent.com/${repo}/${branch}/data`;
+  const token = process.env.GH_CONTENT_TOKEN;
+  const headers = token ? { Authorization: `token ${token}` } : {};
 
-  // אם מוגדר GH_CONTENT_TOKEN נוסיף הרשאה
-  const headers = process.env.GH_CONTENT_TOKEN
-    ? { Authorization: `token ${process.env.GH_CONTENT_TOKEN}` }
-    : {};
-
-  // רשימת קבצים צפויים
-  const indexFiles = [
+  const files = [
     "shabaton_index.json",
     "morim_index.json",
     ...Array.from({ length: 20 }, (_, i) => `shabaton_index_part${i + 1}.json`),
-    ...Array.from({ length: 20 }, (_, i) => `morim_index_part${i + 1}.json`),
+    ...Array.from({ length: 20 }, (_, i) => `morim_index_part${i + 1}.json`)
   ];
 
-  const shabatonAll = [];
-  const morimAll = [];
-  let loadedFiles = 0;
+  const base = `https://api.github.com/repos/${repo}/contents/data`;
+  const shabatonAll = [], morimAll = [];
 
-  for (const file of indexFiles) {
-    const url = `${baseUrl}/${file}`;
+  for (const file of files) {
+    const url = `${base}/${file}?ref=${branch}`;
     try {
       const res = await fetch(url, { headers });
       if (!res.ok) {
-        if (res.status !== 404) console.warn(`⚠️ ${file} (${res.status})`);
+        console.warn(`⚠️ ${file} → ${res.status} ${res.statusText}`);
         continue;
       }
-      const data = await res.json();
-      if (!Array.isArray(data)) {
-        console.warn(`⚠️ ${file} לא מכיל מערך תקין`);
-        continue;
-      }
+      const json = await res.json();
+      if (!json.content) continue;
+      const content = Buffer.from(json.content, "base64").toString("utf8");
+      const data = JSON.parse(content);
       if (file.startsWith("shabaton")) shabatonAll.push(...data);
       if (file.startsWith("morim")) morimAll.push(...data);
-      loadedFiles++;
-      console.log(`📦 נטען ${file} (${data.length} רשומות)`);
+      console.log(`📦 נטען ${file} (${data.length})`);
     } catch (err) {
-      console.error(`❌ שגיאה בקריאת ${file}:`, err.message);
+      console.error(`❌ ${file} error:`, err.message);
     }
   }
 
-  if (loadedFiles === 0) {
-    throw new Error("❌ Failed to load indexes from GitHub — no files were read.");
+  if (!shabatonAll.length && !morimAll.length) {
+    throw new Error("❌ Failed to load indexes from GitHub");
   }
 
   console.log(`✅ סה״כ שבתון: ${shabatonAll.length} | מורים: ${morimAll.length}`);
@@ -105,6 +101,7 @@ async function loadIndexes() {
   cache.timestamp = now;
   return cache.data;
 }
+
 
 
 // ===== זיהוי אזורים =====
