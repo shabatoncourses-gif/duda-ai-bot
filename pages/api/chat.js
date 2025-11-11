@@ -65,16 +65,9 @@ function removeMenuText(text) {
 }
 
 async function loadIndexes() {
-  console.log("🌐 Fetching fresh indexes from GitHub...");
-  const now = Date.now();
-  if (cache.data && now - cache.timestamp < cache.ttl) return cache.data;
-
-  const repo = process.env.GITHUB_REPO || "shabatoncourses-gif/duda-ai-bot";
-  const branch = process.env.GITHUB_BRANCH || "main";
-  const token = process.env.GITHUB_TOKEN || null;
-  const baseRaw = `https://raw.githubusercontent.com/${repo}/${branch}/data`;
-
-  const indexFiles = [
+  console.log("🌐 Fetching indexes directly from RAW GitHub...");
+  const base = "https://raw.githubusercontent.com/shabatoncourses-gif/duda-ai-bot/main/data";
+  const files = [
     "shabaton_index_part1.json",
     "shabaton_index_part2.json",
     "shabaton_index_part3.json",
@@ -83,84 +76,31 @@ async function loadIndexes() {
 
   const shabatonAll = [];
   const morimAll = [];
-  let successCount = 0;
 
-  for (const file of indexFiles) {
-    const apiUrl = `https://api.github.com/repos/${repo}/contents/data/${file}?ref=${branch}`;
-    const rawUrl = `${baseRaw}/${file}`;
-    console.log(`🔍 Trying ${file}...`);
-
+  for (const f of files) {
     try {
-      // ניסיון ראשון - API
-      let res = await fetch(apiUrl, {
-        headers: token ? { Authorization: `token ${token}` } : {},
-      });
-      console.log(`🔹 API status for ${file}: ${res.status}`);
-
-      // ניסיון שני - raw
+      const url = `${base}/${f}`;
+      console.log("⬇️ Downloading:", url);
+      const res = await fetch(url);
       if (!res.ok) {
-        console.warn(`⚠️ API fetch failed (${res.status}) → trying RAW`);
-        res = await fetch(rawUrl);
-        console.log(`🔹 RAW status for ${file}: ${res.status}`);
-      }
-
-      if (!res.ok) {
-        console.warn(`❌ Both API & RAW failed for ${file}`);
+        console.warn(`⚠️ Failed ${f} (${res.status})`);
         continue;
       }
-
-      let data;
-      const contentType = res.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) {
-        data = await res.json();
-      } else {
-        const json = await res.json();
-        const decoded = Buffer.from(json.content, "base64").toString("utf8");
-        data = JSON.parse(decoded);
-      }
-
-      if (file.startsWith("shabaton")) shabatonAll.push(...data);
-      if (file.startsWith("morim")) morimAll.push(...data);
-      successCount++;
-      console.log(`📦 Loaded ${file} (${data.length})`);
+      const data = await res.json();
+      if (f.startsWith("shabaton")) shabatonAll.push(...data);
+      else if (f.startsWith("morim")) morimAll.push(...data);
+      console.log(`📦 Loaded ${f} (${data.length})`);
     } catch (err) {
-      console.warn(`⚠️ Error reading ${file}: ${err.message}`);
+      console.warn(`⚠️ Error ${f}:`, err.message);
     }
   }
 
-  console.log(`✅ Total Shabaton: ${shabatonAll.length} | Morim: ${morimAll.length}`);
-  if (successCount === 0) throw new Error("❌ Failed to load indexes from GitHub");
+  if (shabatonAll.length === 0 && morimAll.length === 0)
+    throw new Error("❌ Failed to load indexes from GitHub");
 
+  console.log(`✅ Loaded Shabaton: ${shabatonAll.length}, Morim: ${morimAll.length}`);
   cache.data = { shabatonIndex: shabatonAll, morimIndex: morimAll };
-  cache.timestamp = now;
-  return cache.data;
-}
-
-      // אם זה מ־RAW → JSON רגיל, אם מ־API → decode base64
-      let data;
-      const contentType = res.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) {
-        data = await res.json();
-      } else {
-        const json = await res.json();
-        const decoded = Buffer.from(json.content, "base64").toString("utf8");
-        data = JSON.parse(decoded);
-      }
-
-      if (file.startsWith("shabaton")) shabatonAll.push(...data);
-      if (file.startsWith("morim")) morimAll.push(...data);
-      successCount++;
-      console.log(`📦 Loaded ${file} (${data.length})`);
-    } catch (err) {
-      console.warn(`⚠️ Error reading ${file}: ${err.message}`);
-    }
-  }
-
-  console.log(`✅ Shabaton: ${shabatonAll.length} | Morim: ${morimAll.length}`);
-  if (successCount === 0) throw new Error("❌ Failed to load indexes from GitHub");
-
-  cache.data = { shabatonIndex: shabatonAll, morimIndex: morimAll };
-  cache.timestamp = now;
+  cache.timestamp = Date.now();
   return cache.data;
 }
 
