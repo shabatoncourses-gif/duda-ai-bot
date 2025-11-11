@@ -68,48 +68,58 @@ function removeMenuText(text) {
     .trim();
 }
 
-// ===== טעינת אינדקסים עם DEBUG =====
 async function loadIndexes() {
-  console.log("🌐 Fetching fresh indexes from GitHub...");
+  console.log("🌐 Fetching fresh indexes from GitHub (with fallback)...");
+
   const base = "https://raw.githubusercontent.com/shabatoncourses-gif/duda-ai-bot/main/data";
   const files = [
     "shabaton_index_part1.json",
     "shabaton_index_part2.json",
     "shabaton_index_part3.json",
-    "morim_index_part1.json"
+    "morim_index_part1.json",
   ];
 
   const shabatonAll = [];
   const morimAll = [];
-  const results = [];
 
   for (const f of files) {
     const url = `${base}/${f}`;
+    console.log("⬇️ Fetching:", url);
+
     try {
-      const res = await fetch(url);
-      console.log(`📡 ${f} → ${res.status}`);
-      if (!res.ok) {
-        results.push({ file: f, status: res.status });
-        continue;
+      let res = await fetch(url);
+      console.log(`📊 ${f} → ${res.status}`);
+
+      let text = await res.text();
+      if (!text.trim() || !text.trim().startsWith("[")) {
+        console.warn(`⚠️ ${f} from GitHub empty — retrying via AllOrigins`);
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        const proxyRes = await fetch(proxyUrl);
+        if (!proxyRes.ok) {
+          console.warn(`⚠️ Fallback failed (${proxyRes.status})`);
+          continue;
+        }
+        text = await proxyRes.text();
       }
-      const text = await res.text();
-      const trimmed = text.slice(0, 50).replace(/\s+/g, " ");
-      console.log(`📖 Preview of ${f}: ${trimmed}`);
+
       const data = JSON.parse(text);
-      if (f.startsWith("shabaton")) shabatonAll.push(...data);
-      else if (f.startsWith("morim")) morimAll.push(...data);
+      if (Array.isArray(data) && data.length > 0) {
+        if (f.startsWith("shabaton")) shabatonAll.push(...data);
+        else if (f.startsWith("morim")) morimAll.push(...data);
+        console.log(`✅ Loaded ${f} (${data.length})`);
+      } else {
+        console.warn(`⚠️ ${f} has no records`);
+      }
+
     } catch (err) {
-      console.warn(`⚠️ ${f}: ${err.message}`);
-      results.push({ file: f, error: err.message });
+      console.error(`💥 Error loading ${f}: ${err.message}`);
     }
   }
 
-  console.log("📊 Load summary:", JSON.stringify(results, null, 2));
-  console.log(`✅ Loaded → Shabaton: ${shabatonAll.length}, Morim: ${morimAll.length}`);
+  console.log(`📦 Total: Shabaton=${shabatonAll.length}, Morim=${morimAll.length}`);
 
-  if (shabatonAll.length === 0 && morimAll.length === 0) {
-    throw new Error("❌ Failed to load indexes from GitHub");
-  }
+  if (shabatonAll.length === 0 && morimAll.length === 0)
+    throw new Error("❌ Failed to load indexes from GitHub (no data)");
 
   cache.data = { shabatonIndex: shabatonAll, morimIndex: morimAll };
   cache.timestamp = Date.now();
