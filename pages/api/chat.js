@@ -64,7 +64,8 @@ function removeMenuText(text) {
     .trim();
 }
 
-// ===== טעינת אינדקסים (כולל חלקים, דרך GitHub API רשמי) =====
+
+
 async function loadIndexes() {
   console.log("🌐 Fetching fresh indexes from GitHub...");
   const now = Date.now();
@@ -91,23 +92,24 @@ async function loadIndexes() {
     const rawUrl = `${baseRaw}/${file}`;
 
     try {
+      // קודם מנסה API רגיל
       let res = await fetch(apiUrl, {
         headers: token ? { Authorization: `token ${token}` } : {},
       });
 
+      // אם לא הצליח, מנסה RAW
       if (!res.ok) {
-        console.warn(`⚠️ API fetch ${file} failed: ${res.status}`);
-        console.warn(`➡️ Trying RAW URL...`);
+        console.warn(`⚠️ API fetch ${file} failed (${res.status})`);
         res = await fetch(rawUrl);
       }
 
       if (!res.ok) {
-        console.warn(`❌ RAW fetch ${file} failed: ${res.status}`);
+        console.warn(`❌ RAW fetch ${file} failed (${res.status})`);
         continue;
       }
 
+      // אם זה מ־RAW → JSON רגיל, אם מ־API → decode base64
       let data;
-      // אם זה מה־API — יש content base64
       const contentType = res.headers.get("content-type") || "";
       if (contentType.includes("application/json")) {
         data = await res.json();
