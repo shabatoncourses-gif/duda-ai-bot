@@ -19,16 +19,18 @@
     "cheerio": "^1.0.0",
     "dotenv": "^16.4.5"
   },
-  "vercel": {
-    "functions": {
-      "api/build-index.js": {
-        "maxDuration": 300,
-        "memory": 1024
-      },
+ "vercel": {
+   "functions": {
+    "api/chat.js": {
+      "maxDuration": 120,
+      "memory": 512
+    }
+  }
+},
       "api/chat.js": {
         "maxDuration": 120,
         "memory": 512
-      }
-    }
-  }
 }
+ 
+
+
