@@ -17,8 +17,7 @@
   "crons": [
     {
       "path": "/api/reindex",
-      "schedule": "*/15 * * * *"
-
+      "schedule": "0 4 * * *"
     }
   ]
 }
