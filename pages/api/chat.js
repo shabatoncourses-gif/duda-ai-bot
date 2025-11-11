@@ -64,8 +64,6 @@ function removeMenuText(text) {
     .trim();
 }
 
-
-
 async function loadIndexes() {
   console.log("🌐 Fetching fresh indexes from GitHub...");
   const now = Date.now();
@@ -90,23 +88,53 @@ async function loadIndexes() {
   for (const file of indexFiles) {
     const apiUrl = `https://api.github.com/repos/${repo}/contents/data/${file}?ref=${branch}`;
     const rawUrl = `${baseRaw}/${file}`;
+    console.log(`🔍 Trying ${file}...`);
 
     try {
-      // קודם מנסה API רגיל
+      // ניסיון ראשון - API
       let res = await fetch(apiUrl, {
         headers: token ? { Authorization: `token ${token}` } : {},
       });
+      console.log(`🔹 API status for ${file}: ${res.status}`);
 
-      // אם לא הצליח, מנסה RAW
+      // ניסיון שני - raw
       if (!res.ok) {
-        console.warn(`⚠️ API fetch ${file} failed (${res.status})`);
+        console.warn(`⚠️ API fetch failed (${res.status}) → trying RAW`);
         res = await fetch(rawUrl);
+        console.log(`🔹 RAW status for ${file}: ${res.status}`);
       }
 
       if (!res.ok) {
-        console.warn(`❌ RAW fetch ${file} failed (${res.status})`);
+        console.warn(`❌ Both API & RAW failed for ${file}`);
         continue;
       }
+
+      let data;
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        const json = await res.json();
+        const decoded = Buffer.from(json.content, "base64").toString("utf8");
+        data = JSON.parse(decoded);
+      }
+
+      if (file.startsWith("shabaton")) shabatonAll.push(...data);
+      if (file.startsWith("morim")) morimAll.push(...data);
+      successCount++;
+      console.log(`📦 Loaded ${file} (${data.length})`);
+    } catch (err) {
+      console.warn(`⚠️ Error reading ${file}: ${err.message}`);
+    }
+  }
+
+  console.log(`✅ Total Shabaton: ${shabatonAll.length} | Morim: ${morimAll.length}`);
+  if (successCount === 0) throw new Error("❌ Failed to load indexes from GitHub");
+
+  cache.data = { shabatonIndex: shabatonAll, morimIndex: morimAll };
+  cache.timestamp = now;
+  return cache.data;
+}
 
       // אם זה מ־RAW → JSON רגיל, אם מ־API → decode base64
       let data;
