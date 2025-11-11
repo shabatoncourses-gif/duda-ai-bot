@@ -65,53 +65,124 @@ function removeMenuText(text) {
     .trim();
 }
 
-// ===== טעינת אינדקסים (RAW GitHub) =====
+// ===== טעינת אינדקסים עם DEBUG =====
 async function loadIndexes() {
-  const now = Date.now();
-  if (cache.data && now - cache.timestamp < cache.ttl) return cache.data;
-
+  console.log("🌐 Fetching fresh indexes from GitHub...");
   const base = "https://raw.githubusercontent.com/shabatoncourses-gif/duda-ai-bot/main/data";
-  // עדכני כאן אם תוסיפי חלקים בעתיד
   const files = [
     "shabaton_index_part1.json",
     "shabaton_index_part2.json",
     "shabaton_index_part3.json",
-    "morim_index_part1.json",
+    "morim_index_part1.json"
   ];
 
-  console.log("🌐 Fetching indexes from RAW GitHub...");
   const shabatonAll = [];
   const morimAll = [];
-  const resultsDiag = [];
+  const statusList = [];
 
   for (const f of files) {
     const url = `${base}/${f}`;
     try {
-      const res = await fetch(url, { headers: { "User-Agent": "vercel-function" } });
-      resultsDiag.push(`${f}: ${res.status}`);
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (!Array.isArray(data)) {
-        console.warn(`⚠️ ${f} is not an array`);
+      const res = await fetch(url);
+      statusList.push(`${f}:${res.status}`);
+      if (!res.ok) {
+        console.warn(`⚠️ ${f} → HTTP ${res.status}`);
         continue;
       }
+      const data = await res.json();
       if (f.startsWith("shabaton")) shabatonAll.push(...data);
       else if (f.startsWith("morim")) morimAll.push(...data);
     } catch (err) {
-      resultsDiag.push(`${f}: ERROR ${err.message}`);
+      console.warn(`❌ Error fetching ${f}: ${err.message}`);
+      statusList.push(`${f}:ERR`);
     }
   }
 
-  console.log(`📊 fetch statuses: ${resultsDiag.join(" | ")}`);
-  console.log(`✅ counts — Shabaton: ${shabatonAll.length}, Morim: ${morimAll.length}`);
+  console.log("📊 Fetch statuses:", statusList.join(" | "));
+  console.log(`✅ Totals → Shabaton: ${shabatonAll.length}, Morim: ${morimAll.length}`);
 
   if (shabatonAll.length === 0 && morimAll.length === 0) {
-    throw new Error(`❌ Failed to load indexes from GitHub. Statuses: ${resultsDiag.join(" | ")}`);
+    throw new Error("❌ Failed to load indexes from GitHub (empty result)");
   }
 
   cache.data = { shabatonIndex: shabatonAll, morimIndex: morimAll };
-  cache.timestamp = now;
+  cache.timestamp = Date.now();
   return cache.data;
+}
+
+// ===== מסלול API =====
+export default async function handler(req, res) {
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method === "GET") return res.status(200).json({ message: "✅ /api/chat פעיל." });
+
+  try {
+    console.log("💬 Incoming request to /api/chat");
+
+    const { message } = req.body || {};
+    if (!message) return res.status(400).json({ error: "❌ חסר message" });
+
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const cleanMsg = normalizeHebrew(message);
+
+    // === יצירת embedding לשאילתה ===
+    const emb = await client.embeddings.create({
+      model: "text-embedding-3-small",
+      input: cleanMsg
+    });
+    const qv = emb.data[0].embedding;
+
+    // === טעינת אינדקסים (כולל חלקים) ===
+    const { shabatonIndex, morimIndex } = await loadIndexes();
+    const allPages = [...shabatonIndex, ...morimIndex];
+
+    // === חישוב דמיון ומיון ===
+    const ranked = allPages
+      .map((p) => ({ ...p, score: cosineSimilarity(qv, p.vector) }))
+      .filter((p) => p.score > 0.25)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8);
+
+    if (ranked.length === 0)
+      return res.status(200).json({ reply: "לא נמצאו תוצאות רלוונטיות." });
+
+    const context = ranked
+      .map(
+        (p) => `
+        <div style="margin:0 0 10px 0;">
+          <div style="font-weight:700;">${p.h1 || p.title}</div>
+          <div style="font-size:13px;color:#444;">${p.description || ""}</div>
+          <a href="${decodeURI(p.url)}" target="_blank" rel="noopener noreferrer"
+            style="display:inline-block;background:#0078ff;color:#fff;padding:6px 10px;
+            border-radius:6px;font-weight:bold;text-decoration:none;margin-top:6px;">
+            למידע נוסף ↗️
+          </a>
+        </div>`
+      )
+      .join("");
+
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.25,
+      messages: [
+        {
+          role: "system",
+          content: "ענה בעברית בלבד, על בסיס מידע ממאגרי שבתון ומורים."
+        },
+        { role: "user", content: `שאלה: ${cleanMsg}\n\nדפים רלוונטיים:\n${context}` }
+      ]
+    });
+
+    const reply = completion.choices?.[0]?.message?.content || "לא נמצאה תשובה.";
+    return res.status(200).json({ reply });
+  } catch (err) {
+    console.error("💥 Error during /api/chat:", err);
+    return res.status(500).json({ error: err.message });
+  }
 }
 
 // ===== API =====
