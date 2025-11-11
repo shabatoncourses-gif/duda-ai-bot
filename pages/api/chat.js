@@ -1,19 +1,24 @@
-﻿import dotenv from "dotenv";
+// pages/api/chat.js
+import dotenv from "dotenv";
 dotenv.config();
 
 import OpenAI from "openai";
-import fetch from "node-fetch";
 
-// ===== Cache =====
+// ===== Cache (10 דקות) =====
 const cache = { data: null, timestamp: 0, ttl: 10 * 60 * 1000 };
 
-// ===== חישוב דמיון קוסינוס =====
+// (ב-Next 13/14 זה מבטל קאשינג של ה־route)
+export const dynamic = "force-dynamic";
+
+// ===== קוסינוס =====
 function cosineSimilarity(a, b) {
   if (!a || !b || a.length !== b.length) return 0;
-  const dot = a.reduce((sum, ai, i) => sum + ai * b[i], 0);
-  const normA = Math.sqrt(a.reduce((s, ai) => s + ai * ai, 0));
-  const normB = Math.sqrt(b.reduce((s, bi) => s + bi * bi, 0));
-  return dot / (normA * normB || 1);
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    const ai = a[i], bi = b[i];
+    dot += ai * bi; na += ai * ai; nb += bi * bi;
+  }
+  return dot / (Math.sqrt(na) * Math.sqrt(nb) || 1);
 }
 
 // ===== ניקוי טקסט =====
@@ -26,14 +31,12 @@ function normalizeHebrew(text) {
     .trim();
 }
 
-// ===== מילות חיבור להסרה =====
 const STOP_WORDS = new Set([
-  "של", "עם", "על", "ב", "ל", "ה", "מה", "איך", "יש", "אין", "או", "אם", "וכן",
-  "קורס", "קורסים", "לימודים", "בלימודי", "לימודי", "בהוראה", "להוראה",
-  "להשתלמות", "בהשתלמות", "תחום", "תחומים"
+  "של","עם","על","ב","ל","ה","מה","איך","יש","אין","או","אם","וכן",
+  "קורס","קורסים","לימודים","בלימודי","לימודי","בהוראה","להוראה",
+  "להשתלמות","בהשתלמות","תחום","תחומים"
 ]);
 
-// ===== חילוץ מילות מפתח =====
 function extractKeywordsHeb(str) {
   return normalizeHebrew(str)
     .split(" ")
@@ -42,7 +45,6 @@ function extractKeywordsHeb(str) {
     .filter((w, i, arr) => arr.indexOf(w) === i);
 }
 
-// ===== זיהוי אזורים =====
 function detectRegions(text) {
   const t = normalizeHebrew(text);
   const regions = [];
@@ -54,7 +56,6 @@ function detectRegions(text) {
   return regions.length ? regions : null;
 }
 
-// ===== ניקוי תפריטים =====
 function removeMenuText(text) {
   if (!text) return "";
   return text
@@ -64,9 +65,13 @@ function removeMenuText(text) {
     .trim();
 }
 
+// ===== טעינת אינדקסים (RAW GitHub) =====
 async function loadIndexes() {
-  console.log("🌐 Fetching indexes directly from RAW GitHub...");
+  const now = Date.now();
+  if (cache.data && now - cache.timestamp < cache.ttl) return cache.data;
+
   const base = "https://raw.githubusercontent.com/shabatoncourses-gif/duda-ai-bot/main/data";
+  // עדכני כאן אם תוסיפי חלקים בעתיד
   const files = [
     "shabaton_index_part1.json",
     "shabaton_index_part2.json",
@@ -74,38 +79,42 @@ async function loadIndexes() {
     "morim_index_part1.json",
   ];
 
+  console.log("🌐 Fetching indexes from RAW GitHub...");
   const shabatonAll = [];
   const morimAll = [];
+  const resultsDiag = [];
 
   for (const f of files) {
+    const url = `${base}/${f}`;
     try {
-      const url = `${base}/${f}`;
-      console.log("⬇️ Downloading:", url);
-      const res = await fetch(url);
-      if (!res.ok) {
-        console.warn(`⚠️ Failed ${f} (${res.status})`);
+      const res = await fetch(url, { headers: { "User-Agent": "vercel-function" } });
+      resultsDiag.push(`${f}: ${res.status}`);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (!Array.isArray(data)) {
+        console.warn(`⚠️ ${f} is not an array`);
         continue;
       }
-      const data = await res.json();
       if (f.startsWith("shabaton")) shabatonAll.push(...data);
       else if (f.startsWith("morim")) morimAll.push(...data);
-      console.log(`📦 Loaded ${f} (${data.length})`);
     } catch (err) {
-      console.warn(`⚠️ Error ${f}:`, err.message);
+      resultsDiag.push(`${f}: ERROR ${err.message}`);
     }
   }
 
-  if (shabatonAll.length === 0 && morimAll.length === 0)
-    throw new Error("❌ Failed to load indexes from GitHub");
+  console.log(`📊 fetch statuses: ${resultsDiag.join(" | ")}`);
+  console.log(`✅ counts — Shabaton: ${shabatonAll.length}, Morim: ${morimAll.length}`);
 
-  console.log(`✅ Loaded Shabaton: ${shabatonAll.length}, Morim: ${morimAll.length}`);
+  if (shabatonAll.length === 0 && morimAll.length === 0) {
+    throw new Error(`❌ Failed to load indexes from GitHub. Statuses: ${resultsDiag.join(" | ")}`);
+  }
+
   cache.data = { shabatonIndex: shabatonAll, morimIndex: morimAll };
-  cache.timestamp = Date.now();
+  cache.timestamp = now;
   return cache.data;
 }
 
-
-// ===== מסלול API =====
+// ===== API =====
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -116,6 +125,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "❌ POST בלבד" });
 
   try {
+    console.log("💬 Incoming request to /api/chat");
     const { message, debug } = req.body || {};
     if (!message) return res.status(400).json({ error: "❌ חסר message" });
 
@@ -124,144 +134,91 @@ export default async function handler(req, res) {
     const keywords = extractKeywordsHeb(cleanMsg);
     const userRegions = detectRegions(cleanMsg);
 
-    const [embeddingFull, embeddingKeywords] = await Promise.all([
+    // Embeddings
+    const [embFull, embKeys] = await Promise.all([
       client.embeddings.create({ model: "text-embedding-3-small", input: cleanMsg }),
       client.embeddings.create({ model: "text-embedding-3-small", input: keywords.join(" ") || cleanMsg })
     ]);
+    const qvFull = embFull.data[0].embedding;
+    const qvKeys = embKeys.data[0].embedding;
 
-    const queryVectorFull = embeddingFull.data[0].embedding;
-    const queryVectorKeywords = embeddingKeywords.data[0].embedding;
-
+    // Indexes
+    console.log("🌐 Fetching fresh indexes from GitHub...");
     const { shabatonIndex, morimIndex } = await loadIndexes();
     const allPages = [
-      ...shabatonIndex.map((p) => ({ ...p, source: "Shabaton" })),
-      ...morimIndex.map((p) => ({ ...p, source: "Morim" }))
+      ...shabatonIndex.map(p => ({ ...p, source: "Shabaton" })),
+      ...morimIndex.map(p => ({ ...p, source: "Morim" }))
     ];
 
-    // === דירוג משופר עם חיזוק חזק ל-title ועמודי מידע ===
+    // דירוג
     const ranked = allPages
       .map((p) => {
-        const url = p.url.toLowerCase();
+        const url = (p.url || "").toLowerCase();
         const title = normalizeHebrew(p.title || "");
         const text = removeMenuText(normalizeHebrew(p.text || ""));
-        const fullContent = `${title} ${text}`;
-        const simFull = cosineSimilarity(queryVectorFull, p.vector);
-        const simKey = cosineSimilarity(queryVectorKeywords, p.vector);
-        const matched = keywords.filter((kw) => fullContent.includes(kw));
+        const sim = Math.max(cosineSimilarity(qvFull, p.vector), cosineSimilarity(qvKeys, p.vector));
 
-        // 🧠 זיהוי דפי מידע כלליים
-        const infoPages = ["btl", "שבתון", "גמול", "קרן", "faq", "tax", "מס"];
-        const isInfoPage = infoPages.some((kw) => url.includes(kw) || title.includes(kw));
-        const infoBoost = (!cleanMsg.includes("קורס") && isInfoPage) ? 0.8 : 0;
+        let score = sim;
 
-        // 🧭 אזור
-        let regionBoost = 0;
+        // חיזוקים שימושיים
+        if (url.includes("/results-all/")) score += 0.5;
+        else if (url.includes("/search-results-")) score += 0.3;
+
+        // מידע כללי (ביטוח לאומי, קרנות וכו')
+        const isInfo = /(btl|faq|info|גמול|קרן|שבתון|tax|מס)/i.test(url + " " + title);
+        if (!cleanMsg.includes("קורס") && isInfo) score += 0.8;
+
+        // אזורים
         if (userRegions) {
-          for (const region of userRegions) {
-            if (url.includes(region)) regionBoost += 0.25;
-          }
+          let regionBoost = 0;
+          for (const r of userRegions) if (url.includes(r)) regionBoost += 0.25;
           if (regionBoost === 0 && userRegions.length) regionBoost = -0.15;
+          score += regionBoost;
         }
 
-        // ⚙️ סדר עדיפויות לפי סוג עמוד
-        let priorityBoost = 0;
-        if (url.includes("/results-all/")) priorityBoost = 0.5;
-        else if (url.includes("/search-results-")) priorityBoost = 0.3;
-        else if (url.includes("/courses-per-month/")) priorityBoost = -0.1;
-        else if (url.includes("/articles/") || url.includes("/blog/")) priorityBoost = -0.3;
-
-        // 🎯 חיזוק חזק לכותרת ולתיאור
+        // התאמה בכותרת/תיאור
         const titleMatch = keywords.some((kw) => title.includes(kw)) ? 0.8 : 0;
         const descMatch = keywords.some((kw) => text.slice(0, 300).includes(kw)) ? 0.2 : 0;
+        score += titleMatch + descMatch;
 
-        const score = Math.max(simFull, simKey) + infoBoost + titleMatch + descMatch + regionBoost + priorityBoost;
-
-        return { ...p, score, matches: matched };
+        return { ...p, score };
       })
       .filter((p) => p.score > 0.25)
       .sort((a, b) => b.score - a.score);
 
-    const uniqueRanked = ranked.filter(
-      (p, i, arr) => arr.findIndex((x) => x.url === p.url) === i
-    ).slice(0, 6);
+    const uniqueRanked = ranked.filter((p, i, arr) => arr.findIndex(x => x.url === p.url) === i).slice(0, 6);
+    if (uniqueRanked.length === 0) return res.status(200).json({ reply: "לא נמצאו תוצאות רלוונטיות." });
 
-    if (uniqueRanked.length === 0) {
-      return res.status(200).json({ reply: "לא נמצאו תוצאות רלוונטיות." });
-    }
-
-
-// === יצירת קונטקסט מעוצב וידידותי ===
-const context = uniqueRanked
-  .map((p) => {
-    const decodedUrl = decodeURI(p.url.trim());
-    const cleanTitle = (p.title || "")
-      .replace(/\[.*?\]/g, "")
-      .replace(/\(.*?\)/g, "")
-      .replace(/["<>]/g, "")
-      .replace(/\s{2,}/g, " ")
-      .trim();
-
-    const shortText = (p.text || "").slice(0, 160).trim() + (p.text.length > 160 ? "..." : "");
-
-    return `
-      <div style="
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 14px 16px;
-        margin-bottom: 14px;
-        background-color: #fafafa;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-      ">
-        <div style="font-weight:600; font-size:1.05em; color:#111; margin-bottom:6px;">
-          ${cleanTitle}
+    // קונטקסט להצגה
+    const context = uniqueRanked.map((p) => {
+      const cleanTitle = (p.h1 || p.title || "פרטים").replace(/\s{2,}/g, " ").trim();
+      const shortText = (p.description || p.text || "").slice(0, 160) + ((p.description || p.text || "").length > 160 ? "..." : "");
+      return `
+        <div style="border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:14px;background:#fafafa;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+          <div style="font-weight:600;font-size:1.05em;color:#111;margin-bottom:6px;">${cleanTitle}</div>
+          <div style="font-size:.95em;color:#444;line-height:1.45;">${shortText}</div>
+          <a href="${decodeURI(p.url)}" target="_blank" rel="noopener noreferrer"
+             style="display:inline-block;margin-top:10px;background:#0078ff;color:#fff;padding:6px 12px;border-radius:8px;font-weight:bold;text-decoration:none;">
+            למידע נוסף ↗️
+          </a>
         </div>
-        <div style="font-size:0.95em; color:#444; line-height:1.45;">
-          ${shortText}
-        </div>
-        <a href="${decodedUrl}" target="_blank" rel="noopener noreferrer"
-          style="display:inline-block; margin-top:10px; background:#0078ff;
-          color:white; padding:6px 12px; border-radius:8px; font-weight:bold;
-          text-decoration:none; transition:background 0.2s ease;">
-          למידע נוסף ↗️
-        </a>
-      </div>
-    `;
-  })
-  .join("");
+      `;
+    }).join("");
 
-
+    // תשובה
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
+      temperature: 0.3,
       messages: [
-        {
-          role: "system",
-          content: `
-          אתה עוזר חכם המספק תשובות מדויקות על קורסים ודפי מידע מתוך מאגרי שבתון ומורים בלבד.
-          חשוב מאוד להשתמש בכותרות (title, h1–h3) ובתיאורי הדפים.
-          אם השאלה אינה כוללת את המילה "קורס", העדף דפי מידע כלליים (כמו ביטוח לאומי, גמול השתלמות, קרן השתלמות).
-          אל תציין מאיזה אתר נלקח המידע, ואל תשתמש בסוגריים.
-          הצג רק קישורים ככפתור 'למידע נוסף ↗️' והקפד לנסח תשובה בעברית טבעית וברורה.
-          `
-        },
-        {
-          role: "user",
-          content: `שאלה: ${cleanMsg}\n\nעמודים רלוונטיים:\n${context}`
-        }
-      ],
-      temperature: 0.3
+        { role: "system", content: "אתה עוזר חכם המספק תשובות מדויקות מתוך מאגרי שבתון ומורים בלבד. אל תציין מאיזה אתר נלקח המידע. אל תשתמש בסוגריים. הנוסח תמיד בעברית." },
+        { role: "user", content: `שאלה: ${cleanMsg}\n\nעמודים רלוונטיים:\n${context}` }
+      ]
     });
 
     const reply = completion.choices?.[0]?.message?.content || "לא נמצאה תשובה.";
-
     return res.status(200).json({
       reply,
-      ...(debug && {
-        debug: uniqueRanked.map((r) => ({
-          title: r.title,
-          score: r.score.toFixed(3),
-          url: r.url
-        }))
-      })
+      ...(debug && { debug: uniqueRanked.map(p => ({ title: p.title, score: +p.score.toFixed(3), url: p.url })) })
     });
   } catch (err) {
     console.error("💥 Error in /api/chat:", err);
