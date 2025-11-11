@@ -3,10 +3,9 @@
   "version": "1.0.0",
   "description": "Automated content indexing bot for Shabaton & Morim",
   "type": "module",
-  "main": "api/chat.js",
   "scripts": {
     "dev": "vercel dev",
-    "start": "node api/chat.js",
+    "start": "vercel dev",
     "index": "node scripts/autoBuildIndex.js",
     "build-index": "node scripts/autoBuildIndex.js"
   },
@@ -18,14 +17,17 @@
     "axios": "^1.6.0",
     "xml2js": "^0.6.2",
     "cheerio": "^1.0.0",
-    "dotenv": "^16.4.5",
-    "node-fetch": "^3.3.2"
+    "dotenv": "^16.4.5"
   },
   "vercel": {
     "functions": {
       "api/build-index.js": {
         "maxDuration": 300,
         "memory": 1024
+      },
+      "api/chat.js": {
+        "maxDuration": 120,
+        "memory": 512
       }
     }
   }
