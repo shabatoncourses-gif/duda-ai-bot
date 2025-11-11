@@ -81,31 +81,34 @@ async function loadIndexes() {
 
   const shabatonAll = [];
   const morimAll = [];
-  const statusList = [];
+  const results = [];
 
   for (const f of files) {
     const url = `${base}/${f}`;
     try {
       const res = await fetch(url);
-      statusList.push(`${f}:${res.status}`);
+      console.log(`📡 ${f} → ${res.status}`);
       if (!res.ok) {
-        console.warn(`⚠️ ${f} → HTTP ${res.status}`);
+        results.push({ file: f, status: res.status });
         continue;
       }
-      const data = await res.json();
+      const text = await res.text();
+      const trimmed = text.slice(0, 50).replace(/\s+/g, " ");
+      console.log(`📖 Preview of ${f}: ${trimmed}`);
+      const data = JSON.parse(text);
       if (f.startsWith("shabaton")) shabatonAll.push(...data);
       else if (f.startsWith("morim")) morimAll.push(...data);
     } catch (err) {
-      console.warn(`❌ Error fetching ${f}: ${err.message}`);
-      statusList.push(`${f}:ERR`);
+      console.warn(`⚠️ ${f}: ${err.message}`);
+      results.push({ file: f, error: err.message });
     }
   }
 
-  console.log("📊 Fetch statuses:", statusList.join(" | "));
-  console.log(`✅ Totals → Shabaton: ${shabatonAll.length}, Morim: ${morimAll.length}`);
+  console.log("📊 Load summary:", JSON.stringify(results, null, 2));
+  console.log(`✅ Loaded → Shabaton: ${shabatonAll.length}, Morim: ${morimAll.length}`);
 
   if (shabatonAll.length === 0 && morimAll.length === 0) {
-    throw new Error("❌ Failed to load indexes from GitHub (empty result)");
+    throw new Error("❌ Failed to load indexes from GitHub");
   }
 
   cache.data = { shabatonIndex: shabatonAll, morimIndex: morimAll };
