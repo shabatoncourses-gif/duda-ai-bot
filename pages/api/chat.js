@@ -75,10 +75,10 @@ async function loadIndexes() {
   const baseRaw = `https://raw.githubusercontent.com/${repo}/${branch}/data`;
 
   const indexFiles = [
-    "shabaton_index_part1.json",
-    "shabaton_index_part2.json",
-    "shabaton_index_part3.json",
-    "morim_index_part1.json",
+    "/data/shabaton_index_part1.json",
+    "/data/shabaton_index_part2.json",
+    "/data/shabaton_index_part3.json",
+    "/data/morim_index_part1.json",
   ];
 
   const shabatonAll = [];
