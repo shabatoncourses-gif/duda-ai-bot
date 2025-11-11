@@ -1,4 +1,7 @@
 // pages/api/chat.js
+
+export const config = { runtime: "nodejs" };
+
 import dotenv from "dotenv";
 dotenv.config();
 
