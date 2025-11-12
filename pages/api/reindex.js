@@ -1,6 +1,6 @@
 import { buildIndex } from "../../scripts/autoBuildIndex.js";
 
-export default async function handler(req, res) {
+export default async function reindexHandler(req, res) {
   console.log("🚀 Triggered /api/reindex");
 
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -38,3 +38,4 @@ export default async function handler(req, res) {
 
   return res.status(405).json({ error: "Method not allowed" });
 }
+
