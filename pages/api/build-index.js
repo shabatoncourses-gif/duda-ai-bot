@@ -3,7 +3,7 @@ import { exec } from "child_process";
 import path from "path";
 import fs from "fs";
 
-export default async function handler(req, res) {
+export default async function buildIndexHandler(req, res) {
   console.log("🚀 Triggered /api/build-index");
 
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -63,3 +63,4 @@ export default async function handler(req, res) {
     res.status(500).json({ success: false, error: err.message });
   }
 }
+
