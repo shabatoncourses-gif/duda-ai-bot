@@ -1,9 +1,7 @@
 // pages/api/status.js
-import fs from "fs";
-import path from "path";
 import fetch from "node-fetch";
 
-export default async function handler(req, res) {
+export default async function statusHandler(req, res) {
   console.log("📊 Checking indexing status...");
 
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -16,47 +14,55 @@ export default async function handler(req, res) {
   try {
     const repo = process.env.GITHUB_REPO || "shabatoncourses-gif/duda-ai-bot";
     const branch = process.env.GITHUB_BRANCH || "main";
-
-    // מיקומים בקבצי GitHub
     const baseUrl = `https://raw.githubusercontent.com/${repo}/${branch}/data`;
-    const files = {
-      shabatonIndex: `${baseUrl}/shabaton_index.json`,
-      shabatonDone: `${baseUrl}/shabaton_done.json`,
-      morimIndex: `${baseUrl}/morim_index.json`,
-      morimDone: `${baseUrl}/morim_done.json`,
-    };
+
+    // קבצי האינדקס המעודכנים (מחולקים לחלקים)
+    const files = [
+      "shabaton_index_part1.json",
+      "shabaton_index_part2.json",
+      "shabaton_index_part3.json",
+      "morim_index_part1.json",
+    ];
 
     const results = {};
+    let totalShabaton = 0;
+    let totalMorim = 0;
 
-    for (const [key, url] of Object.entries(files)) {
+    for (const f of files) {
+      const url = `${baseUrl}/${f}`;
       try {
         const resFile = await fetch(url);
-        if (resFile.ok) {
-          const json = await resFile.json();
-          results[key] = Array.isArray(json) ? json.length : 0;
-        } else {
-          results[key] = 0;
+        if (!resFile.ok) {
+          console.warn(`⚠️ Failed to fetch ${f}: ${resFile.status}`);
+          continue;
         }
-      } catch {
-        results[key] = 0;
+        const json = await resFile.json();
+        const count = Array.isArray(json) ? json.length : 0;
+
+        if (f.startsWith("shabaton")) totalShabaton += count;
+        if (f.startsWith("morim")) totalMorim += count;
+
+        results[f] = count;
+      } catch (err) {
+        console.warn(`⚠️ Error reading ${f}: ${err.message}`);
+        results[f] = 0;
       }
     }
 
-    // חישוב סטטוס עבור כל אתר
     const status = {
       Shabaton: {
-        total: results.shabatonIndex,
-        done: results.shabatonDone,
-        progress: results.shabatonIndex
-          ? ((results.shabatonDone / results.shabatonIndex) * 100).toFixed(1)
-          : "0",
+        parts: {
+          part1: results["shabaton_index_part1.json"] || 0,
+          part2: results["shabaton_index_part2.json"] || 0,
+          part3: results["shabaton_index_part3.json"] || 0,
+        },
+        total: totalShabaton,
       },
       Morim: {
-        total: results.morimIndex,
-        done: results.morimDone,
-        progress: results.morimIndex
-          ? ((results.morimDone / results.morimIndex) * 100).toFixed(1)
-          : "0",
+        parts: {
+          part1: results["morim_index_part1.json"] || 0,
+        },
+        total: totalMorim,
       },
     };
 
