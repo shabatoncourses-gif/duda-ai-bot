@@ -1,6 +1,6 @@
 export const config = { runtime: "nodejs" };
 
-export default async function handler(req, res) {
+export default async function statushandler(req, res) {
   const base = "https://raw.githubusercontent.com/shabatoncourses-gif/duda-ai-bot/main/data";
   const files = [
     "shabaton_index_part1.json",
