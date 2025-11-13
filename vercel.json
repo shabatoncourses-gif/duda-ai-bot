@@ -1,7 +1,7 @@
 {
   "version": 2,
   "builds": [
-    { "src": "pages/api/chat-handler.js", "use": "@vercel/node" },
+    { "src": "pages/api/chat.js", "use": "@vercel/node" },
     { "src": "pages/api/build-index.js", "use": "@vercel/node" },
     { "src": "pages/api/reindex.js", "use": "@vercel/node" },
     { "src": "pages/api/status.js", "use": "@vercel/node" },
@@ -15,3 +15,4 @@
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
+
