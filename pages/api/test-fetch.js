@@ -1,6 +1,6 @@
 export const config = { runtime: "nodejs" };
 
-export default async function ftestfetchhandler(req, res) {
+export default async function testfetchhandler(req, res) {
   const base = "https://raw.githubusercontent.com/shabatoncourses-gif/duda-ai-bot/main/data";
   const files = [
     "shabaton_index_part1.json",
