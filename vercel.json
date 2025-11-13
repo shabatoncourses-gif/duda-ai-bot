@@ -13,11 +13,5 @@
     { "src": "/api/reindex", "dest": "/pages/api/reindex.js" },
     { "src": "/api/status", "dest": "/pages/api/status.js" },
     { "src": "/(.*)", "dest": "/index.html" }
-  ],
-  "crons": [
-    {
-      "path": "/api/reindex",
-      "schedule": "0 4 * * *"
-    }
   ]
 }
