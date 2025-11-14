@@ -78,24 +78,24 @@ async function loadIndexes() {
    Page Type Classification
 --------------------------------------------------- */
 
-function classify(p) {
-  const u = (p.url || "").toLowerCase();
+function classifyPage(p) {
+  const url = (p.url || "").toLowerCase();
 
-  if (u.includes("/results-all/")) return "results";
-  if (u.includes("thank") || u.includes("contact")) return "blocked";
-  if (u.includes("/mosad-index/")) return "blocked";
+  if (url.includes("/results-all/")) return "results";
+  if (url.includes("thank") || url.includes("contact")) return "blocked";
+  if (url.includes("/mosad-index/")) return "blocked";
 
-  const t = normalizeHebrew(p.title || "");
+  const title = normalizeHebrew(p.title || "");
   const h1 = normalizeHebrew(p.h1 || "");
 
-  if (t.includes("מאמר") || h1.includes("מאמר") || u.includes("/article"))
+  if (title.includes("מאמר") || h1.includes("מאמר") || url.includes("/article"))
     return "article";
 
   return "course";
 }
 
 /* ---------------------------------------------------
-   Soon Courses Detection
+   Soon Courses Handling
 --------------------------------------------------- */
 
 const MONTHS = {
@@ -108,25 +108,25 @@ function extractStartDate(text) {
   const t = text.toLowerCase();
 
   let month = null;
-  for (const [name, num] of Object.entries(MONTHS)) {
+  for (const [name, idx] of Object.entries(MONTHS)) {
     if (t.includes(name)) {
-      month = num;
+      month = idx;
       break;
     }
   }
 
-  const y = /20\d{2}/.exec(t);
-  if (!y || month === null) return null;
+  const yearMatch = /20\d{2}/.exec(t);
+  if (!yearMatch || month === null) return null;
 
-  return new Date(parseInt(y[0]), month, 1);
+  return new Date(parseInt(yearMatch[0]), month, 1);
 }
 
-function isSoon(d) {
-  if (!d) return false;
+function isSoon(date) {
+  if (!date) return false;
   const now = new Date();
   const m = now.getMonth();
   const next = (m + 1) % 12;
-  return d.getMonth() === m || d.getMonth() === next;
+  return date.getMonth() === m || date.getMonth() === next;
 }
 
 /* ---------------------------------------------------
@@ -145,82 +145,67 @@ export default async function handler(req, res) {
     if (!message) return res.status(400).json({ error: "missing message" });
 
     const cleanMsg = normalizeHebrew(message);
-
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // embedding for ranking
+    /* Embedding */
     const emb = await client.embeddings.create({
       model: "text-embedding-3-small",
       input: cleanMsg,
     });
-    const qv = emb.data[0].embedding;
+    const queryVector = emb.data[0].embedding;
 
+    /* Load all pages */
     const all = await loadIndexes();
 
-    /* ---------------------------------------------------
-       Rank pages
-    --------------------------------------------------- */
-
-    const enriched = all.map((p) => {
-      const type = classify(p);
-      const fullTitle = [p.title, p.h1, ...(p.h2 || [])]
+    /* Rank pages */
+    const pages = all.map((p) => {
+      const type = classifyPage(p);
+      const full = [p.title, p.h1, ...(p.h2 || [])]
         .filter(Boolean)
         .join(" ");
-      const text = cleanText((p.description || "") + " " + (p.text || ""));
-      const score = cosineSimilarity(qv, p.vector || []);
-      return { ...p, type, fullTitle, clean: text, score };
+      const txt = cleanText((p.description || "") + " " + (p.text || ""));
+      const score = cosineSimilarity(queryVector, p.vector || []);
+      return { ...p, type, fullTitle: full, clean: txt, score };
     });
 
-    /* -----------------------
-       Select best results-all
-    ------------------------ */
+    /* Best results-all */
+    const bestResults =
+      pages
+        .filter((p) => p.type === "results")
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 1); // ONLY ONE
 
-    const resultsAll = enriched
-      .filter((p) => p.type === "results")
-      .sort((a, b) => b.score - a.score);
-
-    const bestResults = resultsAll.length ? [resultsAll[0]] : [];
-
-    /* -----------------------
-       Courses / Institutions
-    ------------------------ */
-
-    const courses = enriched
-      .filter((p) => p.type === "course")
+    /* Courses (filtered strictly!) */
+    const courses = pages
+      .filter(
+        (p) =>
+          p.type === "course" &&
+          !p.url.includes("/results-all/") &&
+          !p.url.includes("/mosad-index/") &&
+          !p.url.includes("thank") &&
+          !p.url.includes("contact")
+      )
       .sort((a, b) => b.score - a.score)
       .slice(0, 8);
 
-    /* -----------------------
-       Soon courses
-    ------------------------ */
-
+    /* Soon Courses */
     const soon = courses
       .filter((p) => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
-      .map((p) => ({
-        ...p,
-        date: extractStartDate(p.fullTitle + " " + p.clean),
-      }))
+      .map((p) => ({ ...p, date: extractStartDate(p.fullTitle + " " + p.clean) }))
       .filter((p) => isSoon(p.date))
       .sort((a, b) => a.date - b.date);
 
-    const hasSoon = soon.length > 0;
-
-    /* -----------------------
-       Articles
-    ------------------------ */
-
-    const articles = enriched
+    /* Articles */
+    const articles = pages
       .filter((p) => p.type === "article")
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
 
-    /* ---------------------------------------------------
-       Build Context (STRICT)
-    --------------------------------------------------- */
+    /* Final pack */
+    const finalList = [...bestResults, ...courses, ...soon, ...articles];
 
-    const pack = [...bestResults, ...courses, ...soon, ...articles];
-
-    const context = pack
+    /* Build context (STRICT) */
+    const context = finalList
       .map((p, i) => {
         return `
 # פריט ${i + 1}
@@ -232,46 +217,34 @@ export default async function handler(req, res) {
       })
       .join("\n\n");
 
-    /* ---------------------------------------------------
-       STRICT SYSTEM MESSAGE — LOCKS THE MODEL
-    --------------------------------------------------- */
-
+    /* STRICT SYSTEM MESSAGE */
     const systemPrompt = `
-אתה מספק תשובות אך ורק מתוך רשימת הפריטים שסופקו לך.
+אתה מספק תשובות אך ורק מתוך הפריטים שבקונטקסט.
 
-🔒 חוקים נוקשים:
-- אתה רשאי להשתמש אך ורק בפריטים שמופיעים בקונטקסט.
-- אסור להמציא פריטים חדשים.
-- אסור להמציא results-all נוספים.
-- אסור ליצור קישורים שלא ניתנו בקונטקסט.
-- אסור להציג URL גולמי – רק כקישור מעוצב.
-- אם אין פריט results-all – אל תיצור אחד.
-- אם אין פריטי soon – אל תציג שום טקסט על "קורסים הנפתחים בקרוב".
-- אסור לכתוב:
-  "אין מידע על...", 
-  "אין כרגע...", 
-  "נכון לעכשיו...", 
-  "מומלץ לבדוק...".
-- אל תכלול דפי תודה, צור קשר, mosad-index או article לפני קורסים.
-- הצג לכל פריט:
-  * כותרת מודגשת
-  * 1–2 משפטי תיאור
-  * כפתור HTML:
-    <a href="URL" class="ai-main-btn">למידע נוסף</a>
+❗ אסור:
+- להמציא קישורים
+- להמציא דפים
+- להמציא results-all
+- להוסיף תוצאות מעבר למה שבקונטקסט
+- להציג URL גולמי
+- לכתוב "אין מידע על...", "אין כרגע...", "מומלץ לבדוק...", "נכון לעכשיו..."
+- להציג דפי תודה/contact/mosad-index
+- לשנות סדר נדרש
 
-🔒 סדר מחייב:
-1) אם יש results-all – הצג את הראשון בלבד.
-2) אחריו – קורסים/מוסדות (type=course).
-3) אם יש soon – הצג אותם.
-4) לבסוף – מאמרים (type=article).
+✔️ סדר מדויק:
+1. results-all: רק הראשון אם קיים.
+2. קורסים/מוסדות (type=course).
+3. נפתחים בקרוב (רק אם קיימים בקונטקסט).
+4. מאמרים (type=article).
 
-אתה מציג רק מה שקיבלתי בקונטקסט – שום דבר מעבר.
-`;
+✔️ תצוגה:
+- כל פריט: כותרת מודגשת, 1–2 משפטי תיאור וכפתור בלבד.
+- כפתור:
+  <a href="URL" class="ai-main-btn">למידע נוסף</a>
 
-    /* ---------------------------------------------------
-       Model Completion
-    --------------------------------------------------- */
+אתה מציג אך ורק פריטים מהקונטקסט.`;
 
+    /* Model call */
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.1,
@@ -284,11 +257,11 @@ export default async function handler(req, res) {
       ],
     });
 
-    const finalAnswer = completion.choices?.[0]?.message?.content || "";
-
-    return res.json({ reply: finalAnswer });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: e.message });
+    return res.json({
+      reply: completion.choices?.[0]?.message?.content || "",
+    });
+  } catch (err) {
+    console.error("ERROR:", err);
+    return res.status(500).json({ error: err.message });
   }
 }
