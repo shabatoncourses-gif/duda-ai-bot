@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 dotenv.config();
 import OpenAI from "openai";
 
-// ===== Cache (10 דקות) =====
+// ===== Cache (לשימוש עתידי) =====
 const cache = { data: null, timestamp: 0, ttl: 10 * 60 * 1000 };
 
 // ===== פונקציות עזר =====
@@ -14,10 +14,9 @@ function cosineSimilarity(a, b) {
   if (!a || !b || a.length !== b.length) return 0;
   let dot = 0, na = 0, nb = 0;
   for (let i = 0; i < a.length; i++) {
-    const ai = a[i], bi = b[i];
-    dot += ai * bi;
-    na += ai * ai;
-    nb += bi * bi;
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
   }
   return dot / (Math.sqrt(na) * Math.sqrt(nb) || 1);
 }
@@ -25,8 +24,8 @@ function cosineSimilarity(a, b) {
 function normalizeHebrew(text) {
   return (text || "")
     .toLowerCase()
-    .replace(/[\u0591-\u05C7]/g, "")        // ניקוד
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")      // רק אותיות/מספרים/רווחים
+    .replace(/[\u0591-\u05C7]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -34,108 +33,84 @@ function normalizeHebrew(text) {
 const STOP_WORDS = new Set([
   "של","עם","על","ב","ל","ה","מה","איך","יש","אין","או","אם","וכן",
   "קורס","קורסים","לימודים","בלימודי","לימודי","בהוראה","להוראה",
-  "להשתלמות","בהשתלמות","תחום","תחומים"
+  "להשתלמות","בהשתלמות","תחום","תחומים","שבתון","שבתון."
 ]);
 
 function extractKeywordsHeb(str) {
   return normalizeHebrew(str)
     .split(" ")
-    .map((w) =>
-      w
-        .replace(/^[לבכמוהשה]/, "")            // ל / ב / כ / מ / ו / ה / ש בתחילת מילה
-        .replace(/(יים|ים|ות|ית|יי|י)$/, "")   // סיומות ריבוי/שיוך
-    )
+    .map((w) => w.replace(/^[לבכמוהשה]/, "").replace(/(יים|ים|ות|ית|יי|י)$/, ""))
     .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
     .filter((w, i, arr) => arr.indexOf(w) === i);
 }
 
-// ניקוי טקסט מתפריטים / עלון / צור קשר
+// הסרת טקסטים חוזרים מיותרים
 function removeMenuText(text) {
   if (!text) return "";
   return text
-    .replace(/רוצים להיות מעודכנים ? הרשמו לעלון שבתון.*?!/gi, "")
+    .replace(/רוצים להיות מעודכנים[^\.]+/gi, "")
     .replace(/לוח מועדי קורסים/gi, "")
-    .replace(/צרו קשר|יצירת קשר|טלפונים|התקשרו אלינו/gi, "")
-    .replace(/(\||›|»|<|>|\[|\]|\(|\)).{0,20}(https?:\/\/|www\.|shabaton|morim)/gi, "")
+    .replace(/(קורסים בלמידה מרחוק|למידה מרחוק)/gi, "")
+    .replace(/(קורסים|מאמרים|צרו קשר|אודות|כניסה|מורים)/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
 
-// ===== מיפוי חודשים =====
+// ===== זיהוי אזורים =====
+function detectRegionsFromQuery(text) {
+  const t = normalizeHebrew(text);
+  const r = [];
+  if (/תל.?אביב|מרכז|גוש.?דן|פתח.?תקוה|חולון|בת.?ים|רחובות/.test(t)) r.push("center");
+  if (/שרון|נתניה|רעננה|כפר.?סבא|השרון/.test(t)) r.push("sharon");
+  if (/חיפה|צפון|גליל|עכו|נהריה|עמק/.test(t)) r.push("north");
+  if (/דרום|שפלה|אשדוד|אשקלון|באר.?שבע/.test(t)) r.push("south");
+  if (/אונליין|zoom|מקוון|מרחוק/.test(t)) r.push("online");
+  return r.length ? r : null;
+}
+
+function detectRegionFromPage(text) {
+  const t = normalizeHebrew(text);
+  if (/תל.?אביב|מרכז|גוש.?דן|פתח.?תקוה|חולון|בת.?ים/.test(t)) return "center";
+  if (/שרון|נתניה|רעננה|כפר.?סבא/.test(t)) return "sharon";
+  if (/חיפה|צפון|גליל|עכו|נהריה/.test(t)) return "north";
+  if (/דרום|שפלה|אשדוד|אשקלון|באר.?שבע/.test(t)) return "south";
+  if (/אונליין|zoom|מקוון|מרחוק/.test(t)) return "online";
+  return null;
+}
+
+// ===== חודשים =====
 const MONTHS_MAP = {
-  ינואר: 1, פברואר: 2, מרץ: 3, אפריל: 4, מאי: 5, יוני: 6,
-  יולי: 7, אוגוסט: 8, ספטמבר: 9, אוקטובר: 10, נובמבר: 11, דצמבר: 12,
-  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
-  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12
+  "ינואר": 0, "פברואר": 1, "מרץ": 2, "אפריל": 3, "מאי": 4, "יוני": 5,
+  "יולי": 6, "אוגוסט": 7, "ספטמבר": 8, "אוקטובר": 9, "נובמבר": 10, "דצמבר": 11
 };
 
 function extractStartDate(str) {
   if (!str) return null;
-  const text = str.toLowerCase();
-  let monthNum = null;
-  for (const [m, n] of Object.entries(MONTHS_MAP)) {
-    if (text.includes(m)) { monthNum = n; break; }
+  const t = str.toLowerCase();
+  let m = null, y = null;
+
+  for (const [k, v] of Object.entries(MONTHS_MAP)) {
+    if (t.includes(k)) { m = v; break; }
   }
-  const y = text.match(/20\d{2}/);
-  const yearNum = y ? parseInt(y[0]) : null;
-  if (!monthNum || !yearNum) return null;
-  return new Date(yearNum, monthNum - 1, 1);
+  const yearMatch = t.match(/20\d{2}/);
+  if (yearMatch) y = parseInt(yearMatch[0]);
+
+  return m !== null && y !== null ? new Date(y, m, 1) : null;
 }
 
-// ===== ערים / אזורים לחיזוק =====
-const CITY_KEYWORDS = [
-  "תל אביב","תל-אביב","חיפה","ירושלים","באר שבע","באר-שבע",
-  "פתח תקוה","פתח-תקוה","רחובות","מודיעין","מודיעים","חולון",
-  "בת ים","בת-ים","אשדוד","אשקלון","נהריה","נתניה","כפר סבא","כפר-סבא",
-  "רעננה","פרדס חנה","פרדס-חנה","חדרה","חיפה"
-];
-
-function extractCitiesFromQuery(text) {
-  const t = normalizeHebrew(text);
-  const result = [];
-  for (const city of CITY_KEYWORDS) {
-    const normCity = normalizeHebrew(city);
-    if (t.includes(normCity)) result.push(normCity);
-  }
-  return result.length ? result : null;
-}
-
-// ===== H2 שאסור להחשיב ככותרות קורס =====
-const IGNORED_H2_PATTERNS = [
-  /רוצים להיות מעודכנים/i,
-  /לוח מועדי קורסים/i,
-  /צרו קשר/i,
-  /יצירת קשר/i
-];
-
-// בחירת כותרת המציגה קורס/דף
-function pickDisplayTitle(page, keywords) {
-  const h2Arr = Array.isArray(page.h2) ? page.h2 : [];
-  const normKeywords = (keywords || []).map(normalizeHebrew);
-
-  // קודם חיפוש h2 שנראה כמו כותרת קורס
-  const goodH2 = h2Arr.find((h2) => {
-    const nh = normalizeHebrew(h2);
-    if (!nh) return false;
-    if (IGNORED_H2_PATTERNS.some((re) => re.test(h2))) return false;
-    if (nh.includes("קורס")) return true;
-    return normKeywords.some((kw) => kw && nh.includes(kw));
-  });
-
-  if (goodH2) return goodH2.trim();
-  if (page.h1 && page.h1.trim()) return page.h1.trim();
-  if (page.title && page.title.trim()) return page.title.trim();
-  return "קורס / דף רלוונטי";
+function isInCurrentOrNextMonth(date) {
+  if (!date) return false;
+  const now = new Date();
+  const thisM = now.getMonth();
+  const nextM = (thisM + 1) % 12;
+  return (
+    (date.getMonth() === thisM && date.getFullYear() === now.getFullYear()) ||
+    (date.getMonth() === nextM)
+  );
 }
 
 // ===== טעינת אינדקסים =====
 async function loadIndexes() {
-  if (cache.data && Date.now() - cache.timestamp < cache.ttl) {
-    console.log("♻️ Using cached indexes");
-    return cache.data;
-  }
-
-  console.log("🌐 Fetching fresh indexes from GitHub...");
   const base = "https://raw.githubusercontent.com/shabatoncourses-gif/duda-ai-bot/main/data";
   const files = [
     "shabaton_index_part1.json",
@@ -144,251 +119,156 @@ async function loadIndexes() {
     "morim_index_part1.json",
   ];
 
-  const shabatonAll = [];
-  const morimAll = [];
+  const sh = [], mo = [];
 
   for (const f of files) {
-    const url = `${base}/${encodeURI(f)}`;
     try {
-      const res = await fetch(url);
-      console.log(`📥 Fetch ${f} → ${res.status}`);
+      const res = await fetch(`${base}/${f}`);
       if (!res.ok) continue;
       const data = await res.json();
-      if (Array.isArray(data) && data.length) {
-        if (f.startsWith("shabaton")) shabatonAll.push(...data);
-        else if (f.startsWith("morim")) morimAll.push(...data);
+      if (Array.isArray(data)) {
+        if (f.startsWith("shabaton")) sh.push(...data);
+        else mo.push(...data);
       }
-    } catch (err) {
-      console.warn(`⚠️ ${f} failed: ${err.message}`);
-    }
+    } catch {}
   }
 
-  console.log(`✅ Loaded Shabaton=${shabatonAll.length}, Morim=${morimAll.length}`);
-  if (shabatonAll.length === 0 && morimAll.length === 0) {
-    throw new Error("❌ Failed to load indexes from GitHub (no data)");
-  }
-
-  cache.data = { shabatonIndex: shabatonAll, morimIndex: morimAll };
-  cache.timestamp = Date.now();
-  return cache.data;
+  if (!sh.length && !mo.length) throw new Error("לא נטען אינדקס");
+  return { shabatonIndex: sh, morimIndex: mo };
 }
 
-// ===== API HANDLER =====
+// סוג דף לפי URL
+function classifyPage(url = "") {
+  const u = url.toLowerCase();
+  if (u.includes("/results-all/")) return "results";
+  if (u.includes("thanks") || u.includes("thank") || u.includes("contact")) return "thanks";
+  if (u.includes("/mosad-index/")) return "mosad";
+  return "course";
+}
+
+// ===== API =====
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method === "GET") {
-    return res.status(200).json({ message: "✅ /api/chat פעיל." });
-  }
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "❌ POST בלבד" });
-  }
+  if (req.method === "GET")
+    return res.status(200).json({ message: "OK" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "POST only" });
 
   try {
-    console.log("💬 Incoming request to /api/chat");
-    const { message } = req.body || {};
-    if (!message) return res.status(400).json({ error: "❌ חסר message" });
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: "missing message" });
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const cleanMsg = normalizeHebrew(message);
     const keywords = extractKeywordsHeb(cleanMsg);
-    const citiesInQuery = extractCitiesFromQuery(message);
-    const queryHasCourseWord = /קורס|קורסים/.test(cleanMsg);
+    const userRegions = detectRegionsFromQuery(cleanMsg);
 
-    // === Embedding לשאילתה ===
+    // embedding לשאלה
     const emb = await client.embeddings.create({
       model: "text-embedding-3-small",
       input: cleanMsg
     });
     const qv = emb.data[0].embedding;
 
-    // === אינדקסים ===
     const { shabatonIndex, morimIndex } = await loadIndexes();
-    const allPagesRaw = [
-      ...shabatonIndex.map(p => ({ ...p, source: "Shabaton" })),
-      ...morimIndex.map(p => ({ ...p, source: "Morim" }))
-    ];
+    const all = [...shabatonIndex, ...morimIndex];
 
-    // סינון דפי תודה / צור קשר
-    const allPages = allPagesRaw.filter((p) => {
-      const url = (p.url || "").toLowerCase();
-      const t = normalizeHebrew((p.title || "") + " " + (p.h1 || ""));
-      if (!url) return false;
-      if (url.includes("/thanks") || url.includes("thank")) return false;
-      if (url.includes("contact")) return false;
-      if (t.includes("תודה") && t.includes("הרשמת")) return false;
-      return true;
+    // ==== דירוג כל דף ====
+    const scored = all.map((p) => {
+      const kind = classifyPage(p.url);
+      const fullTitle = [p.title, p.h1, ...(p.h2 || [])].filter(Boolean).join(" ");
+      const textNorm = removeMenuText(
+        normalizeHebrew((p.description || "") + " " + (p.text || ""))
+      );
+
+      const region = detectRegionFromPage(fullTitle + " " + p.description);
+
+      let score = cosineSimilarity(qv, p.vector || []);
+
+      // בוסט למילים בכותרת
+      for (const kw of keywords) {
+        if (normalizeHebrew(fullTitle).includes(kw)) score += 0.9;
+        else if (textNorm.includes(kw)) score += 0.4;
+      }
+
+      // קדימויות
+      if (kind === "results") score += 1.0;
+      if (kind === "mosad") score -= 0.4;
+      if (kind === "thanks") score -= 2.0;
+
+      // אזור
+      if (userRegions && region) {
+        if (userRegions.includes(region)) score += 0.7;
+        else score -= 0.2;
+      }
+
+      return { ...p, kind, fullTitle, textNorm, region, score };
     });
 
-    const now = new Date();
-    const currentMonth = now.getMonth();     // 0–11
-    const currentYear = now.getFullYear();
+    // === תוצאה ראשית אחת של results-all ===
+    const bestResultsAll =
+      scored
+        .filter(p => p.kind === "results")
+        .sort((a, b) => b.score - a.score)[0] || null;
 
-    // === דירוג משוקלל ===
-    let ranked = allPages
-      .map((p) => {
-        const url = (p.url || "").toLowerCase();
-        const title = normalizeHebrew(p.title || "");
-        const h1 = normalizeHebrew(p.h1 || "");
-        const h2Arr = Array.isArray(p.h2) ? p.h2 : [];
-        const h2Text = normalizeHebrew(h2Arr.join(" "));
-        const description = normalizeHebrew(p.description || "");
-        const text = removeMenuText(normalizeHebrew(p.text || ""));
-
-        const baseSim = cosineSimilarity(qv, p.vector);
-        let score = baseSim;
-
-        const isResultsPage =
-          url.includes("/results-all/") ||
-          url.includes("/search-results-");
-
-        // 1. קדימות ל-results-all כששאלה כללית
-        if (isResultsPage && queryHasCourseWord) {
-          score += 0.6;
-        } else if (isResultsPage) {
-          score += 0.3;
-        }
-
-        // 2. הורדת קדימות ל-mosad-index
-        if (url.includes("/mosad-index/")) {
-          score -= 0.4;
-        }
-
-        // 3. חיזוק דפי קורס/מוסד עם "קורס" בכותרות
-        const hasKursWord =
-          title.includes("קורס") ||
-          h1.includes("קורס") ||
-          h2Text.includes("קורס");
-
-        if (queryHasCourseWord && hasKursWord) {
-          score += 0.35;
-        }
-
-        // 4. חיזוק לפי ערים מהשאלה
-        if (citiesInQuery && citiesInQuery.length) {
-          const pageTextForCity = `${title} ${h1} ${h2Text} ${description} ${text}`;
-          const np = normalizeHebrew(pageTextForCity);
-          let cityBoost = 0;
-          for (const c of citiesInQuery) {
-            if (np.includes(c)) cityBoost += 0.4;
-          }
-          score += cityBoost;
-        }
-
-        // 5. זיהוי "נפתחים בקרוב" + תאריך
-        let isSoonCourse = false;
-        const headerText = `${p.title || ""} ${p.h1 || ""} ${h2Arr.join(" ")}`;
-        if (/(נפתח|יפתח|פתיחה|נפתחים בקרוב)/i.test(headerText)) {
-          isSoonCourse = true;
-          const d = extractStartDate(headerText);
-          if (d) {
-            const m = d.getMonth();
-            const y = d.getFullYear();
-            const isCurrent = (m === currentMonth && y === currentYear);
-            const isNext =
-              (y === currentYear && m === currentMonth + 1) ||
-              (y === currentYear + 1 && currentMonth === 11 && m === 0);
-
-            if (isCurrent || isNext) {
-              score += 0.5;   // נפתח בקרוב בחודש הנוכחי / הבא
-            } else {
-              score -= 0.1;   // נפתח אבל רחוק בזמן
-            }
-          }
-        }
-
-        // 6. חיזוק לפי מילים מהשאלה בכותרת / תיאור
-        const keyMatchScore = keywords.reduce((acc, kw) => {
-          if (!kw) return acc;
-          if (title.includes(kw)) acc += 0.25;
-          if (h1.includes(kw)) acc += 0.2;
-          if (h2Text.includes(kw)) acc += 0.2;
-          if (description.includes(kw)) acc += 0.1;
-          return acc;
-        }, 0);
-
-        score += keyMatchScore;
-
-        return {
-          ...p,
-          score,
-          isResultsPage,
-          isSoonCourse
-        };
-      })
-      .filter((p) => p.score > 0.25)
+    // === דפי קורסים / מוסדות ===
+    const coursePages = scored
+      .filter(p => p.kind !== "results" && p.kind !== "thanks")
       .sort((a, b) => b.score - a.score);
 
-    if (!ranked.length) {
-      return res.status(200).json({ reply: "לא נמצאו תוצאות רלוונטיות." });
+    // === קורסים נפתחים בקרוב ===
+    const soonRaw = coursePages.filter(p =>
+      /(נפתח|יפתח|פתיחה|נפתחים בקרוב)/i.test(
+        p.fullTitle + " " + p.description + " " + (p.h2 || []).join(" ")
+      )
+    );
+
+    const soon = soonRaw
+      .map(p => ({ ...p, startDate: extractStartDate(p.fullTitle + " " + p.text) }))
+      .filter(p => p.startDate && isInCurrentOrNextMonth(p.startDate))
+      .sort((a, b) => a.startDate - b.startDate);
+
+    // === בניית context למודל ===
+    const final = [];
+    const used = new Set();
+
+    if (bestResultsAll) {
+      final.push({ ...bestResultsAll, bucket: "results" });
+      used.add(bestResultsAll.url);
     }
 
-    // "נפתחים בקרוב" – סינון לחודש נוכחי + הבא בלבד (משמש רק כחיזוק, לא נציין אם אין)
-    const soonCoursesFiltered = ranked.filter((p) => p.isSoonCourse).filter((p) => {
-      const h2Arr = Array.isArray(p.h2) ? p.h2 : [];
-      const headerText = `${p.title || ""} ${p.h1 || ""} ${h2Arr.join(" ")}`;
-      const d = extractStartDate(headerText);
-      if (!d) return false;
-      const m = d.getMonth();
-      const y = d.getFullYear();
-      const isCurrent = (m === currentMonth && y === currentYear);
-      const isNext =
-        (y === currentYear && m === currentMonth + 1) ||
-        (y === currentYear + 1 && currentMonth === 11 && m === 0);
-      return isCurrent || isNext;
-    });
-    // (אין כאן טקסט "אין קורסים נפתחים בקרוב" – רק חיזוק בדירוג)
+    for (const p of coursePages) {
+      if (final.length >= 8) break;
+      if (!used.has(p.url)) {
+        final.push({ ...p, bucket: "course" });
+        used.add(p.url);
+      }
+    }
 
-    // סידור: קודם results-all, אחר כך שאר הדפים
-    const resultsPages = ranked.filter((p) => p.isResultsPage);
-    const nonResultsPages = ranked.filter((p) => !p.isResultsPage);
-    const finalList = [...resultsPages, ...nonResultsPages].slice(0, 8);
+    for (const p of soon) {
+      if (!used.has(p.url)) {
+        final.push({ ...p, bucket: "soon" });
+        used.add(p.url);
+      }
+    }
 
-    // === בניית קונטקסט HTML לכרטיסי קורסים/דפים ===
-    const contextHtml = finalList.map((p) => {
-      const displayTitle = pickDisplayTitle(p, keywords);
-      const cleanedText = removeMenuText(p.text || "");
-      const shortDescSource = p.description || cleanedText;
-      const shortDesc = (shortDescSource || "").slice(0, 180).trim();
-      const decodedUrl = decodeURI(p.url || "#");
+    if (!final.length)
+      return res.status(200).json({ reply: "לא נמצאו תוצאות רלוונטיות." });
 
-      return `
-        <div style="
-          border: 1px solid #e2e8f0;
-          border-radius: 12px;
-          padding: 14px 16px;
-          margin-bottom: 14px;
-          background-color: #fafafa;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        ">
-          <div style="font-weight:600; font-size:1.05em; color:#111; margin-bottom:6px;">
-            ${displayTitle}
-          </div>
-          <div style="font-size:0.95em; color:#444; line-height:1.5;">
-            ${shortDesc}
-          </div>
-          <a href="${decodedUrl}" target="_blank" rel="noopener noreferrer"
-            style="
-              display:inline-block;
-              margin-top:10px;
-              background:#0078ff;
-              color:white;
-              padding:6px 12px;
-              border-radius:8px;
-              font-weight:bold;
-              text-decoration:none;
-            ">
-            למידע נוסף ↗️
-          </a>
-        </div>
-      `;
-    }).join("");
+    const context = final
+      .map((p, i) => {
+        return `
+# פריט ${i + 1}
+סוג: ${p.bucket}
+כותרת: ${p.fullTitle}
+תיאור: ${p.description || p.textNorm}
+קישור: ${p.url}
+`.trim();
+      })
+      .join("\n\n");
 
-    // === קריאה למודל – עם הוראות לגבי כפתורים / נפתחים בקרוב ===
+    // === תשובה סופית מהמודל ===
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.25,
@@ -396,29 +276,35 @@ export default async function handler(req, res) {
         {
           role: "system",
           content: `
-אתה עוזר חכם המספק תשובות על קורסים ודפי מידע ממאגרי "שבתון" ו-"Morim Boutique" בלבד.
-ענה תמיד בעברית, בפסקאות קצרות וברורות.
-אל תציג בשום אופן URL גולמי, אלא רק כפתור "למידע נוסף ↗️" כפי שמופיע בקונטקסט.
-השתמש במבנה ה-HTML שקיבלת (כרטיסים וכפתור), אל תוסיף סוגריים מיותרים ואל תמציא עיצוב אחר.
-אם אין בקונטקסט קורסים נפתחים בקרוב – אל תכתוב משפט על כך, פשוט אל תזכיר סעיף "קורסים הנפתחים בקרוב".
-        `.trim()
+אתה עוזר חכם המספק תשובות מדויקות ממאגר שבתון ומורים בלבד.
+התשובה צריכה להיות **בעברית**, **נקייה**, ו**מעוצבת ב־Markdown בלבד**.
+
+כללים:
+- אל תשתמש ב־URL חשוף. תמיד הצג קישור כמעוצב: [למידע נוסף ↗️](URL)
+- הצג רק:
+  1) תוצאה אחת של RESULTS_ALL אם קיימת.
+  2) לאחר מכן דפי קורסים/מוסדות רלוונטיים.
+  3) לאחר מכן "קורסים הנפתחים בקרוב" — רק אם יש.
+- אם אין קורסים נפתחים בקרוב — אל תציג סעיף זה כלל.
+- אל תכתוב טקסטים כלליים כמו "לא קיימים קורסים" או "מומלץ לבדוק".
+- הימנע מאזכור דפי מוסדות לא רלוונטיים.
+- הימנע מאזכור למידה מרחוק אם המשתמש לא ביקש זאת.
+- הימנע מאזכור פריטי ניווט כמו "לוח מועדי קורסים", "רוצים להיות מעודכנים".
+`
         },
         {
           role: "user",
-          content: `
-שאלה של הגולש: ${message}
-
-להלן דפים רלוונטיים בפורמט כרטיסים HTML, השתמש בהם כדי לענות:
-${contextHtml}
-          `.trim()
+          content: `השאלה: ${message}\n\nדפים רלוונטיים:\n${context}`
         }
       ]
     });
 
-    const reply = completion.choices?.[0]?.message?.content || "לא נמצאה תשובה.";
-    return res.status(200).json({ reply });
+    return res.status(200).json({
+      reply: completion.choices?.[0]?.message?.content || "לא נמצאה תשובה"
+    });
+
   } catch (err) {
-    console.error("💥 Error during /api/chat:", err);
+    console.error(err);
     return res.status(500).json({ error: err.message });
   }
 }
