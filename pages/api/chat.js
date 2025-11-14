@@ -283,8 +283,11 @@ export default async function handler(req, res) {
     });
 
     return res.json({
-      reply: completion.choices?.[0]?.message?.content || "",
-    });
+    reply: completion.choices && completion.choices[0]
+    ? completion.choices[0].message.content
+    : "",
+});
+
   } catch (err) {
     console.error("ERROR in /api/chat:", err);
     return res.status(500).json({ error: err.message });
