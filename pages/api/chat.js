@@ -152,12 +152,13 @@ export default async function handler(req, res) {
       model: "text-embedding-3-small",
       input: cleanMsg,
     });
+
     const queryVector = emb.data[0].embedding;
 
-    /* Load all pages */
+    /* Load pages */
     const all = await loadIndexes();
 
-    /* Rank pages */
+    /* Rank */
     const pages = all.map((p) => {
       const type = classifyPage(p);
       const full = [p.title, p.h1, ...(p.h2 || [])]
@@ -168,14 +169,12 @@ export default async function handler(req, res) {
       return { ...p, type, fullTitle: full, clean: txt, score };
     });
 
-    /* Best results-all */
-    const bestResults =
-      pages
-        .filter((p) => p.type === "results")
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 1); // ONLY ONE
+    /* Select pages */
+    const bestResults = pages
+      .filter((p) => p.type === "results")
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 1);
 
-    /* Courses (filtered strictly!) */
     const courses = pages
       .filter(
         (p) =>
@@ -188,14 +187,12 @@ export default async function handler(req, res) {
       .sort((a, b) => b.score - a.score)
       .slice(0, 8);
 
-    /* Soon Courses */
     const soon = courses
       .filter((p) => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
       .map((p) => ({ ...p, date: extractStartDate(p.fullTitle + " " + p.clean) }))
       .filter((p) => isSoon(p.date))
       .sort((a, b) => a.date - b.date);
 
-    /* Articles */
     const articles = pages
       .filter((p) => p.type === "article")
       .sort((a, b) => b.score - a.score)
@@ -204,7 +201,7 @@ export default async function handler(req, res) {
     /* Final pack */
     const finalList = [...bestResults, ...courses, ...soon, ...articles];
 
-    /* Build context (STRICT) */
+    /* Build context */
     const context = finalList
       .map((p, i) => {
         return `
@@ -217,50 +214,37 @@ export default async function handler(req, res) {
       })
       .join("\n\n");
 
-    /* STRICT SYSTEM MESSAGE */
+    console.log("=== CONTEXT SENT TO MODEL ===");
+    console.log(context);
+
+    /* System rules */
     const systemPrompt = `
 אתה מספק תשובות אך ורק מתוך הפריטים שבקונטקסט.
 
 ❗ אסור:
-- להמציא קישורים
-- להמציא דפים
+- להמציא קישורים או דפים
 - להמציא results-all
-- להוסיף תוצאות מעבר למה שבקונטקסט
 - להציג URL גולמי
-- לכתוב "אין מידע על...", "אין כרגע...", "מומלץ לבדוק...", "נכון לעכשיו..."
-- להציג דפי תודה/contact/mosad-index
-- לשנות סדר נדרש
+- לכתוב "אין מידע...", "אין כרגע...", "מומלץ לבדוק...", "נכון לעכשיו..."
+- להשתמש בדפים שאינם בקונטקסט
 
-✔️ סדר מדויק:
-1. results-all: רק הראשון אם קיים.
-2. קורסים/מוסדות (type=course).
-3. נפתחים בקרוב (רק אם קיימים בקונטקסט).
-4. מאמרים (type=article).
+✔️ סדר:
+1. results-all (רק הראשון אם קיים)
+2. קורסים (course)
+3. נפתחים בקרוב (soon)
+4. מאמרים (article)
 
 ✔️ תצוגה:
-- כל פריט: כותרת מודגשת, 1–2 משפטי תיאור וכפתור בלבד.
+- כל פריט בכרטיס
+- כותרת מודגשת
+- 1–2 משפטים
 - כפתור:
   <a href="URL" class="ai-main-btn">למידע נוסף</a>
-
-אתה מציג אך ורק פריטים מהקונטקסט.`;
+`;
 
     /* Model call */
-
-console.log("=== CONTEXT SENT TO MODEL ===");
-console.log(context);
-
-const completion = await client.chat.completions.create({
-  model: "gpt-4o-mini",
-  temperature: 0.1,
-  messages: [
-    { role: "system", content: systemPrompt },
-    {
-      role: "user",
-      content: `השאלה: ${message}\n\nדפים רלוונטיים:\n${context}`,
-    },
-  ],
-});
-      
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
       temperature: 0.1,
       messages: [
         { role: "system", content: systemPrompt },
