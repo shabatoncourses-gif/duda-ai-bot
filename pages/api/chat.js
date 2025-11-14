@@ -22,9 +22,7 @@ function normalizeHebrew(t) {
 
 function cosineSimilarity(a, b) {
   if (!a || !b || a.length !== b.length) return 0;
-  let dot = 0,
-    na = 0,
-    nb = 0;
+  let dot = 0, na = 0, nb = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     na += a[i] * a[i];
@@ -182,7 +180,7 @@ export default async function handler(req, res) {
     /* Load pages */
     const all = await loadIndexes();
 
-    /* Rank */
+    /* Rank pages */
     const pages = all.map((p) => {
       const type = classifyPage(p);
       const full = [p.title, p.h1, ...(p.h2 || [])]
@@ -225,7 +223,6 @@ export default async function handler(req, res) {
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
 
-    /* Final pack */
     const finalList = [...bestResults, ...courses, ...soon, ...articles];
 
     /* Build context */
@@ -244,7 +241,7 @@ export default async function handler(req, res) {
     console.log("=== CONTEXT SENT TO MODEL ===");
     console.log(context);
 
-    /* System rules */
+    /* System Prompt */
     const systemPrompt = `
 אתה מספק תשובות אך ורק מתוך הפריטים שבקונטקסט.
 
@@ -282,11 +279,18 @@ export default async function handler(req, res) {
       ],
     });
 
-    return res.json({
-    reply: completion.choices && completion.choices[0]
-    ? completion.choices[0].message.content
-    : "",
-});
+    let replyText = "";
+    if (
+      completion &&
+      completion.choices &&
+      completion.choices[0] &&
+      completion.choices[0].message &&
+      completion.choices[0].message.content
+    ) {
+      replyText = completion.choices[0].message.content;
+    }
+
+    return res.json({ reply: replyText });
 
   } catch (err) {
     console.error("ERROR in /api/chat:", err);
