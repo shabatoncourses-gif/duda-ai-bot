@@ -245,14 +245,23 @@ export default async function handler(req, res) {
 אתה מציג אך ורק פריטים מהקונטקסט.`;
 
     /* Model call */
+
 console.log("=== CONTEXT SENT TO MODEL ===");
 console.log(context);
 
 const completion = await client.chat.completions.create({
   model: "gpt-4o-mini",
-  ...
+  temperature: 0.1,
+  messages: [
+    { role: "system", content: systemPrompt },
+    {
+      role: "user",
+      content: `השאלה: ${message}\n\nדפים רלוונטיים:\n${context}`,
+    },
+  ],
 });
 
+      
       temperature: 0.1,
       messages: [
         { role: "system", content: systemPrompt },
