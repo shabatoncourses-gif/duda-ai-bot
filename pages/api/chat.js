@@ -45,10 +45,11 @@ function extractKeywordsHeb(str) {
     .filter((w, i, arr) => arr.indexOf(w) === i);
 }
 
-// הסרת טקסטים חוזרים מיותרים
+// הסרת טקסטים חוזרים + URLים מיותרים
 function removeMenuText(text) {
   if (!text) return "";
   return text
+    .replace(/https?:\/\/\S+/g, "") // מוחק כתובות URL מתוך הטקסט
     .replace(/רוצים להיות מעודכנים[^\.]+/gi, "")
     .replace(/לוח מועדי קורסים/gi, "")
     .replace(/אין קורסים הנפתחים בחודש הנוכחי או הבא/gi, "")
@@ -203,7 +204,12 @@ export default async function handler(req, res) {
       let score = cosineSimilarity(qv, p.vector || []);
 
       const fullTitleNorm = normalizeHebrew(fullTitle);
-      const urlDecoded = normalizeHebrew(decodeURIComponent(p.url || ""));
+      let urlDecoded = "";
+      try {
+        urlDecoded = normalizeHebrew(decodeURIComponent(p.url || ""));
+      } catch {
+        urlDecoded = normalizeHebrew(p.url || "");
+      }
 
       // בוסט למילים בכותרת / טקסט
       for (const kw of keywords) {
@@ -211,16 +217,15 @@ export default async function handler(req, res) {
         else if (textNorm.includes(kw)) score += 0.4;
       }
 
-      // בוסט חזק ל-results-all התואם לביטוי החיפוש
+      // בוסט חזק במיוחד ל-results-all שמתאימים לשאילתה
       if (kind === "results") {
-        const queryNorm = cleanMsg; // כבר מנורמל
-        if (urlDecoded.includes(queryNorm) || fullTitleNorm.includes(queryNorm)) {
-          score += 3.0; // עדיפות גבוהה מאוד ל-results שמתאימים לשאילתה
+        let kwMatches = 0;
+        for (const kw of keywords) {
+          if (!kw) continue;
+          if (urlDecoded.includes(kw) || fullTitleNorm.includes(kw)) kwMatches++;
         }
-        const joinedKw = normalizeHebrew(keywords.join(" "));
-        if (joinedKw && (urlDecoded.includes(joinedKw) || fullTitleNorm.includes(joinedKw))) {
-          score += 2.0;
-        }
+        if (kwMatches >= 1) score += 3.0;           // יש לפחות התאמה אחת לביטוי
+        if (kwMatches >= Math.max(1, keywords.length - 1)) score += 3.0; // תואם כמעט לכל המילים
       }
 
       // קדימויות
@@ -255,14 +260,12 @@ export default async function handler(req, res) {
       )
       .sort((a, b) => b.score - a.score);
 
-    // קודם ננסה רק דפים שבאמת מכילים את מילות המפתח
+    // נותנים עדיפות לדפים שבאמת מכילים את מילות המפתח
     let coursePages = coursePagesRaw.filter((p) => {
       if (!keywords.length) return true;
       const ft = normalizeHebrew(p.fullTitle);
       return keywords.some((kw) => ft.includes(kw) || p.textNorm.includes(kw));
     });
-
-    // אם לא נמצא כלום – נ fallback לכל הדפים לפי score
     if (!coursePages.length) {
       coursePages = coursePagesRaw;
     }
@@ -276,10 +279,10 @@ export default async function handler(req, res) {
     const soonRaw = coursePages.filter((p) =>
       /(נפתח|יפתח|פתיחה|נפתחים בקרוב)/i.test(
         p.fullTitle +
-          " " +
-          (p.description || "") +
-          " " +
-          (p.h2 || []).join(" ")
+        " " +
+        (p.description || "") +
+        " " +
+        (p.h2 || []).join(" ")
       )
     );
 
@@ -385,23 +388,25 @@ ${contextItems}
   - כותרת מודגשת.
   - 1–2 משפטי תיאור.
   - כפתור "למידע נוסף" בסוף.
-- אין להציג את הטקסט של ה-URL עצמו. מותר להשתמש בו רק בתוך href של קישור.
-- דוגמה לתצורת כפתור:
+- אל תציג לעולם את הטקסט של ה-URL עצמו.
+- מותר להשתמש **רק בכתובות שמופיעות בשורות "קישור:" בנתונים**.
+- דוגמה לכפתור:
   <a href="URL" class="ai-main-btn">למידע נוסף על הקורס</a>
   או:
   [למידע נוסף על הקורס ›](URL)
 
 חוקים מחמירים:
-- מותר לכלול **רק פריט אחד** מסוג "עמוד תוצאות כולל (results-all)" – גם אם בנתונים מופיעים נוספים.
-- אל תמציא קישורים או קטגוריות שלא הופיעו בנתונים.
-- **אסור** לכתוב:
+- מותר לכלול **רק פריט אחד** מסוג "עמוד תוצאות כולל (results-all)".
+- אסור להמציא קישורים חדשים או להשתמש בכתובות שלא מופיעות לאחר המילה "קישור:".
+- אסור לכתוב ניסוחים כמו:
   - "אין מידע על..."
   - "אין כרגע קורסים..."
+  - "נכון לעכשיו אין..."
   - "מומלץ לבדוק..."
-  - "נכון לעכשיו אין קורסים הנפתחים..."
-- בשדה "מצב קורסים הנפתחים בקרוב":
-  - אם כתוב "אין" – אסור לך לכתוב סעיף או טקסט על "קורסים הנפתחים בקרוב".
-  - אם כתוב "יש" – מותר להציג סעיף "קורסים הנפתחים בקרוב" עם הקורסים מסוג זה בלבד.
+- אם בשורה "מצב קורסים הנפתחים בקרוב" כתוב "אין":
+  - אל תכתוב שום סעיף או טקסט על "קורסים הנפתחים בקרוב".
+- אם כתוב "יש":
+  - הצג סעיף "קורסים הנפתחים בקרוב" עם הקורסים המסומנים ככאלה.
 - אל תציג דפי תודה / צרו קשר / thanks.
 - אל תציין פריטי ניווט כמו "לוח מועדי קורסים", "רוצים להיות מעודכנים" וכו'.
 - הימנע מאזכור למידה מרחוק אם המשתמש לא ביקש מפורשות.
