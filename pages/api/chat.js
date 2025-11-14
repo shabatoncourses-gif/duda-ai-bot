@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import dotenv from "dotenv";
 dotenv.config();
 import OpenAI from "openai";
-import fetch from "node-fetch"; // ✅ מבטיח ש-fetch קיים גם ב-Node
+import fetch from "node-fetch";
 
 /* ---------------------------------------------------
    Utility Functions
@@ -22,7 +22,9 @@ function normalizeHebrew(t) {
 
 function cosineSimilarity(a, b) {
   if (!a || !b || a.length !== b.length) return 0;
-  let dot = 0, na = 0, nb = 0;
+  let dot = 0,
+    na = 0,
+    nb = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     na += a[i] * a[i];
@@ -70,7 +72,7 @@ async function loadIndexes() {
         else mo.push(...arr);
       }
     } catch (e) {
-      console.error("Fetch index error:", f, e);
+      console.error("Error loading index:", f, e);
     }
   }
 
@@ -102,8 +104,18 @@ function classifyPage(p) {
 --------------------------------------------------- */
 
 const MONTHS = {
-  ינואר: 0, פברואר: 1, מרץ: 2, אפריל: 3, מאי: 4, יוני: 5,
-  יולי: 6, אוגוסט: 7, ספטמבר: 8, אוקטובר: 9, נובמבר: 10, דצמבר: 11,
+  ינואר: 0,
+  פברואר: 1,
+  מרץ: 2,
+  אפריל: 3,
+  מאי: 4,
+  יוני: 5,
+  יולי: 6,
+  אוגוסט: 7,
+  ספטמבר: 8,
+  אוקטובר: 9,
+  נובמבר: 10,
+  דצמבר: 11,
 };
 
 function extractStartDate(text) {
@@ -141,15 +153,19 @@ export default async function handler(req, res) {
 
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method === "GET") return res.json({ ok: true });
-  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "POST only" });
 
   try {
     const { message } = req.body || {};
-    if (!message) return res.status(400).json({ error: "missing message" });
+    if (!message)
+      return res.status(400).json({ error: "missing message" });
 
     if (!process.env.OPENAI_API_KEY) {
       console.error("❌ Missing OPENAI_API_KEY");
-      return res.status(500).json({ error: "server configuration error (no API key)" });
+      return res
+        .status(500)
+        .json({ error: "server configuration error (no API key)" });
     }
 
     const cleanMsg = normalizeHebrew(message);
@@ -197,7 +213,10 @@ export default async function handler(req, res) {
 
     const soon = courses
       .filter((p) => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
-      .map((p) => ({ ...p, date: extractStartDate(p.fullTitle + " " + p.clean) }))
+      .map((p) => ({
+        ...p,
+        date: extractStartDate(p.fullTitle + " " + p.clean),
+      }))
       .filter((p) => isSoon(p.date))
       .sort((a, b) => a.date - b.date);
 
