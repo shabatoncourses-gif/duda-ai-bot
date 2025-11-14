@@ -260,7 +260,6 @@ const completion = await client.chat.completions.create({
     },
   ],
 });
-
       
       temperature: 0.1,
       messages: [
