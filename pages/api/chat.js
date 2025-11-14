@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import dotenv from "dotenv";
 dotenv.config();
 import OpenAI from "openai";
+import fetch from "node-fetch"; // ✅ מבטיח ש-fetch קיים גם ב-Node
 
 /* ---------------------------------------------------
    Utility Functions
@@ -68,7 +69,9 @@ async function loadIndexes() {
         if (f.startsWith("shabaton")) sh.push(...arr);
         else mo.push(...arr);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Fetch index error:", f, e);
+    }
   }
 
   return [...sh, ...mo];
@@ -100,7 +103,7 @@ function classifyPage(p) {
 
 const MONTHS = {
   ינואר: 0, פברואר: 1, מרץ: 2, אפריל: 3, מאי: 4, יוני: 5,
-  יולי: 6, אוגוסט: 7, ספטמבר: 8, אוקטובר: 9, נובמבר: 10, דצמבר: 11
+  יולי: 6, אוגוסט: 7, ספטמבר: 8, אוקטובר: 9, נובמבר: 10, דצמבר: 11,
 };
 
 function extractStartDate(text) {
@@ -141,8 +144,13 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
   try {
-    const { message } = req.body;
+    const { message } = req.body || {};
     if (!message) return res.status(400).json({ error: "missing message" });
+
+    if (!process.env.OPENAI_API_KEY) {
+      console.error("❌ Missing OPENAI_API_KEY");
+      return res.status(500).json({ error: "server configuration error (no API key)" });
+    }
 
     const cleanMsg = normalizeHebrew(message);
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -259,7 +267,7 @@ export default async function handler(req, res) {
       reply: completion.choices?.[0]?.message?.content || "",
     });
   } catch (err) {
-    console.error("ERROR:", err);
+    console.error("ERROR in /api/chat:", err);
     return res.status(500).json({ error: err.message });
   }
 }
