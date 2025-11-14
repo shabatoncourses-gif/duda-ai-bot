@@ -6,15 +6,10 @@ import dotenv from "dotenv";
 dotenv.config();
 import OpenAI from "openai";
 
-// ===== Cache (לשימוש עתידי) =====
-const cache = { data: null, timestamp: 0, ttl: 10 * 60 * 1000 };
-
 // ===== פונקציות עזר =====
 function cosineSimilarity(a, b) {
   if (!a || !b || a.length !== b.length) return 0;
-  let dot = 0,
-    na = 0,
-    nb = 0;
+  let dot = 0, na = 0, nb = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     na += a[i] * a[i];
@@ -33,32 +28,9 @@ function normalizeHebrew(text) {
 }
 
 const STOP_WORDS = new Set([
-  "של",
-  "עם",
-  "על",
-  "ב",
-  "ל",
-  "ה",
-  "מה",
-  "איך",
-  "יש",
-  "אין",
-  "או",
-  "אם",
-  "וכן",
-  "קורס",
-  "קורסים",
-  "לימודים",
-  "בלימודי",
-  "לימודי",
-  "בהוראה",
-  "להוראה",
-  "להשתלמות",
-  "בהשתלמות",
-  "תחום",
-  "תחומים",
-  "שבתון",
-  "שבתון."
+  "של","עם","על","ב","ל","ה","מה","איך","יש","אין","או","אם","וכן",
+  "קורס","קורסים","לימודים","בלימודי","לימודי","בהוראה","להוראה",
+  "להשתלמות","בהשתלמות","תחום","תחומים","שבתון","שבתון."
 ]);
 
 function extractKeywordsHeb(str) {
@@ -110,25 +82,14 @@ function detectRegionFromPage(text) {
 
 // ===== חודשים =====
 const MONTHS_MAP = {
-  "ינואר": 0,
-  "פברואר": 1,
-  "מרץ": 2,
-  "אפריל": 3,
-  "מאי": 4,
-  "יוני": 5,
-  "יולי": 6,
-  "אוגוסט": 7,
-  "ספטמבר": 8,
-  "אוקטובר": 9,
-  "נובמבר": 10,
-  "דצמבר": 11
+  "ינואר": 0, "פברואר": 1, "מרץ": 2, "אפריל": 3, "מאי": 4, "יוני": 5,
+  "יולי": 6, "אוגוסט": 7, "ספטמבר": 8, "אוקטובר": 9, "נובמבר": 10, "דצמבר": 11
 };
 
 function extractStartDate(str) {
   if (!str) return null;
   const t = str.toLowerCase();
-  let m = null,
-    y = null;
+  let m = null, y = null;
 
   for (const [k, v] of Object.entries(MONTHS_MAP)) {
     if (t.includes(k)) {
@@ -155,17 +116,15 @@ function isInCurrentOrNextMonth(date) {
 
 // ===== טעינת אינדקסים =====
 async function loadIndexes() {
-  const base =
-    "https://raw.githubusercontent.com/shabatoncourses-gif/duda-ai-bot/main/data";
+  const base = "https://raw.githubusercontent.com/shabatoncourses-gif/duda-ai-bot/main/data";
   const files = [
     "shabaton_index_part1.json",
     "shabaton_index_part2.json",
     "shabaton_index_part3.json",
-    "morim_index_part1.json"
+    "morim_index_part1.json",
   ];
 
-  const sh = [],
-    mo = [];
+  const sh = [], mo = [];
 
   for (const f of files) {
     try {
@@ -187,8 +146,7 @@ async function loadIndexes() {
 function classifyPage(url = "", meta = {}) {
   const u = (url || "").toLowerCase();
   if (u.includes("/results-all/")) return "results";
-  if (u.includes("thanks") || u.includes("thank") || u.includes("contact"))
-    return "thanks";
+  if (u.includes("thanks") || u.includes("thank") || u.includes("contact")) return "thanks";
   if (u.includes("/mosad-index/")) return "mosad-index";
 
   const titleNorm = normalizeHebrew(meta.title || "");
@@ -211,10 +169,8 @@ function classifyPage(url = "", meta = {}) {
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method === "GET")
-    return res.status(200).json({ message: "OK" });
-  if (req.method !== "POST")
-    return res.status(405).json({ error: "POST only" });
+  if (req.method === "GET") return res.status(200).json({ message: "OK" });
+  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
   try {
     const { message } = req.body;
@@ -238,24 +194,33 @@ export default async function handler(req, res) {
     // ==== דירוג כל דף ====
     const scored = all.map((p) => {
       const kind = classifyPage(p.url, p);
-      const fullTitle = [p.title, p.h1, ...(p.h2 || [])]
-        .filter(Boolean)
-        .join(" ");
+      const fullTitle = [p.title, p.h1, ...(p.h2 || [])].filter(Boolean).join(" ");
       const textNorm = removeMenuText(
         normalizeHebrew((p.description || "") + " " + (p.text || ""))
       );
-
-      const region = detectRegionFromPage(
-        fullTitle + " " + (p.description || "")
-      );
+      const region = detectRegionFromPage(fullTitle + " " + (p.description || ""));
 
       let score = cosineSimilarity(qv, p.vector || []);
 
-      // בוסט למילים בכותרת / טקסט
       const fullTitleNorm = normalizeHebrew(fullTitle);
+      const urlDecoded = normalizeHebrew(decodeURIComponent(p.url || ""));
+
+      // בוסט למילים בכותרת / טקסט
       for (const kw of keywords) {
         if (fullTitleNorm.includes(kw)) score += 0.9;
         else if (textNorm.includes(kw)) score += 0.4;
+      }
+
+      // בוסט חזק ל-results-all התואם לביטוי החיפוש
+      if (kind === "results") {
+        const queryNorm = cleanMsg; // כבר מנורמל
+        if (urlDecoded.includes(queryNorm) || fullTitleNorm.includes(queryNorm)) {
+          score += 3.0; // עדיפות גבוהה מאוד ל-results שמתאימים לשאילתה
+        }
+        const joinedKw = normalizeHebrew(keywords.join(" "));
+        if (joinedKw && (urlDecoded.includes(joinedKw) || fullTitleNorm.includes(joinedKw))) {
+          score += 2.0;
+        }
       }
 
       // קדימויות
@@ -280,8 +245,8 @@ export default async function handler(req, res) {
         .filter((p) => p.kind === "results")
         .sort((a, b) => b.score - a.score)[0] || null;
 
-    // === דפי קורסים / מוסדות (ללא מאמרים / תודה) ===
-    const coursePages = scored
+    // === דפי קורסים / מוסדות (ללא מאמרים / תודה / results) ===
+    const coursePagesRaw = scored
       .filter(
         (p) =>
           p.kind !== "results" &&
@@ -289,6 +254,18 @@ export default async function handler(req, res) {
           p.kind !== "article"
       )
       .sort((a, b) => b.score - a.score);
+
+    // קודם ננסה רק דפים שבאמת מכילים את מילות המפתח
+    let coursePages = coursePagesRaw.filter((p) => {
+      if (!keywords.length) return true;
+      const ft = normalizeHebrew(p.fullTitle);
+      return keywords.some((kw) => ft.includes(kw) || p.textNorm.includes(kw));
+    });
+
+    // אם לא נמצא כלום – נ fallback לכל הדפים לפי score
+    if (!coursePages.length) {
+      coursePages = coursePagesRaw;
+    }
 
     // === דפי מאמרים ===
     const articlePages = scored
@@ -332,7 +309,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // קורסים הנפתחים בקרוב – רק אם קיימים, אין הודעה על חוסר
+    // קורסים הנפתחים בקרוב – רק אם קיימים
     for (const p of soon) {
       if (final.length >= MAX_ITEMS) break;
       if (!used.has(p.url)) {
@@ -350,27 +327,25 @@ export default async function handler(req, res) {
       }
     }
 
-    if (!final.length)
-      return res
-        .status(200)
-        .json({ reply: "לא נמצאו תוצאות רלוונטיות." });
+    if (!final.length) {
+      return res.status(200).json({
+        reply: "לא נמצאו תוצאות רלוונטיות לשאילתה הזו במאגר הקורסים והמאמרים."
+      });
+    }
+
+    const hasSoon = final.some((p) => p.bucket === "soon");
 
     const bucketHebrew = (b) => {
       switch (b) {
-        case "results":
-          return "עמוד תוצאות כולל (results-all)";
-        case "course":
-          return "דף קורס / מוסד";
-        case "soon":
-          return "קורס הנפתח בקרוב";
-        case "article":
-          return "מאמר תוכן";
-        default:
-          return b;
+        case "results": return "עמוד תוצאות כולל (results-all)";
+        case "course":  return "דף קורס / מוסד";
+        case "soon":    return "קורס הנפתח בקרוב";
+        case "article": return "מאמר תוכן";
+        default:        return b;
       }
     };
 
-    const context = final
+    const contextItems = final
       .map((p, i) => {
         return `
 # פריט ${i + 1}
@@ -382,39 +357,53 @@ export default async function handler(req, res) {
       })
       .join("\n\n");
 
+    const context = `
+מצב קורסים הנפתחים בקרוב: ${hasSoon ? "יש" : "אין"}
+
+${contextItems}
+`.trim();
+
     // === תשובה סופית מהמודל ===
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      temperature: 0.25,
+      temperature: 0.2,
       messages: [
         {
           role: "system",
           content: `
 אתה עוזר חכם המספק תשובות מדויקות ממאגר שבתון ומורים בלבד.
-התשובה צריכה להיות **בעברית**, **נקייה**, ו**מעוצבת ב־Markdown** (אפשר לכלול HTML פשוט לכפתורים).
+התשובה חייבת להיות **בעברית**, **נקייה**, ו**מעוצבת ב-Markdown** (מותר HTML פשוט לכפתורים).
 
 סדר הצגה לגולש (אם יש נתונים מתאימים):
-1. תוצאה אחת בלבד של RESULTS_ALL (אם קיימת).
-2. דפים פרטיים של מוסדות / קורסים רלוונטיים.
-3. "קורסים הנפתחים בקרוב" – רק אם יש קורסים כאלה, ורק לחודש הנוכחי + הבא.
-4. דפי מאמרים רלוונטיים (לפי כותרת, תיאור, H1, H2).
+1. **תוצאה אחת בלבד** מסוג "עמוד תוצאות כולל (results-all)".
+2. אחריה – דפים פרטיים של מוסדות / קורסים רלוונטיים.
+3. אחריהם – "קורסים הנפתחים בקרוב" – רק אם יש.
+4. לבסוף – דפי מאמרים רלוונטיים.
 
-כללים:
-- אל תשתמש ב־URL חשוף. תמיד הצג קישור כמעוצב, למשל:
-  - [למידע נוסף על הקורס ›](URL)
-  - או <a href="URL" class="ai-btn">למידע נוסף על הקורס</a>
-- הצג כל קורס / מוסד ככרטיס קצר:
-  - כותרת מודגשת
-  - שורה–שתיים של תיאור
-  - כפתור "למידע נוסף" בסוף הפריט.
-- עבור "קורסים הנפתחים בקרוב" – הצג אותם בסעיף נפרד עם כותרת, למשל:
-  "קורסים הנפתחים בקרוב"
-- אם **אין** קורסים הנפתחים בקרוב – אל תציג את הכותרת הזאת בכלל, ואל תכתוב משפט כמו
-  "אין קורסים הנפתחים בחודש הנוכחי או הבא".
-- דפי mosad-index בעדיפות נמוכה – אל תדגיש אותם אם יש דפי קורסים פרטיים רלוונטיים.
+חוויית משתמש:
+- כל פריט יוצג כ"קלף":
+  - כותרת מודגשת.
+  - 1–2 משפטי תיאור.
+  - כפתור "למידע נוסף" בסוף.
+- אין להציג את הטקסט של ה-URL עצמו. מותר להשתמש בו רק בתוך href של קישור.
+- דוגמה לתצורת כפתור:
+  <a href="URL" class="ai-main-btn">למידע נוסף על הקורס</a>
+  או:
+  [למידע נוסף על הקורס ›](URL)
+
+חוקים מחמירים:
+- מותר לכלול **רק פריט אחד** מסוג "עמוד תוצאות כולל (results-all)" – גם אם בנתונים מופיעים נוספים.
+- אל תמציא קישורים או קטגוריות שלא הופיעו בנתונים.
+- **אסור** לכתוב:
+  - "אין מידע על..."
+  - "אין כרגע קורסים..."
+  - "מומלץ לבדוק..."
+  - "נכון לעכשיו אין קורסים הנפתחים..."
+- בשדה "מצב קורסים הנפתחים בקרוב":
+  - אם כתוב "אין" – אסור לך לכתוב סעיף או טקסט על "קורסים הנפתחים בקרוב".
+  - אם כתוב "יש" – מותר להציג סעיף "קורסים הנפתחים בקרוב" עם הקורסים מסוג זה בלבד.
 - אל תציג דפי תודה / צרו קשר / thanks.
-- אל תכתוב טקסטים כלליים כמו "לא קיימים קורסים" או "מומלץ לבדוק".
-- הימנע מאזכור פריטי ניווט כמו "לוח מועדי קורסים", "רוצים להיות מעודכנים" וכו'.
+- אל תציין פריטי ניווט כמו "לוח מועדי קורסים", "רוצים להיות מעודכנים" וכו'.
 - הימנע מאזכור למידה מרחוק אם המשתמש לא ביקש מפורשות.
 `
         },
@@ -428,6 +417,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       reply: completion.choices?.[0]?.message?.content || "לא נמצאה תשובה"
     });
+
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: err.message });
