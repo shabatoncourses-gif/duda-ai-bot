@@ -3,14 +3,14 @@ export const config = { runtime: "nodejs" };
 export const dynamic = "force-dynamic";
 
 import dotenv from "dotenv";
+dotenv.config();
+
 import OpenAI from "openai";
 import fetch from "node-fetch";
 
-dotenv.config();
-
-/* ---------------------------------------------------
-   Utility Functions
---------------------------------------------------- */
+/* -------------------------------------- */
+/* Utility                                */
+/* -------------------------------------- */
 
 function normalizeHebrew(t) {
   return (t || "")
@@ -26,16 +26,12 @@ function cosineSimilarity(a, b) {
   let dot = 0;
   let na = 0;
   let nb = 0;
-
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     na += a[i] * a[i];
     nb += b[i] * b[i];
   }
-
-  const denom = Math.sqrt(na) * Math.sqrt(nb);
-  if (!denom) return 0;
-  return dot / denom;
+  return dot / (Math.sqrt(na) * Math.sqrt(nb) || 1);
 }
 
 function cleanText(t) {
@@ -44,14 +40,15 @@ function cleanText(t) {
       .replace(/https?:\/\/\S+/gi, "")
       .replace(/רוצים להיות מעודכנים[^\.]+/gi, "")
       .replace(/לוח מועדי קורסים/gi, "")
-      .replace(/(למידה מרחוק|קורסים בלמידה מרחוק)/gi, "")
-      .replace(/(קורסים|מאמרים|צרו קשר|אודות|כניסה|מורים)/gi, "")
+      .replace(/למידה מרחוק/gi, "")
+      .replace(/קורסים בלמידה מרחוק/gi, "")
+      .replace(/קורסים|מאמרים|צרו קשר|אודות|כניסה|מורים/gi, "")
   );
 }
 
-/* ---------------------------------------------------
-   Load Index Files
---------------------------------------------------- */
+/* -------------------------------------- */
+/* Load Index                              */
+/* -------------------------------------- */
 
 async function loadIndexes() {
   const base =
@@ -61,7 +58,7 @@ async function loadIndexes() {
     "shabaton_index_part1.json",
     "shabaton_index_part2.json",
     "shabaton_index_part3.json",
-    "morim_index_part1.json",
+    "morim_index_part1.json"
   ];
 
   const sh = [];
@@ -73,23 +70,20 @@ async function loadIndexes() {
       if (!res.ok) continue;
       const arr = await res.json();
       if (Array.isArray(arr)) {
-        if (f.startsWith("shabaton")) {
-          sh.push(...arr);
-        } else {
-          mo.push(...arr);
-        }
+        if (f.startsWith("shabaton")) sh.push(...arr);
+        else mo.push(...arr);
       }
-    } catch (e) {
-      console.error("Error loading index:", f, e);
+    } catch (err) {
+      console.error("index load error:", f, err);
     }
   }
 
   return [...sh, ...mo];
 }
 
-/* ---------------------------------------------------
-   Page Type Classification
---------------------------------------------------- */
+/* -------------------------------------- */
+/* Classify Page                           */
+/* -------------------------------------- */
 
 function classifyPage(p) {
   const url = (p.url || "").toLowerCase();
@@ -101,30 +95,29 @@ function classifyPage(p) {
   const title = normalizeHebrew(p.title || "");
   const h1 = normalizeHebrew(p.h1 || "");
 
-  if (title.includes("מאמר") || h1.includes("מאמר") || url.includes("/article")) {
+  if (title.includes("מאמר") || h1.includes("מאמר") || url.includes("/article"))
     return "article";
-  }
 
   return "course";
 }
 
-/* ---------------------------------------------------
-   Soon Courses Handling
---------------------------------------------------- */
+/* -------------------------------------- */
+/* Soon courses                            */
+/* -------------------------------------- */
 
 const MONTHS = {
-  ינואר: 0,
-  פברואר: 1,
-  מרץ: 2,
-  אפריל: 3,
-  מאי: 4,
-  יוני: 5,
-  יולי: 6,
-  אוגוסט: 7,
-  ספטמבר: 8,
-  אוקטובר: 9,
-  נובמבר: 10,
-  דצמבר: 11,
+  "ינואר": 0,
+  "פברואר": 1,
+  "מרץ": 2,
+  "אפריל": 3,
+  "מאי": 4,
+  "יוני": 5,
+  "יולי": 6,
+  "אוגוסט": 7,
+  "ספטמבר": 8,
+  "אוקטובר": 9,
+  "נובמבר": 10,
+  "דצמבר": 11
 };
 
 function extractStartDate(text) {
@@ -132,20 +125,17 @@ function extractStartDate(text) {
   const t = text.toLowerCase();
 
   let month = null;
-  for (const name in MONTHS) {
-    if (Object.prototype.hasOwnProperty.call(MONTHS, name)) {
-      if (t.includes(name)) {
-        month = MONTHS[name];
-        break;
-      }
+  for (const [name, idx] of Object.entries(MONTHS)) {
+    if (t.includes(name)) {
+      month = idx;
+      break;
     }
   }
 
   const yearMatch = /20\d{2}/.exec(t);
   if (!yearMatch || month === null) return null;
 
-  const year = parseInt(yearMatch[0], 10);
-  return new Date(year, month, 1);
+  return new Date(parseInt(yearMatch[0]), month, 1);
 }
 
 function isSoon(date) {
@@ -153,59 +143,43 @@ function isSoon(date) {
   const now = new Date();
   const m = now.getMonth();
   const next = (m + 1) % 12;
-  const dm = date.getMonth();
-  return dm === m || dm === next;
+  return date.getMonth() === m || date.getMonth() === next;
 }
 
-/* ---------------------------------------------------
-   MAIN API HANDLER
---------------------------------------------------- */
+/* -------------------------------------- */
+/* Handler                                 */
+/* -------------------------------------- */
 
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  if (req.method === "GET") {
-    return res.json({ ok: true });
-  }
-
-  if (req.method !== "POST") {
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method === "GET") return res.json({ ok: true });
+  if (req.method !== "POST")
     return res.status(405).json({ error: "POST only" });
-  }
 
   try {
-    const body = req.body || {};
-    const message = body.message;
-
-    if (!message) {
+    const { message } = req.body || {};
+    if (!message)
       return res.status(400).json({ error: "missing message" });
-    }
 
     if (!process.env.OPENAI_API_KEY) {
-      console.error("❌ Missing OPENAI_API_KEY");
-      return res
-        .status(500)
-        .json({ error: "server configuration error (no API key)" });
+      console.error("Missing OPENAI_API_KEY");
+      return res.status(500).json({ error: "Missing API key" });
     }
 
     const cleanMsg = normalizeHebrew(message);
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // Embedding
     const emb = await client.embeddings.create({
       model: "text-embedding-3-small",
-      input: cleanMsg,
+      input: cleanMsg
     });
 
     const queryVector = emb.data[0].embedding;
 
-    // Load pages
     const all = await loadIndexes();
 
-    // Rank pages
     const pages = all.map((p) => {
       const type = classifyPage(p);
       const full = [p.title, p.h1, ...(p.h2 || [])]
@@ -213,16 +187,9 @@ export default async function handler(req, res) {
         .join(" ");
       const txt = cleanText((p.description || "") + " " + (p.text || ""));
       const score = cosineSimilarity(queryVector, p.vector || []);
-      return {
-        ...p,
-        type: type,
-        fullTitle: full,
-        clean: txt,
-        score: score,
-      };
+      return { ...p, type, fullTitle: full, clean: txt, score };
     });
 
-    // Select pages
     const bestResults = pages
       .filter((p) => p.type === "results")
       .sort((a, b) => b.score - a.score)
@@ -242,12 +209,10 @@ export default async function handler(req, res) {
 
     const soon = courses
       .filter((p) => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
-      .map((p) => {
-        return {
-          ...p,
-          date: extractStartDate(p.fullTitle + " " + p.clean),
-        };
-      })
+      .map((p) => ({
+        ...p,
+        date: extractStartDate(p.fullTitle + " " + p.clean)
+      }))
       .filter((p) => isSoon(p.date))
       .sort((a, b) => a.date - b.date);
 
@@ -258,77 +223,31 @@ export default async function handler(req, res) {
 
     const finalList = [...bestResults, ...courses, ...soon, ...articles];
 
-    // Build context
     const context = finalList
-      .map((p, i) => {
-        return (
-          "# פריט " +
-          (i + 1) +
-          "\n" +
-          "סוג: " +
-          p.type +
-          "\n" +
-          "כותרת: " +
-          p.fullTitle +
-          "\n" +
-          "תיאור: " +
-          p.clean +
-          "\n" +
-          "קישור: " +
-          p.url
-        );
-      })
+      .map(
+        (p, i) =>
+          `# Item ${i + 1}\nType: ${p.type}\nTitle: ${p.fullTitle}\nText: ${p.clean}\nURL: ${p.url}`
+      )
       .join("\n\n");
 
-    console.log("=== CONTEXT SENT TO MODEL ===");
-    console.log(context);
-
     const systemPrompt =
-      "אתה מספק תשובות אך ורק מתוך הפריטים שבקונטקסט.\n\n" +
-      "❗ אסור:\n" +
-      "- להמציא קישורים או דפים\n" +
-      "- להמציא results-all\n" +
-      "- להציג URL גולמי\n" +
-      '- לכתוב "אין מידע...", "אין כרגע...", "מומלץ לבדוק...", "נכון לעכשיו..."\n' +
-      "- להשתמש בדפים שאינם בקונטקסט\n\n" +
-      "✔️ סדר:\n" +
-      "1. results-all (רק הראשון אם קיים)\n" +
-      "2. קורסים (course)\n" +
-      "3. נפתחים בקרוב (soon)\n" +
-      "4. מאמרים (article)\n\n" +
-      "✔️ תצוגה:\n" +
-      "- כל פריט בכרטיס\n" +
-      "- כותרת מודגשת\n" +
-      "- 1–2 משפטים\n" +
-      '- כפתור: <a href=\"URL\" class=\"ai-main-btn\">למידע נוסף</a>\n";
+      "Answer only from context. No invented URLs. No invented pages.";
 
-    // Model call
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.1,
       messages: [
         { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: "השאלה: " + message + "\n\nדפים רלוונטיים:\n" + context,
-        },
-      ],
+        { role: "user", content: `Question: ${message}\n\nContext:\n${context}` }
+      ]
     });
 
-    let replyText = "";
-    if (
-      completion &&
-      completion.choices &&
-      completion.choices[0] &&
-      completion.choices[0].message &&
-      completion.choices[0].message.content
-    ) {
-      replyText = completion.choices[0].message.content;
-    }
+    const reply =
+      completion?.choices?.[0]?.message?.content || "";
 
-    return res.json({ reply: replyText });
+    return res.json({ reply });
   } catch (err) {
-    console.error("ERROR in /api/chat:", err);
+    console.error("ERROR:", err);
     return res.status(500).json({ error: err.message });
   }
 }
