@@ -278,7 +278,6 @@ export default async function handler(req, res) {
         },
       ],
     });
-
     let replyText = "";
     if (
       completion &&
@@ -289,9 +288,7 @@ export default async function handler(req, res) {
     ) {
       replyText = completion.choices[0].message.content;
     }
-
     return res.json({ reply: replyText });
-
   } catch (err) {
     console.error("ERROR in /api/chat:", err);
     return res.status(500).json({ error: err.message });
