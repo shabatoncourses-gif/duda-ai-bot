@@ -1,6 +1,6 @@
 // pages/api/reindex.js
 export default async function handler(req, res) {
-  console.log("📡 /api/reindex called — but indexing runs ONLY on GitHub");
+  console.log("🔄 /api/reindex called");
 
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -9,9 +9,14 @@ export default async function handler(req, res) {
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  return res.status(200).json({
-    ok: true,
-    message: "Indexing does NOT run on Vercel. It runs only in GitHub Actions.",
-    timestamp: new Date().toISOString(),
-  });
+  // מאחר והאינדוקס רץ ב-GitHub — כאן רק מחזירים הודעה
+  if (req.method === "GET" || req.method === "POST") {
+    return res.status(200).json({
+      success: true,
+      message: "Reindex request acknowledged. Indexing is performed via GitHub Actions, not on Vercel.",
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  return res.status(405).json({ error: "Method not allowed" });
 }
