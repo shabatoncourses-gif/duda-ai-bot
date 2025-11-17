@@ -2,7 +2,6 @@
 import * as cheerio from "cheerio";
 import fs from "fs";
 import path from "path";
-import fetch from "node-fetch";
 import OpenAI from "openai";
 import dotenv from "dotenv";
 dotenv.config();
@@ -307,3 +306,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     await runFullIndexing(name, sitemap, batchSize);
   })();
 }
+
