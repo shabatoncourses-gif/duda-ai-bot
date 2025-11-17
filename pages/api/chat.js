@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import OpenAI from "openai";
+const fetchFn = (...args) => fetch(...args);
 
 /* -------------------------------------- */
 /* Utility                                */
@@ -65,7 +66,7 @@ async function loadIndexes() {
 
   for (const f of files) {
     try {
-      const res = await fetch(`${base}/${f}`);
+      const res = await fetchFn(`${base}/${f}`);
       if (!res.ok) continue;
       const arr = await res.json();
       if (Array.isArray(arr)) {
