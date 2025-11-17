@@ -1,5 +1,4 @@
 // pages/api/status.js
-import fetch from "node-fetch";
 
 export default async function statusHandler(req, res) {
   console.log("📊 Checking indexing status...");
@@ -16,7 +15,6 @@ export default async function statusHandler(req, res) {
     const branch = process.env.GITHUB_BRANCH || "main";
     const baseUrl = `https://raw.githubusercontent.com/${repo}/${branch}/data`;
 
-    // קבצי האינדקס המעודכנים (מחולקים לחלקים)
     const files = [
       "shabaton_index_part1.json",
       "shabaton_index_part2.json",
@@ -31,7 +29,7 @@ export default async function statusHandler(req, res) {
     for (const f of files) {
       const url = `${baseUrl}/${f}`;
       try {
-        const resFile = await fetch(url);
+        const resFile = await fetch(url); // ← fetch מובנה של Node/Vercel
         if (!resFile.ok) {
           console.warn(`⚠️ Failed to fetch ${f}: ${resFile.status}`);
           continue;
