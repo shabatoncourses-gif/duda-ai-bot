@@ -6,8 +6,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import OpenAI from "openai";
-import fetch from "node-fetch";
-const fetchFn = (...args) => fetch(...args);
+// ❗ הורדנו node-fetch כי Node 18 כולל fetch מובנה
 
 /* -------------------------------------- */
 /* Utility                                */
@@ -67,7 +66,7 @@ async function loadIndexes() {
 
   for (const f of files) {
     try {
-      const res = await fetchFn(`${base}/${f}`);
+      const res = await fetch(`${base}/${f}`);   // <-- fetch מובנה, עובד!
       if (!res.ok) continue;
       const arr = await res.json();
       if (Array.isArray(arr)) {
@@ -243,9 +242,7 @@ export default async function handler(req, res) {
       ]
     });
 
-    const reply =
-      completion?.choices?.[0]?.message?.content || "";
-
+    const reply = completion?.choices?.[0]?.message?.content || "";
     return res.json({ reply });
   } catch (err) {
     console.error("ERROR:", err);
