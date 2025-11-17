@@ -6,7 +6,6 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import OpenAI from "openai";
-import fetch from "node-fetch";
 
 /* -------------------------------------- */
 /* Utility                                */
