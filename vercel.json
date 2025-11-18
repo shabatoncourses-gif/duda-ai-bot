@@ -10,7 +10,7 @@
     {
       "src": "/api/chat",
       "headers": {
-        "Access-Control-Allow-Origin": "https://www.shabaton.online, https://shabaton.online",
+        "Access-Control-Allow-Origin": "https://www.shabaton.online,https://shabaton.online" 
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
         "Vary": "Origin"
@@ -22,3 +22,4 @@
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
+
