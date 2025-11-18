@@ -1,5 +1,10 @@
 // pages/api/chat.js
-export const config = { runtime: "nodejs" };
+export const config = {
+  runtime: "nodejs",
+  api: {
+    bodyParser: false, // ❗ ביטול JSON parsing – חובה
+  },
+};
 export const dynamic = "force-dynamic";
 
 import dotenv from "dotenv";
@@ -176,15 +181,21 @@ export default async function handler(req, res) {
   if (req.method !== "POST")
     return res.status(405).json({ error: "POST only" });
 
-  // 🟢 תמיכה ב־text/plain או body רגיל
-  let message;
-  if (typeof req.body === "string") {
-    message = req.body;
-  } else if (req.body && typeof req.body.message === "string") {
-    message = req.body.message;
-  }
+ 
+  // 🟢 קריאת RAW TEXT ידנית (מקבל גם text/plain וגם JSON)
+import getRawBody from "raw-body";  // ❗ חשוב: את זה למעלה עם שאר ה־imports
 
-  if (!message) return res.status(400).json({ error: "missing message" });
+let message = "";
+try {
+  const raw = await getRawBody(req);
+  message = raw.toString("utf-8").trim();
+} catch (err) {
+  console.error("Raw body error:", err);
+}
+
+if (!message) {
+  return res.status(400).json({ error: "missing message" });
+}
 
   try {
     if (!process.env.OPENAI_API_KEY)
