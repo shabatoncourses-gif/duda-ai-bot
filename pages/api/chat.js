@@ -193,7 +193,19 @@ export default async function handler(req, res) {
     const pages = all.map(p => {
       const type = classifyPage(p);
       const full = [p.title, p.h1, ...(p.h2 || [])].filter(Boolean).join(" ");
-      const txt = cleanText((p.description || "") + " " + (p.text || ""));
+
+      // חילוץ טקסט כולל description, h1, h2, ul/li
+      const html = p.text || "";
+      const listItems = (html.match(/<li>(.*?)<\/li>/gi) || [])
+        .map(li => li.replace(/<\/?li>/gi, ""))
+        .join(" ");
+      const txt = cleanText(
+        (p.description || "") + " " +
+        (p.h1 || "") + " " +
+        ((p.h2 || []).join(" ")) + " " +
+        listItems
+      );
+
       let score = cosineSimilarity(queryVector, p.vector || []);
 
       // אם זיהינו עיר/אזור – בוסט
