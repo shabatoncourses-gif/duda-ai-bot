@@ -9,8 +9,9 @@ export const dynamic = "force-dynamic";
 
 import dotenv from "dotenv";
 dotenv.config();
-import getRawBody from "raw-body";  // ❗ חשוב: את זה למעלה עם שאר ה־imports
+
 import OpenAI from "openai";
+import getRawBody from "raw-body";  // ❗ חשוב: את זה למעלה עם שאר ה־imports
 
 /* -------------------------------------- */
 /* Utility                                */
