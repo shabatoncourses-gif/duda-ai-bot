@@ -171,7 +171,7 @@ export default async function handler(req, res) {
 
   res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "*");
+ res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
 
