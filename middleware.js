@@ -1,5 +1,5 @@
 export const config = {
-  matcher: "/api/:path*", // מפעיל CORS על כל ה־API
+  matcher: "/api/:path*",
 };
 
 export function middleware(req) {
@@ -17,7 +17,7 @@ export function middleware(req) {
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Access-Control-Allow-Credentials": "true",
-      "Vary": "Origin",
+      "Vary": "Origin"
     },
   });
 
@@ -27,9 +27,7 @@ export function middleware(req) {
     res.headers.set("Access-Control-Allow-Origin", "https://www.shabaton.online");
   }
 
-  if (req.method === "OPTIONS") {
-    return res; // עונה מיד ל־preflight
-  }
+  if (req.method === "OPTIONS") return res;
 
   return res;
 }
