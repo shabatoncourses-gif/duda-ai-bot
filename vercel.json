@@ -7,17 +7,7 @@
     { "src": "index.html", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/api/chat",
-      "headers": {
-        "Access-Control-Allow-Origin": "https://www.shabaton.online https://shabaton.online https://morim.boutique https://www.morim.boutique",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Credentials": "true",
-        "Vary": "Origin"
-      },
-      "dest": "/pages/api/chat.js"
-    },
+    { "src": "/api/chat", "dest": "/pages/api/chat.js" },
     { "src": "/api/reindex", "dest": "/pages/api/reindex.js" },
     { "src": "/api/status", "dest": "/pages/api/status.js" },
     { "src": "/(.*)", "dest": "/index.html" }
