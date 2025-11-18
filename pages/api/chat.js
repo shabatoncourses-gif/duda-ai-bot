@@ -156,7 +156,6 @@ export default async function handler(req, res) {
     "https://shabaton.online",
   ];
   const origin = req.headers.origin || "";
-
   if (allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
   } else {
@@ -168,25 +167,26 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method === "GET") return res.json({ ok: true });
+  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+
+  /* 🟢 שיפור תמיכה ב־text/plain (ללא OPTIONS) */
+  let message;
+  if (typeof req.body === "string") {
+    message = req.body;
+  } else if (req.body && typeof req.body.message === "string") {
+    message = req.body.message;
   }
 
-  if (req.method === "GET") return res.json({ ok: true });
-  if (req.method !== "POST")
-    return res.status(405).json({ error: "POST only" });
+  if (!message) return res.status(400).json({ error: "missing message" });
 
   try {
-    const { message } = req.body || {};
-    if (!message) return res.status(400).json({ error: "missing message" });
-
-    if (!process.env.OPENAI_API_KEY) {
-      console.error("Missing OPENAI_API_KEY");
+    if (!process.env.OPENAI_API_KEY)
       return res.status(500).json({ error: "Missing API key" });
-    }
 
-    const cleanMsg = normalizeHebrew(message);
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const cleanMsg = normalizeHebrew(message);
 
     const emb = await client.embeddings.create({
       model: "text-embedding-3-small",
@@ -198,9 +198,7 @@ export default async function handler(req, res) {
 
     const pages = all.map((p) => {
       const type = classifyPage(p);
-      const full = [p.title, p.h1, ...(p.h2 || [])]
-        .filter(Boolean)
-        .join(" ");
+      const full = [p.title, p.h1, ...(p.h2 || [])].filter(Boolean).join(" ");
       const txt = cleanText((p.description || "") + " " + (p.text || ""));
       const score = cosineSimilarity(queryVector, p.vector || []);
       return { ...p, type, fullTitle: full, clean: txt, score };
@@ -246,18 +244,12 @@ export default async function handler(req, res) {
       )
       .join("\n\n");
 
-    const systemPrompt =
-      "Answer only from context. No invented URLs. No invented pages.";
-
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.1,
       messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: `Question: ${message}\n\nContext:\n${context}`,
-        },
+        { role: "system", content: "Answer only from context. No invented URLs." },
+        { role: "user", content: `Question: ${message}\n\nContext:\n${context}` },
       ],
     });
 
