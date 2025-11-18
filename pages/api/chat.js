@@ -6,7 +6,6 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import OpenAI from "openai";
-// ❗ הורדנו node-fetch כי Node 18 כולל fetch מובנה
 
 /* -------------------------------------- */
 /* Utility                                */
@@ -66,7 +65,7 @@ async function loadIndexes() {
 
   for (const f of files) {
     try {
-      const res = await fetch(`${base}/${f}`);   // <-- fetch מובנה, עובד!
+      const res = await fetch(`${base}/${f}`);
       if (!res.ok) continue;
       const arr = await res.json();
       if (Array.isArray(arr)) {
@@ -106,18 +105,9 @@ function classifyPage(p) {
 /* -------------------------------------- */
 
 const MONTHS = {
-  "ינואר": 0,
-  "פברואר": 1,
-  "מרץ": 2,
-  "אפריל": 3,
-  "מאי": 4,
-  "יוני": 5,
-  "יולי": 6,
-  "אוגוסט": 7,
-  "ספטמבר": 8,
-  "אוקטובר": 9,
-  "נובמבר": 10,
-  "דצמבר": 11
+  "ינואר": 0, "פברואר": 1, "מרץ": 2, "אפריל": 3,
+  "מאי": 4, "יוני": 5, "יולי": 6, "אוגוסט": 7,
+  "ספטמבר": 8, "אוקטובר": 9, "נובמבר": 10, "דצמבר": 11
 };
 
 function extractStartDate(text) {
@@ -151,17 +141,27 @@ function isSoon(date) {
 /* -------------------------------------- */
 
 export default async function handler(req, res) {
+
+  // --- 📌 CORS FIX ---
+  res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*"); // * לבדיקה, אחר כך להגביל
+  // ❗ לאחר בדיקה לשנות ל:
+  // res.setHeader("Access-Control-Allow-Origin", "https://www.shabaton.online");
+
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end(); // הכרחי עבור preflight
+  }
+
   res.setHeader("Content-Type", "application/json; charset=utf-8");
 
-  if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method === "GET") return res.json({ ok: true });
-  if (req.method !== "POST")
-    return res.status(405).json({ error: "POST only" });
+  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
   try {
     const { message } = req.body || {};
-    if (!message)
-      return res.status(400).json({ error: "missing message" });
+    if (!message) return res.status(400).json({ error: "missing message" });
 
     if (!process.env.OPENAI_API_KEY) {
       console.error("Missing OPENAI_API_KEY");
@@ -182,9 +182,7 @@ export default async function handler(req, res) {
 
     const pages = all.map((p) => {
       const type = classifyPage(p);
-      const full = [p.title, p.h1, ...(p.h2 || [])]
-        .filter(Boolean)
-        .join(" ");
+      const full = [p.title, p.h1, ...(p.h2 || [])].filter(Boolean).join(" ");
       const txt = cleanText((p.description || "") + " " + (p.text || ""));
       const score = cosineSimilarity(queryVector, p.vector || []);
       return { ...p, type, fullTitle: full, clean: txt, score };
