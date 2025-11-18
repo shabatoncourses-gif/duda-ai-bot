@@ -1,16 +1,25 @@
-import { NextResponse } from "next/server";
+export const config = {
+  matcher: "/api/:path*", // מפעיל CORS על כל ה־API
+};
 
 export function middleware(req) {
-  const origin = req.headers.get("origin") || "";
+  const origin = req.headers.get("origin");
 
   const allowed = [
     "https://www.shabaton.online",
     "https://shabaton.online",
     "https://morim.boutique",
-    "https://www.morim.boutique",
+    "https://www.morim.boutique"
   ];
 
-  const res = NextResponse.next();
+  const res = new Response(null, {
+    headers: {
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Credentials": "true",
+      "Vary": "Origin",
+    },
+  });
 
   if (allowed.includes(origin)) {
     res.headers.set("Access-Control-Allow-Origin", origin);
@@ -18,13 +27,8 @@ export function middleware(req) {
     res.headers.set("Access-Control-Allow-Origin", "https://www.shabaton.online");
   }
 
-  res.headers.set("Vary", "Origin");
-  res.headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.headers.set("Access-Control-Allow-Credentials", "true");
-
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: res.headers });
+    return res; // עונה מיד ל־preflight
   }
 
   return res;
