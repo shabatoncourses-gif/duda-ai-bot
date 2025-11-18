@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 import dotenv from "dotenv";
 dotenv.config();
-
+import getRawBody from "raw-body";  // ❗ חשוב: את זה למעלה עם שאר ה־imports
 import OpenAI from "openai";
 
 /* -------------------------------------- */
@@ -183,7 +183,7 @@ export default async function handler(req, res) {
 
  
   // 🟢 קריאת RAW TEXT ידנית (מקבל גם text/plain וגם JSON)
-import getRawBody from "raw-body";  // ❗ חשוב: את זה למעלה עם שאר ה־imports
+
 
 let message = "";
 try {
