@@ -153,7 +153,13 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
 
-  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method === "OPTIONS") {
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  return res.status(200).end();
+}
+
+ 
   if (req.method === "GET") return res.json({ ok: true });
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
