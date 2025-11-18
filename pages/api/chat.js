@@ -22,9 +22,9 @@ function normalizeHebrew(t) {
 
 function cosineSimilarity(a, b) {
   if (!a || !b || a.length !== b.length) return 0;
-  let dot = 0;
-  let na = 0;
-  let nb = 0;
+  let dot = 0,
+    na = 0,
+    nb = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     na += a[i] * a[i];
@@ -57,7 +57,7 @@ async function loadIndexes() {
     "shabaton_index_part1.json",
     "shabaton_index_part2.json",
     "shabaton_index_part3.json",
-    "morim_index_part1.json"
+    "morim_index_part1.json",
   ];
 
   const sh = [];
@@ -105,9 +105,18 @@ function classifyPage(p) {
 /* -------------------------------------- */
 
 const MONTHS = {
-  "ינואר": 0, "פברואר": 1, "מרץ": 2, "אפריל": 3,
-  "מאי": 4, "יוני": 5, "יולי": 6, "אוגוסט": 7,
-  "ספטמבר": 8, "אוקטובר": 9, "נובמבר": 10, "דצמבר": 11
+  ינואר: 0,
+  פברואר: 1,
+  מרץ: 2,
+  אפריל: 3,
+  מאי: 4,
+  יוני: 5,
+  יולי: 6,
+  אוגוסט: 7,
+  ספטמבר: 8,
+  אוקטובר: 9,
+  נובמבר: 10,
+  דצמבר: 11,
 };
 
 function extractStartDate(text) {
@@ -141,23 +150,31 @@ function isSoon(date) {
 /* -------------------------------------- */
 
 export default async function handler(req, res) {
+  // === FULL CORS FIX ===
+  const allowedOrigins = [
+    "https://www.shabaton.online",
+    "https://shabaton.online",
+  ];
+  const origin = req.headers.origin || "";
 
-  // --- 📌 CORS FIX ---
-  res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*"); // * לבדיקה, אחר כך להגביל
-  // ❗ לאחר בדיקה לשנות ל:
-  // res.setHeader("Access-Control-Allow-Origin", "https://www.shabaton.online");
-
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") {
-    return res.status(200).end(); // הכרחי עבור preflight
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "https://www.shabaton.online");
   }
 
+  res.setHeader("Vary", "Origin");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
 
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   if (req.method === "GET") return res.json({ ok: true });
-  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "POST only" });
 
   try {
     const { message } = req.body || {};
@@ -173,16 +190,17 @@ export default async function handler(req, res) {
 
     const emb = await client.embeddings.create({
       model: "text-embedding-3-small",
-      input: cleanMsg
+      input: cleanMsg,
     });
 
     const queryVector = emb.data[0].embedding;
-
     const all = await loadIndexes();
 
     const pages = all.map((p) => {
       const type = classifyPage(p);
-      const full = [p.title, p.h1, ...(p.h2 || [])].filter(Boolean).join(" ");
+      const full = [p.title, p.h1, ...(p.h2 || [])]
+        .filter(Boolean)
+        .join(" ");
       const txt = cleanText((p.description || "") + " " + (p.text || ""));
       const score = cosineSimilarity(queryVector, p.vector || []);
       return { ...p, type, fullTitle: full, clean: txt, score };
@@ -209,7 +227,7 @@ export default async function handler(req, res) {
       .filter((p) => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
       .map((p) => ({
         ...p,
-        date: extractStartDate(p.fullTitle + " " + p.clean)
+        date: extractStartDate(p.fullTitle + " " + p.clean),
       }))
       .filter((p) => isSoon(p.date))
       .sort((a, b) => a.date - b.date);
@@ -236,8 +254,11 @@ export default async function handler(req, res) {
       temperature: 0.1,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `Question: ${message}\n\nContext:\n${context}` }
-      ]
+        {
+          role: "user",
+          content: `Question: ${message}\n\nContext:\n${context}`,
+        },
+      ],
     });
 
     const reply = completion?.choices?.[0]?.message?.content || "";
