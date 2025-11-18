@@ -1,3 +1,5 @@
+import { NextResponse } from "next/server";
+
 export function middleware(req) {
   const origin = req.headers.get("origin");
 
@@ -15,12 +17,10 @@ export function middleware(req) {
     "Access-Control-Allow-Credentials": "true",
   };
 
-  // תשובה לבקשת OPTIONS בלבד
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers });
   }
 
-  // לכל שאר הבקשות
   const res = NextResponse.next();
   Object.entries(headers).forEach(([k, v]) => res.headers.set(k, v));
   return res;
