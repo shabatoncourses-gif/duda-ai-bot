@@ -1,5 +1,5 @@
 export const config = {
-  matcher: "/api/:path*",
+  matcher: "/api/:path*"
 };
 
 export function middleware(req) {
@@ -17,14 +17,17 @@ export function middleware(req) {
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Access-Control-Allow-Credentials": "true",
-      "Vary": "Origin",
-    },
+      "Vary": "Origin"
+    }
   });
 
   if (allowed.includes(origin)) {
     res.headers.set("Access-Control-Allow-Origin", origin);
   } else {
-    res.headers.set("Access-Control-Allow-Origin", "https://www.shabaton.online");
+    res.headers.set(
+      "Access-Control-Allow-Origin",
+      "https://www.shabaton.online"
+    );
   }
 
   if (req.method === "OPTIONS") {
