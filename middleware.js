@@ -3,7 +3,7 @@ export const config = {
 };
 
 export function middleware(req) {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get("origin") || "";
 
   const allowed = [
     "https://www.shabaton.online",
@@ -17,7 +17,7 @@ export function middleware(req) {
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Access-Control-Allow-Credentials": "true",
-      "Vary": "Origin"
+      "Vary": "Origin",
     },
   });
 
@@ -27,7 +27,9 @@ export function middleware(req) {
     res.headers.set("Access-Control-Allow-Origin", "https://www.shabaton.online");
   }
 
-  if (req.method === "OPTIONS") return res;
+  if (req.method === "OPTIONS") {
+    return res;
+  }
 
   return res;
 }
