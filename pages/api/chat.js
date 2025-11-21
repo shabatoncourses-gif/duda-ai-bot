@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import OpenAI from "openai";
+import getRawBody from "raw-body";
 
 /* -------------------------------------- */
 /* Utility                                */
@@ -23,7 +24,9 @@ function normalizeHebrew(t) {
 
 function cosineSimilarity(a, b) {
   if (!a || !b || a.length !== b.length) return 0;
-  let dot = 0, na = 0, nb = 0;
+  let dot = 0,
+    na = 0,
+    nb = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     na += a[i] * a[i];
@@ -59,7 +62,8 @@ async function loadIndexes() {
     "morim_index_part1.json",
   ];
 
-  const sh = [], mo = [];
+  const sh = [],
+    mo = [];
 
   for (const f of files) {
     try {
@@ -102,8 +106,18 @@ function classifyPage(p) {
 /* -------------------------------------- */
 
 const MONTHS = {
-  ינואר: 0, פברואר: 1, מרץ: 2, אפריל: 3, מאי: 4, יוני: 5,
-  יולי: 6, אוגוסט: 7, ספטמבר: 8, אוקטובר: 9, נובמבר: 10, דצמבר: 11,
+  ינואר: 0,
+  פברואר: 1,
+  מרץ: 2,
+  אפריל: 3,
+  מאי: 4,
+  יוני: 5,
+  יולי: 6,
+  אוגוסט: 7,
+  ספטמבר: 8,
+  אוקטובר: 9,
+  נובמבר: 10,
+  דצמבר: 11,
 };
 
 function extractStartDate(text) {
@@ -137,14 +151,13 @@ function isSoon(date) {
 /* -------------------------------------- */
 
 export default async function handler(req, res) {
-
   /* ---------- CORS ---------- */
 
   const allowedOrigins = [
     "https://www.shabaton.online",
     "https://shabaton.online",
     "https://morim.boutique",
-    "https://www.morim.boutique"
+    "https://www.morim.boutique",
   ];
 
   const origin = req.headers.origin || "";
@@ -177,14 +190,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "POST only" });
   }
 
-  /* ---------- Read JSON Body ---------- */
+  /* ---------- Read JSON Body (fixed!) ---------- */
 
   let message = "";
   try {
-    const body = await req.json();
-    message = body.message || "";
+    const raw = await getRawBody(req, { encoding: "utf8" });
+    const data = JSON.parse(raw);
+    message = data.message || "";
   } catch (err) {
-    console.error("Body parse error:", err);
+    console.error("JSON parse error:", err);
     return res.status(400).json({ error: "Invalid JSON" });
   }
 
@@ -209,16 +223,27 @@ export default async function handler(req, res) {
     const all = await loadIndexes();
 
     const cities = [
-      "שרון", "פתח תקווה", "רעננה", "הוד השרון", "הרצליה",
-      "נתניה", "מודיעין", "שפלה", "חיפה", "צפון", "דרום",
-      "מרכז", "רמת גן", "ירושלים"
+      "שרון",
+      "פתח תקווה",
+      "רעננה",
+      "הוד השרון",
+      "הרצליה",
+      "נתניה",
+      "מודיעין",
+      "שפלה",
+      "חיפה",
+      "צפון",
+      "דרום",
+      "מרכז",
+      "רמת גן",
+      "ירושלים",
     ];
 
-    const cityMatch = cities.find(c =>
+    const cityMatch = cities.find((c) =>
       cleanMsg.includes(normalizeHebrew(c))
     );
 
-    const pages = all.map(p => {
+    const pages = all.map((p) => {
       const type = classifyPage(p);
       const fullTitle = [p.title, p.h1, ...(p.h2 || [])]
         .filter(Boolean)
@@ -226,17 +251,17 @@ export default async function handler(req, res) {
 
       const html = p.text || "";
       const listItems = (html.match(/<li>(.*?)<\/li>/gi) || [])
-        .map(li => li.replace(/<\/?li>/gi, ""))
+        .map((li) => li.replace(/<\/?li>/gi, ""))
         .join(" ");
 
       const txt = cleanText(
         (p.description || "") +
-        " " +
-        (p.h1 || "") +
-        " " +
-        ((p.h2 || []).join(" ")) +
-        " " +
-        listItems
+          " " +
+          (p.h1 || "") +
+          " " +
+          ((p.h2 || []).join(" ")) +
+          " " +
+          listItems
       );
 
       let score = cosineSimilarity(queryVector, p.vector || []);
@@ -249,26 +274,26 @@ export default async function handler(req, res) {
     });
 
     const bestResults = pages
-      .filter(p => p.type === "results")
+      .filter((p) => p.type === "results")
       .sort((a, b) => b.score - a.score)
       .slice(0, 1);
 
     const courses = pages
-      .filter(p => p.type === "course")
+      .filter((p) => p.type === "course")
       .sort((a, b) => b.score - a.score)
       .slice(0, 8);
 
     const soon = courses
-      .filter(p => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
-      .map(p => ({
+      .filter((p) => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
+      .map((p) => ({
         ...p,
         date: extractStartDate(p.fullTitle + " " + p.clean),
       }))
-      .filter(p => isSoon(p.date))
+      .filter((p) => isSoon(p.date))
       .sort((a, b) => a.date - b.date);
 
     const articles = pages
-      .filter(p => p.type === "article")
+      .filter((p) => p.type === "article")
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
 
@@ -285,7 +310,10 @@ export default async function handler(req, res) {
       model: "gpt-4o-mini",
       temperature: 0.1,
       messages: [
-        { role: "system", content: "Answer only from context. No invented URLs." },
+        {
+          role: "system",
+          content: "Answer only from context. No invented URLs.",
+        },
         {
           role: "user",
           content: `Question: ${message}\n\nContext:\n${context}`,
