@@ -48,6 +48,82 @@ function cleanText(t) {
 }
 
 /* -------------------------------------- */
+/* Special mappings: ערים ואזורים        */
+/* -------------------------------------- */
+
+/**
+ * כאן מוסיפים / מעדכנים ערים לפי אזורים.
+ * המפתח הוא שם העיר, הערך הוא קוד אזור לוגי:
+ * "sharon" | "merkaz" | "zafon" | "darom" | "jerusalem"
+ */
+const CITY_TO_REGION = {
+  // מרכז
+  [normalizeHebrew("פתח תקווה")]: "merkaz",
+  [normalizeHebrew("רמת גן")]: "merkaz",
+  [normalizeHebrew("חולון")]: "merkaz",
+  [normalizeHebrew("גבעתיים")]: "merkaz",
+  [normalizeHebrew("תל אביב")]: "merkaz",
+  [normalizeHebrew("ראשון לציון")]: "merkaz",
+  [normalizeHebrew("בת ים")]: "merkaz",
+
+  // השרון
+  [normalizeHebrew("הרצליה")]: "sharon",
+  [normalizeHebrew("נתניה")]: "sharon",
+  [normalizeHebrew("חדרה")]: "sharon",
+  [normalizeHebrew("רעננה")]: "sharon",
+  [normalizeHebrew("כפר סבא")]: "sharon",
+  [normalizeHebrew("הוד השרון")]: "sharon",
+  [normalizeHebrew("קדימה")]: "sharon",
+
+  // שפלה ודרום
+  [normalizeHebrew("מודיעין")]: "darom",     // מודיעין – גם באזורים דרום/שפלה (לוגית)
+  [normalizeHebrew("נס ציונה")]: "darom",
+  [normalizeHebrew("רחובות")]: "darom",
+  [normalizeHebrew("כפר ורבורג")]: "darom",
+  [normalizeHebrew("באר שבע")]: "darom",
+  [normalizeHebrew("גדרה")]: "darom",
+
+  // צפון
+  [normalizeHebrew("קריית טבעון")]: "zafon",
+  [normalizeHebrew("חיפה")]: "zafon",
+  [normalizeHebrew("מסד")]: "zafon",
+  [normalizeHebrew("כפר תבור")]: "zafon",
+
+  // ירושלים והסביבה
+  [normalizeHebrew("ירושלים")]: "jerusalem",
+  [normalizeHebrew("גוש עציון")]: "jerusalem",
+  [normalizeHebrew("מבשרת ציון")]: "jerusalem",
+};
+
+/**
+ * מיפוי אזור → כותרת ידידותית לתוצאות צילום
+ */
+const REGION_TITLES = {
+  sharon: "קורסי צילום בשרון",
+  merkaz: "קורסי צילום בתל אביב והמרכז",
+  zafon: "קורסי צילום בצפון",
+  darom: "קורסי צילום בשפלה ובדרום",
+  jerusalem: "קורסי צילום בירושלים והסביבה",
+  all: "קורסי צילום בכל הארץ",
+};
+
+/**
+ * מיפוי אזור → קישור מקודד (A) לקורסי צילום
+ * חשוב: אלה URLs בדיוק כפי שהם באתר.
+ */
+const PHOTO_RESULTS_URLS = {
+  sharon:
+    "https://www.shabaton.online/results-Sharon/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
+  merkaz:
+    "https://www.shabaton.online/search-results-merkaz/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
+  zafon:
+    "https://www.shabaton.online/results-Zafon/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
+  // כרגע אין דף צילום ייעודי לשפלה/דרום וירושלים – לא נאלץ קישור שלא קיים.
+  all:
+    "https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
+};
+
+/* -------------------------------------- */
 /* Load Index                              */
 /* -------------------------------------- */
 
@@ -88,9 +164,12 @@ async function loadIndexes() {
 
 function classifyPage(p) {
   const url = (p.url || "").toLowerCase();
-
-  // כל עמוד תוצאות – כולל results-all, results-sharon, results-merkaz וכו'
-  if (url.includes("results-") || url.includes("/results/") || url.includes("/results-all/")) {
+  // כל עמוד תוצאות — כולל results-all, results-sharon, results-merkaz וכו'
+  if (
+    url.includes("results-") ||
+    url.includes("/results/") ||
+    url.includes("/results-all/")
+  ) {
     return "results";
   }
 
@@ -169,9 +248,7 @@ export default async function handler(req, res) {
 
   res.setHeader(
     "Access-Control-Allow-Origin",
-    allowedOrigins.includes(origin)
-      ? origin
-      : "https://www.shabaton.online"
+    allowedOrigins.includes(origin) ? origin : "https://www.shabaton.online"
   );
 
   res.setHeader("Vary", "Origin");
@@ -185,7 +262,8 @@ export default async function handler(req, res) {
 
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method === "GET") return res.json({ ok: true });
-  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "POST only" });
 
   /* ---------- Read JSON Body (fixed!) ---------- */
 
@@ -217,33 +295,48 @@ export default async function handler(req, res) {
 
     const all = await loadIndexes();
 
-    /* ---------- Detect city ---------- */
+    /* ---------- Detect city & region ---------- */
 
     const cities = [
-      "שרון", "פתח תקווה", "רעננה", "הוד השרון", "הרצליה", "נתניה",
-      "מודיעין", "שפלה", "חיפה", "צפון", "דרום",
-      "מרכז", "רמת גן", "ירושלים"
+      "שרון",
+      "פתח תקווה",
+      "רעננה",
+      "הוד השרון",
+      "הרצליה",
+      "נתניה",
+      "מודיעין",
+      "שפלה",
+      "חיפה",
+      "צפון",
+      "דרום",
+      "מרכז",
+      "רמת גן",
+      "ירושלים",
     ];
 
-    const cityMatch = cities.find(c =>
+    const cityMatch = cities.find((c) =>
       cleanMsg.includes(normalizeHebrew(c))
     );
 
+    // זיהוי אזור מתוך CITY_TO_REGION
+    let region = null;
+    for (const [cityNorm, regionId] of Object.entries(CITY_TO_REGION)) {
+      if (cleanMsg.includes(cityNorm)) {
+        region = regionId;
+        break;
+      }
+    }
+
+    // זיהוי אם זו שאלה על קורס צילום
+    const hasPhotoQuery =
+      cleanMsg.includes(normalizeHebrew("קורס צילום")) ||
+      cleanMsg.includes(normalizeHebrew("קורסי צילום")) ||
+      (cleanMsg.includes(normalizeHebrew("צילום")) &&
+        cleanMsg.includes(normalizeHebrew("קורס")));
+
     /* ---------- Score pages ---------- */
 
-    const regionMap = [
-      { city: "שרון",     slug: "sharon" },
-      { city: "מרכז",     slug: "merkaz" },
-      { city: "ירושלים",  slug: "jerusalem" },
-      { city: "חיפה",     slug: "zafon" },
-      { city: "דרום",     slug: "darom" },
-      { city: "צפון",     slug: "zafon" },
-      { city: "תל אביב", slug: "merkaz" },
-      { city: "מודיעין", slug: "shfea-darom" },
-      { city: "שפלה",    slug: "shfea-darom" },
-    ];
-
-    const pages = all.map(p => {
+    const pages = all.map((p) => {
       const type = classifyPage(p);
 
       const fullTitle = [p.title, p.h1, ...(p.h2 || [])]
@@ -252,130 +345,110 @@ export default async function handler(req, res) {
 
       const html = p.text || "";
       const listItems = (html.match(/<li>(.*?)<\/li>/gi) || [])
-        .map(li => li.replace(/<\/?li>/gi, ""))
+        .map((li) => li.replace(/<\/?li>/gi, ""))
         .join(" ");
 
       const txt = cleanText(
         (p.description || "") +
-        " " +
-        (p.h1 || "") +
-        " " +
-        ((p.h2 || []).join(" ")) +
-        " " +
-        listItems
+          " " +
+          (p.h1 || "") +
+          " " +
+          ((p.h2 || []).join(" ")) +
+          " " +
+          listItems
       );
 
       let score = cosineSimilarity(queryVector, p.vector || []);
 
+      // בוסט כללי לפי עיר שהופיעה בטקסט
       if (cityMatch && txt.includes(normalizeHebrew(cityMatch))) {
         score += 0.25;
-      }
-
-      // ---------- strong region boost ----------
-      if (cityMatch) {
-        const normCity = normalizeHebrew(cityMatch);
-        const region = regionMap.find(r => normalizeHebrew(r.city) === normCity);
-        if (region) {
-          const u = (p.url || "").toLowerCase();
-          if (u.includes(`results-${region.slug.toLowerCase()}`)) {
-            score += 0.75; // BOOST חזק לדף האזורי הרלוונטי
-          }
-        }
       }
 
       return { ...p, type, fullTitle, clean: txt, score };
     });
 
-    /* ---------- results: אזורי + כל הארץ ---------- */
+    /* ---------- RESULTS לוגיקה מיוחדת לצילום ---------- */
 
-    // דף תוצאות אזורי (למשל results-sharon)
-    let regional = [];
-    if (cityMatch) {
-      const normCity = normalizeHebrew(cityMatch);
-      const region = regionMap.find(r => normalizeHebrew(r.city) === normCity);
-      if (region) {
-        regional = pages
-          .filter(p =>
-            p.type === "results" &&
-            (p.url || "").toLowerCase().includes(`results-${region.slug.toLowerCase()}`)
-          )
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 1)
-          .map(p => ({
-            title: p.title,
-            url: p.url
-          }));
+    let bestResults = [];
+
+    if (hasPhotoQuery) {
+      // 1) אם זוהה אזור ויש לו URL ייעודי – קודם אזור
+      if (region && PHOTO_RESULTS_URLS[region]) {
+        bestResults.push({
+          type: "results",
+          title: REGION_TITLES[region],
+          url: PHOTO_RESULTS_URLS[region],
+        });
+      } else if (cleanMsg.includes(normalizeHebrew("שרון"))) {
+        // אם כתוב "בשרון" בשאלה אבל לא זוהתה עיר ספציפית
+        bestResults.push({
+          type: "results",
+          title: REGION_TITLES.sharon,
+          url: PHOTO_RESULTS_URLS.sharon,
+        });
       }
+
+      // 2) תמיד להוסיף גם קורסי צילום בכל הארץ
+      bestResults.push({
+        type: "results",
+        title: REGION_TITLES.all,
+        url: PHOTO_RESULTS_URLS.all,
+      });
+    } else {
+      // ברירת מחדל: שתי תוצאות results הכי טובות מהאינדקס
+      bestResults = pages
+        .filter((p) => p.type === "results")
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 2)
+        .map((p) => ({
+          type: "results",
+          title: p.title,
+          url: p.url,
+        }));
     }
-
-    // דף תוצאות כללי – results-all או משהו שלא מכיל שום אזור
-    const regionSlugs = regionMap.map(r => `results-${r.slug.toLowerCase()}`);
-
-    const nationwide = pages
-      .filter(p => {
-        if (p.type !== "results") return false;
-        const u = (p.url || "").toLowerCase();
-        if (u.includes("results-all")) return true;
-        // לא לבחור עוד דף אזורי
-        return !regionSlugs.some(slug => u.includes(slug));
-      })
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 1)
-      .map(p => ({
-        title: p.title,
-        url: p.url
-      }));
-
-    // מיזוג – אזורי ראשון, כללי שני
-    const bestResults = [...regional, ...nationwide];
 
     /* ---------- Courses ---------- */
 
     const courses = pages
-      .filter(p => p.type === "course")
+      .filter((p) => p.type === "course")
       .sort((a, b) => b.score - a.score)
       .slice(0, 8);
 
     /* ---------- Soon ---------- */
 
     const soon = courses
-      .filter(p => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
-      .map(p => ({
+      .filter((p) => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
+      .map((p) => ({
         ...p,
         date: extractStartDate(p.fullTitle + " " + p.clean),
       }))
-      .filter(p => isSoon(p.date))
+      .filter((p) => isSoon(p.date))
       .sort((a, b) => a.date - b.date);
 
     /* ---------- Articles ---------- */
 
     const articles = pages
-      .filter(p => p.type === "article")
+      .filter((p) => p.type === "article")
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
 
     /* ---------- Merge Final List ---------- */
 
-    const finalList = [
-      ...bestResults,
-      ...courses,
-      ...soon,
-      ...articles
-    ];
+    const finalList = [...bestResults, ...courses, ...soon, ...articles];
 
     /* ---------- Context for GPT ---------- */
 
     const context = finalList
       .map((p, i) => {
-        // results — only title
-        if (p.title && !p.clean && !p.description) {
+        if (p.type === "results") {
+          // results — רק כותרת ו־URL
           return `# Item ${i + 1}
 Type: results
 Title: ${p.title}
 URL: ${p.url}`;
         }
 
-        // other pages — full details
         return `# Item ${i + 1}
 Type: ${p.type}
 Title: ${p.title}
@@ -392,13 +465,13 @@ URL: ${p.url}`;
       temperature: 0.15,
       messages: [
         {
-          role: "system",   // ← תוקן כאן, בלי ה-"r" התקועה
+          role: "system",
           content: `
 ענה רק מתוך ה־Context.
 אל תמציא מידע.
 אל תמציא קישורים.
 אל תוסיף "למידה מרחוק" אם לא הופיע בטקסט.
-ב־results השתמש רק ב־title בלבד.
+ב־results השתמש רק ב־title ו־URL.
 הצג את התוצאות בצורה מסודרת וברורה.
 סגנון ידידותי וקצר.
           `,
@@ -412,28 +485,19 @@ URL: ${p.url}`;
 
     let reply = completion?.choices?.[0]?.message?.content || "";
 
-    /* ---------- אם GPT לא החזיר בכלל קישורים – fallback ידני ---------- */
-
-    if (!/https?:\/\//.test(reply)) {
-      const items = (bestResults.length ? bestResults : finalList).filter(p => p.url);
-      const lines = items.slice(0, 5).map((p, i) =>
-        `${i + 1}. **${p.title || p.fullTitle || "קורס"}** - <a href="${p.url}" target="_blank" class="info-button">למידע נוסף ↗️</a>`
-      );
-      reply = `### תוצאות חיפוש:\n\n${lines.join("\n")}`;
-    }
-
     /* ---------- קישורים → כפתור "למידע נוסף" ---------- */
-    // לא מקודדים שוב את ה-URL כדי לא לשבור אותו
+
     reply = reply.replace(
       /https?:\/\/[^\s<)]+/g,
-      url =>
-        `<a href="${url}" target="_blank" class="info-button">למידע נוסף ↗️</a>`
+      (url) =>
+        `<a href="${encodeURI(
+          url
+        )}" target="_blank" class="info-button">למידע נוסף ↗️</a>`
     );
 
     return res.json({ reply });
-
   } catch (err) {
-    console.error("ERROR in /api/chat:", err);
+    console.error("ERROR:", err);
     return res.status(500).json({ error: err.message });
   }
 }
