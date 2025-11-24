@@ -299,14 +299,29 @@ export default async function handler(req, res) {
     ];
 
     /* ---------- Context for GPT ---------- */
+/* ---------- Context for GPT ---------- */
 
-    const context = finalList
-      .map((p, i) =>
-        `# Item ${i + 1}
+const context = finalList
+  .map((p, i) => {
+    // results — only title
+    if (p.title && !p.clean && !p.description) {
+      return `# Item ${i+1}
+Type: results
 Title: ${p.title}
-URL: ${p.url}`
-      )
-      .join("\n\n");
+URL: ${p.url}`;
+    }
+
+    // other pages — full details
+    return `# Item ${i+1}
+Type: ${p.type}
+Title: ${p.title}
+Description: ${p.description || ""}
+Text: ${p.clean || ""}
+URL: ${p.url}`;
+  })
+  .join("\n\n");
+
+
     /* ---------- GPT Completion ---------- */
 
     const completion = await client.chat.completions.create({
