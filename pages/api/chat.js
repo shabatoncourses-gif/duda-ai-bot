@@ -85,7 +85,11 @@ async function loadIndexes() {
 
 function classifyPage(p) {
   const url = (p.url || "").toLowerCase();
-  if (url.includes("/results-all/")) return "results";
+  // כל עמוד תוצאות — כולל results-all, results-sharon, results-merkaz וכו'
+  if (url.includes("results-") || url.includes("/results/") || url.includes("/results-all/")) {
+  return "results";
+}
+
   if (url.includes("thank") || url.includes("contact")) return "blocked";
   if (url.includes("/mosad-index/")) return "blocked";
 
