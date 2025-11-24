@@ -182,6 +182,16 @@ export default async function handler(req, res) {
   if (req.method === "GET") return res.json({ ok: true });
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
+  // אחרי בניית regional & nationwide
+console.log("🔵 REGIONAL RESULT:", regional);
+console.log("🟢 NATIONWIDE RESULT:", nationwide);
+
+// אחרי finalList + לפני GPT
+console.log("🟣 GPT CONTEXT START ------------------");
+console.log(context);
+console.log("🟣 GPT CONTEXT END --------------------");
+
+
   /* ---------- Read JSON Body (fixed!) ---------- */
 
   let message = "";
