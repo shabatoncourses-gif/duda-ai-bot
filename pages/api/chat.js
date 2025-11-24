@@ -101,6 +101,10 @@ const PHOTO_RESULTS_URLS = {
     "https://www.shabaton.online/search-results-merkaz/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
   zafon:
     "https://www.shabaton.online/results-Zafon/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
+  darom:
+        "https://www.shabaton.online/results-shfea-darom/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
+  jerusalem:
+  "https://www.shabaton.online/results-jerusalem/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
   all:
     "https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
 };
