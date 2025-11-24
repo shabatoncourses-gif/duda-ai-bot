@@ -299,9 +299,8 @@ export default async function handler(req, res) {
     ];
 
     /* ---------- Context for GPT ---------- */
-/* ---------- Context for GPT ---------- */
 
-const context = finalList
+  const context = finalList
   .map((p, i) => {
     // results — only title
     if (p.title && !p.clean && !p.description) {
