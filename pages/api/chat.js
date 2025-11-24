@@ -277,26 +277,46 @@ for (const r of regionMap) {
 
     /* ---------- NEW LOGIC: results = only ONE ---------- */
     /* ---------- NEW LOGIC: TWO RESULTS ---------- */
+/* ---------- FIXED REGIONAL + NATIONWIDE LOGIC ---------- */
 
-// 1) תוצאה אזורית (לדוגמה results-sharon)
-const regional = pages
-  .filter(p =>
-    p.type === "results" &&
-    cityMatch &&
-    p.url.toLowerCase().includes(normalizeHebrew(cityMatch))
-  )
-  .sort((a, b) => b.score - a.score)
-  .slice(0, 1)   // אזורי — רק אחד
-  .map(p => ({
-    title: p.title,
-    url: p.url
-  }));
+// מיפוי ערים → slugs נכונים ב-URL
+const regionSlugs = {
+  "שרון": "results-sharon",
+  "מרכז": "results-merkaz",
+  "ירושלים": "results-jerusalem",
+  "חיפה": "results-zafon",
+  "צפון": "results-zafon",
+  "דרום": "results-darom",
+  "שפלה": "results-shfela",
+  "מודיעין": "results-shfela",
+  "תל אביב": "results-merkaz"
+};
 
-// 2) תוצאה כללית — results-all / כל הארץ
+// נקבע slug של העיר (אם קיים)
+const regionSlug = regionSlugs[cityMatch] || null;
+
+
+// 1) תוצאה אזורית אמיתית — לפי slug נכון
+const regional = regionSlug
+  ? pages
+      .filter(p =>
+        p.type === "results" &&
+        p.url.toLowerCase().includes(regionSlug)
+      )
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 1)
+      .map(p => ({
+        title: p.title,
+        url: p.url
+      }))
+  : [];
+
+
+// 2) תוצאה כלל-ארצית אמיתית — results-all בלבד
 const nationwide = pages
   .filter(p =>
     p.type === "results" &&
-    !p.url.toLowerCase().includes("sharon") // לא אזורי
+    p.url.toLowerCase().includes("results-all")
   )
   .sort((a, b) => b.score - a.score)
   .slice(0, 1)
@@ -305,7 +325,8 @@ const nationwide = pages
     url: p.url
   }));
 
-// 3) מיזוג — אזורי תמיד ראשון, ארצי שני
+
+// 3) סדר סופי — קודם אזורי, אחריו כל הארץ
 const bestResults = [...regional, ...nationwide];
 
     /* ---------- Courses ---------- */
