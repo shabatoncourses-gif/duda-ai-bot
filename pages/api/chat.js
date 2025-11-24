@@ -24,7 +24,9 @@ function normalizeHebrew(t) {
 
 function cosineSimilarity(a, b) {
   if (!a || !b || a.length !== b.length) return 0;
-  let dot = 0, na = 0, nb = 0;
+  let dot = 0,
+    na = 0,
+    nb = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     na += a[i] * a[i];
@@ -60,7 +62,8 @@ async function loadIndexes() {
     "morim_index_part1.json",
   ];
 
-  const sh = [], mo = [];
+  const sh = [],
+    mo = [];
 
   for (const f of files) {
     try {
@@ -85,10 +88,11 @@ async function loadIndexes() {
 
 function classifyPage(p) {
   const url = (p.url || "").toLowerCase();
-  // כל עמוד תוצאות — כולל results-all, results-sharon, results-merkaz וכו'
+
+  // כל עמוד תוצאות – כולל results-all, results-sharon, results-merkaz וכו'
   if (url.includes("results-") || url.includes("/results/") || url.includes("/results-all/")) {
-  return "results";
-}
+    return "results";
+  }
 
   if (url.includes("thank") || url.includes("contact")) return "blocked";
   if (url.includes("/mosad-index/")) return "blocked";
@@ -146,6 +150,7 @@ function isSoon(date) {
   const next = (m + 1) % 12;
   return date.getMonth() === m || date.getMonth() === next;
 }
+
 /* -------------------------------------- */
 /* Handler                                 */
 /* -------------------------------------- */
@@ -215,9 +220,9 @@ export default async function handler(req, res) {
     /* ---------- Detect city ---------- */
 
     const cities = [
-      "שרון","פתח תקווה","רעננה","הוד השרון","הרצליה","נתניה",
-      "מודיעין","שפלה","חיפה","צפון","דרום",
-      "מרכז","רמת גן","ירושלים"
+      "שרון", "פתח תקווה", "רעננה", "הוד השרון", "הרצליה", "נתניה",
+      "מודיעין", "שפלה", "חיפה", "צפון", "דרום",
+      "מרכז", "רמת גן", "ירושלים"
     ];
 
     const cityMatch = cities.find(c =>
@@ -225,6 +230,18 @@ export default async function handler(req, res) {
     );
 
     /* ---------- Score pages ---------- */
+
+    const regionMap = [
+      { city: "שרון",     slug: "sharon" },
+      { city: "מרכז",     slug: "merkaz" },
+      { city: "ירושלים",  slug: "jerusalem" },
+      { city: "חיפה",     slug: "zafon" },
+      { city: "דרום",     slug: "darom" },
+      { city: "צפון",     slug: "zafon" },
+      { city: "תל אביב", slug: "merkaz" },
+      { city: "מודיעין", slug: "shfea-darom" },
+      { city: "שפלה",    slug: "shfea-darom" },
+    ];
 
     const pages = all.map(p => {
       const type = classifyPage(p);
@@ -253,81 +270,64 @@ export default async function handler(req, res) {
       if (cityMatch && txt.includes(normalizeHebrew(cityMatch))) {
         score += 0.25;
       }
-/* ---------- strong region boost ---------- */
-const regionMap = [
-  { city: "שרון", slug: "sharon" },
-  { city: "מרכז", slug: "merkaz" },
-  { city: "ירושלים", slug: "jerusalem" },
-  { city: "חיפה", slug: "zafon" },
-  { city: "דרום", slug: "darom" },
-  { city: "צפון", slug: "zafon" },
-  { city: "תל אביב", slug: "merkaz" },
-  { city: "מודיעין", slug: "shfea-darom" },
-  { city: "שפלה", slug: "shfea-darom" },
-];
 
-for (const r of regionMap) {
-  if (cityMatch === normalizeHebrew(r.city) &&
-      p.url.toLowerCase().includes(r.slug)) {
-    score += 0.75;   // ⭐ BOOST משמעותי
-  }
-}
+      // ---------- strong region boost ----------
+      if (cityMatch) {
+        const normCity = normalizeHebrew(cityMatch);
+        const region = regionMap.find(r => normalizeHebrew(r.city) === normCity);
+        if (region) {
+          const u = (p.url || "").toLowerCase();
+          if (u.includes(`results-${region.slug.toLowerCase()}`)) {
+            score += 0.75; // BOOST חזק לדף האזורי הרלוונטי
+          }
+        }
+      }
+
       return { ...p, type, fullTitle, clean: txt, score };
     });
 
-    /* ---------- NEW LOGIC: results = only ONE ---------- */
-    /* ---------- NEW LOGIC: TWO RESULTS ---------- */
-/* ---------- FIXED REGIONAL + NATIONWIDE LOGIC ---------- */
+    /* ---------- results: אזורי + כל הארץ ---------- */
 
-// מיפוי ערים → slugs נכונים ב-URL
-const regionSlugs = {
-  "שרון": "results-sharon",
-  "מרכז": "results-merkaz",
-  "ירושלים": "results-jerusalem",
-  "חיפה": "results-zafon",
-  "צפון": "results-zafon",
-  "דרום": "results-darom",
-  "שפלה": "results-shfela",
-  "מודיעין": "results-shfela",
-  "תל אביב": "results-merkaz"
-};
+    // דף תוצאות אזורי (למשל results-sharon)
+    let regional = [];
+    if (cityMatch) {
+      const normCity = normalizeHebrew(cityMatch);
+      const region = regionMap.find(r => normalizeHebrew(r.city) === normCity);
+      if (region) {
+        regional = pages
+          .filter(p =>
+            p.type === "results" &&
+            (p.url || "").toLowerCase().includes(`results-${region.slug.toLowerCase()}`)
+          )
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 1)
+          .map(p => ({
+            title: p.title,
+            url: p.url
+          }));
+      }
+    }
 
-// נקבע slug של העיר (אם קיים)
-const regionSlug = regionSlugs[cityMatch] || null;
+    // דף תוצאות כללי – results-all או משהו שלא מכיל שום אזור
+    const regionSlugs = regionMap.map(r => `results-${r.slug.toLowerCase()}`);
 
-
-// 1) תוצאה אזורית אמיתית — לפי slug נכון
-const regional = regionSlug
-  ? pages
-      .filter(p =>
-        p.type === "results" &&
-        p.url.toLowerCase().includes(regionSlug)
-      )
+    const nationwide = pages
+      .filter(p => {
+        if (p.type !== "results") return false;
+        const u = (p.url || "").toLowerCase();
+        if (u.includes("results-all")) return true;
+        // לא לבחור עוד דף אזורי
+        return !regionSlugs.some(slug => u.includes(slug));
+      })
       .sort((a, b) => b.score - a.score)
       .slice(0, 1)
       .map(p => ({
         title: p.title,
         url: p.url
-      }))
-  : [];
+      }));
 
-
-// 2) תוצאה כלל-ארצית אמיתית — results-all בלבד
-const nationwide = pages
-  .filter(p =>
-    p.type === "results" &&
-    p.url.toLowerCase().includes("results-all")
-  )
-  .sort((a, b) => b.score - a.score)
-  .slice(0, 1)
-  .map(p => ({
-    title: p.title,
-    url: p.url
-  }));
-
-
-// 3) סדר סופי — קודם אזורי, אחריו כל הארץ
-const bestResults = [...regional, ...nationwide];
+    // מיזוג – אזורי ראשון, כללי שני
+    const bestResults = [...regional, ...nationwide];
 
     /* ---------- Courses ---------- */
 
@@ -365,26 +365,25 @@ const bestResults = [...regional, ...nationwide];
 
     /* ---------- Context for GPT ---------- */
 
-  const context = finalList
-  .map((p, i) => {
-    // results — only title
-    if (p.title && !p.clean && !p.description) {
-      return `# Item ${i+1}
+    const context = finalList
+      .map((p, i) => {
+        // results — only title
+        if (p.title && !p.clean && !p.description) {
+          return `# Item ${i + 1}
 Type: results
 Title: ${p.title}
 URL: ${p.url}`;
-    }
+        }
 
-    // other pages — full details
-    return `# Item ${i+1}
+        // other pages — full details
+        return `# Item ${i + 1}
 Type: ${p.type}
 Title: ${p.title}
 Description: ${p.description || ""}
 Text: ${p.clean || ""}
 URL: ${p.url}`;
-  })
-  .join("\n\n");
-
+      })
+      .join("\n\n");
 
     /* ---------- GPT Completion ---------- */
 
@@ -393,7 +392,7 @@ URL: ${p.url}`;
       temperature: 0.15,
       messages: [
         {
-          role: "system",
+          role: "system",   // ← תוקן כאן, בלי ה-"r" התקועה
           content: `
 ענה רק מתוך ה־Context.
 אל תמציא מידע.
@@ -402,29 +401,39 @@ URL: ${p.url}`;
 ב־results השתמש רק ב־title בלבד.
 הצג את התוצאות בצורה מסודרת וברורה.
 סגנון ידידותי וקצר.
-          `
+          `,
         },
         {
           role: "user",
-          content: `Question: ${message}\n\nContext:\n${context}`
-        }
-      ]
+          content: `Question: ${message}\n\nContext:\n${context}`,
+        },
+      ],
     });
 
     let reply = completion?.choices?.[0]?.message?.content || "";
 
-    /* ---------- קישורים → כפתור "למידע נוסף" ---------- */
+    /* ---------- אם GPT לא החזיר בכלל קישורים – fallback ידני ---------- */
 
+    if (!/https?:\/\//.test(reply)) {
+      const items = (bestResults.length ? bestResults : finalList).filter(p => p.url);
+      const lines = items.slice(0, 5).map((p, i) =>
+        `${i + 1}. **${p.title || p.fullTitle || "קורס"}** - <a href="${p.url}" target="_blank" class="info-button">למידע נוסף ↗️</a>`
+      );
+      reply = `### תוצאות חיפוש:\n\n${lines.join("\n")}`;
+    }
+
+    /* ---------- קישורים → כפתור "למידע נוסף" ---------- */
+    // לא מקודדים שוב את ה-URL כדי לא לשבור אותו
     reply = reply.replace(
-      /https?:\/\/[^\s<]+/g,
+      /https?:\/\/[^\s<)]+/g,
       url =>
-        `<a href="${encodeURI(url)}" target="_blank" class="info-button">למידע נוסף ↗️</a>`
+        `<a href="${url}" target="_blank" class="info-button">למידע נוסף ↗️</a>`
     );
 
     return res.json({ reply });
 
   } catch (err) {
-    console.error("ERROR:", err);
+    console.error("ERROR in /api/chat:", err);
     return res.status(500).json({ error: err.message });
   }
 }
