@@ -24,9 +24,7 @@ function normalizeHebrew(t) {
 
 function cosineSimilarity(a, b) {
   if (!a || !b || a.length !== b.length) return 0;
-  let dot = 0,
-    na = 0,
-    nb = 0;
+  let dot = 0, na = 0, nb = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     na += a[i] * a[i];
@@ -62,8 +60,7 @@ async function loadIndexes() {
     "morim_index_part1.json",
   ];
 
-  const sh = [],
-    mo = [];
+  const sh = [], mo = [];
 
   for (const f of files) {
     try {
@@ -145,7 +142,6 @@ function isSoon(date) {
   const next = (m + 1) % 12;
   return date.getMonth() === m || date.getMonth() === next;
 }
-
 /* -------------------------------------- */
 /* Handler                                 */
 /* -------------------------------------- */
@@ -178,17 +174,9 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  if (req.method === "GET") {
-    return res.json({ ok: true });
-  }
-
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "POST only" });
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method === "GET") return res.json({ ok: true });
+  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
   /* ---------- Read JSON Body (fixed!) ---------- */
 
@@ -202,9 +190,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Invalid JSON" });
   }
 
-  if (!message) {
-    return res.status(400).json({ error: "Message missing" });
-  }
+  if (!message) return res.status(400).json({ error: "Message missing" });
 
   /* ---------- Embedding + Search ---------- */
 
@@ -222,46 +208,40 @@ export default async function handler(req, res) {
 
     const all = await loadIndexes();
 
+    /* ---------- Detect city ---------- */
+
     const cities = [
-      "שרון",
-      "פתח תקווה",
-      "רעננה",
-      "הוד השרון",
-      "הרצליה",
-      "נתניה",
-      "מודיעין",
-      "שפלה",
-      "חיפה",
-      "צפון",
-      "דרום",
-      "מרכז",
-      "רמת גן",
-      "ירושלים",
+      "שרון","פתח תקווה","רעננה","הוד השרון","הרצליה","נתניה",
+      "מודיעין","שפלה","חיפה","צפון","דרום",
+      "מרכז","רמת גן","ירושלים"
     ];
 
-    const cityMatch = cities.find((c) =>
+    const cityMatch = cities.find(c =>
       cleanMsg.includes(normalizeHebrew(c))
     );
 
-    const pages = all.map((p) => {
+    /* ---------- Score pages ---------- */
+
+    const pages = all.map(p => {
       const type = classifyPage(p);
+
       const fullTitle = [p.title, p.h1, ...(p.h2 || [])]
         .filter(Boolean)
         .join(" ");
 
       const html = p.text || "";
       const listItems = (html.match(/<li>(.*?)<\/li>/gi) || [])
-        .map((li) => li.replace(/<\/?li>/gi, ""))
+        .map(li => li.replace(/<\/?li>/gi, ""))
         .join(" ");
 
       const txt = cleanText(
         (p.description || "") +
-          " " +
-          (p.h1 || "") +
-          " " +
-          ((p.h2 || []).join(" ")) +
-          " " +
-          listItems
+        " " +
+        (p.h1 || "") +
+        " " +
+        ((p.h2 || []).join(" ")) +
+        " " +
+        listItems
       );
 
       let score = cosineSimilarity(queryVector, p.vector || []);
@@ -270,75 +250,100 @@ export default async function handler(req, res) {
         score += 0.25;
       }
 
-      return { ...p, type, fullTitle, clean: txt, score, description: p.description || "" };
+      return { ...p, type, fullTitle, clean: txt, score };
     });
 
+    /* ---------- NEW LOGIC: results = only ONE ---------- */
+
     const bestResults = pages
-      .filter((p) => p.type === "results")
+      .filter(p => p.type === "results")
       .sort((a, b) => b.score - a.score)
-      .slice(0, 1);
+      .slice(0, 1)   // 🔥 רק תוצאה אחת
+      .map(p => ({
+        title: p.title,      // רק title
+        url: p.url
+      }));
+
+    /* ---------- Courses ---------- */
 
     const courses = pages
-      .filter((p) => p.type === "course")
+      .filter(p => p.type === "course")
       .sort((a, b) => b.score - a.score)
       .slice(0, 8);
 
+    /* ---------- Soon ---------- */
+
     const soon = courses
-      .filter((p) => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
-      .map((p) => ({
+      .filter(p => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
+      .map(p => ({
         ...p,
         date: extractStartDate(p.fullTitle + " " + p.clean),
       }))
-      .filter((p) => isSoon(p.date))
+      .filter(p => isSoon(p.date))
       .sort((a, b) => a.date - b.date);
 
+    /* ---------- Articles ---------- */
+
     const articles = pages
-      .filter((p) => p.type === "article")
+      .filter(p => p.type === "article")
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
 
-    const finalList = [...bestResults, ...courses, ...soon, ...articles];
+    /* ---------- Merge Final List ---------- */
+
+    const finalList = [
+      ...bestResults,
+      ...courses,
+      ...soon,
+      ...articles
+    ];
+
+    /* ---------- Context for GPT ---------- */
 
     const context = finalList
-      .map(
-        (p, i) =>
-          `# Item ${i + 1}
-Type: ${p.type}
-Title: ${p.fullTitle}
-Description: ${p.description || p.clean}
+      .map((p, i) =>
+        `# Item ${i + 1}
+Title: ${p.title}
 URL: ${p.url}`
       )
       .join("\n\n");
-
-    // 🔴 כאן השינוי העיקרי – הנחיות למודל לגבי עובדות וקישורים
-    const systemPrompt =
-      "את/ה עוזר/ת לשירות מידע על קורסים. " +
-      "ענ/י אך ורק על בסיס ה-Context שמופיע בהמשך. " +
-      "אסור להמציא קישורים, דפים או פרטים שלא מופיעים מפורשות ב-Context. " +
-      "לעולם אל תטען/י ש'כל הקורסים' או 'כל ההצעות' חולקים מאפיין מסוים (למשל 'כל הקורסים זמינים גם בלמידה מרחוק'), " +
-      "אלא אם משפט כזה מופיע באופן מפורש עבור כל הפריטים ב-Context. " +
-      "אם משהו מופיע רק עבור חלק מהקורסים, כתוב/י 'חלק מהקורסים' או ציין/י זאת רק בקורסים שבהם זה מופיע. " +
-      "אם אינך בטוח/ה – אל תכתוב/י זאת בכלל. " +
-      "ענ/י בתשובה מסודרת בעברית, בפורמט רשימה: " +
-      "לכל קורס רלוונטי כתוב/י שורה נפרדת בסגנון: " +
-      "• כותרת: <Title> — תיאור קצר: <Description> (קישור: <URL>) " +
-      "הצג/י את ה-URL במפורש אחרי המילה 'קישור:' בדיוק כפי שהוא מופיע ב-Context. " +
-      "אם השאלה היא כללית (למשל 'אילו קורסי צילום יש?'), התמקד/י רק בפריטים המתאימים מה-Context.";
+    /* ---------- GPT Completion ---------- */
 
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      temperature: 0.1,
+      temperature: 0.15,
       messages: [
-        { role: "system", content: systemPrompt },
+        {
+          role: "system",
+          content: `
+ענה רק מתוך ה־Context.
+אל תמציא מידע.
+אל תמציא קישורים.
+אל תוסיף "למידה מרחוק" אם לא הופיע בטקסט.
+ב־results השתמש רק ב־title בלבד.
+הצג את התוצאות בצורה מסודרת וברורה.
+סגנון ידידותי וקצר.
+          `
+        },
         {
           role: "user",
-          content: `שאלה: ${message}\n\nContext:\n${context}`,
-        },
-      ],
+          content: `Question: ${message}\n\nContext:\n${context}`
+        }
+      ]
     });
 
-    const reply = completion?.choices?.[0]?.message?.content || "";
+    let reply = completion?.choices?.[0]?.message?.content || "";
+
+    /* ---------- קישורים → כפתור "למידע נוסף" ---------- */
+
+    reply = reply.replace(
+      /https?:\/\/[^\s<]+/g,
+      url =>
+        `<a href="${encodeURI(url)}" target="_blank" class="info-button">למידע נוסף ↗️</a>`
+    );
+
     return res.json({ reply });
+
   } catch (err) {
     console.error("ERROR:", err);
     return res.status(500).json({ error: err.message });
