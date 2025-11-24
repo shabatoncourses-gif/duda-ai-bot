@@ -48,7 +48,7 @@ function cleanText(t) {
 }
 
 /* -------------------------------------- */
-/* Special mappings: ערים ואזורים        */
+/* Special mappings                       */
 /* -------------------------------------- */
 
 const CITY_TO_REGION = {
@@ -90,7 +90,7 @@ const CITY_TO_REGION = {
   [normalizeHebrew("מבשרת ציון")]: "jerusalem",
 };
 
-/* כותרות יפות */
+/* titels */
 const REGION_TITLES = {
   sharon: "קורסי צילום בשרון",
   merkaz: "קורסי צילום בתל אביב והמרכז",
@@ -100,7 +100,7 @@ const REGION_TITLES = {
   all: "קורסי צילום בכל הארץ",
 };
 
-/* קישורים מדויקים ותקינים לחלוטין */
+/* links */
 const PHOTO_RESULTS_URLS = {
   sharon:
     "https://www.shabaton.online/results-Sharon/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
@@ -399,10 +399,10 @@ URL: ${p.url}`;
         {
           role: "system",
           content: `
-ענה רק מתוך ה־Context.
+ענה רק מתוך ה־ Context.
 הצג את התוצאות מסודר, קצר וברור.
 אל תמציא קישורים.
-ב־results יש להציג רק כותרת + URL.
+ב־ results יש להציג רק כותרת + URL.
           `,
         },
         {
@@ -414,7 +414,7 @@ URL: ${p.url}`;
 
     let reply = completion?.choices?.[0]?.message?.content || "";
 
-    /* --------- קישורים → כפתור — ללא encode/decode --------- */
+    /* -------- encode/decode --------- */
 
     reply = reply.replace(
       /https?:\/\/[^\s<)]+/g,
