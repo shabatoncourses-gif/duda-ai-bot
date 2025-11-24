@@ -43,6 +43,8 @@ function cleanText(t) {
       .replace(/לוח מועדי קורסים/gi, "")
       .replace(/למידה מרחוק/gi, "")
       .replace(/קורסים בלמידה מרחוק/gi, "")
+      .replace(/אין קורסים הנפתחים[^\.]+/gi, "")
+      .replace(/אם אין[^\.]+לא יוצג/gi, "")
       .replace(/קורסים|מאמרים|צרו קשר|אודות|כניסה|מורים/gi, "")
   );
 }
@@ -107,14 +109,20 @@ const PHOTO_RESULTS_URLS = {
   merkaz:
     "https://www.shabaton.online/search-results-merkaz/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
   zafon:
-    "https://www.shabaton.online/results-Zafon/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9ם",
+    "https://www.shabaton.online/results-Zafon/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
   darom:
-    "https://www.shabaton.online/results-shfea-darom/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9ם",
+    "https://www.shabaton.online/results-shfea-darom/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
   jerusalem:
-    "https://www.shabaton.online/results-jerusalem/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9ם",
+    "https://www.shabaton.online/results-jerusalem/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
   all:
-    "https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9ם",
+    "https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
 };
+
+function getCitiesForRegion(region) {
+  return Object.entries(CITY_TO_REGION)
+    .filter(([, r]) => r === region)
+    .map(([city]) => city);
+}
 
 /* -------------------------------------- */
 /* Load Index                              */
@@ -221,14 +229,6 @@ function extractStartDate(text) {
   return new Date(parseInt(yearMatch[0]), month, 1);
 }
 
-function isSoon(date) {
-  if (!date) return false;
-  const now = new Date();
-  const m = now.getMonth();
-  const next = (m + 1) % 12;
-  return date.getMonth() === m || date.getMonth() === next;
-}
-
 /* -------------------------------------- */
 /* Handler                                 */
 /* -------------------------------------- */
@@ -289,19 +289,22 @@ export default async function handler(req, res) {
     const cityMatch = Object.keys(CITY_TO_REGION).find((c) =>
       cleanMsg.includes(c)
     );
-
     const region = cityMatch ? CITY_TO_REGION[cityMatch] : null;
 
+    // האם השאלה על קורס צילום?
     const hasPhotoQuery =
       cleanMsg.includes(normalizeHebrew("קורס צילום")) ||
       cleanMsg.includes(normalizeHebrew("קורסי צילום")) ||
       (cleanMsg.includes(normalizeHebrew("צילום")) &&
         cleanMsg.includes(normalizeHebrew("קורס")));
 
+    // -----------------------------
+    // בניית עמודים עם score וכו'
+    // -----------------------------
     const pages = all.map((p) => {
       const type = classifyPage(p);
       const fullTitle =
-        [p.title, p.h1, ...(p.h2 || [])].filter(Boolean).join(" ");
+        [p.title, p.h1, ...(p.h2 || [])].filter(Boolean).join(" ") || "";
 
       const html = p.text || "";
       const listItems = (html.match(/<li>(.*?)<\/li>/gi) || [])
@@ -325,106 +328,89 @@ export default async function handler(req, res) {
       return { ...p, type, fullTitle, clean: txt, score };
     });
 
-    let bestResults = [];
-
-    if (hasPhotoQuery) {
-      if (region && PHOTO_RESULTS_URLS[region]) {
-        bestResults.push({
-          type: "results",
-          title: REGION_TITLES[region],
-          url: PHOTO_RESULTS_URLS[region],
-        });
-      }
-
-      bestResults.push({
-        type: "results",
-        title: REGION_TITLES.all,
-        url: PHOTO_RESULTS_URLS.all,
-      });
-    } else {
-      bestResults = pages
-        .filter((p) => p.type === "results")
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 2)
-        .map((p) => ({
-          type: "results",
-          title: p.title,
-          url: p.url,
-        }));
-    }
-
     const courses = pages
       .filter((p) => p.type === "course")
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 8);
-
-    const soon = courses
-      .filter((p) => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
-      .map((p) => ({
-        ...p,
-        date: extractStartDate(p.fullTitle + " " + p.clean),
-      }))
-      .filter((p) => isSoon(p.date))
-      .sort((a, b) => a.date - b.date);
+      .sort((a, b) => b.score - a.score);
 
     const articles = pages
       .filter((p) => p.type === "article")
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
 
-    const finalList = [...bestResults, ...courses, ...soon, ...articles];
+    /* ------------------------------------------------------------------ */
+    /*  🔵 לוגיקה מיוחדת לשאלות על "קורס צילום" – ללא GPT, רק אינדקס     */
+    /* ------------------------------------------------------------------ */
 
-    const context = finalList
-      .map((p, i) => {
-        if (p.type === "results") {
-          return `# Item ${i + 1}
-Type: results
-Title: ${p.title}
-URL: ${p.url}`;
-        }
+    if (hasPhotoQuery) {
+      const courseKeyword = normalizeHebrew("צילום");
+      const regionCities = region ? getCitiesForRegion(region) : [];
 
-        return `# Item ${i + 1}
-Type: ${p.type}
-Title: ${p.title}
-Description: ${p.description || ""}
-Text: ${p.clean || ""}
-URL: ${p.url}`;
-      })
-      .join("\n\n");
+      // קורסים אמיתיים בלבד (לא ממציאים מוסדות) – רק מתוך האינדקס
+      const privateCourses = courses
+        .filter((p) => {
+          const url = p.url || "";
+          const fromRealSite =
+            url.includes("shabaton") || url.includes("morim.boutique");
 
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.15,
-      messages: [
-        {
-          role: "system",
-          content: `
-ענה רק מתוך ה־Context.
-הצג את התוצאות מסודר, קצר וברור.
-אל תמציא קישורים.
-ב־results יש להציג רק כותרת + URL.
-          `,
-        },
-        {
-          role: "user",
-          content: `Question: ${message}\n\nContext:\n${context}`,
-        },
-      ],
-    });
+          if (!fromRealSite) return false;
 
-    let reply = completion?.choices?.[0]?.message?.content || "";
+          const txt = p.clean || "";
+          const titleNorm = normalizeHebrew(p.fullTitle || p.title || "");
+          const hasCourseKeyword =
+            txt.includes(courseKeyword) || titleNorm.includes(courseKeyword);
+          if (!hasCourseKeyword) return false;
 
-    /* --------- קישורים → כפתור — ללא encode/decode --------- */
+          if (!region) return true;
+          // אם יש אזור – מחפשים עיר מהאזור בתוך הטקסט
+          return regionCities.some((city) => txt.includes(city));
+        })
+        .slice(0, 12); // לא להציף יותר מדי
 
-    reply = reply.replace(
-      /https?:\/\/[^\s<)]+/g,
-      (url) =>
-        `<a href="${url}" target="_blank" class="info-button">למידע נוסף ↗️</a>`
-    );
+      // קורסים נפתחים בקרוב – עד 3 חודשים קדימה
+      const now = new Date();
+      const threeMonthsAhead = new Date(
+        now.getFullYear(),
+        now.getMonth() + 3,
+        1
+      );
 
-    return res.json({ reply });
-  } catch (err) {
-    console.error("ERROR:", err);
-    return res.status(500).json({ error: err.message });
-  }
-}
+      const soonCourses = privateCourses
+        .map((p) => ({
+          ...p,
+          date: extractStartDate(p.fullTitle + " " + p.clean),
+        }))
+        .filter((p) => p.date && p.date >= now && p.date < threeMonthsAhead)
+        .sort((a, b) => a.date - b.date);
+
+      // בונים HTML ידני, בלי GPT
+      const lines = [];
+
+      lines.push("Results #");
+
+      // 1. תוצאת אזור בראש – אם יש אזור
+      if (region && PHOTO_RESULTS_URLS[region]) {
+        lines.push(REGION_TITLES[region]);
+        lines.push(
+          `<a href="${PHOTO_RESULTS_URLS[region]}" target="_blank" class="info-button">למידע נוסף ↗️</a>`
+        );
+        lines.push(""); // שורה ריקה
+      }
+
+      // 2. דפים פרטיים – קורסי צילום אמיתיים בלבד
+      privateCourses.forEach((p) => {
+        const rawUrl = p.url || "";
+        const url = rawUrl.startsWith("http")
+          ? rawUrl
+          : `https://www.shabaton.online${rawUrl}`;
+
+        const title = p.title || p.fullTitle || "קורס צילום";
+        lines.push(title);
+        lines.push(
+          `<a href="${url}" target="_blank" class="info-button">למידע נוסף ↗️</a>`
+        );
+        lines.push("");
+      });
+
+      // 3. קורסים נפתחים בקרוב – אם יש
+      if (soonCourses.length > 0) {
+        lines.push("קורס
