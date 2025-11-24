@@ -147,28 +147,38 @@ async function loadIndexes() {
 /* -------------------------------------- */
 /* Classify page                           */
 /* -------------------------------------- */
-
 function classifyPage(p) {
   const url = (p.url || "").toLowerCase();
+  const title = normalizeHebrew(p.title || "");
+  const h1 = normalizeHebrew(p.h1 || "");
+
+  // 🔹 דפי תוצאות – כל מה שמכיל results או search-results
   if (
-    url.includes("results-") ||
-    url.includes("/results/") ||
-    url.includes("/results-all/")
+    url.includes("results-") || 
+    url.includes("/results/") || 
+    url.includes("/results-all/") ||
+    url.includes("search-results-")
   ) {
     return "results";
   }
 
+  // 🔹 חסימה של דפי תודה / צור קשר / אינדקס מוסדות
   if (url.includes("thank") || url.includes("contact")) return "blocked";
   if (url.includes("/mosad-index/")) return "blocked";
 
-  const title = normalizeHebrew(p.title || "");
-  const h1 = normalizeHebrew(p.h1 || "");
-
-  if (title.includes("מאמר") || h1.includes("מאמר") || url.includes("/article"))
+  // 🔹 מאמרים
+  if (
+    title.includes("מאמר") ||
+    h1.includes("מאמר") ||
+    url.includes("/article")
+  ) {
     return "article";
+  }
 
+  // 🔹 ברירת מחדל — קורס
   return "course";
 }
+
 
 /* -------------------------------------- */
 /* Soon courses                            */
