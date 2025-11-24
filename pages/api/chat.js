@@ -249,7 +249,25 @@ export default async function handler(req, res) {
       if (cityMatch && txt.includes(normalizeHebrew(cityMatch))) {
         score += 0.25;
       }
+/* ---------- strong region boost ---------- */
+const regionMap = [
+  { city: "שרון", slug: "sharon" },
+  { city: "מרכז", slug: "merkaz" },
+  { city: "ירושלים", slug: "jerusalem" },
+  { city: "חיפה", slug: "zafon" },
+  { city: "דרום", slug: "darom" },
+  { city: "צפון", slug: "zafon" },
+  { city: "תל אביב", slug: "merkaz" },
+  { city: "מודיעין", slug: "shfea-darom" },
+  { city: "שפלה", slug: "shfea-darom" },
+];
 
+for (const r of regionMap) {
+  if (cityMatch === normalizeHebrew(r.city) &&
+      p.url.toLowerCase().includes(r.slug)) {
+    score += 0.75;   // ⭐ BOOST משמעותי
+  }
+}
       return { ...p, type, fullTitle, clean: txt, score };
     });
 
