@@ -270,7 +270,7 @@ export default async function handler(req, res) {
         score += 0.25;
       }
 
-      return { ...p, type, fullTitle, clean: txt, score };
+      return { ...p, type, fullTitle, clean: txt, score, description: p.description || "" };
     });
 
     const bestResults = pages
@@ -302,21 +302,37 @@ export default async function handler(req, res) {
     const context = finalList
       .map(
         (p, i) =>
-          `# Item ${i + 1}\nType: ${p.type}\nTitle: ${p.fullTitle}\nText: ${p.clean}\nURL: ${p.url}`
+          `# Item ${i + 1}
+Type: ${p.type}
+Title: ${p.fullTitle}
+Description: ${p.description || p.clean}
+URL: ${p.url}`
       )
       .join("\n\n");
+
+    // 🔴 כאן השינוי העיקרי – הנחיות למודל לגבי עובדות וקישורים
+    const systemPrompt =
+      "את/ה עוזר/ת לשירות מידע על קורסים. " +
+      "ענ/י אך ורק על בסיס ה-Context שמופיע בהמשך. " +
+      "אסור להמציא קישורים, דפים או פרטים שלא מופיעים מפורשות ב-Context. " +
+      "לעולם אל תטען/י ש'כל הקורסים' או 'כל ההצעות' חולקים מאפיין מסוים (למשל 'כל הקורסים זמינים גם בלמידה מרחוק'), " +
+      "אלא אם משפט כזה מופיע באופן מפורש עבור כל הפריטים ב-Context. " +
+      "אם משהו מופיע רק עבור חלק מהקורסים, כתוב/י 'חלק מהקורסים' או ציין/י זאת רק בקורסים שבהם זה מופיע. " +
+      "אם אינך בטוח/ה – אל תכתוב/י זאת בכלל. " +
+      "ענ/י בתשובה מסודרת בעברית, בפורמט רשימה: " +
+      "לכל קורס רלוונטי כתוב/י שורה נפרדת בסגנון: " +
+      "• כותרת: <Title> — תיאור קצר: <Description> (קישור: <URL>) " +
+      "הצג/י את ה-URL במפורש אחרי המילה 'קישור:' בדיוק כפי שהוא מופיע ב-Context. " +
+      "אם השאלה היא כללית (למשל 'אילו קורסי צילום יש?'), התמקד/י רק בפריטים המתאימים מה-Context.";
 
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.1,
       messages: [
-        {
-          role: "system",
-          content: "Answer only from context. No invented URLs.",
-        },
+        { role: "system", content: systemPrompt },
         {
           role: "user",
-          content: `Question: ${message}\n\nContext:\n${context}`,
+          content: `שאלה: ${message}\n\nContext:\n${context}`,
         },
       ],
     });
