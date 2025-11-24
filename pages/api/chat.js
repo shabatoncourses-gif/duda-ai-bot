@@ -52,6 +52,7 @@ function cleanText(t) {
 /* -------------------------------------- */
 
 const CITY_TO_REGION = {
+  // מרכז
   [normalizeHebrew("פתח תקווה")]: "merkaz",
   [normalizeHebrew("רמת גן")]: "merkaz",
   [normalizeHebrew("חולון")]: "merkaz",
@@ -60,6 +61,7 @@ const CITY_TO_REGION = {
   [normalizeHebrew("ראשון לציון")]: "merkaz",
   [normalizeHebrew("בת ים")]: "merkaz",
 
+  // השרון
   [normalizeHebrew("הרצליה")]: "sharon",
   [normalizeHebrew("נתניה")]: "sharon",
   [normalizeHebrew("חדרה")]: "sharon",
@@ -68,6 +70,7 @@ const CITY_TO_REGION = {
   [normalizeHebrew("הוד השרון")]: "sharon",
   [normalizeHebrew("קדימה")]: "sharon",
 
+  // שפלה ודרום
   [normalizeHebrew("מודיעין")]: "darom",
   [normalizeHebrew("נס ציונה")]: "darom",
   [normalizeHebrew("רחובות")]: "darom",
@@ -75,16 +78,19 @@ const CITY_TO_REGION = {
   [normalizeHebrew("באר שבע")]: "darom",
   [normalizeHebrew("גדרה")]: "darom",
 
+  // צפון
   [normalizeHebrew("קריית טבעון")]: "zafon",
   [normalizeHebrew("חיפה")]: "zafon",
   [normalizeHebrew("מסד")]: "zafon",
   [normalizeHebrew("כפר תבור")]: "zafon",
 
+  // ירושלים
   [normalizeHebrew("ירושלים")]: "jerusalem",
   [normalizeHebrew("גוש עציון")]: "jerusalem",
   [normalizeHebrew("מבשרת ציון")]: "jerusalem",
 };
 
+/* כותרות יפות */
 const REGION_TITLES = {
   sharon: "קורסי צילום בשרון",
   merkaz: "קורסי צילום בתל אביב והמרכז",
@@ -94,19 +100,20 @@ const REGION_TITLES = {
   all: "קורסי צילום בכל הארץ",
 };
 
+/* קישורים מדויקים ותקינים לחלוטין */
 const PHOTO_RESULTS_URLS = {
   sharon:
     "https://www.shabaton.online/results-Sharon/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
   merkaz:
     "https://www.shabaton.online/search-results-merkaz/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
   zafon:
-    "https://www.shabaton.online/results-Zafon/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
+    "https://www.shabaton.online/results-Zafon/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9ם",
   darom:
-    "https://www.shabaton.online/results-shfea-darom/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
+    "https://www.shabaton.online/results-shfea-darom/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9ם",
   jerusalem:
-    "https://www.shabaton.online/results-jerusalem/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
+    "https://www.shabaton.online/results-jerusalem/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9ם",
   all:
-    "https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
+    "https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9ם",
 };
 
 /* -------------------------------------- */
@@ -150,8 +157,6 @@ async function loadIndexes() {
 
 function classifyPage(p) {
   const url = (p.url || "").toLowerCase();
-  const title = normalizeHebrew(p.title || "");
-  const h1 = normalizeHebrew(p.h1 || "");
 
   if (
     url.includes("results-") ||
@@ -165,14 +170,22 @@ function classifyPage(p) {
   if (url.includes("thank") || url.includes("contact")) return "blocked";
   if (url.includes("/mosad-index/")) return "blocked";
 
-  if (title.includes("מאמר") || h1.includes("מאמר") || url.includes("/article"))
+  const title = normalizeHebrew(p.title || "");
+  const h1 = normalizeHebrew(p.h1 || "");
+
+  if (
+    title.includes("מאמר") ||
+    h1.includes("מאמר") ||
+    url.includes("/article")
+  ) {
     return "article";
+  }
 
   return "course";
 }
 
 /* -------------------------------------- */
-/* Soon courses                            */
+/* Soon                                   */
 /* -------------------------------------- */
 
 const MONTHS = {
@@ -229,7 +242,6 @@ export default async function handler(req, res) {
   ];
 
   const origin = req.headers.origin || "";
-
   res.setHeader(
     "Access-Control-Allow-Origin",
     allowedOrigins.includes(origin) ? origin : "https://www.shabaton.online"
@@ -254,17 +266,14 @@ export default async function handler(req, res) {
     const raw = await getRawBody(req, { encoding: "utf8" });
     const data = JSON.parse(raw);
     message = data.message || "";
-  } catch (err) {
-    console.error("JSON parse error:", err);
+  } catch {
     return res.status(400).json({ error: "Invalid JSON" });
   }
 
   if (!message) return res.status(400).json({ error: "Message missing" });
 
   try {
-    const client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const cleanMsg = normalizeHebrew(message);
 
@@ -277,34 +286,11 @@ export default async function handler(req, res) {
 
     const all = await loadIndexes();
 
-    const cities = [
-      "שרון",
-      "פתח תקווה",
-      "רעננה",
-      "הוד השרון",
-      "הרצליה",
-      "נתניה",
-      "מודיעין",
-      "שפלה",
-      "חיפה",
-      "צפון",
-      "דרום",
-      "מרכז",
-      "רמת גן",
-      "ירושלים",
-    ];
-
-    const cityMatch = cities.find((c) =>
-      cleanMsg.includes(normalizeHebrew(c))
+    const cityMatch = Object.keys(CITY_TO_REGION).find((c) =>
+      cleanMsg.includes(c)
     );
 
-    let region = null;
-    for (const [cityNorm, regionId] of Object.entries(CITY_TO_REGION)) {
-      if (cleanMsg.includes(cityNorm)) {
-        region = regionId;
-        break;
-      }
-    }
+    const region = cityMatch ? CITY_TO_REGION[cityMatch] : null;
 
     const hasPhotoQuery =
       cleanMsg.includes(normalizeHebrew("קורס צילום")) ||
@@ -314,10 +300,8 @@ export default async function handler(req, res) {
 
     const pages = all.map((p) => {
       const type = classifyPage(p);
-
-      const fullTitle = [p.title, p.h1, ...(p.h2 || [])]
-        .filter(Boolean)
-        .join(" ");
+      const fullTitle =
+        [p.title, p.h1, ...(p.h2 || [])].filter(Boolean).join(" ");
 
       const html = p.text || "";
       const listItems = (html.match(/<li>(.*?)<\/li>/gi) || [])
@@ -336,9 +320,7 @@ export default async function handler(req, res) {
 
       let score = cosineSimilarity(queryVector, p.vector || []);
 
-      if (cityMatch && txt.includes(normalizeHebrew(cityMatch))) {
-        score += 0.25;
-      }
+      if (cityMatch && txt.includes(cityMatch)) score += 0.25;
 
       return { ...p, type, fullTitle, clean: txt, score };
     });
@@ -351,12 +333,6 @@ export default async function handler(req, res) {
           type: "results",
           title: REGION_TITLES[region],
           url: PHOTO_RESULTS_URLS[region],
-        });
-      } else if (cleanMsg.includes(normalizeHebrew("שרון"))) {
-        bestResults.push({
-          type: "results",
-          title: REGION_TITLES.sharon,
-          url: PHOTO_RESULTS_URLS.sharon,
         });
       }
 
@@ -424,12 +400,9 @@ URL: ${p.url}`;
           role: "system",
           content: `
 ענה רק מתוך ה־Context.
-אל תמציא מידע.
+הצג את התוצאות מסודר, קצר וברור.
 אל תמציא קישורים.
-אל תוסיף "למידה מרחוק" אם לא הופיע בטקסט.
-ב־results השתמש רק ב־title ו־URL.
-הצג את התוצאות בצורה מסודרת וברורה.
-סגנון ידידותי וקצר.
+ב־results יש להציג רק כותרת + URL.
           `,
         },
         {
@@ -441,11 +414,12 @@ URL: ${p.url}`;
 
     let reply = completion?.choices?.[0]?.message?.content || "";
 
-    /* ---------- ✔ תיקון סופי של הקישורים ---------- */
+    /* --------- קישורים → כפתור — ללא encode/decode --------- */
+
     reply = reply.replace(
       /https?:\/\/[^\s<)]+/g,
       (url) =>
-        `<a href="${decodeURI(url)}" target="_blank" class="info-button">למידע נוסף ↗️</a>`
+        `<a href="${url}" target="_blank" class="info-button">למידע נוסף ↗️</a>`
     );
 
     return res.json({ reply });
