@@ -1,4 +1,4 @@
-﻿export const config = {
+export const config = {
   runtime: "nodejs",
 };
 export const dynamic = "force-dynamic";
