@@ -276,15 +276,37 @@ for (const r of regionMap) {
     });
 
     /* ---------- NEW LOGIC: results = only ONE ---------- */
+    /* ---------- NEW LOGIC: TWO RESULTS ---------- */
 
-    const bestResults = pages
-      .filter(p => p.type === "results")
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 1)   // 🔥 רק תוצאה אחת
-      .map(p => ({
-        title: p.title,      // רק title
-        url: p.url
-      }));
+// 1) תוצאה אזורית (לדוגמה results-sharon)
+const regional = pages
+  .filter(p =>
+    p.type === "results" &&
+    cityMatch &&
+    p.url.toLowerCase().includes(normalizeHebrew(cityMatch))
+  )
+  .sort((a, b) => b.score - a.score)
+  .slice(0, 1)   // אזורי — רק אחד
+  .map(p => ({
+    title: p.title,
+    url: p.url
+  }));
+
+// 2) תוצאה כללית — results-all / כל הארץ
+const nationwide = pages
+  .filter(p =>
+    p.type === "results" &&
+    !p.url.toLowerCase().includes("sharon") // לא אזורי
+  )
+  .sort((a, b) => b.score - a.score)
+  .slice(0, 1)
+  .map(p => ({
+    title: p.title,
+    url: p.url
+  }));
+
+// 3) מיזוג — אזורי תמיד ראשון, ארצי שני
+const bestResults = [...regional, ...nationwide];
 
     /* ---------- Courses ---------- */
 
