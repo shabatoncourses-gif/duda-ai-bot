@@ -1,4 +1,4 @@
-﻿export const config = {
+export const config = {
   runtime: "nodejs",
 };
 export const dynamic = "force-dynamic";
@@ -102,9 +102,9 @@ const PHOTO_RESULTS_URLS = {
   zafon:
     "https://www.shabaton.online/results-Zafon/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
   darom:
-        "https://www.shabaton.online/results-shfea-darom/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
+    "https://www.shabaton.online/results-shfea-darom/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
   jerusalem:
-  "https://www.shabaton.online/results-jerusalem/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
+    "https://www.shabaton.online/results-jerusalem/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
   all:
     "https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
 };
@@ -147,38 +147,29 @@ async function loadIndexes() {
 /* -------------------------------------- */
 /* Classify page                           */
 /* -------------------------------------- */
+
 function classifyPage(p) {
   const url = (p.url || "").toLowerCase();
   const title = normalizeHebrew(p.title || "");
   const h1 = normalizeHebrew(p.h1 || "");
 
-  // 🔹 דפי תוצאות – כל מה שמכיל results או search-results
   if (
-    url.includes("results-") || 
-    url.includes("/results/") || 
+    url.includes("results-") ||
+    url.includes("/results/") ||
     url.includes("/results-all/") ||
     url.includes("search-results-")
   ) {
     return "results";
   }
 
-  // 🔹 חסימה של דפי תודה / צור קשר / אינדקס מוסדות
   if (url.includes("thank") || url.includes("contact")) return "blocked";
   if (url.includes("/mosad-index/")) return "blocked";
 
-  // 🔹 מאמרים
-  if (
-    title.includes("מאמר") ||
-    h1.includes("מאמר") ||
-    url.includes("/article")
-  ) {
+  if (title.includes("מאמר") || h1.includes("מאמר") || url.includes("/article"))
     return "article";
-  }
 
-  // 🔹 ברירת מחדל — קורס
   return "course";
 }
-
 
 /* -------------------------------------- */
 /* Soon courses                            */
@@ -450,11 +441,11 @@ URL: ${p.url}`;
 
     let reply = completion?.choices?.[0]?.message?.content || "";
 
-    /* ---------- קישורים → כפתור "למידע נוסף" (תיקון!) ---------- */
+    /* ---------- ✔ תיקון סופי של הקישורים ---------- */
     reply = reply.replace(
       /https?:\/\/[^\s<)]+/g,
       (url) =>
-        `<a href="${url}" target="_blank" class="info-button">למידע נוסף ↗️</a>` // FIX
+        `<a href="${decodeURI(url)}" target="_blank" class="info-button">למידע נוסף ↗️</a>`
     );
 
     return res.json({ reply });
