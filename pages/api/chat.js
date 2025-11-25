@@ -417,6 +417,26 @@ export default async function handler(req, res) {
           }
         }
 
+        // 🚫 חסימת דפי תואר אם המשתמש לא ביקש
+             const degreeWords = ["תואר", "מגיסטר", "ma"];
+             if (!msgHasDegree && degreeWords.some(d => normalizeHebrew(fullTitle).includes(normalizeHebrew(d)))) {
+             return null;
+         }
+
+      // 💥 בוסט חזק אם השאלה קשורה למחשבים והדף מכיל רמז לכך
+      if (cleanMsg.includes("מחשב")) {
+      if (p.clean.includes("מחש") || normTitle.includes("מחש")) {
+      score += 1.0;
+      } else {
+    score -= 0.7; // ענישה לדפים שלא קשורים
+  }
+}
+
+// 💥 סף למינימום ציון עבור תחום מזוהה
+if (detectedSubject && score < 0.5) {
+  return null;
+}
+
         // אם המשתמש לא דיבר על "תואר" – נעניש קורסי תואר שני/שלישי
         const msgHasDegree = /תואר/.test(message);
         const titleHasDegree = /תואר/.test(p.title || "");
