@@ -393,6 +393,7 @@ export default async function handler(req, res) {
     /* ---------------------------------------------------------- */
 /* --- חישוב ציון לכל דף --- */
 const pages = all
+
   .map((p) => {
     const type = classifyPage(p);
     if (type === "blocked") return null;
@@ -426,52 +427,44 @@ const pages = all
       const normTitle = normalizeHebrew(fullTitle);
       const normalizedSubject = normalizeHebrew(detectedSubject.slug);
 
-const subjectMatch = (
-  normalizedSubject.includes(normalizeHebrew(fullTitle)) ||
-  detectedSubject.tokens.some(tok => 
-    normalizeHebrew(fullTitle).includes(tok) || txt.includes(tok)
-  )
-);
-
+      const subjectMatch = (
+        normTitle.includes(normalizedSubject) ||
+        detectedSubject.tokens.some(tok =>
+          normTitle.includes(tok) || txt.includes(tok)
+        )
+      );
 
       if (subjectMatch) score += 0.6;
       else score -= 0.7;
 
-      // 🚫 חסימת קורסי תואר שני/שלישי אם לא התבקש
+      // 🚫 חסימת קורסי תואר אם לא ביקש
       const degreeWords = ["תואר", "מגיסטר", "ma"];
-      const hasDegreeInTitle = degreeWords.some((d) =>
-        normTitle.includes(normalizeHebrew(d))
-      );
-      if (!msgHasDegree && hasDegreeInTitle) return null;
+      if (!msgHasDegree && degreeWords.some(d => normTitle.includes(normalizeHebrew(d)))) {
+        return null;
+      }
 
-      // 💥 בוסט חזק מאוד למחשבים
+      // 💥 בוסט למחשבים במקרה הצורך
       if (cleanMsg.includes("מחש")) {
-        if (normTitle.includes("מחש") || txt.includes("מחש")) {
-          score += 2.5;
-        } else {
-          score -= 1.5;
-        }
+        if (normTitle.includes("מחש") || txt.includes("מחש")) score += 2.5;
+        else score -= 1.5;
       }
 
       // ❗ סף מינימום לתחום
-      if (detectedSubject && score < 0.5) return null;
+      if (score < 0.5) return null;
 
     } else {
-      // 🔹 אם לא זוהה תחום – עדיין לדחוף מחשבים קצת
-    if (detectedSubject && detectedSubject.tokens.some(tok => cleanMsg.includes(tok))) {
-  if (normalizedSubject.includes(normTitle) || txt.includes(normalizedSubject)) {
-    score += 2.0;
-  } else {
-    score -= 1.0;
-  }
-}
+      // אם לא זוהה תחום כלל – אפשר להוסיף בוסטים קלים לפי צורך עתידי
+      if (cleanMsg.includes("מחש") && (normTitle.includes("מחש") || txt.includes("מחש"))) {
+        score += 0.4;
+      }
+    }
 
-    // ❗ סף מינימום מוחלט
-    if (detectedSubject && score < 0.5) return null;
-
+    // ❗ החזרת הדף – תמיד
     return { ...p, type, fullTitle, clean: txt, score };
   })
   .filter(Boolean);
+
+
 
 /* --- קורסים פרטיים --- */
 const courses = pages
