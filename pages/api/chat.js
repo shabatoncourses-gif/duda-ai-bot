@@ -391,6 +391,16 @@ export default async function handler(req, res) {
 
     /* --- זיהוי תחום לימוד (slug) --- */
     const detectedSubject = detectSubject(cleanMsg);
+    // 🩹 זיהוי ידני מפורש לשאלות על מחשבים
+if (!detectedSubject && cleanMsg.includes("מחש")) {
+  const forcedSubject = SUBJECTS.find(s =>
+    normalizeHebrew(s.slug) === normalizeHebrew("קורסי טכנולוגיה דיגיטלית ואינטרנט")
+  );
+  if (forcedSubject) {
+    detectedSubject = forcedSubject;
+  }
+}
+
     const subjectSlug = detectedSubject ? detectedSubject.slug : null;
 
     // האם המשתמש דיבר מפורשות על "תואר"?
@@ -452,17 +462,13 @@ export default async function handler(req, res) {
           }
 
           // 💥 בוסט חזק אם המשתמש מחפש מחשבים
-          if (cleanMsg.includes("מחש")) {
-            const pageHasComputer =
-              normTitle.includes("מחש") || txt.includes("מחש");
-
-            if (pageHasComputer) {
-              score += 1.2; // קידום משמעותי
-            } else {
-              score -= 0.8; // הרחקה אם לא קשור
-            }
-          }
-
+         if (cleanMsg.includes("מחשב")) {
+  if (p.clean.includes("מחש") || normTitle.includes("מחש")) {
+    score += 2.5; // קידום חזק מאוד
+  } else {
+    score -= 1.5; // הרחקה ברורה
+  }
+}
           // 📉 סף מינימום לתוצאה – רק אם התחום זוהה
           if (score < 0.3) {
             return null;
@@ -478,7 +484,10 @@ export default async function handler(req, res) {
             }
           }
         }
-
+// אם הציון אחרי ענישה עדיין קטן – למחוק לגמרי
+if (detectedSubject && score < 0.5) {
+  return null;
+}
         return { ...p, type, fullTitle, clean: txt, score };
       })
       .filter(Boolean);
