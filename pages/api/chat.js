@@ -44,13 +44,14 @@ console.log("📦 JSON נטענו בהצלחה");
 /* -------------------------------------- */
 
 function normalizeHebrew(t) {
-  return (t || "")
+  return fixTypos(t || "")  
     .toLowerCase()
     .replace(/[\u0591-\u05C7]/g, "")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
+
 
 /**
  * תיקון שגיאות כתיב נפוצות לפני עיבוד
@@ -339,8 +340,8 @@ export default async function handler(req, res) {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     // נרמול + תיקון שגיאות כתיב
-    const normalizedInput = normalizeHebrew(message);
-    const cleanMsg = fixTypos(normalizedInput);
+    
+    const cleanMsg = normalizeHebrew(message);
 
     /* --- Embedding לשאילתה --- */
     const emb = await client.embeddings.create({
