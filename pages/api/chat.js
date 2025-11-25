@@ -222,36 +222,27 @@ const SUBJECTS = SUBJECT_SLUGS.map((slug) => {
 });
 
 /* מילון מילים נרדפות → תחום (למשל "מחשבים" → טכנולוגיה דיגיטלית) */
+
 const SUBJECT_SYNONYMS = [
   {
-    // מחשבים → טכנולוגיה
-    tokens: [
-      normalizeHebrew("מחשבים"),
-      normalizeHebrew("מחשב"),
-      normalizeHebrew("טכנולוגיה"),
-      normalizeHebrew("דיגיטלי"),
-      normalizeHebrew("דיגיטל"),
-      normalizeHebrew("אופיס"),
-    ],
     slug: "קורסי טכנולוגיה דיגיטלית ואינטרנט",
+    tokens: [
+      "מחשבים", "מחשב", "טכנולוגיה", "דיגיטל", "דיגיטלי",
+      "אינטרנט", "רשת", "גלישה", "התמצאות דיגיטלית",
+      "סייבר", "עבודה במחשב", "מיומנויות מחשב",
+      "קורס מחשבים", "קורס אופיס", "office", "יישומי מחשב",
+      "אקסל", "excel", "וורד", "word", "פאוורפוינט", "powerpoint",
+      "מצגות", "תכנות", "קוד", "פיתוח", "html", "css", "javascript",
+      "ai", "בינה מלאכותית", "למידת מכונה", "machine learning",
+      "קורס דיגיטל", "קורס טכנולוגיה", "קורס מחשבים למורים",
+      "זום", "zoom"
+    ].map(normalizeHebrew),
   },
   {
     tokens: [normalizeHebrew("צילום"), normalizeHebrew("מצלמה")],
     slug: "קורסי צילום",
   },
-  {
-    tokens: [
-      normalizeHebrew("הדרכת הורים"),
-      normalizeHebrew("הורים"),
-      normalizeHebrew("משפחה"),
-      normalizeHebrew("זוגיות"),
-    ],
-    slug: "קורסי הדרכת הורים, זוגיות ומשפחה",
-  },
-  {
-    tokens: [normalizeHebrew("nlp"), normalizeHebrew("אימון"), normalizeHebrew("קואצינג")],
-    slug: "קורסי אימון - nlp",
-  },
+  // שאר התחומים…
 ];
 
 /* זיהוי תחום לימוד מהשאלה */
@@ -732,3 +723,4 @@ URL: <url>${p.url}</url>`;
     return res.status(500).json({ error: err.message });
   }
 }
+
