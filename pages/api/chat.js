@@ -1,23 +1,43 @@
 export const config = {
   runtime: "nodejs",
 };
-export const dynamic = "force-dynamic";
 
+// export const dynamic = "force-dynamic";
+
+import fs from "fs";
+import path from "path";
 import dotenv from "dotenv";
 dotenv.config();
 
 import OpenAI from "openai";
 import getRawBody from "raw-body";
 
-import cityToRegionRaw from "../../data/city_to_region.json";
-import regionKeywordsRaw from "../../data/region_keywords.json";
-import REGION_SLUGS from "../../data/region_slugs.json";
-import REGION_LABELS from "../../data/region_labels.json";
-import SOON_REGION_SLUGS from "../../data/soon_region_slugs.json";
-import SUBJECT_SLUGS from "../../data/subjects.json";
-import subjectStopwordsRaw from "../../data/subject_stopwords.json";
-import subjectSynonymsRaw from "../../data/subject_synonyms.json";
-import MONTHS from "../../data/months.json";
+/* -------------------------------------- */
+/* טעינת JSON API                         */
+/* -------------------------------------- */
+
+const dataPath = path.join(process.cwd(), "data");
+
+function loadJson(file) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(dataPath, file), "utf8"));
+  } catch (err) {
+    console.error(`❌ שגיאה בטעינת ${file}:`, err);
+    return {};
+  }
+}
+
+const cityToRegionRaw = loadJson("city_to_region.json");
+const regionKeywordsRaw = loadJson("region_keywords.json");
+const REGION_SLUGS = loadJson("region_slugs.json");
+const REGION_LABELS = loadJson("region_labels.json");
+const SOON_REGION_SLUGS = loadJson("soon_region_slugs.json");
+const SUBJECT_SLUGS = loadJson("subjects.json");
+const subjectStopwordsRaw = loadJson("subject_stopwords.json");
+const subjectSynonymsRaw = loadJson("subject_synonyms.json");
+const MONTHS = loadJson("months.json");
+
+console.log("📦 JSON נטענו בהצלחה");
 
 /* -------------------------------------- */
 /* Utility                                */
