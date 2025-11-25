@@ -109,7 +109,7 @@ const REGION_KEYWORDS = {
 
 /* Slugs של דפי תוצאות לפי אזור */
 const REGION_SLUGS = {
-  sharon: "results-sharon",
+  sharon: "results-Sharon",
   merkaz: "search-results-merkaz",
   zafon: "results-zafon",
   darom: "results-shfea-darom",
@@ -126,13 +126,13 @@ const REGION_LABELS = {
   jerusalem: "בירושלים והסביבה",
 };
 
-/* Slugs של דפי "נפתחים בקרוב" (לוח חודשי) לפי אזור */
-const MONTHLY_REGION_SLUGS = {
+/* Slugs של "קורסים נפתחים בקרוב" לפי אזור (לוח חודשי) */
+const SOON_REGION_SLUGS = {
   merkaz: "courses-per-month-Merkaz",
   sharon: "courses-per-month-sharon",
-  jerusalem: "courses-per-month-jerusalem",
   zafon: "courses-per-month-zafon",
   darom: "courses-per-month-darom",
+  jerusalem: "courses-per-month-jerusalem",
 };
 
 /* -------------------------------------- */
@@ -221,8 +221,52 @@ const SUBJECTS = SUBJECT_SLUGS.map((slug) => {
   return { slug, norm, tokens };
 });
 
+/* מילון מילים נרדפות → תחום (למשל "מחשבים" → טכנולוגיה דיגיטלית) */
+const SUBJECT_SYNONYMS = [
+  {
+    // מחשבים → טכנולוגיה
+    tokens: [
+      normalizeHebrew("מחשבים"),
+      normalizeHebrew("מחשב"),
+      normalizeHebrew("טכנולוגיה"),
+      normalizeHebrew("דיגיטלי"),
+      normalizeHebrew("דיגיטל"),
+      normalizeHebrew("אופיס"),
+    ],
+    slug: "קורסי טכנולוגיה דיגיטלית ואינטרנט",
+  },
+  {
+    tokens: [normalizeHebrew("צילום"), normalizeHebrew("מצלמה")],
+    slug: "קורסי צילום",
+  },
+  {
+    tokens: [
+      normalizeHebrew("הדרכת הורים"),
+      normalizeHebrew("הורים"),
+      normalizeHebrew("משפחה"),
+      normalizeHebrew("זוגיות"),
+    ],
+    slug: "קורסי הדרכת הורים, זוגיות ומשפחה",
+  },
+  {
+    tokens: [normalizeHebrew("nlp"), normalizeHebrew("אימון"), normalizeHebrew("קואצינג")],
+    slug: "קורסי אימון - nlp",
+  },
+];
+
 /* זיהוי תחום לימוד מהשאלה */
 function detectSubject(cleanMsg) {
+  // קודם – מילים נרדפות (מחשבים → טכנולוגיה וכו')
+  for (const syn of SUBJECT_SYNONYMS) {
+    if (syn.tokens.some((tok) => cleanMsg.includes(tok))) {
+      const found = SUBJECTS.find(
+        (s) => normalizeHebrew(s.slug) === normalizeHebrew(syn.slug)
+      );
+      if (found) return found;
+    }
+  }
+
+  // אחר כך – ניקוד לפי כמה טוקנים מתוך ה־slug מופיעים בשאלה
   let best = null;
   let bestScore = 0;
 
@@ -239,77 +283,24 @@ function detectSubject(cleanMsg) {
   return bestScore > 0 ? best : null;
 }
 
-/* בניית URL לדף תוצאות לפי אזור + תחום */
-function buildResultsUrl(regionId, subjectSlug) {
+/* בניית URL לדף תוצאות לפי אזור + תחום – רק אם קיים באמת באינדקס */
+function buildExistingResultsUrl(regionId, subjectSlug, pages) {
   const base = "https://www.shabaton.online";
   const regionPath = REGION_SLUGS[regionId] || REGION_SLUGS.all;
-  // משאירים את ה-slug בעברית; הדפדפן יקודד בעצמו
-  const url = `${base}/${regionPath}/${subjectSlug}`;
-  return url.replace(/\s+/g, " ");
+
+  // לא מקודדים עברית, הדפדפן/שרת מטפלים בזה
+  const candidate = `${base}/${regionPath}/${subjectSlug}`.replace(/\s+/g, " ");
+
+  // בודקים אם ה־URL הזה קיים באינדקס
+  const exists = pages.some(
+    (p) => (p.url || "").replace(/\s+/g, " ") === candidate
+  );
+
+  return exists ? candidate : null;
 }
 
 function getRegionLabel(regionId) {
   return REGION_LABELS[regionId] || "";
-}
-
-/* -------------------------------------- */
-/* "נפתחים בקרוב" – 3 חודשים קדימה      */
-/* -------------------------------------- */
-
-const HEB_MONTHS = [
-  "ינואר",
-  "פברואר",
-  "מרץ",
-  "אפריל",
-  "מאי",
-  "יוני",
-  "יולי",
-  "אוגוסט",
-  "ספטמבר",
-  "אוקטובר",
-  "נובמבר",
-  "דצמבר",
-];
-
-function buildMonthlyUrl(regionId, monthIndex, year) {
-  const base = "https://www.shabaton.online";
-  const slug = MONTHLY_REGION_SLUGS[regionId];
-  if (!slug) return null;
-
-  const monthName = HEB_MONTHS[monthIndex];
-  // לפי ההגדרה שלך: חודש בעברית + שנה, עם רווח ביניהם
-  const monthPart = `${monthName} ${year}`;
-  const url = `${base}/${slug}/${monthPart}`;
-  return url.replace(/\s+/g, " ");
-}
-
-function buildSoonItems(regionId, subjectSlug) {
-  if (!regionId) return [];
-
-  const now = new Date();
-  const items = [];
-
-  for (let i = 0; i < 3; i++) {
-    const m = (now.getMonth() + i) % 12;
-    const y = now.getFullYear() + Math.floor((now.getMonth() + i) / 12);
-
-    const url = buildMonthlyUrl(regionId, m, y);
-    if (!url) continue;
-
-    const monthName = HEB_MONTHS[m];
-    const titleBase = subjectSlug
-      ? `${subjectSlug} – קורסים הנפתחים בקרוב`
-      : "קורסים הנפתחים בקרוב";
-    const title = `${titleBase} ${getRegionLabel(regionId)} – ${monthName} ${y}`;
-
-    items.push({
-      type: "results",
-      title,
-      url,
-    });
-  }
-
-  return items;
 }
 
 /* -------------------------------------- */
@@ -356,6 +347,11 @@ function classifyPage(p) {
   const title = normalizeHebrew(p.title || "");
   const h1 = normalizeHebrew(p.h1 || "");
 
+  // חוסמים שורש של מורيم בוטיק (תוצאה כללית מדי)
+  if (url === "https://www.morim.boutique/" || url === "https://morim.boutique/") {
+    return "blocked";
+  }
+
   // דפי תוצאות
   if (
     url.includes("results-") ||
@@ -364,6 +360,11 @@ function classifyPage(p) {
     url.includes("search-results-")
   ) {
     return "results";
+  }
+
+  // דפי לוח חודשים "courses-per-month-..."
+  if (url.includes("courses-per-month-")) {
+    return "soonpage";
   }
 
   // חסומים
@@ -379,8 +380,61 @@ function classifyPage(p) {
     return "article";
   }
 
-  // ברירת מחדל — קורס
+  // ברירת מחדל — קורס (דף מוסד/קורס)
   return "course";
+}
+
+/* -------------------------------------- */
+/* קורסים שנפתחים בקרוב (3 חודשים)       */
+/* -------------------------------------- */
+
+const MONTHS = {
+  ינואר: 0,
+  פברואר: 1,
+  מרץ: 2,
+  אפריל: 3,
+  מאי: 4,
+  יוני: 5,
+  יולי: 6,
+  אוגוסט: 7,
+  ספטמבר: 8,
+  אוקטובר: 9,
+  נובמבר: 10,
+  דצמבר: 11,
+};
+
+function extractStartDate(text) {
+  if (!text) return null;
+  const t = text.toLowerCase();
+
+  let month = null;
+  let monthName = null;
+  for (const [name, idx] of Object.entries(MONTHS)) {
+    if (t.includes(name)) {
+      month = idx;
+      monthName = name;
+      break;
+    }
+  }
+
+  const yearMatch = /20\d{2}/.exec(t);
+  if (!yearMatch || month === null) return null;
+
+  return new Date(parseInt(yearMatch[0]), month, 1);
+}
+
+function isSoon(date) {
+  if (!date) return false;
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  const dYear = date.getFullYear();
+  const dMonth = date.getMonth();
+
+  const diffMonths = (dYear - currentYear) * 12 + (dMonth - currentMonth);
+  // שלושת החודשים הקרובים (0,1,2)
+  return diffMonths >= 0 && diffMonths <= 2;
 }
 
 /* -------------------------------------- */
@@ -493,8 +547,12 @@ export default async function handler(req, res) {
 
         // בוסט לתחום (אם זוהה)
         if (detectedSubject) {
-          const normFull = normalizeHebrew(fullTitle + " " + txt);
-          if (detectedSubject.tokens.some((tok) => normFull.includes(tok))) {
+          if (
+            detectedSubject.tokens.some((tok) => txt.includes(tok)) ||
+            normalizeHebrew(fullTitle).includes(
+              detectedSubject.tokens[0] || ""
+            )
+          ) {
             score += 0.2;
           }
         }
@@ -503,66 +561,85 @@ export default async function handler(req, res) {
       })
       .filter(Boolean);
 
-    /* --- קורסים (דפי מוסדות) — מסוננים לפי תחום --- */
-
+    /* --- קורסים (דפים פרטיים של מוסדות) --- */
     const courses = pages
       .filter((p) => p.type === "course")
-      .filter((p) => {
-        if (!detectedSubject) return true;
-        const normAll = normalizeHebrew(
-          (p.fullTitle || "") +
-            " " +
-            (p.description || "") +
-            " " +
-            (p.clean || "")
-        );
-        return detectedSubject.tokens.some((tok) => normAll.includes(tok));
-      })
       .sort((a, b) => b.score - a.score)
-      .slice(0, 8);
+      .slice(0, 8); // דפי מוסדות – תמיד ראשונים
 
-    /* --- דפי תוצאות לפי תחום ואזור --- */
+    /* --- "נפתחים בקרוב" כקורסים בודדים (3 חודשים קדימה) --- */
+    const soon = courses
+      .filter((p) => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
+      .map((p) => ({
+        ...p,
+        date: extractStartDate(p.fullTitle + " " + p.clean),
+      }))
+      .filter((p) => isSoon(p.date))
+      .sort((a, b) => a.date - b.date);
 
-    let bestResults = [];
+    /* --- דפי לוח חודשים קיימים (courses-per-month-...) מתוך האינדקס --- */
+    const soonPages = pages.filter((p) => p.type === "soonpage");
+
+    let soonMonthly = [];
+    if (region && SOON_REGION_SLUGS[region]) {
+      const slugPart = SOON_REGION_SLUGS[region].toLowerCase();
+      // בוחרים רק דפים מתאימים ל־slug של האזור
+      soonMonthly = soonPages.filter((p) =>
+        (p.url || "").toLowerCase().includes(slugPart)
+      );
+      // ממיינים לפי ציון, ליתר ביטחון
+      soonMonthly = soonMonthly.sort((a, b) => b.score - a.score).slice(0, 2);
+    }
+
+    /* --- דפי תוצאות לפי תחום ואזור (ללא המצאת URL) --- */
+
+    let regionalResults = [];
+    let allCountryResults = [];
 
     if (subjectSlug) {
-      // קודם: דף תוצאות אזורי אם יש אזור
+      // קודם: דף תוצאות אזורי אם קיים כזה באינדקס
       if (region) {
-        const label = getRegionLabel(region);
-        const titleRegion = label
-          ? `${subjectSlug} ${label}`
-          : `${subjectSlug} באזור המבוקש`;
+        const regionalUrl = buildExistingResultsUrl(region, subjectSlug, pages);
+        if (regionalUrl) {
+          const titleRegion =
+            subjectSlug + " " + (getRegionLabel(region) || "").trim();
 
-        bestResults.push({
-          type: "results",
-          title: titleRegion.trim(),
-          url: buildResultsUrl(region, subjectSlug),
-        });
+          regionalResults.push({
+            type: "results",
+            title: titleRegion.trim(),
+            url: regionalUrl,
+          });
+        }
       }
 
-      // אחר כך: קורסים בכל הארץ (אותו תחום)
-      bestResults.push({
-        type: "results",
-        title: `${subjectSlug} בכל הארץ`,
-        url: buildResultsUrl("all", subjectSlug),
-      });
+      // אחר כך: קורסים בכל הארץ – רק אם קיים URL כזה באמת
+      const allUrl = buildExistingResultsUrl("all", subjectSlug, pages);
+      if (allUrl) {
+        allCountryResults.push({
+          type: "results",
+          title: subjectSlug + " בכל הארץ",
+          url: allUrl,
+        });
+      }
     } else {
-      // לא זוהה תחום ספציפי – נשתמש ב־results מהאינדקס
-      bestResults = pages
+      // לא זוהה תחום ספציפי – נשתמש ב־results מהאינדקס בלבד
+      const rawResults = pages
         .filter((p) => p.type === "results")
         .sort((a, b) => b.score - a.score)
-        .slice(0, 2)
+        .slice(0, 4)
         .map((p) => ({
           type: "results",
           title: p.title,
           url: p.url,
         }));
+
+      // מחלקים באופן גס בין "אזוריים" ל"כל הארץ" לפי ה־slug
+      rawResults.forEach((r) => {
+        const url = (r.url || "").toLowerCase();
+        if (url.includes("results-all")) allCountryResults.push(r);
+        else regionalResults.push(r);
+      });
     }
-
-    /* --- קורסים נפתחים בקרוב (3 חודשים קדימה) --- */
-
-    const soonItems =
-      region && subjectSlug ? buildSoonItems(region, subjectSlug) : [];
 
     /* --- מאמרים --- */
 
@@ -573,16 +650,24 @@ export default async function handler(req, res) {
 
     /* --- סדר סופי של רשימת הפריטים --- */
     // 1. קורסים פרטיים (מוסדות)
-    // 2. דפי תוצאות (אזור + כל הארץ)
-    // 3. "נפתחים בקרוב" (3 חודשים קדימה)
-    // 4. מאמרים
-    const finalList = [...courses, ...bestResults, ...soonItems, ...articles];
+    // 2. דפי תוצאות לאזור המתאים
+    // 3. קורסים הנפתחים בקרוב (3 חודשים) + דפי "courses-per-month-..." קיימים
+    // 4. דפי תוצאות לכל הארץ
+    // 5. מאמרים
+    const finalList = [
+      ...courses,
+      ...regionalResults,
+      ...soon,
+      ...soonMonthly,
+      ...allCountryResults,
+      ...articles,
+    ];
 
     /* --- Context ל־GPT (עם תגיות <url>...) --- */
 
     const context = finalList
       .map((p, i) => {
-        if (p.type === "results") {
+        if (p.type === "results" || p.type === "soonpage") {
           return `# Item ${i + 1}
 Type: results
 Title: ${p.title}
@@ -610,13 +695,14 @@ URL: <url>${p.url}</url>`;
 ענה רק מתוך ה־Context.
 אל תמציא מידע.
 אל תמציא קישורים.
+אסור להחזיר URL שלא מופיע במפורש ב-Context.
 כשאתה כותב קישור, השתמש בפורמט: URL: <url>https://....</url>
 ב־results השתמש רק בכותרת ו־URL.
 הצג את התוצאות בצורה מסודרת, עם דגש על:
 1. דפי קורסים פרטיים מתאימים (מוסדות).
 2. אחריהם דף תוצאות לאזור המתאים.
-3. אחריהם קורסים הנפתחים בקרוב (3 חודשים) לפי האזור.
-4. אחריהם קורסים בכל הארץ / מאמרים רלוונטיים.
+3. אחריהם קורסים הנפתחים בקרוב (3 חודשים) ודפי לוח חודשים מתאימים.
+4. אחריהם קורסים / תוצאות בכל הארץ.
 סגנון ידידותי וקצר.
           `,
         },
