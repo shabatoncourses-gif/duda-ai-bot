@@ -1,3 +1,7 @@
+// =============================================
+// pages/api/chat.js – גרסה מלאה ומעודכנת
+// =============================================
+
 export const config = {
   runtime: "nodejs",
 };
@@ -43,26 +47,25 @@ console.log("📦 JSON נטענו בהצלחה");
 /* Utility                                */
 /* -------------------------------------- */
 
+/**
+ * תיקון שגיאות כתיב נפוצות
+ * למשל: "קטרס מחשבים" → "קורס מחשבים"
+ */
+function fixTypos(t) {
+  return (t || "")
+    .replace(/קטרס/g, "קורס")
+    .replace(/קרוס/g, "קורס")
+    .replace(/כוריס/g, "קורס")
+    .replace(/מחשביים/g, "מחשבים");
+}
+
 function normalizeHebrew(t) {
-  return fixTypos(t || "")  
+  return fixTypos(t || "")
     .toLowerCase()
     .replace(/[\u0591-\u05C7]/g, "")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-
-/**
- * תיקון שגיאות כתיב נפוצות לפני עיבוד
- * למשל: "קטרס מחשבים" → "קורס מחשבים"
- */
-function fixTypos(t) {
-  return t
-    .replace(/קטרס/g, "קורס")
-    .replace(/קרוס/g, "קורס")
-    .replace(/כוריס/g, "קורס")
-    .replace(/מחשביים/g, "מחשבים");
 }
 
 function cosineSimilarity(a, b) {
@@ -109,27 +112,34 @@ for (const [kw, region] of Object.entries(regionKeywordsRaw)) {
 /* -------------------------------------- */
 
 const SUBJECT_STOPWORDS = new Set(
-  subjectStopwordsRaw.map((w) => normalizeHebrew(w))
+  (Array.isArray(subjectStopwordsRaw) ? subjectStopwordsRaw : []).map((w) =>
+    normalizeHebrew(w)
+  )
 );
 
 /* בניית אובייקטים של תחומים עם טוקנים לניקוד */
-const SUBJECTS = SUBJECT_SLUGS.map((slug) => {
-  const norm = normalizeHebrew(slug);
-  const tokens = norm
-    .split(" ")
-    .filter((tok) => tok && tok.length > 1 && !SUBJECT_STOPWORDS.has(tok));
-  return { slug, norm, tokens };
-});
+const SUBJECTS = (Array.isArray(SUBJECT_SLUGS) ? SUBJECT_SLUGS : []).map(
+  (slug) => {
+    const norm = normalizeHebrew(slug);
+    const tokens = norm
+      .split(" ")
+      .filter((tok) => tok && tok.length > 1 && !SUBJECT_STOPWORDS.has(tok));
+    return { slug, norm, tokens };
+  }
+);
 
 /* מילון מילים נרדפות → תחום (מגיע מ-JSON) */
-const SUBJECT_SYNONYMS = subjectSynonymsRaw.map((item) => ({
+const SUBJECT_SYNONYMS = (Array.isArray(subjectSynonymsRaw)
+  ? subjectSynonymsRaw
+  : []
+).map((item) => ({
   slug: item.slug,
   tokens: (item.tokens || []).map((tok) => normalizeHebrew(tok)),
 }));
 
 /* זיהוי תחום לימוד מהשאלה */
 function detectSubject(cleanMsg) {
-  // קודם – מילים נרדפות (מחשבים → טכנולוגיה וכו')
+  // 1. קודם – מילים נרדפות (מחשבים → טכנולוגיה וכו')
   for (const syn of SUBJECT_SYNONYMS) {
     if (syn.tokens.some((tok) => cleanMsg.includes(tok))) {
       const found = SUBJECTS.find(
@@ -139,7 +149,7 @@ function detectSubject(cleanMsg) {
     }
   }
 
-  // אחר כך – ניקוד לפי כמה טוקנים מתוך ה־slug מופיעים בשאלה
+  // 2. ניקוד לפי כמה טוקנים מתוך ה־slug מופיעים בשאלה
   let best = null;
   let bestScore = 0;
 
@@ -153,7 +163,16 @@ function detectSubject(cleanMsg) {
       best = s;
     }
   }
-  return bestScore > 0 ? best : null;
+
+  // 3. Fallback מפורש לקורסי מחשבים → טכנולוגיה דיגיטלית ואינטרנט
+  if (!best && cleanMsg.includes("מחש")) {
+    const tech = SUBJECTS.find((s) =>
+      s.norm.includes("טכנולוגיה") && s.norm.includes("דיגיטל")
+    );
+    if (tech) best = tech;
+  }
+
+  return best || null;
 }
 
 /* בניית URL לדף תוצאות לפי אזור + תחום – רק אם קיים באמת באינדקס */
@@ -162,7 +181,10 @@ function buildExistingResultsUrl(regionId, subjectSlug, pages) {
   const regionPath = REGION_SLUGS[regionId] || REGION_SLUGS.all;
 
   // לא מקודדים עברית, הדפדפן/שרת מטפלים בזה
-  const candidate = `${base}/${regionPath}/${subjectSlug}`.replace(/\s+/g, " ");
+  const candidate = `${base}/${regionPath}/${subjectSlug}`.replace(
+    /\s+/g,
+    " "
+  );
 
   // בודקים אם ה־URL הזה קיים באינדקס
   const exists = pages.some(
@@ -221,7 +243,10 @@ function classifyPage(p) {
   const h1 = normalizeHebrew(p.h1 || "");
 
   // חוסמים שורש של מורימ בוטיק (תוצאה כללית מדי)
-  if (url === "https://www.morim.boutique/" || url === "https://morim.boutique/") {
+  if (
+    url === "https://www.morim.boutique/" ||
+    url === "https://morim.boutique/"
+  ) {
     return "blocked";
   }
 
@@ -245,11 +270,7 @@ function classifyPage(p) {
   if (url.includes("/mosad-index/")) return "blocked";
 
   // מאמרים
-  if (
-    title.includes("מאמר") ||
-    h1.includes("מאמר") ||
-    url.includes("/article")
-  ) {
+  if (title.includes("מאמר") || h1.includes("מאמר") || url.includes("/article")) {
     return "article";
   }
 
@@ -266,7 +287,7 @@ function extractStartDate(text) {
   const t = text.toLowerCase();
 
   let month = null;
-  for (const [name, idx] of Object.entries(MONTHS)) {
+  for (const [name, idx] of Object.entries(MONTHS || {})) {
     if (t.includes(name)) {
       month = idx;
       break;
@@ -340,7 +361,6 @@ export default async function handler(req, res) {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     // נרמול + תיקון שגיאות כתיב
-    
     const cleanMsg = normalizeHebrew(message);
 
     /* --- Embedding לשאילתה --- */
@@ -373,6 +393,9 @@ export default async function handler(req, res) {
     const detectedSubject = detectSubject(cleanMsg);
     const subjectSlug = detectedSubject ? detectedSubject.slug : null;
 
+    // האם המשתמש דיבר מפורשות על "תואר"?
+    const msgHasDegree = /תואר/.test(message);
+
     /* --- חישוב ציון לכל דף --- */
     const pages = all
       .map((p) => {
@@ -403,50 +426,58 @@ export default async function handler(req, res) {
         // בוסט לעיר
         if (cityMatch && txt.includes(cityMatch)) score += 0.25;
 
-    
+        // 🧠 בוסט / ענישה לפי תחום (אם זוהה)
+        if (detectedSubject) {
+          const normTitle = normalizeHebrew(fullTitle);
 
-  // 🧠 בוסט / ענישה לפי תחום (אם זוהה)
-if (detectedSubject) {
-  const normTitle = normalizeHebrew(fullTitle);
+          // האם הדף באמת קשור לתחום?
+          const subjectMatch = detectedSubject.tokens.some(
+            (tok) => txt.includes(tok) || normTitle.includes(tok)
+          );
 
-  // האם הדף באמת קשור לתחום?
-  const subjectMatch = detectedSubject.tokens.some(
-    (tok) => txt.includes(tok) || normTitle.includes(tok)
-  );
+          if (subjectMatch) {
+            score += 0.6; // בוסט חזק
+          } else {
+            score -= 0.7; // ענישה חזקה לדפים שלא קשורים
+          }
 
-  if (subjectMatch) {
-    score += 0.6; // בוסט חזק
-  } else {
-    score -= 0.7; // ענישה חזקה לדפים שלא קשורים
-  }
+          // 🚫 חסימת דפי תואר שני / מגיסטר לגמרי אם המשתמש לא ביקש
+          const degreeWords = ["תואר", "מגיסטר", "ma"];
+          const hasDegreeInTitle = degreeWords.some((d) =>
+            normTitle.includes(normalizeHebrew(d))
+          );
 
-  // 🚫 חסימת דפי תואר שני / מגיסטר לגמרי אם המשתמש לא ביקש
-  const degreeWords = ["תואר", "מגיסטר", "ma"];
-  const hasDegreeInTitle = degreeWords.some(d =>
-    normTitle.includes(normalizeHebrew(d))
-  );
-  const msgHasDegree = /תואר/.test(message);
+          if (!msgHasDegree && hasDegreeInTitle) {
+            return null; // מחיקה מוחלטת מהתוצאות
+          }
 
-  if (!msgHasDegree && hasDegreeInTitle) {
-    return null; // מחיקה מוחלטת מהתוצאות
-  }
+          // 💥 בוסט חזק אם המשתמש מחפש מחשבים
+          if (cleanMsg.includes("מחש")) {
+            const pageHasComputer =
+              normTitle.includes("מחש") || txt.includes("מחש");
 
-  // 💥 בוסט חזק אם המשתמש מחפש מחשבים 
-  if (cleanMsg.includes("מחש")) {
-    const pageHasComputer = normTitle.includes("מחש") || txt.includes("מחש");
+            if (pageHasComputer) {
+              score += 1.2; // קידום משמעותי
+            } else {
+              score -= 0.8; // הרחקה אם לא קשור
+            }
+          }
 
-    if (pageHasComputer) {
-      score += 1.2; // קידום משמעותי
-    } else {
-      score -= 0.8; // הרחקה אם לא קשור
-    }
-  }
-
-  // 📉 סף מינימום לתוצאה – רק אם התחום זוהה
-  if (score < 0.3) {
-    return null;
-  }
-}
+          // 📉 סף מינימום לתוצאה – רק אם התחום זוהה
+          if (score < 0.3) {
+            return null;
+          }
+        } else {
+          // גם בלי תחום – אם המשתמש כתב "קורס מחשבים", נדחוף קצת דפים עם "מחש"
+          if (cleanMsg.includes("מחש")) {
+            const normTitle = normalizeHebrew(fullTitle);
+            if (normTitle.includes("מחש") || txt.includes("מחש")) {
+              score += 0.8;
+            } else {
+              score -= 0.4;
+            }
+          }
+        }
 
         return { ...p, type, fullTitle, clean: txt, score };
       })
@@ -460,10 +491,10 @@ if (detectedSubject) {
 
     /* --- "נפתחים בקרוב" כקורסים בודדים (3 חודשים קדימה) --- */
     const soon = courses
-      .filter((p) => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
+      .filter((p) => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle || ""))
       .map((p) => ({
         ...p,
-        date: extractStartDate(p.fullTitle + " " + p.clean),
+        date: extractStartDate((p.fullTitle || "") + " " + (p.clean || "")),
       }))
       .filter((p) => isSoon(p.date))
       .sort((a, b) => a.date - b.date);
@@ -540,7 +571,6 @@ if (detectedSubject) {
       .slice(0, 5);
 
     /* --- סדר סופי של רשימת הפריטים --- */
-    // אם זוהה תחום ספציפי → קודם דפי תוצאות, אחר כך קורסים
     let finalList;
     if (subjectSlug) {
       finalList = [
@@ -560,6 +590,13 @@ if (detectedSubject) {
         ...allCountryResults,
         ...articles,
       ];
+    }
+
+    // אם לא נמצאו בכלל תוצאות – נחזיר תשובה עדינה במקום זבל
+    if (!finalList || finalList.length === 0) {
+      return res.json({
+        reply: `לא מצאתי תוצאות מתאימות לשאילתה: "${message}". אם התכוונת לקורסי מחשבים, באתר שלנו זה מופיע כ"کורסי טכנולוגיה דיגיטלית ואינטרנט".`,
+      });
     }
 
     /* --- Context ל־GPT (עם תגיות <url>...) --- */
