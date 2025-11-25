@@ -403,46 +403,50 @@ export default async function handler(req, res) {
         // בוסט לעיר
         if (cityMatch && txt.includes(cityMatch)) score += 0.25;
 
-        // בוסט/ענישה לפי תחום (אם זוהה)
-        if (detectedSubject) {
-          const normTitle = normalizeHebrew(fullTitle);
-          const subjectMatch = detectedSubject.tokens.some(
-            (tok) => txt.includes(tok) || normTitle.includes(tok)
-          );
+    
 
-          if (subjectMatch) {
-            score += 0.2; // בוסט אם הדף מכיל מילות מפתח של התחום
-          } else {
-            score -= 0.5; // ענישה חזקה לדפים שלא קשורים לתחום
-          }
-        }
+  // 🧠 בוסט / ענישה לפי תחום (אם זוהה)
+if (detectedSubject) {
+  const normTitle = normalizeHebrew(fullTitle);
 
-        // 🚫 חסימת דפי תואר אם המשתמש לא ביקש
-             const degreeWords = ["תואר", "מגיסטר", "ma"];
-             if (!msgHasDegree && degreeWords.some(d => normalizeHebrew(fullTitle).includes(normalizeHebrew(d)))) {
-             return null;
-         }
+  // האם הדף באמת קשור לתחום?
+  const subjectMatch = detectedSubject.tokens.some(
+    (tok) => txt.includes(tok) || normTitle.includes(tok)
+  );
 
-      // 💥 בוסט חזק אם השאלה קשורה למחשבים והדף מכיל רמז לכך
-      if (cleanMsg.includes("מחשב")) {
-      if (p.clean.includes("מחש") || normTitle.includes("מחש")) {
-      score += 1.0;
-      } else {
-    score -= 0.7; // ענישה לדפים שלא קשורים
+  if (subjectMatch) {
+    score += 0.6; // בוסט חזק
+  } else {
+    score -= 0.7; // ענישה חזקה לדפים שלא קשורים
+  }
+
+  // 🚫 חסימת דפי תואר שני / מגיסטר לגמרי אם המשתמש לא ביקש
+  const degreeWords = ["תואר", "מגיסטר", "ma"];
+  const hasDegreeInTitle = degreeWords.some(d =>
+    normTitle.includes(normalizeHebrew(d))
+  );
+  const msgHasDegree = /תואר/.test(message);
+
+  if (!msgHasDegree && hasDegreeInTitle) {
+    return null; // מחיקה מוחלטת מהתוצאות
+  }
+
+  // 💥 בוסט חזק אם המשתמש מחפש מחשבים 
+  if (cleanMsg.includes("מחש")) {
+    const pageHasComputer = normTitle.includes("מחש") || txt.includes("מחש");
+
+    if (pageHasComputer) {
+      score += 1.2; // קידום משמעותי
+    } else {
+      score -= 0.8; // הרחקה אם לא קשור
+    }
+  }
+
+  // 📉 סף מינימום לתוצאה – רק אם התחום זוהה
+  if (score < 0.3) {
+    return null;
   }
 }
-
-// 💥 סף למינימום ציון עבור תחום מזוהה
-if (detectedSubject && score < 0.5) {
-  return null;
-}
-
-        // אם המשתמש לא דיבר על "תואר" – נעניש קורסי תואר שני/שלישי
-        const msgHasDegree = /תואר/.test(message);
-        const titleHasDegree = /תואר/.test(p.title || "");
-        if (!msgHasDegree && titleHasDegree) {
-          score -= 0.6;
-        }
 
         return { ...p, type, fullTitle, clean: txt, score };
       })
