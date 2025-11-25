@@ -1,3 +1,4 @@
+
 export const config = {
   runtime: "nodejs",
 };
@@ -8,6 +9,16 @@ dotenv.config();
 
 import OpenAI from "openai";
 import getRawBody from "raw-body";
+
+import cityToRegionRaw from "../../data/city_to_region.json" assert { type: "json" };
+import regionKeywordsRaw from "../../data/region_keywords.json" assert { type: "json" };
+import REGION_SLUGS from "../../data/region_slugs.json" assert { type: "json" };
+import REGION_LABELS from "../../data/region_labels.json" assert { type: "json" };
+import SOON_REGION_SLUGS from "../../data/soon_region_slugs.json" assert { type: "json" };
+import SUBJECT_SLUGS from "../../data/subjects.json" assert { type: "json" };
+import subjectStopwordsRaw from "../../data/subject_stopwords.json" assert { type: "json" };
+import subjectSynonymsRaw from "../../data/subject_synonyms.json" assert { type: "json" };
+import MONTHS from "../../data/months.json" assert { type: "json" };
 
 /* -------------------------------------- */
 /* Utility                                */
@@ -48,169 +59,29 @@ function cleanText(t) {
 }
 
 /* -------------------------------------- */
-/* ערים → אזורים                          */
+/* ערים → אזורים (נטען מ-JSON)           */
 /* -------------------------------------- */
 
-const CITY_TO_REGION = {
-  // מרכז
-  [normalizeHebrew("פתח תקווה")]: "merkaz",
-  [normalizeHebrew("רמת גן")]: "merkaz",
-  [normalizeHebrew("חולון")]: "merkaz",
-  [normalizeHebrew("גבעתיים")]: "merkaz",
-  [normalizeHebrew("תל אביב")]: "merkaz",
-  [normalizeHebrew("ראשון לציון")]: "merkaz",
-  [normalizeHebrew("בת ים")]: "merkaz",
-
-  // השרון
-  [normalizeHebrew("הרצליה")]: "sharon",
-  [normalizeHebrew("נתניה")]: "sharon",
-  [normalizeHebrew("חדרה")]: "sharon",
-  [normalizeHebrew("רעננה")]: "sharon",
-  [normalizeHebrew("כפר סבא")]: "sharon",
-  [normalizeHebrew("הוד השרון")]: "sharon",
-  [normalizeHebrew("קדימה")]: "sharon",
-
-  // שפלה ודרום
-  [normalizeHebrew("מודיעין")]: "darom",
-  [normalizeHebrew("נס ציונה")]: "darom",
-  [normalizeHebrew("רחובות")]: "darom",
-  [normalizeHebrew("כפר ורבורג")]: "darom",
-  [normalizeHebrew("באר שבע")]: "darom",
-  [normalizeHebrew("גדרה")]: "darom",
-
-  // צפון
-  [normalizeHebrew("קריית טבעון")]: "zafon",
-  [normalizeHebrew("חיפה")]: "zafon",
-  [normalizeHebrew("מסד")]: "zafon",
-  [normalizeHebrew("כפר תבור")]: "zafon",
-
-  // ירושלים והסביבה
-  [normalizeHebrew("ירושלים")]: "jerusalem",
-  [normalizeHebrew("גוש עציון")]: "jerusalem",
-  [normalizeHebrew("מבשרת ציון")]: "jerusalem",
-};
+const CITY_TO_REGION = {};
+for (const [city, region] of Object.entries(cityToRegionRaw)) {
+  CITY_TO_REGION[normalizeHebrew(city)] = region;
+}
 
 /* מילים שמגדירות אזור ישירות (בלי עיר ספציפית) */
-const REGION_KEYWORDS = {
-  [normalizeHebrew("בשרון")]: "sharon",
-  [normalizeHebrew("שרון")]: "sharon",
-  [normalizeHebrew("במרכז")]: "merkaz",
-  [normalizeHebrew("מרכז")]: "merkaz",
-  [normalizeHebrew("בצפון")]: "zafon",
-  [normalizeHebrew("צפון")]: "zafon",
-  [normalizeHebrew("בחיפה")]: "zafon",
-  [normalizeHebrew("בשפלה")]: "darom",
-  [normalizeHebrew("בדרום")]: "darom",
-  [normalizeHebrew("שפלה")]: "darom",
-  [normalizeHebrew("דרום")]: "darom",
-  [normalizeHebrew("בירושלים")]: "jerusalem",
-  [normalizeHebrew("ירושלים")]: "jerusalem",
-};
+const REGION_KEYWORDS = {};
+for (const [kw, region] of Object.entries(regionKeywordsRaw)) {
+  REGION_KEYWORDS[normalizeHebrew(kw)] = region;
+}
 
-/* Slugs של דפי תוצאות לפי אזור */
-const REGION_SLUGS = {
-  sharon: "results-Sharon",
-  merkaz: "search-results-merkaz",
-  zafon: "results-zafon",
-  darom: "results-shfea-darom",
-  jerusalem: "results-jerusalem",
-  all: "results-all",
-};
-
-/* תיאור ידידותי לאזור (לכותרות בלבד) */
-const REGION_LABELS = {
-  sharon: "בשרון",
-  merkaz: "בתל אביב והמרכז",
-  zafon: "בחיפה והצפון",
-  darom: "בשפלה ובדרום",
-  jerusalem: "בירושלים והסביבה",
-};
-
-/* Slugs של "קורסים נפתחים בקרוב" לפי אזור (לוח חודשי) */
-const SOON_REGION_SLUGS = {
-  merkaz: "courses-per-month-Merkaz",
-  sharon: "courses-per-month-sharon",
-  zafon: "courses-per-month-zafon",
-  darom: "courses-per-month-darom",
-  jerusalem: "courses-per-month-jerusalem",
-};
+/* תיאור ידידותי לאזור (לכותרות בלבד) - REGION_LABELS, REGION_SLUGS, SOON_REGION_SLUGS מיובאים ישירות */
 
 /* -------------------------------------- */
-/* תחומי לימוד (slugs של התחומים)       */
+/* תחומי לימוד (נטען מ-JSON)            */
 /* -------------------------------------- */
 
-const SUBJECT_SLUGS = [
-  "קורסי אופק חדש - עוז לתמורה",
-  "קורסי אימון - NLP",
-  "קורסי איפור, טיפוח אישי וסטיילינג",
-  "קורסי אמנות ואומנויות",
-  "לימודי תואר שני בחינוך ובהוראה",
-  "קורסי בישול - קורסי קונדיטוריה",
-  "קורסי בריאות ותזונה נכונה",
-  "קורסים לגיל רך - חינוך קדם יסודי",
-  "קורסי גישור",
-  "קורסי גרפולוגיה ונומרולוגיה",
-  "קורסי דרמה, פסיכודרמה, קורסי תיאטרון בובות",
-  "קורסי הדרכת הורים, זוגיות ומשפחה",
-  "קורסי הוראה מתקנת - קורסי הוראה מותאמת",
-  "קורסי הנחיית קבוצות",
-  "קורסי העצמה והתפתחות אישית",
-  "קורסי העצמה נשית",
-  "קורסי חברה וקהילה",
-  "לימודי חינוך גופני",
-  "קורסי חינוך והוראה",
-  "קורסי חינוך סביבתי - לימודי ארץ ישראל",
-  "קורסי טיולים - סיורים לימודיים",
-  "קורסי טכנולוגיה דיגיטלית ואינטרנט",
-  "קורסי יהדות, מורשת ישראל ודתות",
-  "קורסי ייעוץ ארגוני",
-  "לימודי ייעוץ חינוכי",
-  "קורסי כתיבה יוצרת - קורסי כתיבה עיונית - כתיבה אקדמית",
-  "קורסים לגימלאים",
-  "קורסים בלמידה מרחוק",
-  "קורסים לציבור הדתי",
-  "קורסי אבחון וטיפול בלקויות למידה - קורסים לחינוך מיוחד",
-  "קורסים במדעי הרוח",
-  "קורסי מוסיקה - קונצרטים מודרכים",
-  "קורסי מידענות וספרנות",
-  "לימודי מיינדפולנס ומדיטציה",
-  "מנהל עסקים - פיננסים - יזמות",
-  "קורסי הוראת מתמטיקה ומדעים",
-  "לימודי ניהול חינוכי",
-  "קורסי ניתוח התנהגות",
-  "ספורט, מחול ותנועה",
-  "קורסי עיצוב אופנה - קורסי תפירה",
-  "קורסי עיצוב הסביבה",
-  "קורסי  עיצוב פנים - הום סטיילינג",
-  "קורסי עריכה לשונית",
-  "קורסים לפיתוח מקצועי למורים",
-  "קורסי פסיכולוגיה וייעוץ",
-  "קורסי צורפות ותכשיטנות",
-  "קורסי צילום",
-  "קורסי קולנוע",
-  "לימודי רפואה משלימה",
-  "קורסי  שפות - הוראת שפות - לימודי תרגום",
-  "לימודי תואר שלישי - דוקטורט",
-  "לימודי תואר שני",
-  "קורסי תיירות",
-  "קורסי תקשורת בין-אישית",
-  "קורסי תרבות העשרה ואקטואליה",
-];
-
-/* מילים שאנחנו מתעלמים מהן בזיהוי תחום */
-const SUBJECT_STOPWORDS = new Set([
-  normalizeHebrew("קורס"),
-  normalizeHebrew("קורסי"),
-  normalizeHebrew("קורסים"),
-  normalizeHebrew("לימודי"),
-  normalizeHebrew("לימודים"),
-  normalizeHebrew("תואר"),
-  normalizeHebrew("בחינוך"),
-  normalizeHebrew("ובהוראה"),
-  normalizeHebrew("בהוראה"),
-  normalizeHebrew("ב"),
-  normalizeHebrew("ו"),
-]);
+const SUBJECT_STOPWORDS = new Set(
+  subjectStopwordsRaw.map((w) => normalizeHebrew(w))
+);
 
 /* בניית אובייקטים של תחומים עם טוקנים לניקוד */
 const SUBJECTS = SUBJECT_SLUGS.map((slug) => {
@@ -221,341 +92,11 @@ const SUBJECTS = SUBJECT_SLUGS.map((slug) => {
   return { slug, norm, tokens };
 });
 
-/* מילון מילים נרדפות → תחום (למשל "מחשבים" → טכנולוגיה דיגיטלית) */
-
-const SUBJECT_SYNONYMS = [
-  {
-    slug: "קורסי טכנולוגיה דיגיטלית ואינטרנט",
-    tokens: [
-      "מחשבים", "מחשב", "טכנולוגיה", "דיגיטל", "דיגיטלי",
-      "אינטרנט", "רשת", "גלישה", "התמצאות דיגיטלית",
-      "סייבר", "עבודה במחשב", "מיומנויות מחשב",
-      "קורס מחשבים", "קורס אופיס", "office", "יישומי מחשב",
-      "אקסל", "excel", "וורד", "word", "פאוורפוינט", "powerpoint",
-      "מצגות", "תכנות", "קוד", "פיתוח", "html", "css", "javascript",
-      "ai", "בינה מלאכותית", "למידת מכונה", "machine learning",
-      "קורס דיגיטל", "קורס טכנולוגיה", "קורס מחשבים למורים",
-      "זום", "zoom"
-    ].map(normalizeHebrew),
-  },
-  {
-    tokens: [normalizeHebrew("צילום"), normalizeHebrew("מצלמה")],
-    slug: "קורסי צילום",
-  },
-  // שאר התחומים…
-  {
-  slug: "קורסי הוראה מתקנת - קורסי הוראה מותאמת",
-  tokens: [
-    "הוראה מתקנת", "הוראה מותאמת", "קשיי למידה", "לקויות למידה",
-    "דיסלקציה", "עזרה בלמידה", "אסטרטגיות למידה",
-    "חינוך מיוחד", "תלמידים מתקשים", "קושי בלמידה"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי חינוך והוראה",
-  tokens: [
-    "הוראה", "פדגוגיה", "חינוך", "הכשרת מורים", "תכנון למידה",
-    "שיטות הוראה", "למידה מרחוק", "הוראה דיגיטלית", "מורה"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי חינוך סביבתי - לימודי ארץ ישראל",
-  tokens: ["ארץ ישראל", "מורשת ישראל", "ידיעת הארץ", "טבע", "סיור לימודי"].map(normalizeHebrew),
-},
-{
-  slug: "לימודי ייעוץ חינוכי",
-  tokens: ["ייעוץ חינוכי", "יועצת", "יועץ", "תמיכה בבית ספר", "אבחון חינוכי"].map(normalizeHebrew),
-},
-{
-  slug: "קורסי הדרכת הורים, זוגיות ומשפחה",
-  tokens: ["הדרכת הורים", "קורס הורים", "משפחה", "הורות", "זוגיות"].map(normalizeHebrew),
-},
-{
-  slug: "קורסי הדרכת קבוצות",
-  tokens: ["הנחיית קבוצות", "קבוצה טיפולית", "הנחיה חברתית", "הובלת קבוצה"].map(normalizeHebrew),
-},
-{
-  slug: "קורסי טיולים - סיורים לימודיים",
-  tokens: ["טיולים", "סיורים", "סיור לימודי", "שטח", "ידיעת הארץ"].map(normalizeHebrew),
-},
-{
-  slug: "קורסים לגיל רך - חינוך קדם יסודי",
-  tokens: ["גיל רך", "גן ילדים", "גננת", "חינוך לגיל הרך"].map(normalizeHebrew),
-},
-{
-  slug: "קורסי הוראת מתמטיקה ומדעים",
-  tokens: ["מתמטיקה", "מדעים", "הוראת מדעים", "חינוך מדעי"].map(normalizeHebrew),
-},
-{
-  slug: "קורסי אופק חדש - עוז לתמורה",
-  tokens: ["אופק חדש", "עוז לתמורה", "פיתוח מקצועי למורים", "שעות תקן"].map(normalizeHebrew),
-},
-{
-  slug: "קורסי פסיכולוגיה וייעוץ",
-  tokens: [
-    "פסיכולוגיה", "טיפול רגשי", "טיפול בילדים", "ייעוץ נפשי",
-    "בריאות נפשית", "תמיכה רגשית", "התמודדות רגשית", "ריגשי"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי העצמה והתפתחות אישית",
-  tokens: [
-    "העצמה", "התפתחות אישית", "ביטחון עצמי", "צמיחה אישית",
-    "מודעות עצמית", "העצמה אישית", "התמודדות עם לחץ", "מיינדסט"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי העצמה נשית",
-  tokens: [
-    "העצמה נשית", "נשים", "נשיות", "קורס לנשים", "חיזוק נשי",
-    "עוצמה נשית", "מורות נשים"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי אימון - NLP",
-  tokens: [
-    "nlp", "אימון אישי", "קואצינג", "coaching", "שינוי הרגלים",
-    "שיפור עצמי", "תת מודע", "תקשורת"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי הנחיית קבוצות",
-  tokens: [
-    "הנחיית קבוצות", "קבוצה טיפולית", "הובלת קבוצה",
-    "קבוצות למידה", "מנחה קבוצות", "פסיכודרמה קבוצתית"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "לימודי מיינדפולנס ומדיטציה",
-  tokens: [
-    "מיינדפולנס", "מדיטציה", "נשימות", "איזון נפשי",
-    "רוגע", "הרפיה", "מודעות"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי תקשורת בין-אישית",
-  tokens: [
-    "תקשורת בין אישית", "יחסים בין אישיים", "דינמיקה",
-    "תקשורת עם תלמידים", "תקשורת עם הורים", "כישורי תקשורת"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי אמנות ואומנויות",
-  tokens: [
-    "אמנות", "אומנות", "ציור", "רישום", "פיסול", "קדרות",
-    "יצירה", "קורס ציור", "סדנת יצירה", "עבודת יד"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי דרמה, פסיכודרמה, קורסי תיאטרון בובות",
-  tokens: [
-    "תיאטרון", "פסיכודרמה", "בובות", "תיאטרון בובות",
-    "הצגה", "משחק", "בימוי", "תיאטרון טיפולי"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי מוסיקה - קונצרטים מודרכים",
-  tokens: [
-    "מוסיקה", "מוזיקה", "שירה", "קונצרטים", "כלי נגינה",
-    "פיתוח קול", "קצב", "קול", "ליווי מוזיקלי"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי צילום",
-  tokens: [
-    "צילום", "צלם", "מצלמה", "צילום מקצועי", "עריכת תמונה",
-    "פוטושופ", "lightroom", "לייטרום", "צילום בטלפון"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי עיצוב אופנה - קורסי תפירה",
-  tokens: [
-    "עיצוב אופנה", "תפירה", "סטיילינג", "אופנה",
-    "fashion", "עיצוב בגד", "סדנת תפירה"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי  עיצוב פנים - הום סטיילינג",
-  tokens: [
-    "עיצוב פנים", "הום סטיילינג", "עיצוב הבית", "שיפוץ",
-    "חידוש בית", "עיצוב מרחב", "סטיילינג לבית"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי עיצוב הסביבה",
-  tokens: [
-    "עיצוב סביבתי", "אדריכלות", "תכנון סביבתי", "עיצוב שטח"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי צורפות ותכשיטנות",
-  tokens: [
-    "תכשיטים", "תכשיטנות", "צורפות", "הכנת תכשיטים"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי צילום ועריכת וידאו",
-  tokens: [
-    "עריכת וידאו", "צילום וידאו", "הפקת וידאו", "סרטון",
-    "פרימייר", "davinci"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי קולנוע",
-  tokens: [
-    "קולנוע", "צילום וידאו", "סרט", "בימוי סרטים", "הפקת סרט"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "לימודי תואר שני בחינוך ובהוראה",
-  tokens: [
-    "תואר שני", "ma", "מגיסטר", "לימודי תואר", "תואר בחינוך",
-    "תואר בהוראה", "מסלול תואר שני", "לימודי המשך", "לימודים מתקדמים"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "לימודי תואר שני",
-  tokens: [
-    "תואר שני", "ma", "לימודים לתואר", "תואר מתקדם", "מגיסטר"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "לימודי תואר שלישי - דוקטורט",
-  tokens: [
-    "דוקטורט", "תואר שלישי", "phd", "מחקר", "עבודת דוקטור",
-    "תזה", "דוקטור"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "לימודי ניהול חינוכי",
-  tokens: [
-    "ניהול חינוכי", "מנהיגות חינוכית", "מנהל בית ספר", "הובלת צוות",
-    "תפקידי ניהול", "מנהל חינוכי"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "מנהל עסקים - פיננסים - יזמות",
-  tokens: [
-    "מנהל עסקים", "עסקים", "יזמות", "ניהול עסקי", "פיננסים",
-    "כלכלה", "mba", "ניהול פיננסי", "עסק עצמאי"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי ייעוץ ארגוני",
-  tokens: [
-    "ייעוץ ארגוני", "ארגון", "שינוי ארגוני", "אימון ארגוני", "ייעוץ למנהלים"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי חברה וקהילה",
-  tokens: [
-    "קהילה", "חברה", "מעורבות חברתית", "עבודה קהילתית", "קשרי קהילה"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי תרבות העשרה ואקטואליה",
-  tokens: [
-    "תרבות", "העשרה", "קורס העשרה", "אקטואליה", "חדשות", "ידע כללי"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסים במדעי הרוח",
-  tokens: [
-    "מדעי הרוח", "פילוסופיה", "היסטוריה", "ספרות", "חשיבה ביקורתית"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי  שפות - הוראת שפות - לימודי תרגום",
-  tokens: [
-    "שפה", "שפות", "אנגלית", "עברית", "תרגום", "מתורגמן", "לימוד שפה"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסים לפיתוח מקצועי למורים",
-  tokens: [
-    "פיתוח מקצועי", "השתלמות למורים", "קורס למורים", "פיתוח מורה"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי יהדות, מורשת ישראל ודתות",
-  tokens: [
-    "יהדות", "מורשת", "דת", "מסורת", "תרבות יהודית", "תנך"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי גרפולוגיה ונומרולוגיה",
-  tokens: [
-    "גרפולוגיה", "ניתוח כתב יד", "נומרולוגיה", "מספרים", "כתב יד"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי כתיבה יוצרת - קורסי כתיבה עיונית - כתיבה אקדמית",
-  tokens: [
-    "כתיבה", "כתיבה יוצרת", "כתיבה אקדמית", "כתיבה עיונית", "יצירה בכתיבה"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "ספורט, מחול ותנועה",
-  tokens: [
-    "ספורט", "תנועה", "מחול", "ריקוד", "ריקודים",
-    "התעמלות", "פעילות גופנית", "קורס תנועה", "תנועה יצירתית",
-    "כושר", "גוף", "שיעורי ספורט"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "לימודי חינוך גופני",
-  tokens: [
-    "חינוך גופני", "שיעורי ספורט", "מורה לספורט", "חינוך גופני בבית ספר"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי ניתוח התנהגות",
-  tokens: [
-    "ניתוח התנהגות", "aba", "טיפול התנהגותי", "התנהגות", 
-    "ניהול התנהגות", "שינוי התנהגות"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי בריאות ותזונה נכונה",
-  tokens: [
-    "תזונה", "אוכל בריא", "תזונה נכונה", "בריאות", "תזונה לילדים",
-    "תזונה למורים", "כושר", "שמירה על הבריאות"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסים בלמידה מרחוק",
-  tokens: [
-    "למידה מרחוק", "קורס בזום", "zoom", "לימוד אונליין",
-    "קורס מקוון", "online", "study online", "קורס דיגיטלי"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסים לגימלאים",
-  tokens: [
-    "גמלאים", "פנסיה", "פנסיונרים", "גיל שלישי", "לבני גיל הזהב"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסים לפיתוח מקצועי למורים",
-  tokens: [
-    "פיתוח מקצועי", "השתלמות מורים", "קורס למורים", "קידום מקצועי"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "לימודי רפואה משלימה",
-  tokens: [
-    "רפואה משלימה", "טיפול טבעי", "רייקי", "פיזיותרפיה אלטרנטיבית",
-    "תטא הילינג", "ריפוי אנרגטי"
-  ].map(normalizeHebrew),
-},
-{
-  slug: "קורסי תיירות",
-  tokens: [
-    "תיירות", "טיולים", "הדרכת טיולים", "מסעות", "סיורים"
-  ].map(normalizeHebrew),
-},
-
-];
+/* מילון מילים נרדפות → תחום (מגיע מ-JSON) */
+const SUBJECT_SYNONYMS = subjectSynonymsRaw.map((item) => ({
+  slug: item.slug,
+  tokens: (item.tokens || []).map((tok) => normalizeHebrew(tok)),
+}));
 
 /* זיהוי תחום לימוד מהשאלה */
 function detectSubject(cleanMsg) {
@@ -621,8 +162,8 @@ async function loadIndexes() {
     "morim_index_part1.json",
   ];
 
-  const sh = [],
-    mo = [];
+  const sh = [];
+  const mo = [];
 
   for (const f of files) {
     try {
@@ -650,7 +191,7 @@ function classifyPage(p) {
   const title = normalizeHebrew(p.title || "");
   const h1 = normalizeHebrew(p.h1 || "");
 
-  // חוסמים שורש של מורيم בוטיק (תוצאה כללית מדי)
+  // חוסמים שורש של מורימ בוטיק (תוצאה כללית מדי)
   if (url === "https://www.morim.boutique/" || url === "https://morim.boutique/") {
     return "blocked";
   }
@@ -691,31 +232,14 @@ function classifyPage(p) {
 /* קורסים שנפתחים בקרוב (3 חודשים)       */
 /* -------------------------------------- */
 
-const MONTHS = {
-  ינואר: 0,
-  פברואר: 1,
-  מרץ: 2,
-  אפריל: 3,
-  מאי: 4,
-  יוני: 5,
-  יולי: 6,
-  אוגוסט: 7,
-  ספטמבר: 8,
-  אוקטובר: 9,
-  נובמבר: 10,
-  דצמבר: 11,
-};
-
 function extractStartDate(text) {
   if (!text) return null;
   const t = text.toLowerCase();
 
   let month = null;
-  let monthName = null;
   for (const [name, idx] of Object.entries(MONTHS)) {
     if (t.includes(name)) {
       month = idx;
-      monthName = name;
       break;
     }
   }
@@ -952,11 +476,6 @@ export default async function handler(req, res) {
       .slice(0, 5);
 
     /* --- סדר סופי של רשימת הפריטים --- */
-    // 1. קורסים פרטיים (מוסדות)
-    // 2. דפי תוצאות לאזור המתאים
-    // 3. קורסים הנפתחים בקרוב (3 חודשים) + דפי "courses-per-month-..." קיימים
-    // 4. דפי תוצאות לכל הארץ
-    // 5. מאמרים
     const finalList = [
       ...courses,
       ...regionalResults,
@@ -1035,5 +554,3 @@ URL: <url>${p.url}</url>`;
     return res.status(500).json({ error: err.message });
   }
 }
-
-
