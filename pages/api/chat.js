@@ -48,7 +48,7 @@ function cleanText(t) {
 }
 
 /* -------------------------------------- */
-/* Special mappings                       */
+/* Cities → Regions                       */
 /* -------------------------------------- */
 
 const CITY_TO_REGION = {
@@ -84,36 +84,154 @@ const CITY_TO_REGION = {
   [normalizeHebrew("מסד")]: "zafon",
   [normalizeHebrew("כפר תבור")]: "zafon",
 
-  // ירושלים
+  // ירושלים והסביבה
   [normalizeHebrew("ירושלים")]: "jerusalem",
   [normalizeHebrew("גוש עציון")]: "jerusalem",
   [normalizeHebrew("מבשרת ציון")]: "jerusalem",
 };
 
-/* titels */
-const REGION_TITLES = {
-  sharon: "קורסי צילום בשרון",
-  merkaz: "קורסי צילום בתל אביב והמרכז",
-  zafon: "קורסי צילום בצפון",
-  darom: "קורסי צילום בשפלה ובדרום",
-  jerusalem: "קורסי צילום בירושלים והסביבה",
-  all: "קורסי צילום בכל הארץ",
+// מילים כלליות לאזורים (אם לא צוינה עיר ספציפית)
+const REGION_KEYWORDS = {
+  zafon: [normalizeHebrew("צפון"), normalizeHebrew("חיפה")],
+  merkaz: [normalizeHebrew("מרכז"), normalizeHebrew("גוש דן")],
+  sharon: [normalizeHebrew("שרון")],
+  darom: [normalizeHebrew("דרום"), normalizeHebrew("שפלה")],
+  jerusalem: [
+    normalizeHebrew("ירושלים"),
+    normalizeHebrew("ירושלים והסביבה"),
+  ],
 };
 
-/* links */
-const PHOTO_RESULTS_URLS = {
-  sharon:
-    "https://www.shabaton.online/results-Sharon/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
-  merkaz:
-    "https://www.shabaton.online/search-results-merkaz/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D",
-  zafon:
-    "https://www.shabaton.online/results-Zafon/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9ם",
-  darom:
-    "https://www.shabaton.online/results-shfea-darom/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9ם",
-  jerusalem:
-    "https://www.shabaton.online/results-jerusalem/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9ם",
-  all:
-    "https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9ם",
+// הפוך: אזור → ערי האזור (מהמיפוי הקיים)
+const REGION_TO_CITY_NAMES = {};
+for (const [cityNorm, region] of Object.entries(CITY_TO_REGION)) {
+  if (!REGION_TO_CITY_NAMES[region]) REGION_TO_CITY_NAMES[region] = [];
+  REGION_TO_CITY_NAMES[region].push(cityNorm);
+}
+
+/* -------------------------------------- */
+/* תחומי לימוד (קטגוריות)                */
+/* -------------------------------------- */
+
+const RAW_CATEGORIES = [
+  "קורסי אופק חדש - עוז לתמורה",
+  "קורסי אימון - NLP",
+  "קורסי איפור, טיפוח אישי וסטיילינג",
+  "קורסי אמנות ואומנויות",
+  "לימודי תואר שני בחינוך ובהוראה",
+  "קורסי בישול - קורסי קונדיטוריה",
+  "קורסי בריאות ותזונה נכונה",
+  "קורסים לגיל רך - חינוך קדם יסודי",
+  "קורסי גישור",
+  "קורסי גרפולוגיה ונומרולוגיה",
+  "קורסי דרמה, פסיכודרמה, קורסי תיאטרון בובות",
+  "קורסי הדרכת הורים, זוגיות ומשפחה",
+  "קורסי הוראה מתקנת - קורסי הוראה מותאמת",
+  "קורסי הנחיית קבוצות",
+  "קורסי העצמה והתפתחות אישית",
+  "קורסי העצמה נשית",
+  "קורסי חברה וקהילה",
+  "לימודי חינוך גופני",
+  "קורסי חינוך והוראה",
+  "קורסי חינוך סביבתי - לימודי ארץ ישראל",
+  "קורסי טיולים - סיורים לימודיים",
+  "קורסי טכנולוגיה דיגיטלית ואינטרנט",
+  "קורסי יהדות, מורשת ישראל ודתות",
+  "קורסי ייעוץ ארגוני",
+  "לימודי ייעוץ חינוכי",
+  "קורסי כתיבה יוצרת - קורסי כתיבה עיונית - כתיבה אקדמית",
+  "קורסים לגימלאים",
+  "קורסים בלמידה מרחוק",
+  "קורסים לציבור הדתי",
+  "קורסי אבחון וטיפול בלקויות למידה - קורסים לחינוך מיוחד",
+  "קורסים במדעי הרוח",
+  "קורסי מוסיקה - קונצרטים מודרכים",
+  "קורסי מידענות וספרנות",
+  "לימודי מיינדפולנס ומדיטציה",
+  "מנהל עסקים - פיננסים - יזמות",
+  "קורסי הוראת מתמטיקה ומדעים",
+  "לימודי ניהול חינוכי",
+  "קורסי ניתוח התנהגות",
+  "ספורט, מחול ותנועה",
+  "קורסי עיצוב אופנה - קורסי תפירה",
+  "קורסי עיצוב הסביבה",
+  "קורסי  עיצוב פנים - הום סטיילינג",
+  "קורסי עריכה לשונית",
+  "קורסים לפיתוח מקצועי למורים",
+  "קורסי פסיכולוגיה וייעוץ",
+  "קורסי צורפות ותכשיטנות",
+  "קורסי צילום",
+  "קורסי קולנוע",
+  "לימודי רפואה משלימה",
+  "קורסי  שפות - הוראת שפות - לימודי תרגום",
+  "לימודי תואר שלישי - דוקטורט",
+  "לימודי תואר שני",
+  "קורסי תיירות",
+  "קורסי תקשורת בין-אישית",
+  "קורסי תרבות העשרה ואקטואליה",
+  "לימודי תרפיה וטיפול",
+];
+
+// מילים "חלשות" שלא נשתמש בהן לזיהוי תחום
+const CATEGORY_STOPWORDS = new Set([
+  normalizeHebrew("קורס"),
+  normalizeHebrew("קורסי"),
+  normalizeHebrew("קורסים"),
+  normalizeHebrew("לימודי"),
+  normalizeHebrew("לימודים"),
+  normalizeHebrew("בהוראה"),
+  normalizeHebrew("בחינוך"),
+  normalizeHebrew("הוראה"),
+  normalizeHebrew("חינוך"),
+  normalizeHebrew("תואר"),
+  normalizeHebrew("שני"),
+  normalizeHebrew("שלישי"),
+]);
+
+const CATEGORIES = RAW_CATEGORIES.map((name) => {
+  const norm = normalizeHebrew(name);
+  const tokens = norm
+    .split(" ")
+    .filter((w) => w && !CATEGORY_STOPWORDS.has(w));
+  return { name, norm, tokens };
+});
+
+/**
+ * זיהוי תחום לימוד מתוך הטקסט של הגולש.
+ * בודקים חפיפה בין מילים "חזקות" של הקטגוריה לבין ההודעה.
+ */
+function detectCategory(cleanMsg) {
+  let best = null;
+  let bestScore = 0;
+
+  for (const cat of CATEGORIES) {
+    let hits = 0;
+    for (const token of cat.tokens) {
+      if (cleanMsg.includes(token)) hits++;
+    }
+    if (!hits) continue;
+    const score = hits / (cat.tokens.length || 1);
+    if (score > bestScore) {
+      bestScore = score;
+      best = cat;
+    }
+  }
+
+  // אפשר להחמיר אם תרצי – כרגע מספיק לפחות התאמה אחת
+  return best;
+}
+
+/* -------------------------------------- */
+/* Region → slug prefix for results pages */
+/* -------------------------------------- */
+
+const REGION_SLUG_PREFIX = {
+  zafon: "results-zafon",
+  merkaz: "search-results-merkaz",
+  sharon: "results-sharon",
+  darom: "results-shfea-darom",
+  jerusalem: "results-jerusalem",
+  all: "results-all",
 };
 
 /* -------------------------------------- */
@@ -158,6 +276,7 @@ async function loadIndexes() {
 function classifyPage(p) {
   const url = (p.url || "").toLowerCase();
 
+  // דפי תוצאות (כל ה-results / search-results)
   if (
     url.includes("results-") ||
     url.includes("/results/") ||
@@ -185,7 +304,7 @@ function classifyPage(p) {
 }
 
 /* -------------------------------------- */
-/* Soon                                   */
+/* Soon (3 חודשים קדימה)                  */
 /* -------------------------------------- */
 
 const MONTHS = {
@@ -221,12 +340,101 @@ function extractStartDate(text) {
   return new Date(parseInt(yearMatch[0]), month, 1);
 }
 
+// 0–2 חודשים קדימה (חודש נוכחי + עוד 2)
 function isSoon(date) {
   if (!date) return false;
   const now = new Date();
-  const m = now.getMonth();
-  const next = (m + 1) % 12;
-  return date.getMonth() === m || date.getMonth() === next;
+  const diffMonths =
+    (date.getFullYear() - now.getFullYear()) * 12 +
+    (date.getMonth() - now.getMonth());
+  return diffMonths >= 0 && diffMonths <= 2;
+}
+
+/* -------------------------------------- */
+/* Region / category matching helpers      */
+/* -------------------------------------- */
+
+function detectRegion(cleanMsg) {
+  // קודם – לפי עיר
+  for (const [cityNorm, region] of Object.entries(CITY_TO_REGION)) {
+    if (cleanMsg.includes(cityNorm)) {
+      return region;
+    }
+  }
+
+  // אח"כ – לפי מילת אזור
+  for (const [region, words] of Object.entries(REGION_KEYWORDS)) {
+    if (words.some((w) => cleanMsg.includes(w))) return region;
+  }
+
+  return null;
+}
+
+function pageMatchesCategory(p, category) {
+  if (!category) return true;
+  const text = (p.clean || "") + " " + normalizeHebrew(p.title || "");
+  let hits = 0;
+  for (const token of category.tokens) {
+    if (text.includes(token)) hits++;
+  }
+  return hits > 0;
+}
+
+function pageMatchesRegion(p, region) {
+  if (!region) return true;
+  const text = p.clean || "";
+  const cities = REGION_TO_CITY_NAMES[region] || [];
+  if (cities.some((c) => text.includes(c))) return true;
+
+  const regionWords = REGION_KEYWORDS[region] || [];
+  if (regionWords.some((w) => text.includes(w))) return true;
+
+  return false;
+}
+
+function isResultsUrl(url = "") {
+  const u = url.toLowerCase();
+  return (
+    u.includes("results-") ||
+    u.includes("/results/") ||
+    u.includes("/results-all/") ||
+    u.includes("search-results-")
+  );
+}
+
+// מציאת דף תוצאות לפי אזור + תחום
+function findResultsPage(pages, regionCode, category) {
+  const prefix = REGION_SLUG_PREFIX[regionCode];
+  if (!prefix) return null;
+
+  const prefixLower = prefix.toLowerCase();
+  const candidates = pages.filter(
+    (p) =>
+      p.type === "results" &&
+      p.url &&
+      p.url.toLowerCase().includes(prefixLower)
+  );
+  if (!candidates.length) return null;
+
+  if (category) {
+    const catTokens = category.tokens;
+    const withCat = candidates
+      .map((p) => ({
+        p,
+        hits: catTokens.filter((tok) => (p.clean || "").includes(tok)).length,
+      }))
+      .filter((x) => x.hits > 0)
+      .sort(
+        (a, b) =>
+          b.hits - a.hits ||
+          (b.p.score || 0) - (a.p.score || 0)
+      );
+    if (withCat[0]) return withCat[0].p;
+  }
+
+  return candidates.sort(
+    (a, b) => (b.score || 0) - (a.score || 0)
+  )[0];
 }
 
 /* -------------------------------------- */
@@ -266,7 +474,8 @@ export default async function handler(req, res) {
     const raw = await getRawBody(req, { encoding: "utf8" });
     const data = JSON.parse(raw);
     message = data.message || "";
-  } catch {
+  } catch (err) {
+    console.error("JSON parse error:", err);
     return res.status(400).json({ error: "Invalid JSON" });
   }
 
@@ -286,22 +495,18 @@ export default async function handler(req, res) {
 
     const all = await loadIndexes();
 
-    const cityMatch = Object.keys(CITY_TO_REGION).find((c) =>
-      cleanMsg.includes(c)
-    );
+    // ---- זיהוי אזור + תחום ----
+    const region = detectRegion(cleanMsg);
+    const category = detectCategory(cleanMsg);
+    const isCategoryQuery = !!category;
 
-    const region = cityMatch ? CITY_TO_REGION[cityMatch] : null;
-
-    const hasPhotoQuery =
-      cleanMsg.includes(normalizeHebrew("קורס צילום")) ||
-      cleanMsg.includes(normalizeHebrew("קורסי צילום")) ||
-      (cleanMsg.includes(normalizeHebrew("צילום")) &&
-        cleanMsg.includes(normalizeHebrew("קורס")));
-
+    // ---- הבניית רשימת דפים עם ניקוי וטקסט ----
     const pages = all.map((p) => {
       const type = classifyPage(p);
-      const fullTitle =
-        [p.title, p.h1, ...(p.h2 || [])].filter(Boolean).join(" ");
+
+      const fullTitle = [p.title, p.h1, ...(p.h2 || [])]
+        .filter(Boolean)
+        .join(" ");
 
       const html = p.text || "";
       const listItems = (html.match(/<li>(.*?)<\/li>/gi) || [])
@@ -320,59 +525,119 @@ export default async function handler(req, res) {
 
       let score = cosineSimilarity(queryVector, p.vector || []);
 
-      if (cityMatch && txt.includes(cityMatch)) score += 0.25;
+      // בוסט לפי התאמת תחום
+      if (category && pageMatchesCategory({ clean: txt, title: p.title }, category)) {
+        score += 0.2;
+      }
+
+      // בוסט לפי התאמת אזור
+      if (region && pageMatchesRegion({ clean: txt }, region)) {
+        score += 0.2;
+      }
 
       return { ...p, type, fullTitle, clean: txt, score };
     });
 
-    let bestResults = [];
+    // מסננים דפים חסומים
+    const usablePages = pages.filter((p) => p.type !== "blocked");
 
-    if (hasPhotoQuery) {
-      if (region && PHOTO_RESULTS_URLS[region]) {
-        bestResults.push({
+    /* -------------------------------------- */
+    /* בניית רשימות לפי סדר ההעדפות          */
+    /* -------------------------------------- */
+
+    let finalList = [];
+
+    if (isCategoryQuery) {
+      // 1) דפים פרטיים של מוסדות (course, לא results) בתחום + אזור
+      const institutionCourses = usablePages
+        .filter((p) => p.type === "course" && !isResultsUrl(p.url))
+        .filter((p) => pageMatchesCategory(p, category))
+        .filter((p) => pageMatchesRegion(p, region))
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .slice(0, 8); // אפשר לשנות כמות אם תרצי
+
+      finalList.push(...institutionCourses);
+
+      // 2) דף תוצאות אזורי (results-<region>/категория)
+      const regionResultPage =
+        region && findResultsPage(usablePages, region, category);
+
+      if (regionResultPage) {
+        finalList.push({
+          ...regionResultPage,
           type: "results",
-          title: REGION_TITLES[region],
-          url: PHOTO_RESULTS_URLS[region],
         });
       }
 
-      bestResults.push({
-        type: "results",
-        title: REGION_TITLES.all,
-        url: PHOTO_RESULTS_URLS.all,
-      });
-    } else {
-      bestResults = pages
-        .filter((p) => p.type === "results")
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 2)
+      // 3) קורסים בתחום הנפתחים בקרוב (3 חודשים)
+      const soonCourses = usablePages
+        .filter((p) => p.type === "course")
+        .filter((p) => pageMatchesCategory(p, category))
         .map((p) => ({
+          ...p,
+          date: extractStartDate(p.fullTitle + " " + p.clean),
+        }))
+        .filter((p) => isSoon(p.date))
+        .sort((a, b) => a.date - b.date)
+        .slice(0, 8);
+
+      finalList.push(...soonCourses);
+
+      // 4) דף תוצאות "כל הארץ" לאותו תחום (results-all/קטגוריה)
+      const allResultsPage = findResultsPage(usablePages, "all", category);
+      if (allResultsPage) {
+        finalList.push({
+          ...allResultsPage,
           type: "results",
-          title: p.title,
-          url: p.url,
-        }));
+        });
+      }
+
+      // 5) מאמרים רלוונטיים בתחום
+      const articles = usablePages
+        .filter((p) => p.type === "article")
+        .filter((p) => pageMatchesCategory(p, category))
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .slice(0, 5);
+
+      finalList.push(...articles);
+    } else {
+      // ❖ ברירת מחדל – ללא תחום ברור: נשמר לוגיקה כללית
+      const results = usablePages
+        .filter((p) => p.type === "results")
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .slice(0, 3);
+
+      const courses = usablePages
+        .filter((p) => p.type === "course")
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .slice(0, 8);
+
+      const soon = courses
+        .map((p) => ({
+          ...p,
+          date: extractStartDate(p.fullTitle + " " + p.clean),
+        }))
+        .filter((p) => isSoon(p.date))
+        .sort((a, b) => a.date - b.date);
+
+      const articles = usablePages
+        .filter((p) => p.type === "article")
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .slice(0, 5);
+
+      finalList = [...results, ...courses, ...soon, ...articles];
     }
 
-    const courses = pages
-      .filter((p) => p.type === "course")
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 8);
+    // הסרת כפילויות לפי URL ושמירה על סדר
+    const seenUrls = new Set();
+    finalList = finalList.filter((p) => {
+      if (!p.url) return true;
+      if (seenUrls.has(p.url)) return false;
+      seenUrls.add(p.url);
+      return true;
+    });
 
-    const soon = courses
-      .filter((p) => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
-      .map((p) => ({
-        ...p,
-        date: extractStartDate(p.fullTitle + " " + p.clean),
-      }))
-      .filter((p) => isSoon(p.date))
-      .sort((a, b) => a.date - b.date);
-
-    const articles = pages
-      .filter((p) => p.type === "article")
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
-
-    const finalList = [...bestResults, ...courses, ...soon, ...articles];
+    /* ---------- Context for GPT ---------- */
 
     const context = finalList
       .map((p, i) => {
@@ -392,6 +657,8 @@ URL: ${p.url}`;
       })
       .join("\n\n");
 
+    /* ---------- GPT Completion ---------- */
+
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.15,
@@ -399,10 +666,14 @@ URL: ${p.url}`;
         {
           role: "system",
           content: `
-ענה רק מתוך ה־ Context.
-הצג את התוצאות מסודר, קצר וברור.
+ענה רק מתוך ה־Context.
+אל תמציא מידע.
 אל תמציא קישורים.
-ב־ results יש להציג רק כותרת + URL.
+אל תוסיף "למידה מרחוק" אם לא הופיע בטקסט.
+ב־results השתמש רק ב־title ו־URL.
+הצג את התוצאות בצורה מסודרת וברורה.
+הקפד לשמור על סדר התוצאות כפי שהן מופיעות ב-Context (מוסדות, דפי תוצאות אזוריים, נפתחים בקרוב, כל הארץ, מאמרים).
+סגנון ידידותי וקצר.
           `,
         },
         {
@@ -414,8 +685,8 @@ URL: ${p.url}`;
 
     let reply = completion?.choices?.[0]?.message?.content || "";
 
-    /* -------- encode/decode --------- */
-
+    /* ---------- הפיכת קישורים לכפתור "למידע נוסף" ---------- */
+    // לא עושים encode / decode — משתמשים ב-URL כמו שהוא כדי להימנע מקידוד כפול.
     reply = reply.replace(
       /https?:\/\/[^\s<)]+/g,
       (url) =>
