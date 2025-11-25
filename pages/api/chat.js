@@ -1,4 +1,3 @@
-
 export const config = {
   runtime: "nodejs",
 };
@@ -31,6 +30,18 @@ function normalizeHebrew(t) {
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * תיקון שגיאות כתיב נפוצות לפני עיבוד
+ * למשל: "קטרס מחשבים" → "קורס מחשבים"
+ */
+function fixTypos(t) {
+  return t
+    .replace(/קטרס/g, "קורס")
+    .replace(/קרוס/g, "קורס")
+    .replace(/כוריס/g, "קורס")
+    .replace(/מחשביים/g, "מחשבים");
 }
 
 function cosineSimilarity(a, b) {
@@ -73,10 +84,7 @@ for (const [kw, region] of Object.entries(regionKeywordsRaw)) {
   REGION_KEYWORDS[normalizeHebrew(kw)] = region;
 }
 
-/* תיאור ידידותי לאזור (לכותרות בלבד) - REGION_LABELS, REGION_SLUGS, SOON_REGION_SLUGS מיובאים ישירות */
-
-/* -------------------------------------- */
-/* תחומי לימוד (נטען מ-JSON)            */
+/* SUBJECT_STOPWORDS, SUBJECTS, SUBJECT_SYNONYMS         */
 /* -------------------------------------- */
 
 const SUBJECT_STOPWORDS = new Set(
@@ -310,7 +318,9 @@ export default async function handler(req, res) {
   try {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    const cleanMsg = normalizeHebrew(message);
+    // נרמול + תיקון שגיאות כתיב
+    const normalizedInput = normalizeHebrew(message);
+    const cleanMsg = fixTypos(normalizedInput);
 
     /* --- Embedding לשאילתה --- */
     const emb = await client.embeddings.create({
@@ -372,16 +382,25 @@ export default async function handler(req, res) {
         // בוסט לעיר
         if (cityMatch && txt.includes(cityMatch)) score += 0.25;
 
-        // בוסט לתחום (אם זוהה)
+        // בוסט/ענישה לפי תחום (אם זוהה)
         if (detectedSubject) {
-          if (
-            detectedSubject.tokens.some((tok) => txt.includes(tok)) ||
-            normalizeHebrew(fullTitle).includes(
-              detectedSubject.tokens[0] || ""
-            )
-          ) {
-            score += 0.2;
+          const normTitle = normalizeHebrew(fullTitle);
+          const subjectMatch = detectedSubject.tokens.some(
+            (tok) => txt.includes(tok) || normTitle.includes(tok)
+          );
+
+          if (subjectMatch) {
+            score += 0.2; // בוסט אם הדף מכיל מילות מפתח של התחום
+          } else {
+            score -= 0.5; // ענישה חזקה לדפים שלא קשורים לתחום
           }
+        }
+
+        // אם המשתמש לא דיבר על "תואר" – נעניש קורסי תואר שני/שלישי
+        const msgHasDegree = /תואר/.test(message);
+        const titleHasDegree = /תואר/.test(p.title || "");
+        if (!msgHasDegree && titleHasDegree) {
+          score -= 0.6;
         }
 
         return { ...p, type, fullTitle, clean: txt, score };
@@ -392,7 +411,7 @@ export default async function handler(req, res) {
     const courses = pages
       .filter((p) => p.type === "course")
       .sort((a, b) => b.score - a.score)
-      .slice(0, 8); // דפי מוסדות – תמיד ראשונים
+      .slice(0, 8); // דפי מוסדות
 
     /* --- "נפתחים בקרוב" כקורסים בודדים (3 חודשים קדימה) --- */
     const soon = courses
@@ -460,7 +479,7 @@ export default async function handler(req, res) {
           url: p.url,
         }));
 
-      // מחלקים באופן גס בין "אזוריים" ל"כל הארץ" לפי ה־slug
+      // מחלקים בין "אזוריים" ל"כל הארץ" לפי ה־slug
       rawResults.forEach((r) => {
         const url = (r.url || "").toLowerCase();
         if (url.includes("results-all")) allCountryResults.push(r);
@@ -476,14 +495,27 @@ export default async function handler(req, res) {
       .slice(0, 5);
 
     /* --- סדר סופי של רשימת הפריטים --- */
-    const finalList = [
-      ...courses,
-      ...regionalResults,
-      ...soon,
-      ...soonMonthly,
-      ...allCountryResults,
-      ...articles,
-    ];
+    // אם זוהה תחום ספציפי → קודם דפי תוצאות, אחר כך קורסים
+    let finalList;
+    if (subjectSlug) {
+      finalList = [
+        ...regionalResults,
+        ...allCountryResults,
+        ...courses,
+        ...soon,
+        ...soonMonthly,
+        ...articles,
+      ];
+    } else {
+      finalList = [
+        ...courses,
+        ...regionalResults,
+        ...soon,
+        ...soonMonthly,
+        ...allCountryResults,
+        ...articles,
+      ];
+    }
 
     /* --- Context ל־GPT (עם תגיות <url>...) --- */
 
