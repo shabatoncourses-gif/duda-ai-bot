@@ -19,7 +19,6 @@ import subjectStopwordsRaw from "../../data/subject_stopwords.json";
 import subjectSynonymsRaw from "../../data/subject_synonyms.json";
 import MONTHS from "../../data/months.json";
 
-
 /* -------------------------------------- */
 /* Utility                                */
 /* -------------------------------------- */
