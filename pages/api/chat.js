@@ -9,15 +9,16 @@ dotenv.config();
 import OpenAI from "openai";
 import getRawBody from "raw-body";
 
-import cityToRegionRaw from "../../data/city_to_region.json" assert { type: "json" };
-import regionKeywordsRaw from "../../data/region_keywords.json" assert { type: "json" };
-import REGION_SLUGS from "../../data/region_slugs.json" assert { type: "json" };
-import REGION_LABELS from "../../data/region_labels.json" assert { type: "json" };
-import SOON_REGION_SLUGS from "../../data/soon_region_slugs.json" assert { type: "json" };
-import SUBJECT_SLUGS from "../../data/subjects.json" assert { type: "json" };
-import subjectStopwordsRaw from "../../data/subject_stopwords.json" assert { type: "json" };
-import subjectSynonymsRaw from "../../data/subject_synonyms.json" assert { type: "json" };
-import MONTHS from "../../data/months.json" assert { type: "json" };
+import cityToRegionRaw from "../../data/city_to_region.json";
+import regionKeywordsRaw from "../../data/region_keywords.json";
+import REGION_SLUGS from "../../data/region_slugs.json";
+import REGION_LABELS from "../../data/region_labels.json";
+import SOON_REGION_SLUGS from "../../data/soon_region_slugs.json";
+import SUBJECT_SLUGS from "../../data/subjects.json";
+import subjectStopwordsRaw from "../../data/subject_stopwords.json";
+import subjectSynonymsRaw from "../../data/subject_synonyms.json";
+import MONTHS from "../../data/months.json";
+
 
 /* -------------------------------------- */
 /* Utility                                */
