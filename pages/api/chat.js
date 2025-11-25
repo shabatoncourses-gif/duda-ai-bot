@@ -181,13 +181,24 @@ function detectSubject(cleanMsg) {
 function buildExistingResultsUrl(regionId, subjectSlug, pages) {
   const base = "https://www.shabaton.online";
   const regionPath = REGION_SLUGS[regionId] || REGION_SLUGS.all;
-  const candidate = `${base}/${regionPath}/${subjectSlug}`.replace(/\s+/g, " ");
 
-  // חייב להופיע באמת באינדקס
-  return pages.some((p) => (p.url || "").replace(/\s+/g, " ") === candidate)
-    ? candidate
-    : null;
+  // בניית URL גם אם יש רווחים/מקפים/עברית
+  const candidate = `${base}/${regionPath}/${subjectSlug}`
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // בדיקה גם אם ה־URL בפועל מכיל תווים שונים
+  const exists = pages.some((p) => {
+    const url = (p.url || "").replace(/\s+/g, " ").trim().toLowerCase();
+    return (
+      url.includes(regionPath.toLowerCase()) &&
+      url.includes(normalizeHebrew(subjectSlug))
+    );
+  });
+
+  return exists ? candidate : null;
 }
+
 
 function getRegionLabel(regionId) {
   return REGION_LABELS[regionId] || "";
@@ -256,6 +267,36 @@ function classifyPage(p) {
 
   return "course"; // דפי מוסדות / קורס
 }
+
+function extractStartDate(text) {
+  if (!text) return null;
+  const t = text.toLowerCase();
+
+  let month = null;
+  for (const [name, idx] of Object.entries(MONTHS)) {
+    if (t.includes(name)) {
+      month = idx;
+      break;
+    }
+  }
+
+  const yearMatch = /20\d{2}/.exec(t);
+  if (!yearMatch || month === null) return null;
+
+  return new Date(parseInt(yearMatch[0]), month, 1);
+}
+
+function isSoon(date) {
+  if (!date) return false;
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const dYear = date.getFullYear();
+  const dMonth = date.getMonth();
+  const diffMonths = (dYear - currentYear) * 12 + (dMonth - currentMonth);
+  return diffMonths >= 0 && diffMonths <= 2;
+}
+
 /* -------------------------------------- */
 /* Handler                                */
 /* -------------------------------------- */
@@ -383,9 +424,15 @@ const pages = all
     // ⭐ בוסט / ענישה לפי תחום
     if (detectedSubject) {
       const normTitle = normalizeHebrew(fullTitle);
-      const subjectMatch = detectedSubject.tokens.some(
-        (tok) => txt.includes(tok) || normTitle.includes(tok)
-      );
+      const normalizedSubject = normalizeHebrew(detectedSubject.slug);
+
+const subjectMatch = (
+  normalizedSubject.includes(normalizeHebrew(fullTitle)) ||
+  detectedSubject.tokens.some(tok => 
+    normalizeHebrew(fullTitle).includes(tok) || txt.includes(tok)
+  )
+);
+
 
       if (subjectMatch) score += 0.6;
       else score -= 0.7;
@@ -407,15 +454,17 @@ const pages = all
       }
 
       // ❗ סף מינימום לתחום
-      if (score < 0.3) return null;
+      if (detectedSubject && score < 0.5) return null;
+
     } else {
       // 🔹 אם לא זוהה תחום – עדיין לדחוף מחשבים קצת
-      if (cleanMsg.includes("מחש")) {
-        const normTitle = normalizeHebrew(fullTitle);
-        if (normTitle.includes("מחש") || txt.includes("מחש")) score += 0.8;
-        else score -= 0.4;
-      }
-    }
+    if (detectedSubject && detectedSubject.tokens.some(tok => cleanMsg.includes(tok))) {
+  if (normalizedSubject.includes(normTitle) || txt.includes(normalizedSubject)) {
+    score += 2.0;
+  } else {
+    score -= 1.0;
+  }
+}
 
     // ❗ סף מינימום מוחלט
     if (detectedSubject && score < 0.5) return null;
@@ -457,6 +506,22 @@ let allCountryResults = [];
 if (subjectSlug) {
   if (region) {
     const regionalUrl = buildExistingResultsUrl(region, subjectSlug, pages);
+    if (!regionalUrl) {
+  const altResult = pages.find(p =>
+    p.type === "results" &&
+    normalizeHebrew(p.title).includes(normalizeHebrew(getRegionLabel(region))) &&
+    normalizeHebrew(p.title).includes(normalizeHebrew(subjectSlug))
+  );
+
+  if (altResult) {
+    regionalResults.push({
+      type: "results",
+      title: altResult.title,
+      url: altResult.url,
+    });
+  }
+}
+
     if (regionalUrl) {
       regionalResults.push({
         type: "results",
@@ -501,13 +566,13 @@ const articles = pages
 
 /* --- סדר סופי של התוצאות --- */
 let finalList;
-if (subjectSlug) {
+    if (subjectSlug) {
   finalList = [
-    ...courses,
+    ...courses,    
     ...regionalResults,
-    ...soon,
+    ...soon,            
+    ...allCountryResults, 
     ...soonMonthly,
-    ...allCountryResults,
     ...articles,
   ];
 } else {
@@ -520,6 +585,7 @@ if (subjectSlug) {
     ...articles,
   ];
 }
+
 
 /* --- ללא תוצאות → הצעת חלופה --- */
 if (!finalList || finalList.length === 0) {
