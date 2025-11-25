@@ -126,6 +126,15 @@ const REGION_LABELS = {
   jerusalem: "בירושלים והסביבה",
 };
 
+/* Slugs של דפי "נפתחים בקרוב" (לוח חודשי) לפי אזור */
+const MONTHLY_REGION_SLUGS = {
+  merkaz: "courses-per-month-Merkaz",
+  sharon: "courses-per-month-sharon",
+  jerusalem: "courses-per-month-jerusalem",
+  zafon: "courses-per-month-zafon",
+  darom: "courses-per-month-darom",
+};
+
 /* -------------------------------------- */
 /* תחומי לימוד (slugs של התחומים)       */
 /* -------------------------------------- */
@@ -235,11 +244,72 @@ function buildResultsUrl(regionId, subjectSlug) {
   const base = "https://www.shabaton.online";
   const regionPath = REGION_SLUGS[regionId] || REGION_SLUGS.all;
   // משאירים את ה-slug בעברית; הדפדפן יקודד בעצמו
-  return `${base}/${regionPath}/${subjectSlug}`.replace(/\s+/g, " ");
+  const url = `${base}/${regionPath}/${subjectSlug}`;
+  return url.replace(/\s+/g, " ");
 }
 
 function getRegionLabel(regionId) {
   return REGION_LABELS[regionId] || "";
+}
+
+/* -------------------------------------- */
+/* "נפתחים בקרוב" – 3 חודשים קדימה      */
+/* -------------------------------------- */
+
+const HEB_MONTHS = [
+  "ינואר",
+  "פברואר",
+  "מרץ",
+  "אפריל",
+  "מאי",
+  "יוני",
+  "יולי",
+  "אוגוסט",
+  "ספטמבר",
+  "אוקטובר",
+  "נובמבר",
+  "דצמבר",
+];
+
+function buildMonthlyUrl(regionId, monthIndex, year) {
+  const base = "https://www.shabaton.online";
+  const slug = MONTHLY_REGION_SLUGS[regionId];
+  if (!slug) return null;
+
+  const monthName = HEB_MONTHS[monthIndex];
+  // לפי ההגדרה שלך: חודש בעברית + שנה, עם רווח ביניהם
+  const monthPart = `${monthName} ${year}`;
+  const url = `${base}/${slug}/${monthPart}`;
+  return url.replace(/\s+/g, " ");
+}
+
+function buildSoonItems(regionId, subjectSlug) {
+  if (!regionId) return [];
+
+  const now = new Date();
+  const items = [];
+
+  for (let i = 0; i < 3; i++) {
+    const m = (now.getMonth() + i) % 12;
+    const y = now.getFullYear() + Math.floor((now.getMonth() + i) / 12);
+
+    const url = buildMonthlyUrl(regionId, m, y);
+    if (!url) continue;
+
+    const monthName = HEB_MONTHS[m];
+    const titleBase = subjectSlug
+      ? `${subjectSlug} – קורסים הנפתחים בקרוב`
+      : "קורסים הנפתחים בקרוב";
+    const title = `${titleBase} ${getRegionLabel(regionId)} – ${monthName} ${y}`;
+
+    items.push({
+      type: "results",
+      title,
+      url,
+    });
+  }
+
+  return items;
 }
 
 /* -------------------------------------- */
@@ -311,56 +381,6 @@ function classifyPage(p) {
 
   // ברירת מחדל — קורס
   return "course";
-}
-
-/* -------------------------------------- */
-/* קורסים שנפתחים בקרוב (3 חודשים)       */
-/* -------------------------------------- */
-
-const MONTHS = {
-  ינואר: 0,
-  פברואר: 1,
-  מרץ: 2,
-  אפריל: 3,
-  מאי: 4,
-  יוני: 5,
-  יולי: 6,
-  אוגוסט: 7,
-  ספטמבר: 8,
-  אוקטובר: 9,
-  נובמבר: 10,
-  דצמבר: 11,
-};
-
-function extractStartDate(text) {
-  if (!text) return null;
-  const t = text.toLowerCase();
-
-  let month = null;
-  for (const [name, idx] of Object.entries(MONTHS)) {
-    if (t.includes(name)) {
-      month = idx;
-      break;
-    }
-  }
-
-  const yearMatch = /20\d{2}/.exec(t);
-  if (!yearMatch || month === null) return null;
-
-  return new Date(parseInt(yearMatch[0]), month, 1);
-}
-
-function isSoon(date) {
-  if (!date) return false;
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-
-  const dYear = date.getFullYear();
-  const dMonth = date.getMonth();
-
-  const diffMonths = (dYear - currentYear) * 12 + (dMonth - currentMonth);
-  return diffMonths >= 0 && diffMonths <= 2; // שלושת החודשים הקרובים
 }
 
 /* -------------------------------------- */
@@ -473,10 +493,8 @@ export default async function handler(req, res) {
 
         // בוסט לתחום (אם זוהה)
         if (detectedSubject) {
-          if (
-            detectedSubject.tokens.some((tok) => txt.includes(tok)) ||
-            normalizeHebrew(fullTitle).includes(detectedSubject.tokens[0] || "")
-          ) {
+          const normFull = normalizeHebrew(fullTitle + " " + txt);
+          if (detectedSubject.tokens.some((tok) => normFull.includes(tok))) {
             score += 0.2;
           }
         }
@@ -485,12 +503,23 @@ export default async function handler(req, res) {
       })
       .filter(Boolean);
 
-    /* --- קורסים (דפים פרטיים של מוסדות) --- */
+    /* --- קורסים (דפי מוסדות) — מסוננים לפי תחום --- */
 
     const courses = pages
       .filter((p) => p.type === "course")
+      .filter((p) => {
+        if (!detectedSubject) return true;
+        const normAll = normalizeHebrew(
+          (p.fullTitle || "") +
+            " " +
+            (p.description || "") +
+            " " +
+            (p.clean || "")
+        );
+        return detectedSubject.tokens.some((tok) => normAll.includes(tok));
+      })
       .sort((a, b) => b.score - a.score)
-      .slice(0, 8); // “דפי מוסדות” – תמיד ראשונים
+      .slice(0, 8);
 
     /* --- דפי תוצאות לפי תחום ואזור --- */
 
@@ -499,8 +528,10 @@ export default async function handler(req, res) {
     if (subjectSlug) {
       // קודם: דף תוצאות אזורי אם יש אזור
       if (region) {
-        const titleRegion =
-          subjectSlug + " " + (getRegionLabel(region) || "").trim();
+        const label = getRegionLabel(region);
+        const titleRegion = label
+          ? `${subjectSlug} ${label}`
+          : `${subjectSlug} באזור המבוקש`;
 
         bestResults.push({
           type: "results",
@@ -509,10 +540,10 @@ export default async function handler(req, res) {
         });
       }
 
-      // אחר כך: קורסים בכל הארץ
+      // אחר כך: קורסים בכל הארץ (אותו תחום)
       bestResults.push({
         type: "results",
-        title: subjectSlug + " בכל הארץ",
+        title: `${subjectSlug} בכל הארץ`,
         url: buildResultsUrl("all", subjectSlug),
       });
     } else {
@@ -528,16 +559,10 @@ export default async function handler(req, res) {
         }));
     }
 
-    /* --- קורסים נפתחים בקרוב (3 חודשים) --- */
+    /* --- קורסים נפתחים בקרוב (3 חודשים קדימה) --- */
 
-    const soon = courses
-      .filter((p) => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle))
-      .map((p) => ({
-        ...p,
-        date: extractStartDate(p.fullTitle + " " + p.clean),
-      }))
-      .filter((p) => isSoon(p.date))
-      .sort((a, b) => a.date - b.date);
+    const soonItems =
+      region && subjectSlug ? buildSoonItems(region, subjectSlug) : [];
 
     /* --- מאמרים --- */
 
@@ -549,9 +574,9 @@ export default async function handler(req, res) {
     /* --- סדר סופי של רשימת הפריטים --- */
     // 1. קורסים פרטיים (מוסדות)
     // 2. דפי תוצאות (אזור + כל הארץ)
-    // 3. "נפתחים בקרוב"
+    // 3. "נפתחים בקרוב" (3 חודשים קדימה)
     // 4. מאמרים
-    const finalList = [...courses, ...bestResults, ...soon, ...articles];
+    const finalList = [...courses, ...bestResults, ...soonItems, ...articles];
 
     /* --- Context ל־GPT (עם תגיות <url>...) --- */
 
@@ -590,8 +615,8 @@ URL: <url>${p.url}</url>`;
 הצג את התוצאות בצורה מסודרת, עם דגש על:
 1. דפי קורסים פרטיים מתאימים (מוסדות).
 2. אחריהם דף תוצאות לאזור המתאים.
-3. אחריהם קורסים הנפתחים בקרוב (3 חודשים).
-4. אחריהם קורסים בכל הארץ.
+3. אחריהם קורסים הנפתחים בקרוב (3 חודשים) לפי האזור.
+4. אחריהם קורסים בכל הארץ / מאמרים רלוונטיים.
 סגנון ידידותי וקצר.
           `,
         },
