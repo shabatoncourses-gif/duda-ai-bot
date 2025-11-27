@@ -140,7 +140,9 @@ const SUBJECT_SYNONYMS = (Array.isArray(subjectSynonymsRaw)
 /* זיהוי תחום לימוד מהשאלה               */
 /* -------------------------------------- */
 function detectSubject(cleanMsg) {
-  // 🔹 קודם – מילים נרדפות
+  cleanMsg = normalizeHebrew(cleanMsg);
+
+  // 1️⃣ ניסיון ראשון – לפי מילים נרדפות
   for (const syn of SUBJECT_SYNONYMS) {
     if (syn.tokens.some((tok) => cleanMsg.includes(tok))) {
       return SUBJECTS.find(s =>
@@ -149,21 +151,14 @@ function detectSubject(cleanMsg) {
     }
   }
 
-  // 🔹 אם נאמר "קורס מחשבים / קורסי מחשבים" → להכריח מחשבים
-  if (/קורס(י)?\s+מחש/i.test(cleanMsg)) {
-    return SUBJECTS.find(s =>
-      normalizeHebrew(s.slug).includes("טכנולוגיה") &&
-      normalizeHebrew(s.slug).includes("דיגיטל")
-    ) || null;
-  }
-
-  // 🔹 ניקוד לפי התאמת מילים
+  // 2️⃣ ניסיון שני – זיהוי לפי התאמה חלקית + ניקוד
   let best = null;
   let bestScore = 0;
   for (const s of SUBJECTS) {
     let score = 0;
     for (const tok of s.tokens) {
-      if (cleanMsg.includes(tok)) score++;
+      if (cleanMsg.includes(tok)) score += 1.0;
+      if (tok.length >= 4 && cleanMsg.includes(tok.slice(0, 4))) score += 0.3; // התאמה חלקית
     }
     if (score > bestScore) {
       bestScore = score;
@@ -171,9 +166,16 @@ function detectSubject(cleanMsg) {
     }
   }
 
-  return best || null;
-}
+  // 3️⃣ טיפול בשגיאות כתיב נפוצות – "קורס מיחשוב", "מחשבים", "קיורס"
+  if (cleanMsg.includes("מחש") && bestScore < 1) {
+    return SUBJECTS.find(s =>
+      normalizeHebrew(s.slug).includes("טכנולוגיה") &&
+      normalizeHebrew(s.slug).includes("דיגיטל")
+    ) || best;
+  }
 
+  return bestScore > 0 ? best : null;
+}
 
 
 /* -------------------------------------- */
@@ -502,31 +504,32 @@ const courses = pages
 /* כאן אנחנו משתמשים רק בדפי לוח חודשיים ("courses-per-month-...")
     ורק אם גם האזור מתאים וגם בטקסט הדף מופיע התחום המבוקש */
 
-let soon = [];        // כרגע לא מציגים קורסים בודדים "נפתחים בקרוב"
-let soonMonthly = []; // כאן יהיה דף הלוח החודשי הרלוונטי
+let soonMonthly = [];
 
 const soonPages = pages.filter((p) => p.type === "soonpage");
 
 if (region && SOON_REGION_SLUGS[region]) {
   const slugPart = SOON_REGION_SLUGS[region].toLowerCase();
-soonMonthly = soonPages
-  .filter((p) => (p.url || "").toLowerCase().includes(slugPart))
-  .map(p => ({
-    ...p,
-    date: extractStartDate((p.fullTitle || "") + " " + (p.clean || "")),
-  }))
-  .filter(p => {
-    // 🎯 רק אם התאריך קיים ועדיין רלוונטי (לא עבר)
-    return p.date && isSoon(p.date);
-  })
-  .filter(p => {
-    // 🔍 התאמה לתחום – לפי תוכן העמוד
-    if (!detectedSubject) return true;
-    return detectedSubject.tokens.some(tok => p.clean.includes(tok));
-  })
-  .sort((a, b) => a.date - b.date) // תאריכים קרובים יותר תחילה
-  .slice(0, 1); // רק דף אחד
- }
+
+  soonMonthly = soonPages
+    .filter((p) => (p.url || "").toLowerCase().includes(slugPart))
+    .map(p => ({
+      ...p,
+      date: extractStartDate((p.fullTitle || "") + " " + (p.clean || "")),
+    }))
+    .filter(p => p.date && isSoon(p.date))
+    .filter(p => {
+      if (!detectedSubject) return false;
+      return detectedSubject.tokens.some(tok => p.clean.includes(tok)) ||
+             SUBJECT_SYNONYMS.some(syn =>
+                normalizeHebrew(syn.slug) === normalizeHebrew(detectedSubject.slug) &&
+                syn.tokens.some(t => p.clean.includes(t))
+             );
+    })
+    .sort((a, b) => a.date - b.date)
+    .slice(0, 1);
+}
+
 /* --- דפי תוצאות (results) לפי תחום ואזור --- */
 let regionalResults = [];
 let allCountryResults = [];
