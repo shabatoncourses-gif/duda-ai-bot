@@ -140,25 +140,29 @@ const SUBJECT_SYNONYMS = (Array.isArray(subjectSynonymsRaw)
 /* זיהוי תחום לימוד מהשאלה               */
 /* -------------------------------------- */
 function detectSubject(cleanMsg) {
-  cleanMsg = normalizeHebrew(cleanMsg);
-
-  // 1️⃣ ניסיון ראשון – לפי מילים נרדפות
+  // 1️⃣ קודם – מילים נרדפות
   for (const syn of SUBJECT_SYNONYMS) {
-    if (syn.tokens.some((tok) => cleanMsg.includes(tok))) {
+    if (syn.tokens.some(tok => cleanMsg.includes(tok))) {
       return SUBJECTS.find(s =>
         normalizeHebrew(s.slug) === normalizeHebrew(syn.slug)
       ) || null;
     }
   }
 
-  // 2️⃣ ניסיון שני – זיהוי לפי התאמה חלקית + ניקוד
+  // 2️⃣ התאמה ישירה לשאילתה – גם בלי המילה "קורס"
+  for (const s of SUBJECTS) {
+    if (s.tokens.some(tok => cleanMsg.includes(tok))) {
+      return s;
+    }
+  }
+
+  // 3️⃣ כ fallback – ניקוד
   let best = null;
   let bestScore = 0;
   for (const s of SUBJECTS) {
     let score = 0;
     for (const tok of s.tokens) {
-      if (cleanMsg.includes(tok)) score += 1.0;
-      if (tok.length >= 4 && cleanMsg.includes(tok.slice(0, 4))) score += 0.3; // התאמה חלקית
+      if (cleanMsg.includes(tok)) score++;
     }
     if (score > bestScore) {
       bestScore = score;
@@ -166,15 +170,7 @@ function detectSubject(cleanMsg) {
     }
   }
 
-  // 3️⃣ טיפול בשגיאות כתיב נפוצות – "קורס מיחשוב", "מחשבים", "קיורס"
-  if (cleanMsg.includes("מחש") && bestScore < 1) {
-    return SUBJECTS.find(s =>
-      normalizeHebrew(s.slug).includes("טכנולוגיה") &&
-      normalizeHebrew(s.slug).includes("דיגיטל")
-    ) || best;
-  }
-
-  return bestScore > 0 ? best : null;
+  return best || null;
 }
 
 
@@ -196,6 +192,7 @@ function buildExistingResultsUrl(regionId, subjectSlug, pages) {
     return (
       url.includes(regionPath.toLowerCase()) &&
       url.includes(normalizeHebrew(subjectSlug))
+
     );
   });
 
@@ -522,12 +519,14 @@ if (region && SOON_REGION_SLUGS[region]) {
     .filter(p => {
       // 🔍 התאמה לתחום – לפי tokens או מילים נרדפות
       if (!detectedSubject) return false;
-      return detectedSubject.tokens.some(tok => p.clean.includes(tok)) ||
-             SUBJECT_SYNONYMS.some(syn =>
-                normalizeHebrew(syn.slug) === normalizeHebrew(detectedSubject.slug) &&
-                syn.tokens.some(t => p.clean.includes(t))
-             );
-    })
+return (
+  detectedSubject.tokens.some(tok => p.clean.includes(tok)) ||
+  SUBJECT_SYNONYMS.some(syn =>
+    normalizeHebrew(syn.slug) === normalizeHebrew(detectedSubject.slug) &&
+    syn.tokens.some(t => p.clean.includes(t))
+  )
+);
+
     .sort((a, b) => a.date - b.date)
     .slice(0, 1); // 🟩 רק דף אחד
 }
