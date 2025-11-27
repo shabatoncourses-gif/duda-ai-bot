@@ -378,6 +378,20 @@ const generalCalcQuestion = /(איך|כמה|מה)\s+(מחשבים|מחשב)/.tes
     /* -------------------------------------- */
     let detectedSubject = generalCalcQuestion ? null : detectSubject(cleanMsg);
 
+    const subjectSlug = detectedSubject ? detectedSubject.slug : null;
+
+
+    // 🩹 זיהוי מתקדם לשאלות מחשבים – כולל מילים קשורות
+if (!detectedSubject) {
+  const computerKeywords = ["קורס מחשבים", "מחשבים", "מחשב", "טכנולוגיה", "עיצוב אתרים", "בניית אתרים", "דיגיטל"];
+  if (computerKeywords.some(w => normalizeHebrew(message).includes(normalizeHebrew(w)))) {
+    detectedSubject = SUBJECTS.find(s =>
+      normalizeHebrew(s.slug).includes("טכנולוגיה") &&
+      normalizeHebrew(s.slug).includes("דיגיטל")
+    );
+  }
+}
+
 
     // בדיקת תואר
     const msgHasDegree = /תואר/.test(message);
@@ -436,24 +450,24 @@ const pages = all
       if (!msgHasDegree && degreeWords.some(d => normTitle.includes(normalizeHebrew(d)))) {
         return null;
       }
-
-      // 💥 בוסט למחשבים במקרה הצורך
-      if (cleanMsg.includes("מחש")) {
-        if (normTitle.includes("מחש") || txt.includes("מחש")) score += 2.5;
-        else score -= 1.5;
-      }
-
+// 💥 בוסט למחשבים – לפי התאמה אמיתית לתחום
+if (cleanMsg.includes("מחש") && detectedSubject) {
+  if (detectedSubject.tokens.some(tok => normTitle.includes(tok) || txt.includes(tok))) {
+    score += 2.0; // בוסט חיובי אם יש התאמה אמיתית
+  } else {
+    score -= 0.3; // ענישה קלה בלבד
+  }
+}
       
-      // ❗ אם מדובר במחשבים – גם אם הציון נמוך, לא למחוק לגמרי
-         if (detectedSubject && score < 0.5) return null;
 
-
-    } else {
-      // אם לא זוהה תחום כלל – אפשר להוסיף בוסטים קלים לפי צורך עתידי
-      if (cleanMsg.includes("מחש") && (normTitle.includes("מחש") || txt.includes("מחש"))) {
-        score += 0.4;
-      }
-    }
+       // ❗ אם מדובר במחשבים – לא למחוק לגמרי, רק להוריד ציון
+if (detectedSubject && score < 0.5) {
+  if (cleanMsg.includes("מחש")) {
+    score = Math.max(score, 0.3); // השארה בציון מינימום אם קשור למחשבים
+  } else {
+    return null; // מחיקה רגילה עבור תחומים אחרים
+  }
+}
 
     // ❗ החזרת הדף – תמיד
     return { ...p, type, fullTitle, clean: txt, score };
@@ -570,20 +584,22 @@ if (region && SOON_REGION_SLUGS[region]) {
 }
 
 /* --- סדר סופי של התוצאות --- */
+/* --- סדר סופי של התוצאות --- */
 let finalList;
-    if (subjectSlug) {
+
+if (subjectSlug) {
   finalList = [
-    ...courses,    
-    ...regionalResults,
-    ...soon,            
-    ...allCountryResults, 
-    ...soonMonthly,
-    ...articles,
+    ...courses,            // 1️⃣ קורסים ממוסדות פרטיים
+    ...regionalResults,   // 2️⃣ דפי תוצאות אזוריים
+    ...soon,              // 3️⃣ קורסים הנפתחים בקרוב בתחום ובאזור
+    ...soonMonthly,       // 4️⃣ דפי לוח חודשים
+    ...allCountryResults, // 5️⃣ תוצאות בכל הארץ
+    ...articles,          // 6️⃣ מאמרים (אם קיימים)
   ];
 } else {
   finalList = [
     ...courses,
-    ...regionalResults,
+    ...regionalResults,   
     ...soon,
     ...soonMonthly,
     ...allCountryResults,
@@ -594,20 +610,23 @@ let finalList;
 
 /* --- ללא תוצאות → הצעת חלופה --- */
 if (!finalList || finalList.length === 0) {
+  let suggestion = detectedSubject ? detectedSubject.slug : "נסי ניסוח אחר";
+
   return res.json({
     reply: `
 לא נמצאו תוצאות מתאימות לשאילתה: "${message}".
 
-📌 שימי לב – ייתכן שהתחום באתר נקרא אחרת.
-לדוגמה, "קורס מחשבים" → **"קורסי טכנולוגיה דיגיטלית ואינטרנט"**
+📌 ייתכן שהתחום באתר מופיע בשם מעט שונה.
+למשל: "${message}" → **"${suggestion}"**
 
 🔹 מומלץ לנסות שוב:
-👉 <b>קורסי טכנולוגיה דיגיטלית</b>
+👉 <b>${suggestion}</b>
 
-או שאוכל לחפש עבורך מיד את התחום הנ״ל.
+או שאוכל לחפש עבורך מיד את התחום הזה.
 `,
   });
 }
+
 
     if (courses.length === 0 && subjectSlug) {
   const allUrl = buildExistingResultsUrl("all", subjectSlug, pages);
