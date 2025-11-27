@@ -140,6 +140,10 @@ const SUBJECT_SYNONYMS = (Array.isArray(subjectSynonymsRaw)
 /* -------------------------------------- */
 /* זיהוי תחום לימוד מהשאלה               */
 /* -------------------------------------- */
+
+/* -------------------------------------- */
+/* זיהוי תחום לימוד מהשאלה               */
+/* -------------------------------------- */
 function detectSubject(cleanMsg) {
   // 🔹 קודם – מילים נרדפות
   for (const syn of SUBJECT_SYNONYMS) {
@@ -174,6 +178,7 @@ function detectSubject(cleanMsg) {
 
   return best || null;
 }
+
 
 
 /* -------------------------------------- */
