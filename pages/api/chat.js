@@ -532,7 +532,6 @@ if (region && SOON_REGION_SLUGS[region]) {
     .slice(0, 1); // 🟩 רק דף אחד
 }
 
-
 /* --- דפי תוצאות (results) לפי תחום ואזור --- */
 let regionalResults = [];
 let allCountryResults = [];
