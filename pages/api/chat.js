@@ -499,13 +499,18 @@ const courses = pages
   .slice(0, 8);
 
 /* --- קורסים הנפתחים בקרוב --- */
+/* --- קורסים הנפתחים בקרוב (דווקא בתחום וגם באזור!) --- */
 const soon = courses
-  .filter(p => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle || "")) // זיהוי קורסים הנפתחים בקרוב
+  // זיהוי "נפתחים בקרוב" גם בטקסט ולא רק בכותרת!
+  .filter(p => /(נפתחים בקרוב|פתיחה|נפתח|קרוב)/i.test(
+      (p.fullTitle || "") + " " + (p.clean || "")
+  ))
   .filter(p => {
-    // 🔍 התאמה לתחום – לפי תוכן העמוד (fullTitle + clean)
+    // 🎯 התאמה לתחום – לפי תוכן העמוד (לא רק title)
     if (!detectedSubject) return false;
-    const fullCheck = normalizeHebrew((p.fullTitle || "") + " " + (p.clean || ""));
-    return detectedSubject.tokens.some(tok => fullCheck.includes(tok));
+    return detectedSubject.tokens.some(tok =>
+      p.clean.includes(tok) || normalizeHebrew(p.title).includes(tok)
+    );
   })
   .filter(p => {
     // 📍 התאמה לאזור – לפי URL (אם צוין אזור)
@@ -554,7 +559,10 @@ if (subjectSlug) {
     }
   }
 
+/* --- דף תוצאות בכל הארץ רק אם באמת קשור לתחום --- */
+if (subjectSlug) {
   const allUrl = buildExistingResultsUrl("all", subjectSlug, pages);
+
   if (allUrl) {
     allCountryResults.push({
       type: "results",
@@ -562,6 +570,8 @@ if (subjectSlug) {
       url: allUrl,
     });
   }
+}
+
 
   if (!region) {
   regionalResults = []; // לא להציג תוצאות אזוריות במקרה שאין אזור בשאילתה
