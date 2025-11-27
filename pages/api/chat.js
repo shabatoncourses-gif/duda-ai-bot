@@ -478,13 +478,12 @@ if (detectedSubject) {
     }
   }
 } 
-
-       // ❗ אם מדובר במחשבים – לא למחוק לגמרי, רק להוריד ציון
+// ❗ אם מדובר במחשבים – לא למחוק לגמרי, רק להוריד ציון
 if (detectedSubject && score < 0.5) {
   if (cleanMsg.includes("מחש")) {
-    score = Math.max(score, 0.3); // השארה בציון מינימום אם קשור למחשבים
+    score = Math.max(score, 0.3);
   } else {
-    return null; // מחיקה רגילה עבור תחומים אחרים
+    return null;
   }
 }
 
