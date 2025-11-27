@@ -450,6 +450,7 @@ const pages = all
     if (cityMatch && txt.includes(cityMatch)) score += 0.25;
 
     // ⭐ בוסט / ענישה לפי תחום
+    
 if (detectedSubject) {
   const normTitle = normalizeHebrew(fullTitle);
   const normalizedSubject = normalizeHebrew(detectedSubject.slug);
@@ -458,7 +459,8 @@ if (detectedSubject) {
     normalizeHebrew(fullTitle).includes(normalizedSubject) ||
     detectedSubject.tokens.some(tok =>
       normalizeHebrew(fullTitle).includes(tok) || txt.includes(tok)
-  );
+    )
+  ); 
 
   if (subjectMatch) score += 0.6;
   else score -= 0.7;
@@ -476,7 +478,6 @@ if (detectedSubject) {
     }
   }
 } 
-
 
        // ❗ אם מדובר במחשבים – לא למחוק לגמרי, רק להוריד ציון
 if (detectedSubject && score < 0.5) {
