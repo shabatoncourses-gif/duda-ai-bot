@@ -450,34 +450,34 @@ const pages = all
     if (cityMatch && txt.includes(cityMatch)) score += 0.25;
 
     // ⭐ בוסט / ענישה לפי תחום
-    if (detectedSubject) {
-      const normTitle = normalizeHebrew(fullTitle);
-      const normalizedSubject = normalizeHebrew(detectedSubject.slug);
+if (detectedSubject) {
+  const normTitle = normalizeHebrew(fullTitle);
+  const normalizedSubject = normalizeHebrew(detectedSubject.slug);
 
-     const subjectMatch = (
-  normalizeHebrew(fullTitle).includes(normalizedSubject) ||
-  detectedSubject.tokens.some(tok =>
-    normalizeHebrew(fullTitle).includes(tok) || txt.includes(tok)
-  )
-);
+  const subjectMatch = (
+    normalizeHebrew(fullTitle).includes(normalizedSubject) ||
+    detectedSubject.tokens.some(tok =>
+      normalizeHebrew(fullTitle).includes(tok) || txt.includes(tok)
+    )
+  );
 
-      if (subjectMatch) score += 0.6;
-      else score -= 0.7;
+  if (subjectMatch) score += 0.6;
+  else score -= 0.7;
 
-      // 🚫 חסימת קורסי תואר אם לא ביקש
-      const degreeWords = ["תואר", "מגיסטר", "ma"];
-      if (!msgHasDegree && degreeWords.some(d => normTitle.includes(normalizeHebrew(d)))) {
-        return null;
-      }
-// 💥 בוסט למחשבים – לפי התאמה אמיתית לתחום
-if (cleanMsg.includes("מחש") && detectedSubject) {
-  if (detectedSubject.tokens.some(tok => normTitle.includes(tok) || txt.includes(tok))) {
-    score += 2.0; // בוסט חיובי אם יש התאמה אמיתית
-  } else {
-    score -= 0.3; // ענישה קלה בלבד
+  const degreeWords = ["תואר", "מגיסטר", "ma"];
+  if (!msgHasDegree && degreeWords.some(d => normTitle.includes(normalizeHebrew(d)))) {
+    return null;
   }
-}
-      
+
+  if (cleanMsg.includes("מחש") && detectedSubject) {
+    if (detectedSubject.tokens.some(tok => normTitle.includes(tok) || txt.includes(tok))) {
+      score += 2.0;
+    } else {
+      score -= 0.3;
+    }
+  }
+} 
+
 
        // ❗ אם מדובר במחשבים – לא למחוק לגמרי, רק להוריד ציון
 if (detectedSubject && score < 0.5) {
