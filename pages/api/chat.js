@@ -715,9 +715,14 @@ reply = reply.replace(
 reply = reply.replace(/<\/?url>/g, "");
 
 /* --- החזרת תשובה --- */
+
+/* --- החזרת תשובה --- */
 return res.json({ reply });
+
 } catch (err) {
-console.error("ERROR:", err);
-return res.status(500).json({ error: err.message });
+  console.error("ERROR:", err);
+  return res.status(500).json({ error: err.message });
 }
-}
+
+} // ← סוף פונקציית handler
+
