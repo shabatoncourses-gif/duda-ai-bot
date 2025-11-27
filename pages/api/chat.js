@@ -526,7 +526,7 @@ soonMonthly = soonPages
   })
   .sort((a, b) => a.date - b.date) // תאריכים קרובים יותר תחילה
   .slice(0, 1); // רק דף אחד
-
+ }
 /* --- דפי תוצאות (results) לפי תחום ואזור --- */
 let regionalResults = [];
 let allCountryResults = [];
@@ -713,8 +713,6 @@ reply = reply.replace(
 
 // להסרה אם נשארו <url> בלי תכולה
 reply = reply.replace(/<\/?url>/g, "");
-
-/* --- החזרת תשובה --- */
 
 /* --- החזרת תשובה --- */
 return res.json({ reply });
