@@ -136,11 +136,6 @@ const SUBJECT_SYNONYMS = (Array.isArray(subjectSynonymsRaw)
 }));
 
 
-
-/* -------------------------------------- */
-/* זיהוי תחום לימוד מהשאלה               */
-/* -------------------------------------- */
-
 /* -------------------------------------- */
 /* זיהוי תחום לימוד מהשאלה               */
 /* -------------------------------------- */
@@ -381,21 +376,40 @@ const generalCalcQuestion = /(איך|כמה|מה)\s+(מחשבים|מחשב)/.tes
     /* -------------------------------------- */
     /* זיהוי תחום (subject)                  */
     /* -------------------------------------- */
-    let detectedSubject = generalCalcQuestion ? null : detectSubject(cleanMsg);
+  /* -------------------------------------- */
+/* זיהוי תחום (subject)                  */
+/* -------------------------------------- */
 
-    const subjectSlug = detectedSubject ? detectedSubject.slug : null;
+// אם זו שאלה כללית (איך מחשבים מענק / כמה מחשבים...), לא להציע קורסים
+let detectedSubject = generalCalcQuestion ? null : detectSubject(cleanMsg);
 
-
-    // 🩹 זיהוי מתקדם לשאלות מחשבים – כולל מילים קשורות
+// 🩹 זיהוי מתקדם לשאלות מחשבים – כולל מילים נלוות
 if (!detectedSubject) {
-  const computerKeywords = ["קורס מחשבים", "מחשבים", "מחשב", "טכנולוגיה", "עיצוב אתרים", "בניית אתרים", "דיגיטל"];
-  if (computerKeywords.some(w => normalizeHebrew(message).includes(normalizeHebrew(w)))) {
-    detectedSubject = SUBJECTS.find(s =>
-      normalizeHebrew(s.slug).includes("טכנולוגיה") &&
-      normalizeHebrew(s.slug).includes("דיגיטל")
-    );
+  const computerKeywords = [
+    "קורס מחשבים",
+    "מחשבים",
+    "מחשב",
+    "טכנולוגיה",
+    "עיצוב אתרים",
+    "בניית אתרים",
+    "דיגיטל"
+  ];
+  if (
+    computerKeywords.some((w) =>
+      normalizeHebrew(cleanMsg).includes(normalizeHebrew(w))
+    )
+  ) {
+    detectedSubject =
+      SUBJECTS.find(
+        (s) =>
+          normalizeHebrew(s.slug).includes("טכנולוגיה") &&
+          normalizeHebrew(s.slug).includes("דיגיטל")
+      ) || null;
   }
 }
+
+// הגדרת subjectSlug לשימוש בהמשך
+const subjectSlug = detectedSubject ? detectedSubject.slug : null;
 
 
     // בדיקת תואר
