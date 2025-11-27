@@ -427,12 +427,12 @@ const pages = all
       const normTitle = normalizeHebrew(fullTitle);
       const normalizedSubject = normalizeHebrew(detectedSubject.slug);
 
-      const subjectMatch = (
-        normTitle.includes(normalizedSubject) ||
-        detectedSubject.tokens.some(tok =>
-          normTitle.includes(tok) || txt.includes(tok)
-        )
-      );
+     const subjectMatch = (
+  normalizeHebrew(fullTitle).includes(normalizedSubject) ||
+  detectedSubject.tokens.some(tok =>
+    normalizeHebrew(fullTitle).includes(tok) || txt.includes(tok)
+  )
+);
 
       if (subjectMatch) score += 0.6;
       else score -= 0.7;
