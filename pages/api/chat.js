@@ -593,6 +593,11 @@ if (subjectSlug) {
     else regionalResults.push(r);
   });
 }
+/* --- מאמרים רלוונטיים --- */
+const articles = pages
+  .filter((p) => p.type === "article")
+  .sort((a, b) => b.score - a.score)
+  .slice(0, 5);
 
 /* --- סדר סופי של התוצאות --- */
 let finalList;
