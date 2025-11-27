@@ -526,9 +526,8 @@ return (
     syn.tokens.some(t => p.clean.includes(t))
   )
 );
-
-    .sort((a, b) => a.date - b.date)
-    .slice(0, 1); // 🟩 רק דף אחד
+.sort((a, b) => a.date - b.date)
+.slice(0, 1); // 🟩 רק דף אחד
 }
 
 /* --- דפי תוצאות (results) לפי תחום ואזור --- */
