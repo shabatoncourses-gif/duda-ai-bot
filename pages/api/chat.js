@@ -451,7 +451,8 @@ const pages = all
 
       
       // ❗ אם מדובר במחשבים – גם אם הציון נמוך, לא למחוק לגמרי
-         if (detectedSubject && score < 0.5 && !cleanMsg.includes("מחש")) return null;
+         if (detectedSubject && score < 0.5) return null;
+
 
     } else {
       // אם לא זוהה תחום כלל – אפשר להוסיף בוסטים קלים לפי צורך עתידי
@@ -464,8 +465,6 @@ const pages = all
     return { ...p, type, fullTitle, clean: txt, score };
   })
   .filter(Boolean);
-
-
 
 /* --- קורסים פרטיים --- */
 const courses = pages
