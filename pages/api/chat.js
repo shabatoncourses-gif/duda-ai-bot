@@ -449,8 +449,9 @@ const pages = all
         else score -= 1.5;
       }
 
-      // ❗ סף מינימום לתחום
-      if (score < 0.5) return null;
+      
+      // ❗ אם מדובר במחשבים – גם אם הציון נמוך, לא למחוק לגמרי
+         if (detectedSubject && score < 0.5 && !cleanMsg.includes("מחש")) return null;
 
     } else {
       // אם לא זוהה תחום כלל – אפשר להוסיף בוסטים קלים לפי צורך עתידי
@@ -532,6 +533,11 @@ if (subjectSlug) {
       url: allUrl,
     });
   }
+
+  if (!region) {
+  regionalResults = []; // לא להציג תוצאות אזוריות במקרה שאין אזור בשאילתה
+}
+
 } else {
   // fallback אם לא מצאנו תחום
   const rawResults = pages
