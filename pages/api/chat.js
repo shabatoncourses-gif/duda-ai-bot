@@ -474,24 +474,26 @@ const courses = pages
   .slice(0, 8);
 /* --- קורסים הנפתחים בקרוב --- */
 const soon = courses
-  .filter((p) => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle || ""))
-  .map((p) => ({
+  .filter(p => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle || "")) // זיהוי קורסים הנפתחים בקרוב
+  .filter(p => {
+    // 🔍 התאמה לתחום – לפי תוכן העמוד (לא רק title)
+    if (!detectedSubject) return false;
+    return detectedSubject.tokens.some(tok => p.clean.includes(tok));
+  })
+  .filter(p => {
+    // 📍 התאמה לאזור – לפי URL (אם צוין אזור)
+    if (!region) return true;
+    return (p.url || "")
+      .toLowerCase()
+      .includes((SOON_REGION_SLUGS[region] || "").toLowerCase());
+  })
+  .map(p => ({
     ...p,
     date: extractStartDate((p.fullTitle || "") + " " + (p.clean || "")),
   }))
-  .filter((p) => isSoon(p.date))
+  .filter(p => isSoon(p.date))
   .sort((a, b) => a.date - b.date);
 
-/* --- דפי לוח חודשים (לפי region) --- */
-const soonPages = pages.filter((p) => p.type === "soonpage");
-let soonMonthly = [];
-if (region && SOON_REGION_SLUGS[region]) {
-  const slugPart = SOON_REGION_SLUGS[region].toLowerCase();
-  soonMonthly = soonPages
-    .filter((p) => (p.url || "").toLowerCase().includes(slugPart))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 2);
-}
 
 /* --- דפי תוצאות (results) לפי תחום ואזור --- */
 let regionalResults = [];
