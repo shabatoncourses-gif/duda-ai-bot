@@ -498,57 +498,51 @@ const courses = pages
   .sort((a, b) => b.score - a.score)
   .slice(0, 8);
 
-/* --- קורסים הנפתחים בקרוב --- */
-/* --- קורסים הנפתחים בקרוב (דווקא בתחום וגם באזור!) --- */
-const soon = courses
-  // זיהוי "נפתחים בקרוב" גם בטקסט ולא רק בכותרת!
-  .filter(p => /(נפתחים בקרוב|פתיחה|נפתח|קרוב)/i.test(
-      (p.fullTitle || "") + " " + (p.clean || "")
-  ))
-  .filter(p => {
-    // 🎯 התאמה לתחום – לפי תוכן העמוד (לא רק title)
-    if (!detectedSubject) return false;
-    return detectedSubject.tokens.some(tok =>
-      p.clean.includes(tok) || normalizeHebrew(p.title).includes(tok)
-    );
-  })
-  .filter(p => {
-    // 📍 התאמה לאזור – לפי URL (אם צוין אזור)
-    if (!region) return true;
-    return (p.url || "")
-      .toLowerCase()
-      .includes((SOON_REGION_SLUGS[region] || "").toLowerCase());
-  })
+
+/* כאן אנחנו משתמשים רק בדפי לוח חודשיים ("courses-per-month-...")
+    ורק אם גם האזור מתאים וגם בטקסט הדף מופיע התחום המבוקש */
+
+let soon = [];        // כרגע לא מציגים קורסים בודדים "נפתחים בקרוב"
+let soonMonthly = []; // כאן יהיה דף הלוח החודשי הרלוונטי
+
+const soonPages = pages.filter((p) => p.type === "soonpage");
+
+if (region && SOON_REGION_SLUGS[region]) {
+  const slugPart = SOON_REGION_SLUGS[region].toLowerCase();
+soonMonthly = soonPages
+  .filter((p) => (p.url || "").toLowerCase().includes(slugPart))
   .map(p => ({
     ...p,
     date: extractStartDate((p.fullTitle || "") + " " + (p.clean || "")),
   }))
-  .filter(p => isSoon(p.date))
-  .sort((a, b) => a.date - b.date);
+  .filter(p => {
+    // 🎯 רק אם התאריך קיים ועדיין רלוונטי (לא עבר)
+    return p.date && isSoon(p.date);
+  })
+  .filter(p => {
+    // 🔍 התאמה לתחום – לפי תוכן העמוד
+    if (!detectedSubject) return true;
+    return detectedSubject.tokens.some(tok => p.clean.includes(tok));
+  })
+  .sort((a, b) => a.date - b.date) // תאריכים קרובים יותר תחילה
+  .slice(0, 1); // רק דף אחד
 
 
+.push({
+      type: "results",
+      title: sub
+
+/* --- דפי תוצאות (results) לפי תחום ואזור --- */
 /* --- דפי תוצאות (results) לפי תחום ואזור --- */
 let regionalResults = [];
 let allCountryResults = [];
 
+const resultPages = pages.filter((p) => p.type === "results");
+
 if (subjectSlug) {
+  // 🔹 דף תוצאות לאזור המבוקש (אם קיים URL מדויק)
   if (region) {
     const regionalUrl = buildExistingResultsUrl(region, subjectSlug, pages);
-    if (!regionalUrl) {
-  const altResult = pages.find(p =>
-    p.type === "results" &&
-    normalizeHebrew(p.title).includes(normalizeHebrew(getRegionLabel(region))) &&
-    normalizeHebrew(p.title).includes(normalizeHebrew(subjectSlug))
-  );
-
-  if (altResult) {
-    regionalResults.push({
-      type: "results",
-      title: altResult.title,
-      url: altResult.url,
-    });
-  }
-}
 
     if (regionalUrl) {
       regionalResults.push({
@@ -556,13 +550,31 @@ if (subjectSlug) {
         title: subjectSlug + " " + (getRegionLabel(region) || "").trim(),
         url: regionalUrl,
       });
+    } else {
+      // 🔹 fallback: לחפש דף results שיש בו גם אזור וגם תחום בכותרת/טקסט
+      const altResult = resultPages.find((p) => {
+        const t = normalizeHebrew(p.title || "");
+        const txt = p.clean || "";
+        const regionLabel = normalizeHebrew(getRegionLabel(region) || "");
+        const hasRegion = regionLabel && t.includes(regionLabel);
+        const hasSubject = detectedSubject.tokens.some(
+          (tok) => t.includes(tok) || txt.includes(tok)
+        );
+        return hasRegion && hasSubject;
+      });
+
+      if (altResult) {
+        regionalResults.push({
+          type: "results",
+          title: altResult.title,
+          url: altResult.url,
+        });
+      }
     }
   }
 
-/* --- דף תוצאות בכל הארץ רק אם באמת קשור לתחום --- */
-if (subjectSlug) {
+  // 🔹 דף תוצאות בכל הארץ – רק אם הוא באמת לתחום הזה
   const allUrl = buildExistingResultsUrl("all", subjectSlug, pages);
-
   if (allUrl) {
     allCountryResults.push({
       type: "results",
@@ -570,17 +582,9 @@ if (subjectSlug) {
       url: allUrl,
     });
   }
-}
-
-
-  if (!region) {
-  regionalResults = []; // לא להציג תוצאות אזוריות במקרה שאין אזור בשאילתה
-}
-
 } else {
-  // fallback אם לא מצאנו תחום
-  const rawResults = pages
-    .filter((p) => p.type === "results")
+  // 🔹 fallback כללי כשלא זוהה תחום – מותר לקחת תוצאות כלליות
+  const rawResults = resultPages
     .sort((a, b) => b.score - a.score)
     .slice(0, 4)
     .map((p) => ({
@@ -596,47 +600,29 @@ if (subjectSlug) {
   });
 }
 
-/* --- מאמרים רלוונטיים --- */
-const articles = pages
-  .filter((p) => p.type === "article")
-  .sort((a, b) => b.score - a.score)
-  .slice(0, 5);
-
-    /* --- דפי לוח חודשים (לפי region) --- */
-const soonPages = pages.filter((p) => p.type === "soonpage");
-let soonMonthly = [];
-if (region && SOON_REGION_SLUGS[region]) {
-  const slugPart = SOON_REGION_SLUGS[region].toLowerCase();
-  soonMonthly = soonPages
-    .filter((p) => (p.url || "").toLowerCase().includes(slugPart))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 2);
-}
-
 /* --- סדר סופי של התוצאות --- */
 let finalList;
 
 if (subjectSlug) {
   finalList = [
-    ...courses,          
-    ...regionalResults,   
-    ...soon,            
-    ...soonMonthly,      
-    ...allCountryResults.filter(p =>
-  normalizeHebrew(p.title).includes(normalizeHebrew(subjectSlug))
-),
-   ...articles,          
+    ...courses,           // 1️⃣ קורסים פרטיים מתאימים (מוסדות)
+    ...regionalResults,   // 2️⃣ דף תוצאות לאזור המבוקש
+    ...soon,              // 3️⃣ (כרגע ריק – נשאר בשביל סדר הסעיפים)
+    ...soonMonthly,       // 3️⃣ קורסים הנפתחים בקרוב (לוח חודשי לפי אזור+תחום)
+    ...allCountryResults, // 4️⃣ קורסים / תוצאות בכל הארץ לאותו תחום
+    ...articles,          // 5️⃣ מאמרים רלוונטיים אם יש
   ];
 } else {
   finalList = [
     ...courses,
-    ...regionalResults,   
+    ...regionalResults,
     ...soon,
     ...soonMonthly,
     ...allCountryResults,
     ...articles,
   ];
 }
+
 
 
 /* --- ללא תוצאות → הצעת חלופה --- */
