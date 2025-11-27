@@ -564,6 +564,17 @@ const articles = pages
   .sort((a, b) => b.score - a.score)
   .slice(0, 5);
 
+    /* --- דפי לוח חודשים (לפי region) --- */
+const soonPages = pages.filter((p) => p.type === "soonpage");
+let soonMonthly = [];
+if (region && SOON_REGION_SLUGS[region]) {
+  const slugPart = SOON_REGION_SLUGS[region].toLowerCase();
+  soonMonthly = soonPages
+    .filter((p) => (p.url || "").toLowerCase().includes(slugPart))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 2);
+}
+
 /* --- סדר סופי של התוצאות --- */
 let finalList;
     if (subjectSlug) {
