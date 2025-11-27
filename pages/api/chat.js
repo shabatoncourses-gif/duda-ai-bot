@@ -162,17 +162,15 @@ function detectSubject(cleanMsg) {
     }
   }
 
-  // 🔹 fallback ספציפי למחשבים
-  if (!best && cleanMsg.includes("מחש")) {
-    const forced = SUBJECTS.find(
-      (s) =>
-        normalizeHebrew(s.slug).includes("טכנולוגיה") &&
-        normalizeHebrew(s.slug).includes("דיגיטל")
-    );
-    if (forced) return forced;
-  }
-
-  return best || null;
+  // 🔹 fallback מחשבים – רק אם נאמר "קורס מחשבים" / "קורסי מחשבים" / "קורס בתחום מחשבים"
+if (
+  !best &&
+  /קורס(י)?\s+מחש/i.test(normalizeHebrew(message))  // שימוש בצורת הדיבור הנכונה
+) {
+  return SUBJECTS.find(s =>
+    normalizeHebrew(s.slug).includes("טכנולוגיה") &&
+    normalizeHebrew(s.slug).includes("דיגיטל")
+  ) || null;
 }
 
 /* -------------------------------------- */
