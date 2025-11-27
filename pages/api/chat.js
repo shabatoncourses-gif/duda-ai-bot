@@ -497,6 +497,7 @@ const courses = pages
 /* כאן אנחנו משתמשים רק בדפי לוח חודשיים ("courses-per-month-...")
     ורק אם גם האזור מתאים וגם בטקסט הדף מופיע התחום המבוקש */
 /* --- קורסים הנפתחים בקרוב --- */
+/* --- קורסים הנפתחים בקרוב --- */
 let soon = [];                  // 🔹 כרגע לא מציגים קורסים בודדים "נפתחים בקרוב"
 let soonMonthly = [];           // 🔹 כאן יהיה רק דף הלוח החודשי הרלוונטי
 
@@ -513,18 +514,20 @@ if (region && SOON_REGION_SLUGS[region]) {
     }))
     .filter(p => p.date && isSoon(p.date)) // 🎯 רק אם תאריך עתידי
     .filter(p => {
-      // 🔍 התאמה לתחום – לפי tokens או מילים נרדפות
       if (!detectedSubject) return false;
-return (
-  detectedSubject.tokens.some(tok => p.clean.includes(tok)) ||
-  SUBJECT_SYNONYMS.some(syn =>
-    normalizeHebrew(syn.slug) === normalizeHebrew(detectedSubject.slug) &&
-    syn.tokens.some(t => p.clean.includes(t))
-  )
-);
-.sort((a, b) => a.date - b.date)
-.slice(0, 1); // 🟩 רק דף אחד
+      return (
+        detectedSubject.tokens.some(tok => p.clean.includes(tok)) ||
+        SUBJECT_SYNONYMS.some(syn =>
+          normalizeHebrew(syn.slug) === normalizeHebrew(detectedSubject.slug) &&
+          syn.tokens.some(t => p.clean.includes(t))
+        )
+      );
+    })
+    .sort((a, b) => a.date - b.date)
+    .slice(0, 1);
 }
+
+
 
 /* --- דפי תוצאות (results) לפי תחום ואזור --- */
 let regionalResults = [];
