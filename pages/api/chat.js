@@ -497,13 +497,15 @@ const courses = pages
   .filter((p) => p.type === "course")
   .sort((a, b) => b.score - a.score)
   .slice(0, 8);
+
 /* --- קורסים הנפתחים בקרוב --- */
 const soon = courses
   .filter(p => /(נפתחים בקרוב|פתיחה|נפתח)/i.test(p.fullTitle || "")) // זיהוי קורסים הנפתחים בקרוב
   .filter(p => {
-    // 🔍 התאמה לתחום – לפי תוכן העמוד (לא רק title)
+    // 🔍 התאמה לתחום – לפי תוכן העמוד (fullTitle + clean)
     if (!detectedSubject) return false;
-    return detectedSubject.tokens.some(tok => p.clean.includes(tok));
+    const fullCheck = normalizeHebrew((p.fullTitle || "") + " " + (p.clean || ""));
+    return detectedSubject.tokens.some(tok => fullCheck.includes(tok));
   })
   .filter(p => {
     // 📍 התאמה לאזור – לפי URL (אם צוין אזור)
@@ -602,17 +604,18 @@ if (region && SOON_REGION_SLUGS[region]) {
 }
 
 /* --- סדר סופי של התוצאות --- */
-/* --- סדר סופי של התוצאות --- */
 let finalList;
 
 if (subjectSlug) {
   finalList = [
-    ...courses,            // 1️⃣ קורסים ממוסדות פרטיים
-    ...regionalResults,   // 2️⃣ דפי תוצאות אזוריים
-    ...soon,              // 3️⃣ קורסים הנפתחים בקרוב בתחום ובאזור
-    ...soonMonthly,       // 4️⃣ דפי לוח חודשים
-    ...allCountryResults, // 5️⃣ תוצאות בכל הארץ
-    ...articles,          // 6️⃣ מאמרים (אם קיימים)
+    ...courses,          
+    ...regionalResults,   
+    ...soon,            
+    ...soonMonthly,      
+    ...allCountryResults.filter(p =>
+  normalizeHebrew(p.title).includes(normalizeHebrew(subjectSlug))
+),
+   ...articles,          
   ];
 } else {
   finalList = [
