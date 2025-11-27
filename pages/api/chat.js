@@ -458,7 +458,6 @@ if (detectedSubject) {
     normalizeHebrew(fullTitle).includes(normalizedSubject) ||
     detectedSubject.tokens.some(tok =>
       normalizeHebrew(fullTitle).includes(tok) || txt.includes(tok)
-    )
   );
 
   if (subjectMatch) score += 0.6;
