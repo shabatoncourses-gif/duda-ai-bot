@@ -527,12 +527,6 @@ soonMonthly = soonPages
   .sort((a, b) => a.date - b.date) // תאריכים קרובים יותר תחילה
   .slice(0, 1); // רק דף אחד
 
-
-.push({
-      type: "results",
-      title: sub
-
-/* --- דפי תוצאות (results) לפי תחום ואזור --- */
 /* --- דפי תוצאות (results) לפי תחום ואזור --- */
 let regionalResults = [];
 let allCountryResults = [];
