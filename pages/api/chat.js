@@ -134,6 +134,9 @@ const SUBJECT_SYNONYMS = (Array.isArray(subjectSynonymsRaw)
   slug: item.slug,
   tokens: (item.tokens || []).map((tok) => normalizeHebrew(tok)),
 }));
+
+
+
 /* -------------------------------------- */
 /* זיהוי תחום לימוד מהשאלה               */
 /* -------------------------------------- */
@@ -141,14 +144,21 @@ function detectSubject(cleanMsg) {
   // 🔹 קודם – מילים נרדפות
   for (const syn of SUBJECT_SYNONYMS) {
     if (syn.tokens.some((tok) => cleanMsg.includes(tok))) {
-      const found = SUBJECTS.find(
-        (s) => normalizeHebrew(s.slug) === normalizeHebrew(syn.slug)
-      );
-      if (found) return found;
+      return SUBJECTS.find(s =>
+        normalizeHebrew(s.slug) === normalizeHebrew(syn.slug)
+      ) || null;
     }
   }
 
-  // 🔹 ניקוד לפי מספר התאמות מילים
+  // 🔹 אם נאמר "קורס מחשבים / קורסי מחשבים" → להכריח מחשבים
+  if (/קורס(י)?\s+מחש/i.test(cleanMsg)) {
+    return SUBJECTS.find(s =>
+      normalizeHebrew(s.slug).includes("טכנולוגיה") &&
+      normalizeHebrew(s.slug).includes("דיגיטל")
+    ) || null;
+  }
+
+  // 🔹 ניקוד לפי התאמת מילים
   let best = null;
   let bestScore = 0;
   for (const s of SUBJECTS) {
@@ -162,16 +172,9 @@ function detectSubject(cleanMsg) {
     }
   }
 
-  // 🔹 fallback מחשבים – רק אם נאמר "קורס מחשבים" / "קורסי מחשבים" / "קורס בתחום מחשבים"
-if (
-  !best &&
-  /קורס(י)?\s+מחש/i.test(normalizeHebrew(message))  // שימוש בצורת הדיבור הנכונה
-) {
-  return SUBJECTS.find(s =>
-    normalizeHebrew(s.slug).includes("טכנולוגיה") &&
-    normalizeHebrew(s.slug).includes("דיגיטל")
-  ) || null;
+  return best || null;
 }
+
 
 /* -------------------------------------- */
 /* בניית URL קיים לפי אזור ותחום         */
@@ -341,6 +344,10 @@ export default async function handler(req, res) {
     // 🔹 נרמול + תיקון שגיאות כתיב
     const cleanMsg = normalizeHebrew(message);
 
+    // ❌ אם מדובר בשאלה כללית (חישוב) → לא לחפש קורסים
+const generalCalcQuestion = /(איך|כמה|מה)\s+(מחשבים|מחשב)/.test(message);
+
+
     // 🔹 Embedding לשאילתה
     const emb = await client.embeddings.create({
       model: "text-embedding-3-small",
@@ -369,19 +376,8 @@ export default async function handler(req, res) {
     /* -------------------------------------- */
     /* זיהוי תחום (subject)                  */
     /* -------------------------------------- */
-    let detectedSubject = detectSubject(cleanMsg);
+    let detectedSubject = generalCalcQuestion ? null : detectSubject(cleanMsg);
 
-    // 🩹 זיהוי ידני לשאלות מחשבים – מאולץ במקרה הצורך
-    if (!detectedSubject && cleanMsg.includes("מחש")) {
-      const forcedSubject = SUBJECTS.find(
-        (s) =>
-          normalizeHebrew(s.slug) ===
-          normalizeHebrew("קורסי טכנולוגיה דיגיטלית ואינטרנט")
-      );
-      if (forcedSubject) detectedSubject = forcedSubject;
-    }
-
-    const subjectSlug = detectedSubject ? detectedSubject.slug : null;
 
     // בדיקת תואר
     const msgHasDegree = /תואר/.test(message);
@@ -611,6 +607,17 @@ if (!finalList || finalList.length === 0) {
 או שאוכל לחפש עבורך מיד את התחום הנ״ל.
 `,
   });
+}
+
+    if (courses.length === 0 && subjectSlug) {
+  const allUrl = buildExistingResultsUrl("all", subjectSlug, pages);
+  if (allUrl) {
+    finalList.unshift({
+      type: "results",
+      title: subjectSlug + " בכל הארץ",
+      url: allUrl,
+    });
+  }
 }
 
 /* --- בניית Context ל־GPT --- */
