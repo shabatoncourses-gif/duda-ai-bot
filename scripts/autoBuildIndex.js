@@ -33,30 +33,15 @@ const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 // 🌐 טיפול ב-URLs (עברית + אנגלית)
 // ============================================
 function normalizeUrl(url) {
+  // פשוט נוודא שיש protocol - כבר עיבדנו את ה-URL ב-getUrlsFromSitemap
   try {
     url = url.trim();
-    
-    // וידוא protocol
     if (!/^https?:\/\//i.test(url)) {
       url = "https://" + url;
     }
-    
-    // **קריטי:** החלפת רווחים ב-%20
-    // אבל רק אם זה לא כבר מקודד
-    if (url.includes(' ') && !url.includes('%20')) {
-      const urlObj = new URL(url);
-      // נקודד רק את ה-pathname (לא את הדומיין)
-      urlObj.pathname = urlObj.pathname.replace(/ /g, '%20');
-      url = urlObj.toString();
-      console.log(`🔗 תיקון רווחים: ${url.substring(40, 80)}...`);
-    }
-    
     return url;
-    
   } catch (err) {
-    // fallback פשוט - החלפת רווחים
-    console.warn(`⚠️ שגיאה בנרמול, משתמש ב-fallback: ${err.message}`);
-    return url.trim().replace(/ /g, '%20');
+    return url.trim();
   }
 }
 
@@ -98,7 +83,32 @@ async function getUrlsFromSitemap(sitemapUrl) {
     // תמיכה ב-sitemap index וגם ב-sitemap רגיל
     const matches = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)];
     const urls = matches
-      .map((m) => m[1].trim())
+      .map((m) => {
+        let url = m[1].trim();
+        
+        // **טיפול מיוחד:** אם ה-URL מכיל encoding חלקי או רווחים
+        try {
+          // ננסה לפענח את ה-URL
+          const decoded = decodeURI(url);
+          
+          // עכשיו נקודד אותו נכון - רק פעם אחת
+          const urlObj = new URL(decoded);
+          
+          // נקודד את ה-pathname (מחליף רווחים ותווים מיוחדים)
+          const encoded = urlObj.pathname
+            .split('/')
+            .map(seg => seg ? encodeURIComponent(decodeURIComponent(seg)) : '')
+            .join('/');
+          
+          urlObj.pathname = encoded;
+          return urlObj.toString();
+          
+        } catch (err) {
+          // אם הפענוח נכשל, פשוט נחזיר את המקורי
+          console.warn(`⚠️ בעיה בעיבוד URL: ${url.substring(0, 60)}...`);
+          return url;
+        }
+      })
       .filter(Boolean)
       .filter((url) => {
         // סינון URLs לא רלוונטיים
@@ -109,6 +119,15 @@ async function getUrlsFromSitemap(sitemapUrl) {
       });
 
     console.log(`✅ נמצאו ${urls.length} URLs תקינים מה-sitemap`);
+    
+    // הדפס כמה דוגמאות לדיבאג
+    if (urls.length > 0) {
+      console.log(`\n📋 דוגמאות URLs (5 ראשונים):`);
+      urls.slice(0, 5).forEach((url, i) => {
+        console.log(`   ${i+1}. ${url.substring(0, 80)}...`);
+      });
+    }
+    
     return urls;
   } catch (err) {
     console.error(`❌ שגיאה בקריאת sitemap: ${err.message}`);
