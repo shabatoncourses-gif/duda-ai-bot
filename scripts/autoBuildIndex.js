@@ -147,13 +147,17 @@ async function getUrlsFromSitemap(sitemapUrl) {
           const decodedForCheck = decodeURIComponent(url.toLowerCase());
           return !decodedForCheck.includes("/tag/") && 
                  !decodedForCheck.includes("/author/") &&
-                 !decodedForCheck.includes("/page/");
+                 !decodedForCheck.includes("/page/") &&
+                 !decodedForCheck.includes("mosad-index") &&
+                 !decodedForCheck.includes("/contact-us-phone");
         } catch {
           // אם הפענוח נכשל, נבדוק את ה-URL המקורי
           const lower = url.toLowerCase();
           return !lower.includes("/tag/") && 
                  !lower.includes("/author/") &&
-                 !lower.includes("/page/");
+                 !lower.includes("/page/") &&
+                 !lower.includes("mosad-index") &&
+                 !lower.includes("/contact-us-phone");
         }
       });
 
