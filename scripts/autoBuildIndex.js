@@ -114,63 +114,34 @@ async function getUrlsFromSitemap(sitemapUrl) {
             .replace(/&gt;/g, '>')
             .replace(/&quot;/g, '"');
           
-          // פיצול ה-URL לחלקים
-          const urlObj = new URL(url);
+          // **רק נחליף רווחים ל-%20, נשאיר עברית כמו שהיא**
+          url = url.replace(/ /g, '%20');
           
-          // קידוד ה-pathname - אבל רק אם יש תווים לא מקודדים
-          const segments = urlObj.pathname.split('/');
-          const encodedSegments = segments.map(segment => {
-            if (!segment) return '';
-            
-            // אם הסגמנט כבר מקודד (מכיל %), לא נקודד שוב
-            if (segment.includes('%')) {
-              return segment;
-            }
-            
-            // אם יש תווים שצריך לקודד (עברית, רווחים, וכו')
-            // נקודד את הסגמנט
-            try {
-              // בדיקה אם יש תווים לא-ASCII או רווחים
-              if (/[^\x00-\x7F]| /.test(segment)) {
-                return encodeURIComponent(segment);
-              }
-              return segment;
-            } catch {
-              return segment;
-            }
-          });
-          
-          urlObj.pathname = encodedSegments.join('/');
-          
-          return urlObj.toString();
+          return url;
           
         } catch (err) {
           console.warn(`⚠️ בעיה בעיבוד URL: ${url.substring(0, 60)}...`);
-          // במקרה של שגיאה, לפחות נתקן רווחים
           return url.replace(/ /g, '%20');
         }
       })
       .filter(Boolean)
       .filter((url) => {
-        // בדיקת סינון ישירה על ה-URL
+        // בדיקת סינון
         const lower = url.toLowerCase();
         
-        // גם נבדוק את הגרסה המפוענחת לבדיקה בלבד
-        let decodedLower = lower;
-        try {
-          decodedLower = decodeURIComponent(lower);
-        } catch {}
+        // גם נבדוק את הגרסה עם רווחים (במקום %20)
+        const withSpaces = lower.replace(/%20/g, ' ');
         
         return !lower.includes("/tag/") && 
                !lower.includes("/author/") &&
                !lower.includes("/page/") &&
                !lower.includes("mosad-index") &&
                !lower.includes("/contact-us-phone") &&
-               !decodedLower.includes("/tag/") && 
-               !decodedLower.includes("/author/") &&
-               !decodedLower.includes("/page/") &&
-               !decodedLower.includes("mosad-index") &&
-               !decodedLower.includes("/contact-us-phone");
+               !withSpaces.includes("/tag/") && 
+               !withSpaces.includes("/author/") &&
+               !withSpaces.includes("/page/") &&
+               !withSpaces.includes("mosad-index") &&
+               !withSpaces.includes("/contact-us-phone");
       });
 
     console.log(`✅ נמצאו ${urls.length} URLs תקינים מה-sitemap`);
