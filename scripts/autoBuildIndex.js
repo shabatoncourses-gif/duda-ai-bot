@@ -272,8 +272,18 @@ function identifyPageType(url, $) {
     return "info-page";
   }
 
-  // דף מוסד לימוד
-  if ($("ul li a").length > 10 && $("h2").length > 3) {
+  // דף מוסד לימוד - זיהוי משופר
+  // בדיקה אם יש שם מוסד ב-URL או אם יש הרבה קישורים/כותרות
+  const hasInstitutionPattern = 
+    path.includes("-edu") || 
+    path.includes("-college") || 
+    path.includes("-university") ||
+    path.includes("haifa-") ||
+    path.includes("tau-") ||
+    path.includes("huji-") ||
+    (($("ul li a").length > 5 || $("a").length > 10) && $("h2, h3").length > 2);
+  
+  if (hasInstitutionPattern) {
     return "institution-page";
   }
 
@@ -367,7 +377,12 @@ function extractSmartContent(html, url) {
     .filter((t) => t.length > 3);
 
   // **חילוץ מיוחד לדפי Duda דינמיים**
-  const isDudaPage = url.includes("courses-per-month") || url.includes("results-");
+  const isDudaPage = 
+    url.includes("courses-per-month") || 
+    url.includes("results-") ||
+    pageType === "institution-page" ||
+    pageType === "course-list";
+  
   let dudaContent = [];
   
   if (isDudaPage) {
@@ -391,6 +406,14 @@ function extractSmartContent(html, url) {
       if (dataTitle) dudaContent.push(dataTitle);
       if (dataName) dudaContent.push(dataName);
       if (dataDesc) dudaContent.push(dataDesc);
+    });
+    
+    // חילוץ קישורים עם טקסט משמעותי
+    $("a").each((_, el) => {
+      const linkText = $(el).text().trim();
+      if (linkText && linkText.length > 10 && linkText.length < 200) {
+        dudaContent.push(linkText);
+      }
     });
   }
 
@@ -501,27 +524,30 @@ async function processPage(url) {
   const html = await res.text();
   const content = extractSmartContent(html, url);
 
-  // בדיקות תקינות - סף נמוך במיוחד לדפי רשימות
+  // בדיקות תקינות - סף נמוך במיוחד לדפי רשימות ומוסדות
   const isDynamicList = 
     content.type === "course-list" || 
     url.includes("courses-per-month") ||
     url.includes("results-");
   
+  const isInstitution = content.type === "institution-page";
   const isInfoPage = content.type === "info-page";
   
-  // סף נמוך במיוחד לדפי רשימות דינמיים
-  const minLength = isDynamicList ? 10 : (isInfoPage ? 20 : 30);
-  const minWords = isDynamicList ? 3 : (isInfoPage ? 8 : 10);
+  // סף נמוך במיוחד לדפי רשימות דינמיים ומוסדות
+  const minLength = isDynamicList ? 10 : (isInstitution ? 15 : (isInfoPage ? 20 : 30));
+  const minWords = isDynamicList ? 3 : (isInstitution ? 5 : (isInfoPage ? 8 : 10));
 
   if (!content.text || content.text.length < minLength) {
     console.log(`⚠️ תוכן קצר מדי (${content.text.length} תווים, מינימום ${minLength}): ${url}`);
-    console.log(`   טקסט: "${content.text.substring(0, 100)}..."`);
+    console.log(`   סוג דף: ${content.type}`);
+    console.log(`   טקסט: "${content.text.substring(0, 150)}..."`);
     return null;
   }
 
   if (content.wordCount < minWords) {
     console.log(`⚠️ מעט מדי מילים (${content.wordCount}, מינימום ${minWords}): ${url}`);
-    console.log(`   טקסט: "${content.text.substring(0, 100)}..."`);
+    console.log(`   סוג דף: ${content.type}`);
+    console.log(`   טקסט: "${content.text.substring(0, 150)}..."`);
     return null;
   }
 
