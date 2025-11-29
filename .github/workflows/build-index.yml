@@ -22,9 +22,9 @@ on:
 jobs:
   build-shabaton:
     name: 📘 Shabaton Index
-    if: ${{ github.event.inputs.site_name == 'Shabaton' || github.event.inputs.site_name == 'Both' || github.event_name == 'schedule' }}
+    if: ${{ github.event.inputs.site_name == 'Shabaton' || github.event.inputs.site_name == 'Both' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 120 # מקסימום 2 שעות
+    timeout-minutes: 120
     
     steps:
       - name: 📥 Checkout Repository
@@ -95,7 +95,7 @@ jobs:
 
   build-morim:
     name: 👔 Morim Index
-    if: ${{ github.event.inputs.site_name == 'Morim' || github.event.inputs.site_name == 'Both' || github.event_name == 'schedule' }}
+    if: ${{ github.event.inputs.site_name == 'Morim' || github.event.inputs.site_name == 'Both' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     
@@ -160,3 +160,39 @@ jobs:
           echo "- Morim: ${{ needs.build-morim.result }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**זמן ריצה:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+```
+
+5. Commit עם: `⚙️ workflow מעודכן עם npm install`
+
+---
+
+## ✅ **שלב 5: ודאי ש-OPENAI_API_KEY קיים**
+
+1. עברי ל-**Settings** → **Secrets and variables** → **Actions**
+2. ודאי שיש **`OPENAI_API_KEY`**
+3. אם אין - לחצי **New repository secret** והוסיפי אותו
+
+---
+
+## 🚀 **שלב 6: הרצה!**
+
+1. עברי ל-**Actions**
+2. בחרי **"🤖 Build Course Index"** מהצד השמאלי
+3. לחצי **"Run workflow"** (כפתור כחול בצד ימין)
+4. בחרי:
+   - **Site name**: `Shabaton`
+   - **Batch size**: `40`
+5. לחצי **"Run workflow"**
+6. רענני את הדף ותראי את ההרצה מתחילה! 🎉
+
+---
+
+## 📊 **מה לצפות:**
+
+אמור להיראות ככה:
+```
+✅ Setup Node.js
+✅ Install Dependencies  
+✅ Create Data Directory
+✅ Verify Secrets
+🔄 Build Shabaton Index (זה ייקח זמן...)
