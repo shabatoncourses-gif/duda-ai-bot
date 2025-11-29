@@ -33,56 +33,15 @@ const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 // 🌐 טיפול ב-URLs (עברית + אנגלית)
 // ============================================
 function normalizeUrl(url) {
+  // פשוט נחזיר את ה-URL כמו שהוא, רק נוודא שיש protocol
   try {
     url = url.trim();
-    
-    // וידוא שיש protocol
     if (!/^https?:\/\//i.test(url)) {
       url = "https://" + url;
     }
-    
-    // פענוח מלא של ה-URL אם הוא כבר מקודד
-    let decoded = url;
-    try {
-      // ננסה לפענח עד שאין יותר מה לפענח
-      let prev = "";
-      while (decoded !== prev) {
-        prev = decoded;
-        decoded = decodeURIComponent(decoded);
-      }
-    } catch {
-      // אם הפענוח נכשל, נשאר עם המקורי
-      decoded = url;
-    }
-    
-    // פיצול ל-parts
-    const urlObj = new URL(decoded);
-    const pathname = urlObj.pathname;
-    
-    // קידוד מחדש של ה-pathname בלבד
-    const encodedPathname = pathname
-      .split('/')
-      .filter(Boolean)
-      .map(segment => encodeURIComponent(segment))
-      .join('/');
-    
-    // בניית URL חדש
-    urlObj.pathname = '/' + encodedPathname;
-    
-    const result = urlObj.toString();
-    
-    // לוג אם היה שינוי
-    if (result !== url) {
-      console.log(`🔗 ${url.substring(0, 80)}...`);
-      console.log(`   → ${result.substring(0, 80)}...`);
-    }
-    
-    return result;
-    
-  } catch (err) {
-    console.warn(`⚠️ שגיאה בנרמול URL: ${url.substring(0, 50)}... → ${err.message}`);
-    // אם כל השאר נכשל, פשוט נחזיר את המקורי
     return url;
+  } catch (err) {
+    return url.trim();
   }
 }
 
@@ -148,11 +107,6 @@ async function getUrlsFromSitemap(sitemapUrl) {
 async function safeFetch(url, retries = CONFIG.RETRY_ATTEMPTS) {
   const cleanUrl = normalizeUrl(url);
   
-  // לוג לדיבאג
-  if (cleanUrl !== url) {
-    console.log(`🔗 URL מנורמל: ${url} → ${cleanUrl}`);
-  }
-  
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const res = await fetch(cleanUrl, {
@@ -164,18 +118,17 @@ async function safeFetch(url, retries = CONFIG.RETRY_ATTEMPTS) {
           "Connection": "keep-alive",
           "Cache-Control": "no-cache",
         },
-        signal: AbortSignal.timeout(30000), // timeout של 30 שניות
+        signal: AbortSignal.timeout(30000),
       });
 
-      // טיפול בסטטוסים שונים
       if (res.status === 404) {
-        console.log(`🚫 404: ${url}`);
+        console.log(`🚫 404: ${cleanUrl.substring(0, 70)}...`);
         return { status: 404, ok: false };
       }
 
       if (res.status === 403 || res.status === 429) {
         const waitTime = Math.pow(2, attempt) * 2000 + Math.random() * 2000;
-        console.warn(`⏸️ חסימה זמנית (${res.status}), ממתין ${Math.round(waitTime/1000)}s...`);
+        console.warn(`⏸️ חסימה (${res.status}), ממתין ${Math.round(waitTime/1000)}s...`);
         await delay(waitTime);
         continue;
       }
@@ -193,7 +146,7 @@ async function safeFetch(url, retries = CONFIG.RETRY_ATTEMPTS) {
     } catch (err) {
       const isLastAttempt = attempt === retries;
       console.warn(
-        `⚠️ ניסיון ${attempt}/${retries} נכשל עבור ${url}: ${err.message}`
+        `⚠️ ניסיון ${attempt}/${retries} נכשל: ${err.message}`
       );
 
       if (!isLastAttempt) {
@@ -204,7 +157,7 @@ async function safeFetch(url, retries = CONFIG.RETRY_ATTEMPTS) {
   }
 
   // ניסיון אחרון דרך proxy
-  console.log(`🔁 מנסה דרך proxy: ${url}`);
+  console.log(`🔁 proxy...`);
   try {
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(cleanUrl)}`;
     const proxyRes = await fetch(proxyUrl, {
@@ -220,7 +173,7 @@ async function safeFetch(url, retries = CONFIG.RETRY_ATTEMPTS) {
       };
     }
   } catch (proxyErr) {
-    console.error(`❌ גם proxy נכשל: ${proxyErr.message}`);
+    console.error(`❌ proxy failed: ${proxyErr.message}`);
   }
 
   return null;
