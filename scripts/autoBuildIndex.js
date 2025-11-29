@@ -40,26 +40,40 @@ function normalizeUrl(url) {
     const u = new URL(url);
     
     // נרמול pathname עם טיפול נכון בעברית
+    // אם ה-URL כבר מקודד - נפענח אותו ונקודד מחדש
     u.pathname = u.pathname
       .split("/")
       .filter(Boolean)
       .map((seg) => {
-        // אם כבר מקודד, נשמור את הקידוד
         try {
+          // ננסה לפענח - אם זה כבר מקודד, זה יעבוד
           const decoded = decodeURIComponent(seg);
+          // נקודד מחדש - פעם אחת בלבד
           return encodeURIComponent(decoded);
         } catch {
-          return seg;
+          // אם הפענוח נכשל, כנראה שזה לא מקודד
+          return encodeURIComponent(seg);
         }
       })
       .join("/");
     
-    // הסרת רווחים מיותרים
-    return u.toString().replace(/\s+/g, "%20");
+    // הסרת רווחים מיותרים ב-pathname
+    u.pathname = "/" + u.pathname;
+    
+    return u.toString();
   } catch (err) {
     console.warn(`⚠️ שגיאה בנרמול URL: ${url} → ${err.message}`);
-    // fallback פשוט
-    return url.trim().replace(/\s+/g, "%20");
+    // fallback - קידוד פשוט של כל ה-URL
+    try {
+      const parts = url.split("/");
+      const encoded = parts.map((part, idx) => {
+        if (idx < 3) return part; // protocol + domain
+        return encodeURIComponent(decodeURIComponent(part));
+      });
+      return encoded.join("/");
+    } catch {
+      return url;
+    }
   }
 }
 
@@ -125,6 +139,11 @@ async function getUrlsFromSitemap(sitemapUrl) {
 async function safeFetch(url, retries = CONFIG.RETRY_ATTEMPTS) {
   const cleanUrl = normalizeUrl(url);
   
+  // לוג לדיבאג
+  if (cleanUrl !== url) {
+    console.log(`🔗 URL מנורמל: ${url} → ${cleanUrl}`);
+  }
+  
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const res = await fetch(cleanUrl, {
@@ -176,8 +195,8 @@ async function safeFetch(url, retries = CONFIG.RETRY_ATTEMPTS) {
   }
 
   // ניסיון אחרון דרך proxy
+  console.log(`🔁 מנסה דרך proxy: ${url}`);
   try {
-    console.log(`🔁 מנסה דרך proxy...`);
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(cleanUrl)}`;
     const proxyRes = await fetch(proxyUrl, {
       signal: AbortSignal.timeout(45000),
