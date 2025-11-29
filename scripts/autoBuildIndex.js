@@ -35,45 +35,54 @@ const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 function normalizeUrl(url) {
   try {
     url = url.trim();
-    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
     
-    const u = new URL(url);
-    
-    // נרמול pathname עם טיפול נכון בעברית
-    // אם ה-URL כבר מקודד - נפענח אותו ונקודד מחדש
-    u.pathname = u.pathname
-      .split("/")
-      .filter(Boolean)
-      .map((seg) => {
-        try {
-          // ננסה לפענח - אם זה כבר מקודד, זה יעבוד
-          const decoded = decodeURIComponent(seg);
-          // נקודד מחדש - פעם אחת בלבד
-          return encodeURIComponent(decoded);
-        } catch {
-          // אם הפענוח נכשל, כנראה שזה לא מקודד
-          return encodeURIComponent(seg);
-        }
-      })
-      .join("/");
-    
-    // הסרת רווחים מיותרים ב-pathname
-    u.pathname = "/" + u.pathname;
-    
-    return u.toString();
-  } catch (err) {
-    console.warn(`⚠️ שגיאה בנרמול URL: ${url} → ${err.message}`);
-    // fallback - קידוד פשוט של כל ה-URL
-    try {
-      const parts = url.split("/");
-      const encoded = parts.map((part, idx) => {
-        if (idx < 3) return part; // protocol + domain
-        return encodeURIComponent(decodeURIComponent(part));
-      });
-      return encoded.join("/");
-    } catch {
-      return url;
+    // וידוא שיש protocol
+    if (!/^https?:\/\//i.test(url)) {
+      url = "https://" + url;
     }
+    
+    // פענוח מלא של ה-URL אם הוא כבר מקודד
+    let decoded = url;
+    try {
+      // ננסה לפענח עד שאין יותר מה לפענח
+      let prev = "";
+      while (decoded !== prev) {
+        prev = decoded;
+        decoded = decodeURIComponent(decoded);
+      }
+    } catch {
+      // אם הפענוח נכשל, נשאר עם המקורי
+      decoded = url;
+    }
+    
+    // פיצול ל-parts
+    const urlObj = new URL(decoded);
+    const pathname = urlObj.pathname;
+    
+    // קידוד מחדש של ה-pathname בלבד
+    const encodedPathname = pathname
+      .split('/')
+      .filter(Boolean)
+      .map(segment => encodeURIComponent(segment))
+      .join('/');
+    
+    // בניית URL חדש
+    urlObj.pathname = '/' + encodedPathname;
+    
+    const result = urlObj.toString();
+    
+    // לוג אם היה שינוי
+    if (result !== url) {
+      console.log(`🔗 ${url.substring(0, 80)}...`);
+      console.log(`   → ${result.substring(0, 80)}...`);
+    }
+    
+    return result;
+    
+  } catch (err) {
+    console.warn(`⚠️ שגיאה בנרמול URL: ${url.substring(0, 50)}... → ${err.message}`);
+    // אם כל השאר נכשל, פשוט נחזיר את המקורי
+    return url;
   }
 }
 
@@ -567,11 +576,18 @@ export async function buildIndex(name, sitemapUrl, batchSize = CONFIG.BATCH_SIZE
   console.log(`   • ידניים: ${manualUrls.length} URLs`);
   console.log(`   • סה"כ: ${allUrls.length} URLs`);
 
-  // טעינת מצב קיים
   let done = fs.existsSync(donePath) ? JSON.parse(fs.readFileSync(donePath, "utf8")) : [];
   let failed = fs.existsSync(failedPath) ? JSON.parse(fs.readFileSync(failedPath, "utf8")) : [];
   let notFound = fs.existsSync(notFoundPath) ? JSON.parse(fs.readFileSync(notFoundPath, "utf8")) : [];
   let pages = fs.existsSync(indexPath) ? JSON.parse(fs.readFileSync(indexPath, "utf8")) : [];
+
+  // 🔄 אם יש משתנה סביבה RETRY_404, נסה מחדש את הדפים שהיו 404
+  const retry404 = process.env.RETRY_404 === "true";
+  if (retry404 && notFound.length > 0) {
+    console.log(`\n🔄 מנסה שוב ${notFound.length} דפים שהיו 404 בעבר...`);
+    notFound = [];
+    fs.writeFileSync(notFoundPath, JSON.stringify(notFound, null, 2));
+  }
 
   // חישוב דפים ממתינים
   const pending = allUrls.filter(
