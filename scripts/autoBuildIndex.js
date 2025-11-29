@@ -30,15 +30,35 @@ const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
 // ============================================
+// 🧹 משפטים להתעלמות (IGNORE LIST)
+// ============================================
+const IGNORE_PATTERNS = [
+  /רוצים\s+להיות\s+מעודכנים\s*\?\s*הרשמו\s+לעלון\s+שבתון\s+בנושאי\s+לימודים.*?לכם!/gi,
+  /הרשמו\s+לעלון\s+שבתון/gi,
+  /רוצים\s+להיות\s+מעודכנים/gi,
+];
+
+function removeIgnoredText(text) {
+  let cleaned = text;
+  IGNORE_PATTERNS.forEach(pattern => {
+    cleaned = cleaned.replace(pattern, '');
+  });
+  return cleaned.replace(/\s+/g, ' ').trim();
+}
+
+// ============================================
 // 🌐 טיפול ב-URLs (עברית + אנגלית)
 // ============================================
 function normalizeUrl(url) {
-  // פשוט נוודא שיש protocol - כבר עיבדנו את ה-URL ב-getUrlsFromSitemap
   try {
     url = url.trim();
+    
+    // אם אין protocol, נוסיף https
     if (!/^https?:\/\//i.test(url)) {
       url = "https://" + url;
     }
+    
+    // שמירת ה-URL כמו שהוא - לא נשנה את ה-encoding
     return url;
   } catch (err) {
     return url.trim();
@@ -86,41 +106,59 @@ async function getUrlsFromSitemap(sitemapUrl) {
       .map((m) => {
         let url = m[1].trim();
         
-        // **טיפול מיוחד:** אם ה-URL מכיל encoding חלקי או רווחים
         try {
-          // ננסה לפענח את ה-URL
-          const decoded = decodeURI(url);
+          // הסרת HTML entities אם יש
+          url = url
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"');
           
-          // עכשיו נקודד אותו נכון - רק פעם אחת
-          const urlObj = new URL(decoded);
+          // אם ה-URL כבר מקודד (יש בו %), נשאיר אותו כמו שהוא
+          // אחרת, נפענח ונקודד מחדש
+          const urlObj = new URL(url);
           
-          // נקודד את ה-pathname (מחליף רווחים ותווים מיוחדים)
-          const encoded = urlObj.pathname
-            .split('/')
-            .map(seg => seg ? encodeURIComponent(decodeURIComponent(seg)) : '')
-            .join('/');
-          
-          urlObj.pathname = encoded;
-          return urlObj.toString();
+          // אם ה-pathname כבר מקודד כראוי, נשתמש בו ישירות
+          // אחרת נקודד אותו
+          if (url.includes('%')) {
+            // ה-URL כבר מקודד - פשוט נחזיר אותו
+            return url;
+          } else {
+            // ה-URL לא מקודד - נקודד אותו
+            const encoded = urlObj.pathname
+              .split('/')
+              .map(seg => seg ? encodeURIComponent(seg) : '')
+              .join('/');
+            
+            urlObj.pathname = encoded;
+            return urlObj.toString();
+          }
           
         } catch (err) {
-          // אם הפענוח נכשל, פשוט נחזיר את המקורי
           console.warn(`⚠️ בעיה בעיבוד URL: ${url.substring(0, 60)}...`);
+          // אם יש שגיאה, פשוט נחזיר את ה-URL המקורי
           return url;
         }
       })
       .filter(Boolean)
       .filter((url) => {
-        // סינון URLs לא רלוונטיים
-        const lower = url.toLowerCase();
-        return !lower.includes("/tag/") && 
-               !lower.includes("/author/") &&
-               !lower.includes("/page/");
+        // נפענח את ה-URL לבדיקת הסינון
+        try {
+          const decodedForCheck = decodeURIComponent(url.toLowerCase());
+          return !decodedForCheck.includes("/tag/") && 
+                 !decodedForCheck.includes("/author/") &&
+                 !decodedForCheck.includes("/page/");
+        } catch {
+          // אם הפענוח נכשל, נבדוק את ה-URL המקורי
+          const lower = url.toLowerCase();
+          return !lower.includes("/tag/") && 
+                 !lower.includes("/author/") &&
+                 !lower.includes("/page/");
+        }
       });
 
     console.log(`✅ נמצאו ${urls.length} URLs תקינים מה-sitemap`);
     
-    // הדפס כמה דוגמאות לדיבאג
     if (urls.length > 0) {
       console.log(`\n📋 דוגמאות URLs (5 ראשונים):`);
       urls.slice(0, 5).forEach((url, i) => {
@@ -237,6 +275,10 @@ function identifyPageType(url, $) {
     path.includes("/rights") ||
     path.includes("/forms") ||
     path.includes("/tofes") ||
+    path.includes("/maanak") ||
+    path.includes("/pension") ||
+    path.includes("/birth") ||
+    path.includes("/tuition") ||
     lower.includes("info")
   ) {
     return "info-page";
@@ -287,12 +329,14 @@ function cleanDom($) {
     ".ad",
     ".social-share",
     ".comments",
+    ".newsletter",
+    ".subscription",
   ];
 
   removeSelectors.forEach((sel) => $(sel).remove());
 
-  // הסרת קטגוריות וקישורים פנימיים (רק מתוך פסקאות, לא כותרות)
-  $("p, div").each((_, el) => {
+  // הסרת קטגוריות וקישורים פנימיים
+  $("p, div, span").each((_, el) => {
     const text = $(el).text();
     if (
       text.includes("קורסים נוספים") ||
@@ -320,17 +364,17 @@ function extractSmartContent(html, url) {
   const pageType = identifyPageType(url, $);
 
   // חילוץ מטא-דאטה
-  const title = $("title").text().trim();
-  const description = $('meta[name="description"]').attr("content")?.trim() || "";
-  const h1 = $("h1").first().text().trim();
+  const title = removeIgnoredText($("title").text().trim());
+  const description = removeIgnoredText($('meta[name="description"]').attr("content")?.trim() || "");
+  const h1 = removeIgnoredText($("h1").first().text().trim());
   
   const h2s = $("h2")
-    .map((_, el) => $(el).text().trim())
+    .map((_, el) => removeIgnoredText($(el).text().trim()))
     .get()
     .filter((t) => t.length > 3);
   
   const h3s = $("h3")
-    .map((_, el) => $(el).text().trim())
+    .map((_, el) => removeIgnoredText($(el).text().trim()))
     .get()
     .filter((t) => t.length > 3);
 
@@ -339,12 +383,11 @@ function extractSmartContent(html, url) {
   $("ul, ol").each((_, list) => {
     const items = $(list)
       .find("li")
-      .map((_, li) => $(li).text().trim())
+      .map((_, li) => removeIgnoredText($(li).text().trim()))
       .get()
       .filter((t) => t.length > 10 && !t.includes("קורסים נוספים"));
     
     if (items.length > 0 && items.length < 50) {
-      // לא רשימות ענקיות של קישורים
       lists.push(...items);
     }
   });
@@ -358,7 +401,7 @@ function extractSmartContent(html, url) {
         rows.each((_, row) => {
           const cells = $(row)
             .find("td, th")
-            .map((_, cell) => $(cell).text().trim())
+            .map((_, cell) => removeIgnoredText($(cell).text().trim()))
             .get()
             .join(" | ");
           if (cells) tables.push(cells);
@@ -370,7 +413,7 @@ function extractSmartContent(html, url) {
   // חילוץ פסקאות
   const paragraphs = [];
   $("p, blockquote, article").each((_, el) => {
-    const text = $(el).text().trim();
+    const text = removeIgnoredText($(el).text().trim());
     if (text.length > 20 && text.length < 2000) {
       paragraphs.push(text);
     }
@@ -380,7 +423,7 @@ function extractSmartContent(html, url) {
   const parts = [];
   
   // משקל גבוה לכותרות
-  if (title) parts.push(title, title); // כפול למשקל
+  if (title) parts.push(title, title);
   if (h1 && h1 !== title) parts.push(h1, h1);
   if (description) parts.push(description);
   
@@ -388,18 +431,21 @@ function extractSmartContent(html, url) {
   parts.push(...h2s, ...h3s);
   
   // תוכן עיקרי
-  parts.push(...lists.slice(0, 20)); // מוגבל ל-20 פריטים ברשימה
+  parts.push(...lists.slice(0, 20));
   parts.push(...tables.slice(0, 10));
   parts.push(...paragraphs);
 
   // ניקוי והסרת כפילויות
   const uniqueParts = [...new Set(parts)].filter(Boolean);
-  const cleanText = uniqueParts
+  let cleanText = uniqueParts
     .join(" ")
     .replace(/\s+/g, " ")
     .replace(/(\||›|»|·|•|→|←)/g, " ")
     .replace(/\[.*?\]/g, "")
     .trim();
+
+  // ניקוי סופי - הסרת המשפטים המיותרים
+  cleanText = removeIgnoredText(cleanText);
 
   return {
     url,
@@ -409,8 +455,8 @@ function extractSmartContent(html, url) {
     h3: h3s.slice(0, 5),
     description,
     type: pageType,
-    text: cleanText.slice(0, 8000), // הגבלה ל-8000 תווים
-    wordCount: cleanText.split(/\s+/).length,
+    text: cleanText.slice(0, 8000),
+    wordCount: cleanText.split(/\s+/).filter(w => w.length > 0).length,
   };
 }
 
@@ -434,10 +480,10 @@ async function processPage(url) {
   const html = await res.text();
   const content = extractSmartContent(html, url);
 
-  // בדיקות תקינות - סף נמוך יותר
+  // בדיקות תקינות
   const isInfoPage = content.type === "info-page";
-  const minLength = isInfoPage ? 20 : 30; // הקטנתי מ-30/50
-  const minWords = isInfoPage ? 8 : 10;   // הקטנתי מ-10
+  const minLength = isInfoPage ? 20 : 30;
+  const minWords = isInfoPage ? 8 : 10;
 
   if (!content.text || content.text.length < minLength) {
     console.log(`⚠️ תוכן קצר מדי (${content.text.length} תווים): ${url}`);
@@ -468,7 +514,7 @@ async function processPage(url) {
       h3: content.h3,
       description: content.description,
       type: content.type,
-      text: content.text.slice(0, 500), // שמירת 500 תווים ראשונים
+      text: content.text.slice(0, 500),
       vector: embedding.data[0].embedding,
       wordCount: content.wordCount,
       indexedAt: new Date().toISOString(),
@@ -569,7 +615,7 @@ export async function buildIndex(name, sitemapUrl, batchSize = CONFIG.BATCH_SIZE
   let notFound = fs.existsSync(notFoundPath) ? JSON.parse(fs.readFileSync(notFoundPath, "utf8")) : [];
   let pages = fs.existsSync(indexPath) ? JSON.parse(fs.readFileSync(indexPath, "utf8")) : [];
 
-  // 🔄 אם יש משתנה סביבה RETRY_404, נסה מחדש את הדפים שהיו 404
+  // 🔄 ניסיון חוזר ל-404
   const retry404 = process.env.RETRY_404 === "true";
   if (retry404 && notFound.length > 0) {
     console.log(`\n🔄 מנסה שוב ${notFound.length} דפים שהיו 404 בעבר...`);
