@@ -245,11 +245,12 @@ function identifyPageType(url, $) {
   const lower = url.toLowerCase();
   const path = new URL(url).pathname.toLowerCase();
 
-  // דפי תוצאות/חיפוש (רשימות קורסים)
+  // דפי תוצאות/חיפוש (רשימות קורסים) - **עדיפות גבוהה**
   if (
     path.includes("/results") ||
     path.includes("/search-results") ||
-    path.includes("/courses-per-month")
+    path.includes("/courses-per-month") ||
+    path.includes("per-month")
   ) {
     return "course-list";
   }
@@ -365,6 +366,34 @@ function extractSmartContent(html, url) {
     .get()
     .filter((t) => t.length > 3);
 
+  // **חילוץ מיוחד לדפי Duda דינמיים**
+  const isDudaPage = url.includes("courses-per-month") || url.includes("results-");
+  let dudaContent = [];
+  
+  if (isDudaPage) {
+    // חילוץ כל הטקסט מה-body
+    $("body *").each((_, el) => {
+      const text = $(el).contents().filter(function() {
+        return this.type === 'text';
+      }).text().trim();
+      
+      if (text && text.length > 5 && text.length < 500) {
+        dudaContent.push(text);
+      }
+    });
+    
+    // חילוץ data attributes שאולי מכילים מידע
+    $("[data-title], [data-name], [data-description]").each((_, el) => {
+      const dataTitle = $(el).attr("data-title");
+      const dataName = $(el).attr("data-name");
+      const dataDesc = $(el).attr("data-description");
+      
+      if (dataTitle) dudaContent.push(dataTitle);
+      if (dataName) dudaContent.push(dataName);
+      if (dataDesc) dudaContent.push(dataDesc);
+    });
+  }
+
   // חילוץ רשימות (ul/ol)
   const lists = [];
   $("ul, ol").each((_, list) => {
@@ -381,10 +410,10 @@ function extractSmartContent(html, url) {
 
   // חילוץ טבלאות (לדפי קורסים)
   const tables = [];
-  if (pageType === "course-detail" || pageType === "institution-page") {
+  if (pageType === "course-detail" || pageType === "institution-page" || pageType === "course-list") {
     $("table").each((_, table) => {
       const rows = $(table).find("tr");
-      if (rows.length > 0 && rows.length < 30) {
+      if (rows.length > 0 && rows.length < 50) {
         rows.each((_, row) => {
           const cells = $(row)
             .find("td, th")
@@ -399,7 +428,7 @@ function extractSmartContent(html, url) {
 
   // חילוץ פסקאות
   const paragraphs = [];
-  $("p, blockquote, article").each((_, el) => {
+  $("p, blockquote, article, div.content, section").each((_, el) => {
     const text = removeIgnoredText($(el).text().trim());
     if (text.length > 20 && text.length < 2000) {
       paragraphs.push(text);
@@ -417,9 +446,14 @@ function extractSmartContent(html, url) {
   // כותרות משנה
   parts.push(...h2s, ...h3s);
   
+  // תוכן Duda דינמי
+  if (isDudaPage && dudaContent.length > 0) {
+    parts.push(...dudaContent.slice(0, 30));
+  }
+  
   // תוכן עיקרי
   parts.push(...lists.slice(0, 20));
-  parts.push(...tables.slice(0, 10));
+  parts.push(...tables.slice(0, 15));
   parts.push(...paragraphs);
 
   // ניקוי והסרת כפילויות
@@ -467,18 +501,27 @@ async function processPage(url) {
   const html = await res.text();
   const content = extractSmartContent(html, url);
 
-  // בדיקות תקינות
+  // בדיקות תקינות - סף נמוך במיוחד לדפי רשימות
+  const isDynamicList = 
+    content.type === "course-list" || 
+    url.includes("courses-per-month") ||
+    url.includes("results-");
+  
   const isInfoPage = content.type === "info-page";
-  const minLength = isInfoPage ? 20 : 30;
-  const minWords = isInfoPage ? 8 : 10;
+  
+  // סף נמוך במיוחד לדפי רשימות דינמיים
+  const minLength = isDynamicList ? 10 : (isInfoPage ? 20 : 30);
+  const minWords = isDynamicList ? 3 : (isInfoPage ? 8 : 10);
 
   if (!content.text || content.text.length < minLength) {
-    console.log(`⚠️ תוכן קצר מדי (${content.text.length} תווים): ${url}`);
+    console.log(`⚠️ תוכן קצר מדי (${content.text.length} תווים, מינימום ${minLength}): ${url}`);
+    console.log(`   טקסט: "${content.text.substring(0, 100)}..."`);
     return null;
   }
 
   if (content.wordCount < minWords) {
-    console.log(`⚠️ מעט מדי מילים (${content.wordCount}): ${url}`);
+    console.log(`⚠️ מעט מדי מילים (${content.wordCount}, מינימום ${minWords}): ${url}`);
+    console.log(`   טקסט: "${content.text.substring(0, 100)}..."`);
     return null;
   }
 
