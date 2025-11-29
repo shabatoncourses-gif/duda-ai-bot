@@ -1,6 +1,8 @@
+# .github/workflows/build-index.yml
 name: 🤖 Build Course Index
 
 on:
+  # הרצה ידנית בלבד
   workflow_dispatch:
     inputs:
       site_name:
@@ -16,13 +18,18 @@ on:
         description: 'כמות דפים לעיבוד בסבב'
         required: false
         default: '40'
+      retry_404:
+        description: 'נסה מחדש דפים שהיו 404?'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build-shabaton:
     name: 📘 Shabaton Index
-    if: ${{ github.event.inputs.site_name == 'Shabaton' || github.event.inputs.site_name == 'Both' }}
+    if: ${{ github.event.inputs.site_name == 'Shabaton' || github.event.inputs.site_name == 'Both' || github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 120 # מקסימום 2 שעות
     
     steps:
       - name: 📥 Checkout Repository
@@ -34,6 +41,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: 📦 Install Dependencies
         run: |
@@ -61,6 +69,7 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
           GITHUB_BRANCH: ${{ github.ref_name }}
           BATCH_SIZE: ${{ github.event.inputs.batch_size || '40' }}
+          RETRY_404: ${{ github.event.inputs.retry_404 || 'false' }}
         run: |
           echo "🏁 מתחיל בניית אינדקס Shabaton"
           node scripts/autoBuildIndex.js Shabaton https://www.shabaton.online/sitemap.xml
@@ -92,7 +101,7 @@ jobs:
 
   build-morim:
     name: 👔 Morim Index
-    if: ${{ github.event.inputs.site_name == 'Morim' || github.event.inputs.site_name == 'Both' }}
+    if: ${{ github.event.inputs.site_name == 'Morim' || github.event.inputs.site_name == 'Both' || github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     
@@ -106,6 +115,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: 📦 Install Dependencies
         run: npm install
@@ -117,6 +127,7 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
           GITHUB_BRANCH: ${{ github.ref_name }}
           BATCH_SIZE: ${{ github.event.inputs.batch_size || '40' }}
+          RETRY_404: ${{ github.event.inputs.retry_404 || 'false' }}
         run: |
           echo "🏁 מתחיל בניית אינדקס Morim"
           node scripts/autoBuildIndex.js Morim https://www.morim.boutique/sitemap.xml
