@@ -33,15 +33,30 @@ const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 // 🌐 טיפול ב-URLs (עברית + אנגלית)
 // ============================================
 function normalizeUrl(url) {
-  // פשוט נחזיר את ה-URL כמו שהוא, רק נוודא שיש protocol
   try {
     url = url.trim();
+    
+    // וידוא protocol
     if (!/^https?:\/\//i.test(url)) {
       url = "https://" + url;
     }
+    
+    // **קריטי:** החלפת רווחים ב-%20
+    // אבל רק אם זה לא כבר מקודד
+    if (url.includes(' ') && !url.includes('%20')) {
+      const urlObj = new URL(url);
+      // נקודד רק את ה-pathname (לא את הדומיין)
+      urlObj.pathname = urlObj.pathname.replace(/ /g, '%20');
+      url = urlObj.toString();
+      console.log(`🔗 תיקון רווחים: ${url.substring(40, 80)}...`);
+    }
+    
     return url;
+    
   } catch (err) {
-    return url.trim();
+    // fallback פשוט - החלפת רווחים
+    console.warn(`⚠️ שגיאה בנרמול, משתמש ב-fallback: ${err.message}`);
+    return url.trim().replace(/ /g, '%20');
   }
 }
 
@@ -400,16 +415,17 @@ async function processPage(url) {
   const html = await res.text();
   const content = extractSmartContent(html, url);
 
-  // בדיקות תקינות
+  // בדיקות תקינות - סף נמוך יותר
   const isInfoPage = content.type === "info-page";
-  const minLength = isInfoPage ? 30 : 50;
+  const minLength = isInfoPage ? 20 : 30; // הקטנתי מ-30/50
+  const minWords = isInfoPage ? 8 : 10;   // הקטנתי מ-10
 
   if (!content.text || content.text.length < minLength) {
     console.log(`⚠️ תוכן קצר מדי (${content.text.length} תווים): ${url}`);
     return null;
   }
 
-  if (content.wordCount < 10) {
+  if (content.wordCount < minWords) {
     console.log(`⚠️ מעט מדי מילים (${content.wordCount}): ${url}`);
     return null;
   }
