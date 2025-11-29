@@ -40,8 +40,14 @@ jobs:
 
       - name: 📦 Install Dependencies
         run: |
-          npm ci
-          npm list
+          npm install
+          echo "✅ חבילות הותקנו:"
+          npm list --depth=0 || true
+
+      - name: 📁 Create Data Directory
+        run: |
+          mkdir -p data
+          echo "✅ תיקיית data נוצרה"
 
       - name: 🔑 Verify Secrets
         run: |
