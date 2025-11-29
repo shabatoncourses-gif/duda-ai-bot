@@ -107,20 +107,47 @@ async function getUrlsFromSitemap(sitemapUrl) {
         let url = m[1].trim();
         
         try {
-          // הסרת HTML entities בלבד
+          // הסרת HTML entities
           url = url
             .replace(/&amp;/g, '&')
             .replace(/&lt;/g, '<')
             .replace(/&gt;/g, '>')
             .replace(/&quot;/g, '"');
           
-          // **לא עושים שום encoding/decoding נוסף!**
-          // פשוט נחזיר את ה-URL כמו שהוא
-          return url;
+          // פיצול ה-URL לחלקים
+          const urlObj = new URL(url);
+          
+          // קידוד ה-pathname - אבל רק אם יש תווים לא מקודדים
+          const segments = urlObj.pathname.split('/');
+          const encodedSegments = segments.map(segment => {
+            if (!segment) return '';
+            
+            // אם הסגמנט כבר מקודד (מכיל %), לא נקודד שוב
+            if (segment.includes('%')) {
+              return segment;
+            }
+            
+            // אם יש תווים שצריך לקודד (עברית, רווחים, וכו')
+            // נקודד את הסגמנט
+            try {
+              // בדיקה אם יש תווים לא-ASCII או רווחים
+              if (/[^\x00-\x7F]| /.test(segment)) {
+                return encodeURIComponent(segment);
+              }
+              return segment;
+            } catch {
+              return segment;
+            }
+          });
+          
+          urlObj.pathname = encodedSegments.join('/');
+          
+          return urlObj.toString();
           
         } catch (err) {
           console.warn(`⚠️ בעיה בעיבוד URL: ${url.substring(0, 60)}...`);
-          return url;
+          // במקרה של שגיאה, לפחות נתקן רווחים
+          return url.replace(/ /g, '%20');
         }
       })
       .filter(Boolean)
