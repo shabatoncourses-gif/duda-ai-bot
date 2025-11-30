@@ -57,8 +57,7 @@ const REGION_MAP = {
   'zafon': 'צפון',
   'sharon': 'שרון',
   'jerusalem': 'ירושלים',
-  'shfea-darom': 'שפלה ודרום',
-  'darom': 'דרום'
+  'shfea-darom': 'שפלה ודרום'
 };
 
 function normalizeUrl(url) {
@@ -255,6 +254,50 @@ async function safeFetch(url, retries = CONFIG.RETRY_ATTEMPTS) {
 // ============================================
 
 // פונקציה לחילוץ אזור ושאילתה מ-URL
+function extractRegionAndQuery(url) {
+  try {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    
+    // בדיקה אם זה דף results
+    const resultsMatch = pathname.match(/\/(results-all|search-results-merkaz|results-Zafon|results-Sharon|results-jerusalem|results-shfea-darom)\/(.*)/i);
+    
+    if (resultsMatch) {
+      const pathPart = resultsMatch[1].toLowerCase();
+      let region = '';
+      
+      // זיהוי האזור
+      if (pathPart.includes('all')) region = 'all';
+      else if (pathPart.includes('merkaz')) region = 'merkaz';
+      else if (pathPart.includes('zafon')) region = 'zafon';
+      else if (pathPart.includes('sharon')) region = 'sharon';
+      else if (pathPart.includes('jerusalem')) region = 'jerusalem';
+      else if (pathPart.includes('shfea-darom')) region = 'shfea-darom';
+      
+      // חילוץ השאילתה (החלק אחרי האזור)
+      let query = resultsMatch[2] || '';
+      
+      // פענוח אם צריך
+      try {
+        query = decodeURIComponent(query).replace(/%20/g, ' ').trim();
+      } catch {
+        query = query.replace(/%20/g, ' ').trim();
+      }
+      
+      return {
+        isResultsPage: true,
+        region: region,
+        regionHebrew: REGION_MAP[region] || region,
+        query: query
+      };
+    }
+    
+    return { isResultsPage: false };
+    
+  } catch (err) {
+    return { isResultsPage: false };
+  }
+}
 
 function identifyPageType(url, $) {
   const lower = url.toLowerCase();
@@ -312,71 +355,6 @@ function identifyPageType(url, $) {
   }
 
   return "general";
-}
-
-
-// פונקציה לחילוץ אזור ושאילתה מ-URL
-function extractRegionAndQuery(url) {
-  try {
-    const urlObj = new URL(url);
-    const pathname = urlObj.pathname;
-    
-    // בדיקה לדפי results
-    const resultsMatch = pathname.match(/\/(results-all|search-results-merkaz|results-Zafon|results-Sharon|results-jerusalem|results-shfea-darom)\/(.*)/i);
-    
-    if (resultsMatch) {
-      const pathPart = resultsMatch[1].toLowerCase();
-      let region = '';
-      
-      if (pathPart.includes('all')) region = 'all';
-      else if (pathPart.includes('merkaz')) region = 'merkaz';
-      else if (pathPart.includes('zafon')) region = 'zafon';
-      else if (pathPart.includes('sharon')) region = 'sharon';
-      else if (pathPart.includes('jerusalem')) region = 'jerusalem';
-      else if (pathPart.includes('shfea-darom')) region = 'shfea-darom';
-      
-      let query = resultsMatch[2] || '';
-      try {
-        query = decodeURIComponent(query).replace(/%20/g, ' ').trim();
-      } catch {
-        query = query.replace(/%20/g, ' ').trim();
-      }
-      
-      return {
-        isResultsPage: true,
-        isMonthPage: false,
-        region: region,
-        regionHebrew: REGION_MAP[region] || region,
-        query: query
-      };
-    }
-    
-    // בדיקה לדפי courses-per-month
-    const monthMatch = pathname.match(/\/courses-per-month-(merkaz|sharon|zafon|darom|jerusalem)\/(.*)/i);
-    
-    if (monthMatch) {
-      const region = monthMatch[1].toLowerCase();
-      let month = monthMatch[2] || '';
-      
-      try {
-        month = decodeURIComponent(month).replace(/%20/g, ' ').trim();
-      } catch {
-        month = month.replace(/%20/g, ' ').trim();
-      }
-      
-      return {
-        isResultsPage: false,
-        isMonthPage: true,
-        region: region,
-        regionHebrew: REGION_MAP[region] || region,
-        month: month
-      };
-    }
-    
-    return { isResultsPage: false, isMonthPage: false };
-  } catch (err) {
-    return { isResultsPage: false, isMonthPage: false };
-  }
 }
 
 // ============================================
@@ -440,31 +418,11 @@ function extractSmartContent(html, url) {
   $ = cleanDom($);
 
   const pageType = identifyPageType(url, $);
-  const regionData = extractRegionAndQuery(url);
 
-  // חילוץ מטא-דאטה בסיסית
-  let title = removeIgnoredText($("title").text().trim());
-  let description = removeIgnoredText($('meta[name="description"]').attr("content")?.trim() || "");
-  let h1 = removeIgnoredText($("h1").first().text().trim());
-  
-  // **שיפור דינמי לדפי תוצאות מיוחדים**
-  if (regionData.isResultsPage && regionData.query) {
-    if (regionData.region === 'all') {
-      title = `${regionData.query} בכל הארץ ובלמידה מרחוק`;
-      description = `${regionData.query} בכל הארץ ובלמידה מרחוק למורים בשבתון ולקהל הרחב`;
-    } else {
-      title = `${regionData.query} ב${regionData.regionHebrew} ובלמידה מרחוק`;
-      description = `${regionData.query} ב${regionData.regionHebrew} ובלמידה מרחוק למורים בשבתון ולקהל הרחב`;
-    }
-    h1 = regionData.query;
-  }
-  
-  // **שיפור דינמי לדפי קורסים לפי חודש**
-  if (regionData.isMonthPage && regionData.month) {
-    title = `קורסים הנפתחים ב${regionData.month} ב${regionData.regionHebrew} ובלמידה מרחוק`;
-    description = `קורסים הנפתחים ב${regionData.month} ב${regionData.regionHebrew} ובלמידה מרחוק למורים בשבתון`;
-    h1 = `קורסים הנפתחים ב${regionData.regionHebrew} ב${regionData.month}`;
-  }
+  // חילוץ מטא-דאטה
+  const title = removeIgnoredText($("title").text().trim());
+  const description = removeIgnoredText($('meta[name="description"]').attr("content")?.trim() || "");
+  const h1 = removeIgnoredText($("h1").first().text().trim());
   
   const h2s = $("h2")
     .map((_, el) => removeIgnoredText($(el).text().trim()))
@@ -489,66 +447,133 @@ function extractSmartContent(html, url) {
   let coursesByInstitution = {};
   
   if (isDudaPage) {
-    // **חילוץ מובנה לדפי results ו-month**
-    if (regionData.isResultsPage || regionData.isMonthPage) {
-      // ניסיון 1: חילוץ רגיל של H2
-      $("h2").each((_, el) => {
-        const institutionName = removeIgnoredText($(el).text().trim());
-        if (institutionName && institutionName.length > 2) {
-          institutions.push(institutionName);
-          coursesByInstitution[institutionName] = [];
+    // **זיהוי דפי results/month - יש להם מבנה מיוחד**
+    const isResultsOrMonth = url.includes("results-") || url.includes("search-results-") || url.includes("courses-per-month");
+    
+    if (isResultsOrMonth) {
+      console.log(`   🔍 מחלץ מוסדות מדף Duda דינמי (results/month)...`);
+      
+      // אסטרטגיה 1: מבנה Duda הסטנדרטי - li.listItem
+      $("li.listItem").each((_, el) => {
+        const $item = $(el);
+        
+        // חילוץ שם המוסד
+        const institutionName = removeIgnoredText($item.find("span.itemName").first().text().trim());
+        
+        if (institutionName && institutionName.length > 5) {
+          if (!institutions.includes(institutionName)) {
+            institutions.push(institutionName);
+            coursesByInstitution[institutionName] = [];
+          }
           
-          $(el).nextAll("ul").first().find("li").each((_, li) => {
-            const courseText = removeIgnoredText($(li).text().trim());
-            if (courseText && courseText.length > 10) {
-              coursesByInstitution[institutionName].push(courseText);
-            }
-          });
+          // חילוץ קורסים מ-itemText
+          const coursesText = $item.find("span.itemText").text().trim();
+          if (coursesText) {
+            // פיצול לפי <br> (מופיע כ-\n אחרי .text())
+            const coursesList = coursesText
+              .split(/\n|<br\s*\/?>/)
+              .map(c => removeIgnoredText(c.trim()))
+              .filter(c => c.length > 5);
+            
+            coursesByInstitution[institutionName].push(...coursesList);
+          }
         }
       });
       
-      // ניסיון 2: אם לא מצאנו H2, נחפש כותרות אחרות
+      console.log(`   📊 נמצאו ${institutions.length} מוסדות דרך li.listItem`);
+      
+      // אסטרטגיה 2: אם אין li.listItem, נסה H2 + UL (מבנה ישן יותר)
       if (institutions.length === 0) {
-        $("h3, h4, .institution-name, .college-name, strong").each((_, el) => {
+        console.log(`   🔄 מנסה אסטרטגיה 2: H2 + UL...`);
+        
+        $("h2").each((_, el) => {
+          const institutionName = removeIgnoredText($(el).text().trim());
+          
+          if (institutionName && 
+              institutionName.length > 5 && 
+              institutionName.length < 150 &&
+              !institutionName.includes("קורסים") &&
+              !institutionName.includes("תוצאות") &&
+              !institutionName.includes("לפי")) {
+            
+            if (!institutions.includes(institutionName)) {
+              institutions.push(institutionName);
+              coursesByInstitution[institutionName] = [];
+            }
+            
+            // חילוץ קורסים מה-UL הבא
+            $(el).nextAll("ul").first().find("li").each((_, li) => {
+              const courseText = removeIgnoredText($(li).text().trim());
+              if (courseText && courseText.length > 10) {
+                coursesByInstitution[institutionName].push(courseText);
+              }
+            });
+          }
+        });
+        
+        console.log(`   📊 נמצאו ${institutions.length} מוסדות דרך H2`);
+      }
+      
+      // אסטרטגיה 3: חיפוש גנרי - span עם מילות מפתח
+      if (institutions.length === 0) {
+        console.log(`   🔄 מנסה אסטרטגיה 3: span עם מילות מפתח...`);
+        
+        $("span, strong, h3, h4").each((_, el) => {
           const text = removeIgnoredText($(el).text().trim());
-          // זיהוי שמות מוסדות (מכילים מילים מפתח)
-          if (text && text.length > 5 && text.length < 150 &&
+          
+          if (text && 
+              text.length > 5 && 
+              text.length < 150 &&
               (text.includes("אוניברסיט") || text.includes("מכללה") || 
                text.includes("מכון") || text.includes("סמינר") ||
-               text.includes("המרכז") || text.includes("בית ספר"))) {
+               text.includes("המרכז ל") || text.includes("בית ספר ל"))) {
+            
             if (!institutions.includes(text)) {
               institutions.push(text);
               coursesByInstitution[text] = [];
             }
           }
         });
+        
+        console.log(`   📊 נמצאו ${institutions.length} מוסדות דרך span/strong`);
       }
       
-      // ניסיון 3: חילוץ כל הקישורים - הם בדרך כלל קורסים
+      // אסטרטגיה 4 (fallback): אם אין כלום, נאסוף קורסים
       if (institutions.length === 0) {
-        // אם אין מוסדות, נאסוף את כל הקורסים תחת "קורסים"
+        console.log(`   ⚠️ לא נמצאו מוסדות - אוסף קורסים כללי`);
+        
         institutions.push("קורסים זמינים");
         coursesByInstitution["קורסים זמינים"] = [];
         
         $("a").each((_, el) => {
           const linkText = removeIgnoredText($(el).text().trim());
           const href = $(el).attr("href") || "";
-          // קישורים לקורסים בדרך כלל מכילים מידע משמעותי
-          if (linkText && linkText.length > 15 && linkText.length < 200 &&
-              !linkText.includes("קרא עוד") && !linkText.includes("לפרטים")) {
+          
+          if (linkText && 
+              linkText.length > 15 && 
+              linkText.length < 300 &&
+              !linkText.includes("קרא עוד") && 
+              !linkText.includes("לפרטים") &&
+              !linkText.includes("עמוד הבית") &&
+              href.includes("/")) {
             coursesByInstitution["קורסים זמינים"].push(linkText);
           }
         });
       }
       
       // בניית תוכן
+      console.log(`   ✅ סה"כ ${institutions.length} מוסדות`);
       institutions.forEach(inst => {
         dudaContent.push(inst);
-        if (coursesByInstitution[inst] && coursesByInstitution[inst].length > 0) {
-          dudaContent.push(...coursesByInstitution[inst]);
+        const courses = coursesByInstitution[inst] || [];
+        if (courses.length > 0) {
+          console.log(`      - ${inst.substring(0, 60)}: ${courses.length} קורסים`);
+          dudaContent.push(...courses.slice(0, 50));
         }
       });
+      
     } else {
+      // דפי מוסדות או דפים דינמיים אחרים - חילוץ רגיל
       $("body *").each((_, el) => {
         const text = $(el).contents().filter(function() {
           return this.type === 'text';
@@ -558,24 +583,26 @@ function extractSmartContent(html, url) {
           dudaContent.push(text);
         }
       });
-    }
-    
-    $("[data-title], [data-name], [data-description]").each((_, el) => {
-      const dataTitle = $(el).attr("data-title");
-      const dataName = $(el).attr("data-name");
-      const dataDesc = $(el).attr("data-description");
       
-      if (dataTitle) dudaContent.push(dataTitle);
-      if (dataName) dudaContent.push(dataName);
-      if (dataDesc) dudaContent.push(dataDesc);
-    });
-    
-    $("a").each((_, el) => {
-      const linkText = $(el).text().trim();
-      if (linkText && linkText.length > 10 && linkText.length < 200) {
-        dudaContent.push(linkText);
-      }
-    });
+      // חילוץ data attributes
+      $("[data-title], [data-name], [data-description]").each((_, el) => {
+        const dataTitle = $(el).attr("data-title");
+        const dataName = $(el).attr("data-name");
+        const dataDesc = $(el).attr("data-description");
+        
+        if (dataTitle) dudaContent.push(dataTitle);
+        if (dataName) dudaContent.push(dataName);
+        if (dataDesc) dudaContent.push(dataDesc);
+      });
+      
+      // חילוץ קישורים
+      $("a").each((_, el) => {
+        const linkText = $(el).text().trim();
+        if (linkText && linkText.length > 10 && linkText.length < 200) {
+          dudaContent.push(linkText);
+        }
+      });
+    }
   }
 
   // חילוץ רשימות (ul/ol)
@@ -632,7 +659,7 @@ function extractSmartContent(html, url) {
   
   // תוכן Duda דינמי
   if (isDudaPage && dudaContent.length > 0) {
-    parts.push(...dudaContent.slice(0, 50));
+    parts.push(...dudaContent.slice(0, 30));
   }
   
   // תוכן עיקרי
@@ -656,21 +683,13 @@ function extractSmartContent(html, url) {
     url,
     title: title || h1 || "ללא כותרת",
     h1,
-    h2: (regionData.isResultsPage || regionData.isMonthPage) ? institutions : h2s.slice(0, 5),
+    h2: institutions.length > 0 ? institutions : h2s.slice(0, 5),
     h3: h3s.slice(0, 5),
     description,
     type: pageType,
-    text: cleanText.slice(0, 10000),
+    text: cleanText.slice(0, 8000),
     wordCount: cleanText.split(/\s+/).filter(w => w.length > 0).length,
-    ...(regionData.isResultsPage && {
-      region: regionData.regionHebrew,
-      query: regionData.query,
-      institutions: institutions,
-      totalCourses: Object.values(coursesByInstitution).flat().length
-    }),
-    ...(regionData.isMonthPage && {
-      region: regionData.regionHebrew,
-      month: regionData.month,
+    ...(institutions.length > 0 && {
       institutions: institutions,
       totalCourses: Object.values(coursesByInstitution).flat().length
     })
@@ -682,14 +701,6 @@ function extractSmartContent(html, url) {
 // ============================================
 async function processPage(url) {
   console.log(`\n🔍 מעבד: ${url}`);
-  
-  // דיבאג - בדיקה אם זה דף מיוחד
-  const debugRegion = extractRegionAndQuery(url);
-  if (debugRegion.isResultsPage || debugRegion.isMonthPage) {
-    console.log(`   📍 דף מיוחד זוהה: ${debugRegion.isResultsPage ? 'Results' : 'Month'}`);
-    console.log(`   🗺️ אזור: ${debugRegion.regionHebrew}`);
-    console.log(`   🔍 ${debugRegion.query || debugRegion.month || ''}`);
-  }
 
   const res = await safeFetch(url);
   
@@ -743,11 +754,11 @@ async function processPage(url) {
       `✅ הצלחה: ${content.type} | ${content.wordCount} מילים | ${content.title.slice(0, 50)}...`
     );
     
-    // דיבאג - הצגת מוסדות שנמצאו
+    // הצגת מוסדות אם יש
     if (content.institutions && content.institutions.length > 0) {
       console.log(`   🏫 מוסדות: ${content.institutions.length}`);
-      content.institutions.slice(0, 3).forEach(inst => {
-        console.log(`      - ${inst.substring(0, 50)}`);
+      content.institutions.slice(0, 5).forEach(inst => {
+        console.log(`      - ${inst.substring(0, 60)}`);
       });
       if (content.totalCourses) {
         console.log(`   📚 קורסים: ${content.totalCourses}`);
