@@ -48,8 +48,7 @@ jobs:
             libxdamage1 \
             libxfixes3 \
             libxrandr2 \
-            libgbm1 \
-            libasound2
+            libgbm1 
             
     - name: 🟢 Setup Node.js
       uses: actions/setup-node@v4
