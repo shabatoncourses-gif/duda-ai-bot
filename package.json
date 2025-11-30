@@ -1,39 +1,20 @@
 {
   "name": "duda-ai-bot",
-  "version": "2.0.0",
-  "description": "Automated content indexing bot for Shabaton & Morim with enhanced Hebrew support",
+  "version": "1.0.0",
   "type": "module",
+  "description": "Semantic search bot for Duda sites",
   "scripts": {
-    "dev": "vercel dev",
-    "start": "vercel dev",
-    "index": "node scripts/autoBuildIndex.js",
-    "build-index": "node scripts/autoBuildIndex.js",
-    "build-shabaton": "node scripts/autoBuildIndex.js Shabaton https://www.shabaton.online/sitemap.xml",
-    "build-morim": "node scripts/autoBuildIndex.js Morim https://www.morim.boutique/sitemap.xml",
-    "test-index": "node scripts/autoBuildIndex.js Shabaton https://www.shabaton.online/sitemap.xml"
-  },
-  "engines": {
-    "node": ">=20.0.0"
+    "build": "node scripts/autoBuildIndex.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "openai": "^4.70.0",
-    "cheerio": "^1.0.0-rc.12",
+    "cheerio": "^1.0.0",
     "dotenv": "^16.4.5",
-    "raw-body": "^2.5.2"
+    "openai": "^4.77.3",
+    "puppeteer": "^23.10.4"
   },
-  "devDependencies": {
-    "@types/node": "^20.10.0"
-  },
-  "vercel": {
-    "functions": {
-      "api/chat.js": {
-        "maxDuration": 120,
-        "memory": 512
-      },
-      "api/build-index.js": {
-        "maxDuration": 300,
-        "memory": 1024
-      }
-    }
-  }
+  "devDependencies": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
