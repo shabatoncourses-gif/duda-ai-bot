@@ -1,8 +1,17 @@
-name: Build Shabaton Index
+name: Build Index
 
 on:
   workflow_dispatch:
     inputs:
+      site:
+        description: 'איזה אתר לאנדקס?'
+        required: true
+        type: choice
+        default: 'shabaton'
+        options:
+          - shabaton
+          - morim
+          - both
       reindex_mode:
         description: 'מה לאנדקס?'
         required: true
@@ -18,7 +27,7 @@ on:
         default: '40'
   
   schedule:
-    - cron: '0 2 * * *'  # כל יום ב-2 בלילה
+    - cron: '0 2 * * *'  # כל יום ב-2 בלילה - שני האתרים
 
 jobs:
   build-index:
@@ -38,8 +47,37 @@ jobs:
         npm install cheerio openai dotenv
         sudo apt-get update && sudo apt-get install -y jq
     
-    - name: 📊 מצב נוכחי
+    - name: 🎯 קביעת אתרים לעיבוד
+      id: sites
+      env:
+        SITE_INPUT: ${{ github.event.inputs.site || 'both' }}
       run: |
+        if [ "$SITE_INPUT" = "both" ]; then
+          echo "sites=shabaton morim" >> $GITHUB_OUTPUT
+          echo "📋 יעבד: Shabaton + Morim"
+        elif [ "$SITE_INPUT" = "shabaton" ]; then
+          echo "sites=shabaton" >> $GITHUB_OUTPUT
+          echo "📋 יעבד: Shabaton בלבד"
+        elif [ "$SITE_INPUT" = "morim" ]; then
+          echo "sites=morim" >> $GITHUB_OUTPUT
+          echo "📋 יעבד: Morim בלבד"
+        fi
+    
+    - name: 🏗️ בניית אינדקס - Shabaton
+      if: contains(steps.sites.outputs.sites, 'shabaton')
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPO: ${{ github.repository }}
+        BATCH_SIZE: ${{ github.event.inputs.batch_size || '40' }}
+        REINDEX_MODE: ${{ github.event.inputs.reindex_mode || 'dynamic-only' }}
+      run: |
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "🎓 מעבד: SHABATON"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        
+        # בדיקת מצב נוכחי
         if [ -f "data/shabaton_done.json" ]; then
           DONE_COUNT=$(cat data/shabaton_done.json | jq '. | length')
           echo "📋 דפים ב-done.json: $DONE_COUNT"
@@ -49,11 +87,9 @@ jobs:
         else
           echo "⏭️ אין קובץ done.json - זו הרצה ראשונה"
         fi
-    
-    - name: 🗑️ טיפול בדפים לפי מצב
-      env:
-        REINDEX_MODE: ${{ github.event.inputs.reindex_mode || 'dynamic-only' }}
-      run: |
+        
+        # טיפול לפי מצב
+        echo ""
         echo "🎯 מצב: $REINDEX_MODE"
         
         if [ "$REINDEX_MODE" = "fresh-start" ]; then
@@ -72,13 +108,10 @@ jobs:
           if [ -f "data/shabaton_done.json" ]; then
             echo "🔍 מוחק רק דפים דינמיים..."
             
-            # יצירת גיבוי
             cp data/shabaton_done.json data/shabaton_done.json.backup
             
-            # ספירה לפני
             BEFORE=$(cat data/shabaton_done.json | jq '. | length')
             
-            # מחיקת דפים דינמיים
             cat data/shabaton_done.json | jq '[.[] | select(
               (contains("results-") | not) and 
               (contains("search-results-") | not) and 
@@ -87,7 +120,6 @@ jobs:
             
             mv data/shabaton_done.json.tmp data/shabaton_done.json
             
-            # ספירה אחרי
             AFTER=$(cat data/shabaton_done.json | jq '. | length')
             REMOVED=$((BEFORE - AFTER))
             
@@ -99,43 +131,92 @@ jobs:
             echo "⏭️ אין קובץ done.json - זו הרצה ראשונה"
           fi
         fi
+        
+        echo ""
+        echo "🚀 מתחיל אינדוקס..."
+        node scripts/autoBuildIndex.js Shabaton https://www.shabaton.online/sitemap.xml
+        
+        echo ""
+        echo "📊 סטטיסטיקות Shabaton:"
+        if [ -f "data/shabaton_done.json" ]; then
+          DONE=$(cat data/shabaton_done.json | jq '. | length')
+          DYNAMIC=$(cat data/shabaton_done.json | jq '[.[] | select(contains("results-") or contains("search-results-") or contains("courses-per-month-"))] | length')
+          echo "   ✅ דפים שעובדו: $DONE"
+          echo "   🔄 מתוכם דינמיים: $DYNAMIC"
+        fi
     
-    - name: 🏗️ בניית אינדקס
+    - name: 🏗️ בניית אינדקס - Morim
+      if: contains(steps.sites.outputs.sites, 'morim')
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_REPO: ${{ github.repository }}
         BATCH_SIZE: ${{ github.event.inputs.batch_size || '40' }}
+        REINDEX_MODE: ${{ github.event.inputs.reindex_mode || 'dynamic-only' }}
       run: |
-        node scripts/autoBuildIndex.js Shabaton https://www.shabaton.online/sitemap.xml
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "👨‍🏫 מעבד: MORIM"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        
+        # בדיקת מצב נוכחי
+        if [ -f "data/morim_done.json" ]; then
+          DONE_COUNT=$(cat data/morim_done.json | jq '. | length')
+          echo "📋 דפים ב-done.json: $DONE_COUNT"
+        else
+          echo "⏭️ אין קובץ done.json - זו הרצה ראשונה"
+        fi
+        
+        # ב-Morim אין דפים דינמיים, אז dynamic-only = לא עושים כלום
+        echo ""
+        echo "🎯 מצב: $REINDEX_MODE"
+        
+        if [ "$REINDEX_MODE" = "fresh-start" ]; then
+          echo "🧹 מחיקת כל קבצי המצב - התחלה מחדש"
+          rm -f data/morim_done.json
+          rm -f data/morim_failed.json
+          rm -f data/morim_404.json
+          echo "✅ נמחק הכל - מתחיל מאפס"
+          
+        elif [ "$REINDEX_MODE" = "all-pages" ]; then
+          echo "🔄 אינדקס מחדש של כל הדפים"
+          rm -f data/morim_done.json
+          echo "✅ done.json נמחק - יעבד את כל הדפים מחדש"
+          
+        elif [ "$REINDEX_MODE" = "dynamic-only" ]; then
+          echo "ℹ️  Morim אין דפים דינמיים - מדלג"
+          echo "💡 אם רוצה לעדכן Morim, בחר 'all-pages' או 'fresh-start'"
+          exit 0
+        fi
+        
+        echo ""
+        echo "🚀 מתחיל אינדוקס..."
+        node scripts/autoBuildIndex.js Morim https://www.morim.online/sitemap.xml
+        
+        echo ""
+        echo "📊 סטטיסטיקות Morim:"
+        if [ -f "data/morim_done.json" ]; then
+          DONE=$(cat data/morim_done.json | jq '. | length')
+          echo "   ✅ דפים שעובדו: $DONE"
+        fi
     
     - name: 📊 סטטיסטיקות סופיות
       run: |
         echo ""
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "📈 סטטיסטיקות אינדקס"
+        echo "📈 סיכום כולל"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         
+        # Shabaton
         if [ -f "data/shabaton_index.json" ]; then
           TOTAL=$(cat data/shabaton_index.json | jq '. | length')
-          echo "📚 סה\"כ דפים באינדקס: $TOTAL"
+          echo "🎓 Shabaton: $TOTAL דפים"
         fi
         
-        if [ -f "data/shabaton_done.json" ]; then
-          DONE=$(cat data/shabaton_done.json | jq '. | length')
-          DYNAMIC=$(cat data/shabaton_done.json | jq '[.[] | select(contains("results-") or contains("search-results-") or contains("courses-per-month-"))] | length')
-          echo "✅ דפים שעובדו: $DONE"
-          echo "🔄 מתוכם דינמיים: $DYNAMIC"
-        fi
-        
-        if [ -f "data/shabaton_failed.json" ]; then
-          FAILED=$(cat data/shabaton_failed.json | jq '. | length')
-          echo "❌ דפים שנכשלו: $FAILED"
-        fi
-        
-        if [ -f "data/shabaton_404.json" ]; then
-          NOT_FOUND=$(cat data/shabaton_404.json | jq '. | length')
-          echo "🔍 דפים לא נמצאו: $NOT_FOUND"
+        # Morim
+        if [ -f "data/morim_index.json" ]; then
+          TOTAL=$(cat data/morim_index.json | jq '. | length')
+          echo "👨‍🏫 Morim: $TOTAL דפים"
         fi
         
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -143,10 +224,10 @@ jobs:
     - name: 📤 Upload index artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: shabaton-index-${{ github.run_number }}
+        name: index-files-${{ github.run_number }}
         path: |
-          data/shabaton_index*.json
-          data/shabaton_done.json
-          data/shabaton_failed.json
-          data/shabaton_404.json
+          data/*_index*.json
+          data/*_done.json
+          data/*_failed.json
+          data/*_404.json
         retention-days: 30
