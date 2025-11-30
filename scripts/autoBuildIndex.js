@@ -49,6 +49,18 @@ function removeIgnoredText(text) {
 // ============================================
 // 🌐 טיפול ב-URLs (עברית + אנגלית)
 // ============================================
+
+// מיפוי אזורים לעברית
+const REGION_MAP = {
+  'all': 'כל הארץ',
+  'merkaz': 'מרכז',
+  'zafon': 'צפון',
+  'sharon': 'שרון',
+  'jerusalem': 'ירושלים',
+  'shfea-darom': 'שפלה ודרום',
+  'darom': 'דרום'
+};
+
 function normalizeUrl(url) {
   try {
     url = url.trim();
@@ -241,6 +253,53 @@ async function safeFetch(url, retries = CONFIG.RETRY_ATTEMPTS) {
 // ============================================
 // 🧠 זיהוי חכם של סוג דף
 // ============================================
+
+// פונקציה לחילוץ אזור ושאילתה מ-URL
+function extractRegionAndQuery(url) {
+  try {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    
+    // בדיקה אם זה דף results
+    const resultsMatch = pathname.match(/\/(results-all|search-results-merkaz|results-Zafon|results-Sharon|results-jerusalem|results-shfea-darom)\/(.*)/i);
+    
+    if (resultsMatch) {
+      const pathPart = resultsMatch[1].toLowerCase();
+      let region = '';
+      
+      // זיהוי האזור
+      if (pathPart.includes('all')) region = 'all';
+      else if (pathPart.includes('merkaz')) region = 'merkaz';
+      else if (pathPart.includes('zafon')) region = 'zafon';
+      else if (pathPart.includes('sharon')) region = 'sharon';
+      else if (pathPart.includes('jerusalem')) region = 'jerusalem';
+      else if (pathPart.includes('shfea-darom')) region = 'shfea-darom';
+      
+      // חילוץ השאילתה (החלק אחרי האזור)
+      let query = resultsMatch[2] || '';
+      
+      // פענוח אם צריך
+      try {
+        query = decodeURIComponent(query).replace(/%20/g, ' ').trim();
+      } catch {
+        query = query.replace(/%20/g, ' ').trim();
+      }
+      
+      return {
+        isResultsPage: true,
+        region: region,
+        regionHebrew: REGION_MAP[region] || region,
+        query: query
+      };
+    }
+    
+    return { isResultsPage: false };
+    
+  } catch (err) {
+    return { isResultsPage: false };
+  }
+}
+
 function identifyPageType(url, $) {
   const lower = url.toLowerCase();
   const path = new URL(url).pathname.toLowerCase();
@@ -297,6 +356,71 @@ function identifyPageType(url, $) {
   }
 
   return "general";
+}
+
+
+// פונקציה לחילוץ אזור ושאילתה מ-URL
+function extractRegionAndQuery(url) {
+  try {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    
+    // בדיקה לדפי results
+    const resultsMatch = pathname.match(/\/(results-all|search-results-merkaz|results-Zafon|results-Sharon|results-jerusalem|results-shfea-darom)\/(.*)/i);
+    
+    if (resultsMatch) {
+      const pathPart = resultsMatch[1].toLowerCase();
+      let region = '';
+      
+      if (pathPart.includes('all')) region = 'all';
+      else if (pathPart.includes('merkaz')) region = 'merkaz';
+      else if (pathPart.includes('zafon')) region = 'zafon';
+      else if (pathPart.includes('sharon')) region = 'sharon';
+      else if (pathPart.includes('jerusalem')) region = 'jerusalem';
+      else if (pathPart.includes('shfea-darom')) region = 'shfea-darom';
+      
+      let query = resultsMatch[2] || '';
+      try {
+        query = decodeURIComponent(query).replace(/%20/g, ' ').trim();
+      } catch {
+        query = query.replace(/%20/g, ' ').trim();
+      }
+      
+      return {
+        isResultsPage: true,
+        isMonthPage: false,
+        region: region,
+        regionHebrew: REGION_MAP[region] || region,
+        query: query
+      };
+    }
+    
+    // בדיקה לדפי courses-per-month
+    const monthMatch = pathname.match(/\/courses-per-month-(merkaz|sharon|zafon|darom|jerusalem)\/(.*)/i);
+    
+    if (monthMatch) {
+      const region = monthMatch[1].toLowerCase();
+      let month = monthMatch[2] || '';
+      
+      try {
+        month = decodeURIComponent(month).replace(/%20/g, ' ').trim();
+      } catch {
+        month = month.replace(/%20/g, ' ').trim();
+      }
+      
+      return {
+        isResultsPage: false,
+        isMonthPage: true,
+        region: region,
+        regionHebrew: REGION_MAP[region] || region,
+        month: month
+      };
+    }
+    
+    return { isResultsPage: false, isMonthPage: false };
+  } catch (err) {
+    return { isResultsPage: false, isMonthPage: false };
+  }
 }
 
 // ============================================
@@ -360,11 +484,31 @@ function extractSmartContent(html, url) {
   $ = cleanDom($);
 
   const pageType = identifyPageType(url, $);
+  const regionData = extractRegionAndQuery(url);
 
-  // חילוץ מטא-דאטה
-  const title = removeIgnoredText($("title").text().trim());
-  const description = removeIgnoredText($('meta[name="description"]').attr("content")?.trim() || "");
-  const h1 = removeIgnoredText($("h1").first().text().trim());
+  // חילוץ מטא-דאטה בסיסית
+  let title = removeIgnoredText($("title").text().trim());
+  let description = removeIgnoredText($('meta[name="description"]').attr("content")?.trim() || "");
+  let h1 = removeIgnoredText($("h1").first().text().trim());
+  
+  // **שיפור דינמי לדפי תוצאות מיוחדים**
+  if (regionData.isResultsPage && regionData.query) {
+    if (regionData.region === 'all') {
+      title = `${regionData.query} בכל הארץ ובלמידה מרחוק`;
+      description = `${regionData.query} בכל הארץ ובלמידה מרחוק למורים בשבתון ולקהל הרחב`;
+    } else {
+      title = `${regionData.query} ב${regionData.regionHebrew} ובלמידה מרחוק`;
+      description = `${regionData.query} ב${regionData.regionHebrew} ובלמידה מרחוק למורים בשבתון ולקהל הרחב`;
+    }
+    h1 = regionData.query;
+  }
+  
+  // **שיפור דינמי לדפי קורסים לפי חודש**
+  if (regionData.isMonthPage && regionData.month) {
+    title = `קורסים הנפתחים ב${regionData.month} ב${regionData.regionHebrew} ובלמידה מרחוק`;
+    description = `קורסים הנפתחים ב${regionData.month} ב${regionData.regionHebrew} ובלמידה מרחוק למורים בשבתון`;
+    h1 = `קורסים הנפתחים ב${regionData.regionHebrew} ב${regionData.month}`;
+  }
   
   const h2s = $("h2")
     .map((_, el) => removeIgnoredText($(el).text().trim()))
@@ -380,24 +524,50 @@ function extractSmartContent(html, url) {
   const isDudaPage = 
     url.includes("courses-per-month") || 
     url.includes("results-") ||
+    url.includes("search-results-") ||
     pageType === "institution-page" ||
     pageType === "course-list";
   
   let dudaContent = [];
+  let institutions = [];
+  let coursesByInstitution = {};
   
   if (isDudaPage) {
-    // חילוץ כל הטקסט מה-body
-    $("body *").each((_, el) => {
-      const text = $(el).contents().filter(function() {
-        return this.type === 'text';
-      }).text().trim();
+    // **חילוץ מובנה לדפי results ו-month**
+    if (regionData.isResultsPage || regionData.isMonthPage) {
+      $("h2").each((_, el) => {
+        const institutionName = removeIgnoredText($(el).text().trim());
+        if (institutionName && institutionName.length > 2) {
+          institutions.push(institutionName);
+          coursesByInstitution[institutionName] = [];
+          
+          $(el).nextAll("ul").first().find("li").each((_, li) => {
+            const courseText = removeIgnoredText($(li).text().trim());
+            if (courseText && courseText.length > 10) {
+              coursesByInstitution[institutionName].push(courseText);
+            }
+          });
+        }
+      });
       
-      if (text && text.length > 5 && text.length < 500) {
-        dudaContent.push(text);
-      }
-    });
+      institutions.forEach(inst => {
+        dudaContent.push(inst);
+        if (coursesByInstitution[inst].length > 0) {
+          dudaContent.push(...coursesByInstitution[inst]);
+        }
+      });
+    } else {
+      $("body *").each((_, el) => {
+        const text = $(el).contents().filter(function() {
+          return this.type === 'text';
+        }).text().trim();
+        
+        if (text && text.length > 5 && text.length < 500) {
+          dudaContent.push(text);
+        }
+      });
+    }
     
-    // חילוץ data attributes שאולי מכילים מידע
     $("[data-title], [data-name], [data-description]").each((_, el) => {
       const dataTitle = $(el).attr("data-title");
       const dataName = $(el).attr("data-name");
@@ -408,7 +578,6 @@ function extractSmartContent(html, url) {
       if (dataDesc) dudaContent.push(dataDesc);
     });
     
-    // חילוץ קישורים עם טקסט משמעותי
     $("a").each((_, el) => {
       const linkText = $(el).text().trim();
       if (linkText && linkText.length > 10 && linkText.length < 200) {
@@ -471,7 +640,7 @@ function extractSmartContent(html, url) {
   
   // תוכן Duda דינמי
   if (isDudaPage && dudaContent.length > 0) {
-    parts.push(...dudaContent.slice(0, 30));
+    parts.push(...dudaContent.slice(0, 50));
   }
   
   // תוכן עיקרי
@@ -495,12 +664,24 @@ function extractSmartContent(html, url) {
     url,
     title: title || h1 || "ללא כותרת",
     h1,
-    h2: h2s.slice(0, 5),
+    h2: (regionData.isResultsPage || regionData.isMonthPage) ? institutions : h2s.slice(0, 5),
     h3: h3s.slice(0, 5),
     description,
     type: pageType,
-    text: cleanText.slice(0, 8000),
+    text: cleanText.slice(0, 10000),
     wordCount: cleanText.split(/\s+/).filter(w => w.length > 0).length,
+    ...(regionData.isResultsPage && {
+      region: regionData.regionHebrew,
+      query: regionData.query,
+      institutions: institutions,
+      totalCourses: Object.values(coursesByInstitution).flat().length
+    }),
+    ...(regionData.isMonthPage && {
+      region: regionData.regionHebrew,
+      month: regionData.month,
+      institutions: institutions,
+      totalCourses: Object.values(coursesByInstitution).flat().length
+    })
   };
 }
 
