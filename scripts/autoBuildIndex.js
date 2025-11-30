@@ -3,6 +3,7 @@ import * as cheerio from "cheerio";
 import fs from "fs";
 import path from "path";
 import OpenAI from "openai";
+import puppeteer from "puppeteer";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -28,6 +29,75 @@ if (!CONFIG.OPENAI_API_KEY?.startsWith("sk-")) {
 
 const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+
+// ============================================
+// 🌐 Puppeteer - לדפי Duda דינמיים
+// ============================================
+let browserInstance = null;
+
+async function fetchDudaPageWithPuppeteer(url) {
+  console.log(`   🌐 טוען דף Duda עם Puppeteer...`);
+  
+  try {
+    // פתיחת דפדפן (רק פעם אחת)
+    if (!browserInstance) {
+      browserInstance = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu'
+        ]
+      });
+      console.log(`   ✅ דפדפן נפתח`);
+    }
+    
+    const page = await browserInstance.newPage();
+    
+    // הגדרות
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+    await page.setViewport({ width: 1920, height: 1080 });
+    
+    // טעינת הדף
+    await page.goto(url, {
+      waitUntil: 'networkidle2',
+      timeout: 30000
+    });
+    
+    // המתנה ל-li.listItem (עד 10 שניות)
+    try {
+      await page.waitForSelector('li.listItem', { timeout: 10000 });
+      console.log(`   ✅ li.listItem נטען בהצלחה!`);
+    } catch {
+      console.log(`   ⚠️ לא נמצא li.listItem (המתנה פסקה), ממשיכים`);
+    }
+    
+    // קבלת ה-HTML המלא (אחרי JavaScript)
+    const html = await page.content();
+    
+    await page.close();
+    
+    return {
+      ok: true,
+      text: async () => html,
+      status: 200
+    };
+    
+  } catch (err) {
+    console.error(`   ❌ שגיאת Puppeteer: ${err.message}`);
+    return null;
+  }
+}
+
+// סגירת הדפדפן בסוף
+process.on('beforeExit', async () => {
+  if (browserInstance) {
+    console.log('\n🔚 סוגר דפדפן...');
+    await browserInstance.close();
+    browserInstance = null;
+  }
+});
 
 // ============================================
 // 🧹 משפטים להתעלמות (IGNORE LIST)
@@ -172,11 +242,24 @@ async function getUrlsFromSitemap(sitemapUrl) {
 }
 
 // ============================================
-// 🔄 Fetch מתקדם עם retry logic
+// 🔄 Fetch מתקדם עם retry logic + Puppeteer
 // ============================================
 async function safeFetch(url, retries = CONFIG.RETRY_ATTEMPTS) {
   const cleanUrl = normalizeUrl(url);
   
+  // בדיקה אם זה דף Duda דינמי
+  const isDudaDynamic = 
+    cleanUrl.includes('results-') || 
+    cleanUrl.includes('search-results-') || 
+    cleanUrl.includes('courses-per-month');
+  
+  // אם זה Duda דינמי - השתמש ב-Puppeteer
+  if (isDudaDynamic) {
+    console.log(`   🔍 זוהה כדף Duda דינמי - משתמש ב-Puppeteer`);
+    return await fetchDudaPageWithPuppeteer(cleanUrl);
+  }
+  
+  // אחרת - fetch רגיל
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const res = await fetch(cleanUrl, {
