@@ -1,165 +1,74 @@
-name: 🤖 Build Course Index
+name: Build Shabaton Index
 
 on:
+  # הפעלה ידנית
   workflow_dispatch:
-    inputs:
-      site_name:
-        description: 'שם האתר (Shabaton/Morim)'
-        required: true
-        default: 'Shabaton'
-        type: choice
-        options:
-          - Shabaton
-          - Morim
-          - Both
-      batch_size:
-        description: 'כמות דפים לעיבוד בסבב'
-        required: false
-        default: '40'
-      retry_404:
-        description: 'נסה מחדש דפים שהיו 404?'
-        required: false
-        default: false
-        type: boolean
+  
+  # הפעלה אוטומטית כל יום ב-2 בלילה
+  schedule:
+    - cron: '0 2 * * *'
+  
+  # הפעלה על push למסלול main (אופציונלי)
+  # push:
+  #   branches: [ main ]
+  #   paths:
+  #     - 'scripts/autoBuildIndex.js'
 
 jobs:
-  build-shabaton:
-    name: 📘 Shabaton Index
-    if: ${{ github.event.inputs.site_name == 'Shabaton' || github.event.inputs.site_name == 'Both' }}
+  build-index:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
     
     steps:
-      - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 🟢 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: 📦 Install Dependencies
-        run: |
-          npm install
-          echo "✅ חבילות הותקנו:"
-          npm list --depth=0 || true
-
-      - name: 📁 Create Data Directory
-        run: |
-          mkdir -p data
-          echo "✅ תיקיית data נוצרה"
-
-      - name: 🔑 Verify Secrets
-        run: |
-          if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
-            echo "❌ חסר OPENAI_API_KEY"
-            exit 1
-          fi
-          echo "✅ כל ה-secrets זמינים"
-
-      - name: 🚀 Build Shabaton Index
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPO: ${{ github.repository }}
-          GITHUB_BRANCH: ${{ github.ref_name }}
-          BATCH_SIZE: ${{ github.event.inputs.batch_size || '40' }}
-          RETRY_404: ${{ github.event.inputs.retry_404 || 'false' }}
-        run: |
-          echo "🏁 מתחיל בניית אינדקס Shabaton"
-          node scripts/autoBuildIndex.js Shabaton https://www.shabaton.online/sitemap.xml
-
-      - name: 📊 Upload Artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: shabaton-index-data
-          path: data/shabaton_*
-          retention-days: 30
-
-      - name: 📈 Index Statistics
-        if: always()
-        run: |
-          echo "📊 סטטיסטיקה:"
-          if [ -f data/shabaton_index.json ]; then
-            echo "  • דפים באינדקס: $(jq '. | length' data/shabaton_index.json)"
-          fi
-          if [ -f data/shabaton_done.json ]; then
-            echo "  • דפים שהושלמו: $(jq '. | length' data/shabaton_done.json)"
-          fi
-          if [ -f data/shabaton_404.json ]; then
-            echo "  • דפים 404: $(jq '. | length' data/shabaton_404.json)"
-          fi
-          if [ -f data/shabaton_failed.json ]; then
-            echo "  • כשלונות: $(jq '. | length' data/shabaton_failed.json)"
-          fi
-
-  build-morim:
-    name: 👔 Morim Index
-    if: ${{ github.event.inputs.site_name == 'Morim' || github.event.inputs.site_name == 'Both' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
     
-    steps:
-      - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 🟢 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: 📦 Install Dependencies
-        run: npm install
-
-      - name: 🚀 Build Morim Index
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPO: ${{ github.repository }}
-          GITHUB_BRANCH: ${{ github.ref_name }}
-          BATCH_SIZE: ${{ github.event.inputs.batch_size || '40' }}
-          RETRY_404: ${{ github.event.inputs.retry_404 || 'false' }}
-        run: |
-          echo "🏁 מתחיל בניית אינדקס Morim"
-          node scripts/autoBuildIndex.js Morim https://www.morim.boutique/sitemap.xml
-
-      - name: 📊 Upload Artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: morim-index-data
-          path: data/morim_*
-          retention-days: 30
-
-      - name: 📈 Index Statistics
-        if: always()
-        run: |
-          echo "📊 סטטיסטיקה:"
-          if [ -f data/morim_index.json ]; then
-            echo "  • דפים באינדקס: $(jq '. | length' data/morim_index.json)"
-          fi
-          if [ -f data/morim_done.json ]; then
-            echo "  • דפים שהושלמו: $(jq '. | length' data/morim_done.json)"
-          fi
-
-  notify:
-    name: 📧 התראה
-    runs-on: ubuntu-latest
-    needs: [build-shabaton, build-morim]
-    if: always()
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
     
-    steps:
-      - name: 📊 Build Summary
-        run: |
-          echo "## 📊 סיכום בניית אינדקס" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**סטטוס:**" >> $GITHUB_STEP_SUMMARY
-          echo "- Shabaton: ${{ needs.build-shabaton.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Morim: ${{ needs.build-morim.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**זמן ריצה:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+    - name: 📦 Install dependencies
+      run: |
+        npm install cheerio openai dotenv
+    
+    - name: 🗑️ מחיקת דפים דינמיים מרשימת done
+      run: |
+        if [ -f "data/shabaton_done.json" ]; then
+          echo "🔍 מוחק דפים דינמיים..."
+          bash scripts/reindex_dynamic_pages.sh
+        else
+          echo "⏭️ אין קובץ done.json - זו הרצה ראשונה"
+        fi
+    
+    - name: 🏗️ בניית אינדקס
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPO: ${{ github.repository }}
+        BATCH_SIZE: 40
+      run: |
+        node scripts/autoBuildIndex.js Shabaton https://www.shabaton.online/sitemap.xml
+    
+    - name: 📊 סטטיסטיקות
+      run: |
+        echo "📈 סטטיסטיקות אינדקס:"
+        if [ -f "data/shabaton_index.json" ]; then
+          TOTAL=$(cat data/shabaton_index.json | jq '. | length')
+          echo "   סה\"כ דפים באינדקס: $TOTAL"
+        fi
+        
+        if [ -f "data/shabaton_done.json" ]; then
+          DONE=$(cat data/shabaton_done.json | jq '. | length')
+          echo "   דפים שעובדו: $DONE"
+        fi
+    
+    - name: 📤 Upload index artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: shabaton-index
+        path: |
+          data/shabaton_index*.json
+          data/shabaton_done.json
+          data/shabaton_failed.json
+          data/shabaton_404.json
+        retention-days: 30
