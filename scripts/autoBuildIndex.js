@@ -491,6 +491,7 @@ function extractSmartContent(html, url) {
   if (isDudaPage) {
     // **חילוץ מובנה לדפי results ו-month**
     if (regionData.isResultsPage || regionData.isMonthPage) {
+      // ניסיון 1: חילוץ רגיל של H2
       $("h2").each((_, el) => {
         const institutionName = removeIgnoredText($(el).text().trim());
         if (institutionName && institutionName.length > 2) {
@@ -506,9 +507,44 @@ function extractSmartContent(html, url) {
         }
       });
       
+      // ניסיון 2: אם לא מצאנו H2, נחפש כותרות אחרות
+      if (institutions.length === 0) {
+        $("h3, h4, .institution-name, .college-name, strong").each((_, el) => {
+          const text = removeIgnoredText($(el).text().trim());
+          // זיהוי שמות מוסדות (מכילים מילים מפתח)
+          if (text && text.length > 5 && text.length < 150 &&
+              (text.includes("אוניברסיט") || text.includes("מכללה") || 
+               text.includes("מכון") || text.includes("סמינר") ||
+               text.includes("המרכז") || text.includes("בית ספר"))) {
+            if (!institutions.includes(text)) {
+              institutions.push(text);
+              coursesByInstitution[text] = [];
+            }
+          }
+        });
+      }
+      
+      // ניסיון 3: חילוץ כל הקישורים - הם בדרך כלל קורסים
+      if (institutions.length === 0) {
+        // אם אין מוסדות, נאסוף את כל הקורסים תחת "קורסים"
+        institutions.push("קורסים זמינים");
+        coursesByInstitution["קורסים זמינים"] = [];
+        
+        $("a").each((_, el) => {
+          const linkText = removeIgnoredText($(el).text().trim());
+          const href = $(el).attr("href") || "";
+          // קישורים לקורסים בדרך כלל מכילים מידע משמעותי
+          if (linkText && linkText.length > 15 && linkText.length < 200 &&
+              !linkText.includes("קרא עוד") && !linkText.includes("לפרטים")) {
+            coursesByInstitution["קורסים זמינים"].push(linkText);
+          }
+        });
+      }
+      
+      // בניית תוכן
       institutions.forEach(inst => {
         dudaContent.push(inst);
-        if (coursesByInstitution[inst].length > 0) {
+        if (coursesByInstitution[inst] && coursesByInstitution[inst].length > 0) {
           dudaContent.push(...coursesByInstitution[inst]);
         }
       });
@@ -646,6 +682,14 @@ function extractSmartContent(html, url) {
 // ============================================
 async function processPage(url) {
   console.log(`\n🔍 מעבד: ${url}`);
+  
+  // דיבאג - בדיקה אם זה דף מיוחד
+  const debugRegion = extractRegionAndQuery(url);
+  if (debugRegion.isResultsPage || debugRegion.isMonthPage) {
+    console.log(`   📍 דף מיוחד זוהה: ${debugRegion.isResultsPage ? 'Results' : 'Month'}`);
+    console.log(`   🗺️ אזור: ${debugRegion.regionHebrew}`);
+    console.log(`   🔍 ${debugRegion.query || debugRegion.month || ''}`);
+  }
 
   const res = await safeFetch(url);
   
@@ -698,6 +742,17 @@ async function processPage(url) {
     console.log(
       `✅ הצלחה: ${content.type} | ${content.wordCount} מילים | ${content.title.slice(0, 50)}...`
     );
+    
+    // דיבאג - הצגת מוסדות שנמצאו
+    if (content.institutions && content.institutions.length > 0) {
+      console.log(`   🏫 מוסדות: ${content.institutions.length}`);
+      content.institutions.slice(0, 3).forEach(inst => {
+        console.log(`      - ${inst.substring(0, 50)}`);
+      });
+      if (content.totalCourses) {
+        console.log(`   📚 קורסים: ${content.totalCourses}`);
+      }
+    }
 
     return {
       url: content.url,
