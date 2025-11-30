@@ -255,50 +255,6 @@ async function safeFetch(url, retries = CONFIG.RETRY_ATTEMPTS) {
 // ============================================
 
 // פונקציה לחילוץ אזור ושאילתה מ-URL
-function extractRegionAndQuery(url) {
-  try {
-    const urlObj = new URL(url);
-    const pathname = urlObj.pathname;
-    
-    // בדיקה אם זה דף results
-    const resultsMatch = pathname.match(/\/(results-all|search-results-merkaz|results-Zafon|results-Sharon|results-jerusalem|results-shfea-darom)\/(.*)/i);
-    
-    if (resultsMatch) {
-      const pathPart = resultsMatch[1].toLowerCase();
-      let region = '';
-      
-      // זיהוי האזור
-      if (pathPart.includes('all')) region = 'all';
-      else if (pathPart.includes('merkaz')) region = 'merkaz';
-      else if (pathPart.includes('zafon')) region = 'zafon';
-      else if (pathPart.includes('sharon')) region = 'sharon';
-      else if (pathPart.includes('jerusalem')) region = 'jerusalem';
-      else if (pathPart.includes('shfea-darom')) region = 'shfea-darom';
-      
-      // חילוץ השאילתה (החלק אחרי האזור)
-      let query = resultsMatch[2] || '';
-      
-      // פענוח אם צריך
-      try {
-        query = decodeURIComponent(query).replace(/%20/g, ' ').trim();
-      } catch {
-        query = query.replace(/%20/g, ' ').trim();
-      }
-      
-      return {
-        isResultsPage: true,
-        region: region,
-        regionHebrew: REGION_MAP[region] || region,
-        query: query
-      };
-    }
-    
-    return { isResultsPage: false };
-    
-  } catch (err) {
-    return { isResultsPage: false };
-  }
-}
 
 function identifyPageType(url, $) {
   const lower = url.toLowerCase();
