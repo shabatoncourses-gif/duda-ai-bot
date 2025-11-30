@@ -25,9 +25,6 @@ on:
         description: 'Batch size (default: 40)'
         required: false
         default: '40'
-  
-  schedule:
-    - cron: '0 2 * * *'  # כל יום ב-2 בלילה - שני האתרים
 
 jobs:
   build-index:
@@ -50,7 +47,7 @@ jobs:
     - name: 🎯 קביעת אתרים לעיבוד
       id: sites
       env:
-        SITE_INPUT: ${{ github.event.inputs.site || 'both' }}
+        SITE_INPUT: ${{ github.event.inputs.site }}
       run: |
         if [ "$SITE_INPUT" = "both" ]; then
           echo "sites=shabaton morim" >> $GITHUB_OUTPUT
@@ -69,8 +66,8 @@ jobs:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_REPO: ${{ github.repository }}
-        BATCH_SIZE: ${{ github.event.inputs.batch_size || '40' }}
-        REINDEX_MODE: ${{ github.event.inputs.reindex_mode || 'dynamic-only' }}
+        BATCH_SIZE: ${{ github.event.inputs.batch_size }}
+        REINDEX_MODE: ${{ github.event.inputs.reindex_mode }}
       run: |
         echo ""
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -151,8 +148,8 @@ jobs:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_REPO: ${{ github.repository }}
-        BATCH_SIZE: ${{ github.event.inputs.batch_size || '40' }}
-        REINDEX_MODE: ${{ github.event.inputs.reindex_mode || 'dynamic-only' }}
+        BATCH_SIZE: ${{ github.event.inputs.batch_size }}
+        REINDEX_MODE: ${{ github.event.inputs.reindex_mode }}
       run: |
         echo ""
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
