@@ -561,14 +561,20 @@ function extractSmartContent(html, url) {
           }
           
           // חילוץ קורסים מ-itemText
-          const coursesText = $item.find("span.itemText").text().trim();
-          if (coursesText) {
-            // פיצול לפי <br> (מופיע כ-\n אחרי .text())
-            const coursesList = coursesText
-              .split(/\n|<br\s*\/?>/)
-              .map(c => removeIgnoredText(c.trim()))
-              .filter(c => c.length > 5);
+          // חשוב! צריך .html() לא .text() כדי לשמור על <br>
+          const coursesHTML = $item.find("span.itemText").html() || '';
+          
+          if (coursesHTML) {
+            // פיצול לפי <br> tags
+            const coursesList = coursesHTML
+              .split(/<br\s*\/?>/i)  // פיצול לפי <br> או <br/>
+              .map(c => {
+                // הסרת tags אחרים והסרת רווחים
+                return removeIgnoredText($fresh('<div>').html(c).text().trim());
+              })
+              .filter(c => c.length > 5);  // רק קורסים אמיתיים
             
+            console.log(`      - ${institutionName.substring(0, 40)}: נמצאו ${coursesList.length} קורסים`);
             coursesByInstitution[institutionName].push(...coursesList);
           }
         }
