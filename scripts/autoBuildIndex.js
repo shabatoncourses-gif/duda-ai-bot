@@ -536,6 +536,15 @@ function extractSmartContent(html, url) {
     if (isResultsOrMonth) {
       console.log(`   🔍 מחלץ מוסדות מדף Duda דינמי (results/month)...`);
       
+      // Debug logs
+      console.log(`   📝 אורך HTML: ${html.length} תווים`);
+      console.log(`   📝 האם יש li.listItem בHTML: ${html.includes('class="listItem"')}`);
+      console.log(`   📝 האם יש span.itemName בHTML: ${html.includes('class="itemName"')}`);
+      console.log(`   📝 מספר li.listItem ב-Cheerio: ${$("li.listItem").length}`);
+      console.log(`   📝 מספר span.itemName ב-Cheerio: ${$("span.itemName").length}`);
+      console.log(`   📝 מספר li (כללי) ב-Cheerio: ${$("li").length}`);
+      console.log(`   📝 מספר span (כללי) ב-Cheerio: ${$("span").length}`);
+      
       // אסטרטגיה 1: מבנה Duda הסטנדרטי - li.listItem
       $("li.listItem").each((_, el) => {
         const $item = $(el);
