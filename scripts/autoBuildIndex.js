@@ -536,18 +536,20 @@ function extractSmartContent(html, url) {
     if (isResultsOrMonth) {
       console.log(`   🔍 מחלץ מוסדות מדף Duda דינמי (results/month)...`);
       
+      // טעינה מחדש של Cheerio עם ה-HTML המקורי (לפני cleanDom)
+      // כדי לשמור על המבנה הדינמי
+      const $fresh = cheerio.load(html);
+      
       // Debug logs
       console.log(`   📝 אורך HTML: ${html.length} תווים`);
       console.log(`   📝 האם יש li.listItem בHTML: ${html.includes('class="listItem"')}`);
       console.log(`   📝 האם יש span.itemName בHTML: ${html.includes('class="itemName"')}`);
-      console.log(`   📝 מספר li.listItem ב-Cheerio: ${$("li.listItem").length}`);
-      console.log(`   📝 מספר span.itemName ב-Cheerio: ${$("span.itemName").length}`);
-      console.log(`   📝 מספר li (כללי) ב-Cheerio: ${$("li").length}`);
-      console.log(`   📝 מספר span (כללי) ב-Cheerio: ${$("span").length}`);
+      console.log(`   📝 מספר li.listItem ב-Cheerio טרי: ${$fresh("li.listItem").length}`);
+      console.log(`   📝 מספר span.itemName ב-Cheerio טרי: ${$fresh("span.itemName").length}`);
       
       // אסטרטגיה 1: מבנה Duda הסטנדרטי - li.listItem
-      $("li.listItem").each((_, el) => {
-        const $item = $(el);
+      $fresh("li.listItem").each((_, el) => {
+        const $item = $fresh(el);
         
         // חילוץ שם המוסד
         const institutionName = removeIgnoredText($item.find("span.itemName").first().text().trim());
