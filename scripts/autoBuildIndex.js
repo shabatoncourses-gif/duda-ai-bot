@@ -565,9 +565,9 @@ function extractSmartContent(html, url) {
           const coursesHTML = $item.find("span.itemText").html() || '';
           
           if (coursesHTML) {
-            // פיצול לפי <br> tags
+            // פיצול לפי <br> tags (כולל עם attributes כמו id)
             const coursesList = coursesHTML
-              .split(/<br\s*\/?>/i)  // פיצול לפי <br> או <br/>
+              .split(/<br\s*\/?.*?>/i)  // פיצול לפי <br id="..."/> או <br/>
               .map(c => {
                 // הסרת tags אחרים והסרת רווחים
                 return removeIgnoredText($fresh('<div>').html(c).text().trim());
