@@ -3,24 +3,32 @@ name: Build Index
 on:
   workflow_dispatch:
     inputs:
-      site:
-        description: 'איזה אתר לאנדקס?'
+      sites:
+        description: 'אילו אתרים לעדכן?'
         required: true
         type: choice
-        default: 'shabaton'
+        default: 'both'
         options:
           - shabaton
           - morim
           - both
       reindex_mode:
-        description: 'מה לאנדקס?'
+        description: 'מה לעדכן?'
         required: true
         type: choice
         default: 'dynamic-only'
         options:
           - dynamic-only
+          - static-pages-only
+          - institute-pages-only
           - all-pages
           - fresh-start
+          - single-url
+      single_url:
+        description: 'URL של דף בודד (רק אם בחרת single-url)'
+        required: false
+        type: string
+        default: ''
       batch_size:
         description: 'Batch size (default: 40)'
         required: false
@@ -48,69 +56,121 @@ jobs:
             libxdamage1 \
             libxfixes3 \
             libxrandr2 \
-            libgbm1 
-            
-    - name: 🟢 Setup Node.js
+            libgbm1 \
+            libpango-1.0-0 \
+            libcairo2 \
+            libasound2
+
+    - name: Setup Node
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-    
+
     - name: 📦 Install dependencies
-      run: |
-        npm install cheerio openai dotenv
-        sudo apt-get update && sudo apt-get install -y jq
-    
-    - name: 🎯 קביעת אתרים לעיבוד
+      run: npm install
+
+    - name: 🎯 בחירת אתרים
       id: sites
-      env:
-        SITE_INPUT: ${{ github.event.inputs.site }}
       run: |
-        if [ "$SITE_INPUT" = "both" ]; then
-          echo "sites=shabaton morim" >> $GITHUB_OUTPUT
-          echo "📋 יעבד: Shabaton + Morim"
-        elif [ "$SITE_INPUT" = "shabaton" ]; then
+        SITES="${{ github.event.inputs.sites }}"
+        if [ "$SITES" = "shabaton" ]; then
           echo "sites=shabaton" >> $GITHUB_OUTPUT
-          echo "📋 יעבד: Shabaton בלבד"
-        elif [ "$SITE_INPUT" = "morim" ]; then
+        elif [ "$SITES" = "morim" ]; then
           echo "sites=morim" >> $GITHUB_OUTPUT
-          echo "📋 יעבד: Morim בלבד"
+        else
+          echo "sites=shabaton,morim" >> $GITHUB_OUTPUT
         fi
-    
-    - name: 🏗️ בניית אינדקס - Shabaton
-      if: contains(steps.sites.outputs.sites, 'shabaton')
+
+    # ========================================
+    # 🎯 עדכון דף בודד - Shabaton
+    # ========================================
+    - name: 🎯 עדכון דף בודד - Shabaton
+      if: |
+        contains(steps.sites.outputs.sites, 'shabaton') && 
+        github.event.inputs.reindex_mode == 'single-url'
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_REPO: ${{ github.repository }}
         BATCH_SIZE: ${{ github.event.inputs.batch_size }}
-        REINDEX_MODE: ${{ github.event.inputs.reindex_mode }}
       run: |
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "🎓 מעבד: SHABATON"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        SINGLE_URL="${{ github.event.inputs.single_url }}"
         
-        # בדיקת מצב נוכחי
-        if [ -f "data/shabaton_done.json" ]; then
-          DONE_COUNT=$(cat data/shabaton_done.json | jq '. | length')
-          echo "📋 דפים ב-done.json: $DONE_COUNT"
-          
-          DYNAMIC_COUNT=$(cat data/shabaton_done.json | jq '[.[] | select(contains("results-") or contains("search-results-") or contains("courses-per-month-"))] | length')
-          echo "🔄 דפים דינמיים: $DYNAMIC_COUNT"
-        else
-          echo "⏭️ אין קובץ done.json - זו הרצה ראשונה"
+        if [ -z "$SINGLE_URL" ]; then
+          echo "❌ שגיאה: לא סופק URL"
+          exit 1
         fi
         
-        # טיפול לפי מצב
-        echo ""
-        echo "🎯 מצב: $REINDEX_MODE"
+        echo "🎯 מעדכן דף בודד: $SINGLE_URL"
+        node scripts/autoBuildIndex.js Shabaton "$SINGLE_URL"
+
+    # ========================================
+    # 📄 עדכון דפים סטטיים - Shabaton
+    # ========================================
+    - name: 📄 עדכון דפים סטטיים - Shabaton
+      if: |
+        contains(steps.sites.outputs.sites, 'shabaton') && 
+        github.event.inputs.reindex_mode == 'static-pages-only'
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPO: ${{ github.repository }}
+      run: |
+        echo "📄 מעדכן רק דפים סטטיים של Shabaton..."
+        
+        cat > /tmp/update_static.mjs << 'EOF'
+        import { updateStaticPages } from './scripts/autoBuildIndex.js';
+        await updateStaticPages('Shabaton');
+        EOF
+        
+        node /tmp/update_static.mjs
+
+    # ========================================
+    # 🏫 עדכון דפי מוסדות - Shabaton (חדש!)
+    # ========================================
+    - name: 🏫 עדכון דפי מוסדות - Shabaton
+      if: |
+        contains(steps.sites.outputs.sites, 'shabaton') && 
+        github.event.inputs.reindex_mode == 'institute-pages-only'
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPO: ${{ github.repository }}
+      run: |
+        echo "🏫 מעדכן רק דפי מוסדות של Shabaton..."
+        
+        cat > /tmp/update_institutions.mjs << 'EOF'
+        import { updateInstitutionPages } from './scripts/autoBuildIndex.js';
+        await updateInstitutionPages('Shabaton', 'https://www.shabaton.online/sitemap.xml');
+        EOF
+        
+        node /tmp/update_institutions.mjs
+
+    # ========================================
+    # 🔄 אינדוקס מלא - Shabaton
+    # ========================================
+    - name: 🔄 אינדוקס Shabaton
+      if: |
+        contains(steps.sites.outputs.sites, 'shabaton') && 
+        github.event.inputs.reindex_mode != 'single-url' &&
+        github.event.inputs.reindex_mode != 'static-pages-only' &&
+        github.event.inputs.reindex_mode != 'institute-pages-only'
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPO: ${{ github.repository }}
+        BATCH_SIZE: ${{ github.event.inputs.batch_size }}
+      run: |
+        REINDEX_MODE="${{ github.event.inputs.reindex_mode }}"
+        
+        echo "מצב: $REINDEX_MODE"
         
         if [ "$REINDEX_MODE" = "fresh-start" ]; then
-          echo "🧹 מחיקת כל קבצי המצב - התחלה מחדש"
+          echo "🔥 מתחיל מאפס - מוחק קבצי אינדקס"
+          rm -f data/shabaton_index.json
           rm -f data/shabaton_done.json
-          rm -f data/shabaton_failed.json
-          rm -f data/shabaton_404.json
-          echo "✅ נמחק הכל - מתחיל מאפס"
+          rm -f data/shabaton_index_part*.json
+          echo "✅ כל הקבצים נמחקו - התחלה חדשה!"
           
         elif [ "$REINDEX_MODE" = "all-pages" ]; then
           echo "🔄 אינדקס מחדש של כל הדפים"
@@ -158,38 +218,96 @@ jobs:
           echo "   🔄 מתוכם דינמיים: $DYNAMIC"
         fi
     
-    - name: 🏗️ בניית אינדקס - Morim
-      if: contains(steps.sites.outputs.sites, 'morim')
+    # ========================================
+    # 🎯 עדכון דף בודד - Morim
+    # ========================================
+    - name: 🎯 עדכון דף בודד - Morim
+      if: |
+        contains(steps.sites.outputs.sites, 'morim') && 
+        github.event.inputs.reindex_mode == 'single-url'
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_REPO: ${{ github.repository }}
         BATCH_SIZE: ${{ github.event.inputs.batch_size }}
-        REINDEX_MODE: ${{ github.event.inputs.reindex_mode }}
       run: |
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "👨‍🏫 מעבד: MORIM"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        SINGLE_URL="${{ github.event.inputs.single_url }}"
         
-        # בדיקת מצב נוכחי
-        if [ -f "data/morim_done.json" ]; then
-          DONE_COUNT=$(cat data/morim_done.json | jq '. | length')
-          echo "📋 דפים ב-done.json: $DONE_COUNT"
-        else
-          echo "⏭️ אין קובץ done.json - זו הרצה ראשונה"
+        if [ -z "$SINGLE_URL" ]; then
+          echo "❌ שגיאה: לא סופק URL"
+          exit 1
         fi
         
-        # ב-Morim אין דפים דינמיים, אז dynamic-only = לא עושים כלום
-        echo ""
-        echo "🎯 מצב: $REINDEX_MODE"
+        echo "🎯 מעדכן דף בודד: $SINGLE_URL"
+        node scripts/autoBuildIndex.js Morim "$SINGLE_URL"
+
+    # ========================================
+    # 📄 עדכון דפים סטטיים - Morim
+    # ========================================
+    - name: 📄 עדכון דפים סטטיים - Morim
+      if: |
+        contains(steps.sites.outputs.sites, 'morim') && 
+        github.event.inputs.reindex_mode == 'static-pages-only'
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPO: ${{ github.repository }}
+      run: |
+        echo "📄 מעדכן רק דפים סטטיים של Morim..."
+        
+        cat > /tmp/update_static.mjs << 'EOF'
+        import { updateStaticPages } from './scripts/autoBuildIndex.js';
+        await updateStaticPages('Morim');
+        EOF
+        
+        node /tmp/update_static.mjs
+
+    # ========================================
+    # 🏫 עדכון דפי מוסדות - Morim (חדש!)
+    # ========================================
+    - name: 🏫 עדכון דפי מוסדות - Morim
+      if: |
+        contains(steps.sites.outputs.sites, 'morim') && 
+        github.event.inputs.reindex_mode == 'institute-pages-only'
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPO: ${{ github.repository }}
+      run: |
+        echo "🏫 מעדכן רק דפי מוסדות של Morim..."
+        
+        cat > /tmp/update_institutions.mjs << 'EOF'
+        import { updateInstitutionPages } from './scripts/autoBuildIndex.js';
+        await updateInstitutionPages('Morim', 'https://www.morim.boutique/sitemap.xml');
+        EOF
+        
+        node /tmp/update_institutions.mjs
+
+    # ========================================
+    # 🔄 אינדוקס מלא - Morim
+    # ========================================
+    - name: 🔄 אינדוקס Morim
+      if: |
+        contains(steps.sites.outputs.sites, 'morim') && 
+        github.event.inputs.reindex_mode != 'single-url' &&
+        github.event.inputs.reindex_mode != 'static-pages-only' &&
+        github.event.inputs.reindex_mode != 'institute-pages-only'
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPO: ${{ github.repository }}
+        BATCH_SIZE: ${{ github.event.inputs.batch_size }}
+      run: |
+        REINDEX_MODE="${{ github.event.inputs.reindex_mode }}"
+        
+        echo "מצב: $REINDEX_MODE"
         
         if [ "$REINDEX_MODE" = "fresh-start" ]; then
-          echo "🧹 מחיקת כל קבצי המצב - התחלה מחדש"
+          echo "🔥 מתחיל מאפס - מוחק קבצי אינדקס"
+          rm -f data/morim_index.json
           rm -f data/morim_done.json
-          rm -f data/morim_failed.json
-          rm -f data/morim_404.json
-          echo "✅ נמחק הכל - מתחיל מאפס"
+          rm -f data/morim_index_part*.json
+          echo "✅ כל הקבצים נמחקו - התחלה חדשה!"
           
         elif [ "$REINDEX_MODE" = "all-pages" ]; then
           echo "🔄 אינדקס מחדש של כל הדפים"
@@ -197,50 +315,42 @@ jobs:
           echo "✅ done.json נמחק - יעבד את כל הדפים מחדש"
           
         elif [ "$REINDEX_MODE" = "dynamic-only" ]; then
-          echo "ℹ️  Morim אין דפים דינמיים - מדלג"
-          echo "💡 אם רוצה לעדכן Morim, בחר 'all-pages' או 'fresh-start'"
-          exit 0
+          if [ -f "data/morim_done.json" ]; then
+            echo "🔍 מוחק רק דפים דינמיים..."
+            
+            cp data/morim_done.json data/morim_done.json.backup
+            
+            BEFORE=$(cat data/morim_done.json | jq '. | length')
+            
+            cat data/morim_done.json | jq '[.[] | select(
+              (contains("results-") | not) and 
+              (contains("search-results-") | not) and 
+              (contains("courses-per-month-") | not)
+            )]' > data/morim_done.json.tmp
+            
+            mv data/morim_done.json.tmp data/morim_done.json
+            
+            AFTER=$(cat data/morim_done.json | jq '. | length')
+            REMOVED=$((BEFORE - AFTER))
+            
+            echo "✅ הושלם!"
+            echo "   📊 דפים לפני: $BEFORE"
+            echo "   📊 דפים אחרי: $AFTER"
+            echo "   🗑️ נמחקו: $REMOVED דפים דינמיים"
+          else
+            echo "⏭️ אין קובץ done.json - זו הרצה ראשונה"
+          fi
         fi
         
         echo ""
         echo "🚀 מתחיל אינדוקס..."
-        node scripts/autoBuildIndex.js Morim https://www.morim.online/sitemap.xml
+        node scripts/autoBuildIndex.js Morim https://www.morim.boutique/sitemap.xml
         
         echo ""
         echo "📊 סטטיסטיקות Morim:"
         if [ -f "data/morim_done.json" ]; then
           DONE=$(cat data/morim_done.json | jq '. | length')
+          DYNAMIC=$(cat data/morim_done.json | jq '[.[] | select(contains("results-") or contains("search-results-") or contains("courses-per-month-"))] | length')
           echo "   ✅ דפים שעובדו: $DONE"
+          echo "   🔄 מתוכם דינמיים: $DYNAMIC"
         fi
-    
-    - name: 📊 סטטיסטיקות סופיות
-      run: |
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "📈 סיכום כולל"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        
-        # Shabaton
-        if [ -f "data/shabaton_index.json" ]; then
-          TOTAL=$(cat data/shabaton_index.json | jq '. | length')
-          echo "🎓 Shabaton: $TOTAL דפים"
-        fi
-        
-        # Morim
-        if [ -f "data/morim_index.json" ]; then
-          TOTAL=$(cat data/morim_index.json | jq '. | length')
-          echo "👨‍🏫 Morim: $TOTAL דפים"
-        fi
-        
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    
-    - name: 📤 Upload index artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: index-files-${{ github.run_number }}
-        path: |
-          data/*_index*.json
-          data/*_done.json
-          data/*_failed.json
-          data/*_404.json
-        retention-days: 30
