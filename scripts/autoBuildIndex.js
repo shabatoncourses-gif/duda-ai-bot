@@ -697,19 +697,35 @@ function extractResultsPageCourses(html) {
   const listItems = $("li.listItem");
   console.log(`   📦 נמצאו ${listItems.length} פריטים`);
 
-  listItems.each((idx, item) => {
+listItems.each((idx, item) => {
     try {
       const $item = $(item);
       
       console.log(`\n   📌 פריט ${idx + 1}/${listItems.length}:`);
 
-      const courseName = $item.find("h3, .course-title, .dmNewParagraph").first().text().trim();
+      // ⚡ חילוץ שם קורס - ניסיונות מרובים
+      let courseName = $item.find("h3").first().text().trim();
       
       if (!courseName || courseName.length < 5) {
-        console.log(`      ⚠️ אין שם קורס`);
-        return;
+        courseName = $item.find("span.itemName").first().text().trim();
       }
       
+      if (!courseName || courseName.length < 5) {
+        courseName = $item.find("div.dmNewParagraph, .dmNewParagraph").first().text().trim();
+      }
+      
+      if (!courseName || courseName.length < 5) {
+        const firstText = $item.find('span, div, p, strong').first().text().trim();
+        if (firstText && firstText.length >= 10 && firstText.length < 200) {
+          courseName = firstText;
+        }
+      }
+      // בדיקה אחרונה - אם עדיין אין שם קורס
+    if (!courseName || courseName.length < 5) {
+     console.log(`      ⚠️ אין שם קורס`);
+    return;
+}
+        
       console.log(`      📚 קורס: ${courseName.substring(0, 60)}`);
       
       const institutions = [];
@@ -1479,5 +1495,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
