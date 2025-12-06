@@ -58,7 +58,21 @@ const EXCLUDED_PAGES = [
   "https://www.shabaton.online/הוספת-מודעה-למציעי-משרה",
   "https://www.shabaton.online/הוספת-מודעה-למבקשי-משרה",
   "https://www.morim.boutique/קורסי-נגרות-וחידוש-רהיטים",
-];
+  "https://www.morim.boutique/art",
+  "https://www.morim.boutique/empowering",
+  "https://www.morim.boutique/cooking",
+  "https://www.morim.boutique/trips",
+  "https://www.morim.boutique/health",
+  "https://www.morim.boutique/fashion",
+  "https://www.morim.boutique/courses-jewelry",
+  "https://www.shabaton.online/bekarov",
+  "https://www.shabaton.online/tel-aviv",
+  "https://www.shabaton.online/sharon",
+  "https://www.shabaton.online/heifa",
+  "https://www.shabaton.online/darom",
+  "https://www.shabaton.online/jerusalm",
+  "https://www.morim.boutique/about",
+ ];
 
 // פונקציה לבדיקה אם URL להתעלם
 function isExcludedUrl(url) {
@@ -1463,3 +1477,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
