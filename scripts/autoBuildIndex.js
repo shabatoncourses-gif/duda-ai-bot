@@ -355,20 +355,37 @@ async function detectIfResultsPage(url, html) {
   try {
     const $ = cheerio.load(html);
     
-    // זיהוי לפי URL
+    // זיהוי לפי URL - הכי בטוח
     if (url.includes('/results') || 
         url.includes('/search-results') || 
         url.includes('/courses-per-month')) {
       return { isResultsPage: true };
     }
     
-    // זיהוי לפי תוכן
+    // בדיקת מבנה הדף
     const hasList = $('li.listItem').length > 0;
-    const hasResults = $('.dmNewParagraph').length > 3;
-    const hasCourseLinks = $('a[href*="/course"]').length > 5;
     
-    if (hasList || (hasResults && hasCourseLinks)) {
-      return { isResultsPage: true };
+    // ההבדל בין דף results לדף מוסדות:
+    // - דף results: כל listItem = קורס אחד, בתוכו רשימת מוסדות (קישורים)
+    // - דף מוסדות: כל listItem = מוסד אחד, בתוכו רשימת קורסים (טקסט)
+    
+    if (hasList) {
+      // בדיקה: האם יש הרבה קישורים בכל listItem? (= results page)
+      let avgLinksPerItem = 0;
+      const items = $('li.listItem');
+      
+      items.each((_, item) => {
+        const links = $(item).find('a').length;
+        avgLinksPerItem += links;
+      });
+      
+      avgLinksPerItem = avgLinksPerItem / items.length;
+      
+      // דף results: בממוצע 5+ קישורים בכל פריט (מוסדות)
+      // דף מוסדות: בממוצע 1-2 קישורים בכל פריט (רק הקישור הראשי)
+      if (avgLinksPerItem > 3) {
+        return { isResultsPage: true };
+      }
     }
     
     return { isResultsPage: false };
@@ -567,6 +584,30 @@ function extractSmartContent(html, url) {
       }
     });
   }
+  
+  // חילוץ מיוחד לדפי מוסדות עם li.listItem (כמו דף קורסי הוראה מותאמת)
+  if (pageType === "institution-page" && $("li.listItem").length > 0) {
+    $("li.listItem").each((_, item) => {
+      const $item = $(item);
+      
+      // שם המוסד
+      const institutionName = $item.find(".itemName").first().text().trim();
+      if (institutionName) {
+        dudaContent.push(institutionName);
+      }
+      
+      // רשימת הקורסים של המוסד
+      const coursesList = $item.find(".itemText").text().trim();
+      if (coursesList && coursesList.length > 20) {
+        // פיצול לפי <br> לקורסים נפרדים
+        const courses = coursesList.split(/\n|<br\s*\/?>/i)
+          .map(c => c.trim())
+          .filter(c => c.length > 5);
+        
+        dudaContent.push(...courses);
+      }
+    });
+  }
 
   // חילוץ קישורים (טקסט בלבד)
   $("a").each((_, el) => {
@@ -642,18 +683,31 @@ function extractResultsPageCourses(html) {
     try {
       const $item = $(item);
 
+      // חילוץ שם הקורס
       const courseName = $item.find("h3, .course-title, .dmNewParagraph").first().text().trim();
-      const institutionElements = $item.find("p, div, span").toArray();
-      let institution = "";
-      for (const el of institutionElements) {
-        const text = $(el).text().trim();
-        if (text && !text.includes(courseName) && text.length > 5 && text.length < 100) {
-          institution = text;
-          break;
+      
+      if (!courseName || courseName.length < 5) return;
+      
+      // חילוץ כל המוסדות (קישורים בתוך ה-listItem)
+      const institutions = [];
+      $item.find("a").each((_, link) => {
+        const linkText = $(link).text().trim();
+        const linkHref = $(link).attr("href") || "";
+        
+        // רק קישורים עם טקסט משמעותי (לא "לפרטים נוספים" וכו')
+        if (linkText && 
+            linkText.length > 3 && 
+            linkText.length < 100 &&
+            !linkText.includes("לפרטים") &&
+            !linkText.includes("more") &&
+            !linkText.includes("קרא עוד") &&
+            linkText !== courseName) {
+          
+          institutions.push(linkText);
         }
-      }
+      });
 
-      const link = $item.find("a").attr("href") || "";
+      // חילוץ תאריכים
       let dates = [];
       $item.find("p, span, div").each((_, el) => {
         const text = $(el).text();
@@ -663,14 +717,14 @@ function extractResultsPageCourses(html) {
         }
       });
 
-      if (courseName) {
-        courses.push({
-          courseName,
-          institution: institution || "לא צוין",
-          dates: dates.length > 0 ? dates : [],
-          link,
-        });
-      }
+      // הוספת הקורס
+      courses.push({
+        courseName,
+        institutions: institutions.length > 0 ? institutions.slice(0, 11) : ["לא צוין"],
+        institutionCount: institutions.length,
+        dates: dates.length > 0 ? dates : [],
+      });
+      
     } catch (err) {
       console.error(`⚠️ שגיאה בחילוץ קורס מ-listItem: ${err.message}`);
     }
