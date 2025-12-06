@@ -757,7 +757,9 @@ function extractResultsPageCourses(html) {
               text.includes("המכללה") ||
               text.includes("האוניברסיטה") ||
               text.includes("בית") ||
+              text.includes("מכון") ||
               text.includes("סמינר") ||
+              text.includes("הקתדרה") ||
               text.includes("המרכז") ||
               text.length > 15;
             
@@ -1477,4 +1479,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
