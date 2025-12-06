@@ -342,9 +342,19 @@ async function detectIfResultsPage(url, html) {
   try {
     const $ = cheerio.load(html);
     
+    // ⚡ בדיקת מבנה - לא רק URL!
+    const hasInstitutionStructure = 
+      $("li.listItem .itemName").length > 0 && 
+      $("li.listItem .itemText").length > 0;
+    
+    // אם יש מבנה institution - זה לא results!
+    if (hasInstitutionStructure) {
+      return { isResultsPage: false };
+    }
+    
+    // רק אם אין מבנה institution, נבדוק לפי URL
     if (url.includes('/results') || 
-        url.includes('/search-results') || 
-        url.includes('/courses-per-month')) {
+        url.includes('/search-results')) {
       return { isResultsPage: true };
     }
     
@@ -1495,6 +1505,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
