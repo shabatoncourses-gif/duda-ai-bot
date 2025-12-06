@@ -72,7 +72,8 @@ const EXCLUDED_PAGES = [
   "https://www.shabaton.online/darom",
   "https://www.shabaton.online/jerusalm",
   "https://www.morim.boutique/about",
- ];
+];
+
 // פונקציה לבדיקה אם URL להתעלם
 function isExcludedUrl(url) {
   if (EXCLUDED_PAGES.includes(url)) return true;
@@ -173,15 +174,6 @@ function removeIgnoredText(text) {
 // ============================================
 // 🌐 טיפול ב-URLs
 // ============================================
-const REGION_MAP = {
-  'all': 'כל הארץ',
-  'merkaz': 'מרכז',
-  'zafon': 'צפון',
-  'sharon': 'שרון',
-  'jerusalem': 'ירושלים',
-  'shfea-darom': 'שפלה ודרום'
-};
-
 function normalizeUrl(url) {
   try {
     url = url.trim();
@@ -335,18 +327,32 @@ async function fetchPageWithRetry(url, maxRetries = CONFIG.RETRY_ATTEMPTS) {
 }
 
 // ============================================
-// 🕵️ זיהוי דפי results
+// 🕵️ זיהוי דפי results - תוקן!
 // ============================================
 async function detectIfResultsPage(url, html) {
   try {
     const $ = cheerio.load(html);
     
+    // ⚡ CRITICAL: בדיקת מבנה קודם!
+    // אם יש itemName + itemText = זו רשימת מוסדות, לא results!
+    const hasInstitutionStructure = 
+      $("li.listItem .itemName").length > 0 && 
+      $("li.listItem .itemText").length > 0;
+    
+    if (hasInstitutionStructure) {
+      console.log(`   🏫 זוהה מבנה institution list (itemName + itemText)`);
+      return { isResultsPage: false };  // זה institution list!
+    }
+    
+    // רק אחרי שבדקנו שאין מבנה institution - בודקים URL
     if (url.includes('/results') || 
         url.includes('/search-results') || 
         url.includes('/courses-per-month')) {
+      console.log(`   📋 זוהה כ-results (לפי URL)`);
       return { isResultsPage: true };
     }
     
+    // בדיקה נוספת: האם יש li.listItem עם הרבה קישורים?
     const hasList = $('li.listItem').length > 0;
     
     if (hasList) {
@@ -361,6 +367,7 @@ async function detectIfResultsPage(url, html) {
       avgLinksPerItem = avgLinksPerItem / items.length;
       
       if (avgLinksPerItem > 3) {
+        console.log(`   📋 זוהה כ-results (ממוצע ${avgLinksPerItem.toFixed(1)} קישורים לפריט)`);
         return { isResultsPage: true };
       }
     }
@@ -376,26 +383,20 @@ function identifyPageType(url, $) {
   const lower = url.toLowerCase();
   const path = new URL(url).pathname.toLowerCase();
 
+  // בדיקת מבנה institution קודם!
+  const hasInstitutionStructure = $("li.listItem .itemName").length > 0 && 
+                                   $("li.listItem .itemText").length > 0;
+  
+  if (hasInstitutionStructure && $("li.listItem").length >= 1) {
+    return "institution-page";
+  }
+
   if (path.includes("/courses-per-month") || path.includes("per-month")) {
-    const hasInstitutionStructure = $("li.listItem .itemName").length > 0 && 
-                                     $("li.listItem .itemText").length > 0;
-    
-    if (hasInstitutionStructure) {
-      return "institution-page";
-    } else {
-      return "course-list";
-    }
+    return "course-list";
   }
 
   if (path.includes("/results") || path.includes("/search-results")) {
     return "course-list";
-  }
-  
-  const hasInstitutionListStructure = $("li.listItem .itemName").length > 0 && 
-                                       $("li.listItem .itemText").length > 0;
-  
-  if (hasInstitutionListStructure && $("li.listItem").length >= 3) {
-    return "institution-page";
   }
 
   if (
@@ -490,20 +491,14 @@ function extractSmartContent(html, url) {
   let coursesByInstitution = {};
   
   if (isDudaPage) {
-    // ⚡ דפי results/courses-per-month הם למעשה רשימות מוסדות דינמיות!
-    const isDynamicInstitutionList = 
-      url.includes("results-") || 
-      url.includes("search-results-") || 
-      url.includes("courses-per-month");
-    
-    // בדיקה: האם יש מבנה של רשימת מוסדות?
+    // ⚡ בדיקת מבנה institution
     const hasInstitutionStructure = 
       $("li.listItem .itemName").length > 0 && 
       $("li.listItem .itemText").length > 0;
     
-    // אם זה דף דינמי של מוסדות - מחלצים מוסדות!
-    if (isDynamicInstitutionList && hasInstitutionStructure) {
-      console.log(`   🔍 מחלץ רשימת מוסדות מדף דינמי...`);
+    // אם יש מבנה institution - מחלצים מוסדות!
+    if (hasInstitutionStructure) {
+      console.log(`   🔍 מחלץ רשימת מוסדות (institution list)...`);
       
       const $fresh = cheerio.load(html);
       
@@ -580,8 +575,8 @@ function extractSmartContent(html, url) {
         }
       });
       
-    } else if (!isDynamicInstitutionList && !hasInstitutionStructure) {
-      // דפים דינמיים אחרים (לא מוסדות)
+    } else {
+      // דפים דינמיים אחרים (ללא מבנה institution)
       $("body *").each((_, el) => {
         const text = $(el).contents().filter(function() {
           return this.type === 'text';
@@ -693,7 +688,7 @@ function extractSmartContent(html, url) {
 }
 
 // ============================================
-// 📊 טיפול בדפי RESULTS
+// 📊 טיפול בדפי RESULTS (לא בשימוש כרגע)
 // ============================================
 function extractResultsPageCourses(html) {
   const $ = cheerio.load(html);
@@ -815,54 +810,6 @@ function extractResultsPageCourses(html) {
 }
 
 // ============================================
-// 🔗 חילוץ קורסים (Regex - fallback)
-// ============================================
-function extractCoursesFromHtml(html) {
-  const courses = [];
-  
-  const regex = /<h3[^>]*>(.*?)<\/h3>\s*(?:<br\s*\/?.*?>)?\s*(.*?)(?=<h3|<\/div|$)/gis;
-  
-  let match;
-  while ((match = regex.exec(html)) !== null) {
-    try {
-      const courseName = match[1].replace(/<[^>]*>/g, '').trim();
-      const institutionsBlock = match[2];
-      
-      if (!courseName || courseName.length < 5) continue;
-      
-      const institutionMatches = institutionsBlock.match(/<a[^>]*>(.*?)<\/a>/gi);
-      const institutions = [];
-      
-      if (institutionMatches) {
-        for (let i = 0; i < Math.min(institutionMatches.length, 10); i++) {
-          const inst = institutionMatches[i]
-            .replace(/<[^>]*>/g, '')
-            .replace(/&nbsp;/g, ' ')
-            .trim();
-          if (inst && inst.length > 2) {
-            institutions.push(inst);
-          }
-        }
-      }
-      
-      if (institutions.length > 0) {
-        courses.push({
-          courseName,
-          institutions: institutions.slice(0, 10),
-          institutionCount: institutions.length
-        });
-      }
-      
-    } catch (err) {
-      console.error(`⚠️ שגיאה: ${err.message}`);
-    }
-  }
-  
-  console.log(`   🎓 חולצו ${courses.length} קורסים (regex)`);
-  return courses;
-}
-
-// ============================================
 // ⚙️ עיבוד דף בודד
 // ============================================
 async function processPage(url) {
@@ -885,20 +832,13 @@ async function processPage(url) {
     const detectionResult = await detectIfResultsPage(url, html);
 
     let extractedContent;
-    let courses = [];
 
     if (detectionResult.isResultsPage) {
-      console.log(`   📋 דף results`);
+      console.log(`   📋 דף results (ללא מבנה institution)`);
       extractedContent = extractSmartContent(html, url);
-      courses = extractResultsPageCourses(html);
-      
-      if (courses.length === 0) {
-        courses = extractCoursesFromHtml(html);
-      }
-      
-      console.log(`   ✅ חולצו ${courses.length} קורסים`);
+      // אין courses כי זה לא באמת results - זה institution list
     } else {
-      console.log(`   📄 דף רגיל`);
+      console.log(`   📄 דף רגיל (או institution list)`);
       extractedContent = extractSmartContent(html, url);
     }
 
@@ -929,8 +869,10 @@ async function processPage(url) {
       indexedAt: new Date().toISOString(),
     };
 
-    if (courses.length > 0) {
-      pageData.courses = courses;
+    // אם יש institutions (מ-extractSmartContent)
+    if (extractedContent.institutions && extractedContent.institutions.length > 0) {
+      pageData.institutions = extractedContent.institutions;
+      pageData.totalCourses = extractedContent.totalCourses;
     }
 
     console.log(`   ✅ הושלם`);
