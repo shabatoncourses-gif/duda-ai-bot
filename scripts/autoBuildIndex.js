@@ -821,7 +821,184 @@ function extractSmartContent(html, url) {
     })
   };
 }
+// ============================================
+// 📊 טיפול בדפי RESULTS (רשימות קורסים)
+// ============================================
+function extractResultsPageCourses(html) {
+  const $ = cheerio.load(html);
+  const courses = [];
 
+  console.log(`   🔍 מחפש li.listItem...`);
+  const listItems = $("li.listItem");
+  console.log(`   📦 נמצאו ${listItems.length} פריטים`);
+
+  listItems.each((idx, item) => {
+    try {
+      const $item = $(item);
+      
+      console.log(`\n   📌 פריט ${idx + 1}/${listItems.length}:`);
+
+      // חילוץ שם הקורס
+      const courseName = $item.find("h3, .course-title, .dmNewParagraph").first().text().trim();
+      
+      if (!courseName || courseName.length < 5) {
+        console.log(`      ⚠️ אין שם קורס (או קצר מדי)`);
+        return;
+      }
+      
+      console.log(`      📚 קורס: ${courseName.substring(0, 60)}`);
+      
+      // חילוץ כל המוסדות - 2 שיטות!
+      const institutions = [];
+      
+      // שיטה 1: מקישורים
+      console.log(`      🔗 מחפש קישורים...`);
+      const links = $item.find("a");
+      console.log(`         מצאתי ${links.length} קישורים`);
+      
+      links.each((_, link) => {
+        const linkText = $(link).text().trim();
+        
+        if (linkText && 
+            linkText.length > 3 && 
+            linkText.length < 100 &&
+            !linkText.includes("לפרטים") &&
+            !linkText.includes("more") &&
+            !linkText.includes("קרא עוד") &&
+            linkText !== courseName) {
+          
+          institutions.push(linkText);
+          console.log(`         ✅ נוסף: ${linkText.substring(0, 40)}`);
+        }
+      });
+      
+      console.log(`      📊 סה"כ מקישורים: ${institutions.length} מוסדות`);
+      
+      // שיטה 2: מטקסטים (אם אין קישורים מספיקים)
+      if (institutions.length < 2) {
+        console.log(`      💡 מעט מוסדות, מנסה שיטה 2 (טקסטים)...`);
+        
+        const textElements = $item.find("span, div, p");
+        console.log(`         מצאתי ${textElements.length} אלמנטים`);
+        
+        textElements.each((_, el) => {
+          const text = $(el).text().trim();
+          
+          if (text && 
+              text.length > 5 && 
+              text.length < 150 &&
+              !text.includes(courseName) &&
+              !text.match(/^\d+$/) &&
+              !text.match(/^\d{1,2}[\/\-\.]\d{1,2}/)) {
+            
+            const looksLikeInstitution = 
+              text.includes("אוניברסיטת") || 
+              text.includes("מכללת") ||
+              text.includes("המכללה") ||
+              text.includes("האוניברסיטה") ||
+              text.includes("בית") ||
+              text.includes("סמינר") ||
+              text.includes("המרכז") ||
+              text.length > 15;
+            
+            if (looksLikeInstitution && !institutions.includes(text)) {
+              institutions.push(text);
+              console.log(`         ✅ נוסף (טקסט): ${text.substring(0, 40)}`);
+            }
+          }
+        });
+        
+        console.log(`      📊 סה"כ אחרי שיטה 2: ${institutions.length} מוסדות`);
+      }
+
+      // חילוץ תאריכים
+      let dates = [];
+      $item.find("p, span, div").each((_, el) => {
+        const text = $(el).text();
+        const dateMatches = text.match(/\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/g);
+        if (dateMatches) {
+          dates.push(...dateMatches);
+        }
+      });
+
+      // הוספת הקורס - רק אם יש לפחות מוסד אחד
+      if (institutions.length > 0) {
+        courses.push({
+          courseName,
+          institutions: institutions.slice(0, 11),
+          institutionCount: institutions.length,
+          dates: dates.length > 0 ? dates : [],
+        });
+        console.log(`      ✅ נוסף קורס עם ${institutions.length} מוסדות`);
+      } else {
+        console.log(`      ❌ לא נמצאו מוסדות - לא נוסף`);
+      }
+      
+    } catch (err) {
+      console.error(`      ⚠️ שגיאה: ${err.message}`);
+    }
+  });
+
+  console.log(`\n   📊 סיכום: ${courses.length} קורסים`);
+  
+  if (courses.length > 0) {
+    console.log(`\n   📋 קורסים שחולצו:`);
+    courses.slice(0, 3).forEach((c, i) => {
+      console.log(`      ${i + 1}. ${c.courseName.substring(0, 50)}`);
+      console.log(`         מוסדות (${c.institutionCount}): ${c.institutions.slice(0, 3).join(", ")}`);
+    });
+  }
+  
+  return courses;
+}
+
+// ============================================
+// 🔗 חילוץ קורסים (Regex - fallback)
+// ============================================
+function extractCoursesFromHtml(html) {
+  const courses = [];
+  
+  const regex = /<h3[^>]*>(.*?)<\/h3>\s*(?:<br\s*\/?.*?>)?\s*(.*?)(?=<h3|<\/div|$)/gis;
+  
+  let match;
+  while ((match = regex.exec(html)) !== null) {
+    try {
+      const courseName = match[1].replace(/<[^>]*>/g, '').trim();
+      const institutionsBlock = match[2];
+      
+      if (!courseName || courseName.length < 5) continue;
+      
+      const institutionMatches = institutionsBlock.match(/<a[^>]*>(.*?)<\/a>/gi);
+      const institutions = [];
+      
+      if (institutionMatches) {
+        for (let i = 0; i < Math.min(institutionMatches.length, 10); i++) {
+          const inst = institutionMatches[i]
+            .replace(/<[^>]*>/g, '')
+            .replace(/&nbsp;/g, ' ')
+            .trim();
+          if (inst && inst.length > 2) {
+            institutions.push(inst);
+          }
+        }
+      }
+      
+      if (institutions.length > 0) {
+        courses.push({
+          courseName,
+          institutions: institutions.slice(0, 10),
+          institutionCount: institutions.length
+        });
+      }
+      
+    } catch (err) {
+      console.error(`⚠️ שגיאה בחילוץ קורס: ${err.message}`);
+    }
+  }
+  
+  console.log(`   🎓 חולצו ${courses.length} קורסים עם מוסדות (regex)`);
+  return courses;
+}
 // ============================================
 // ⚙️ עיבוד דף בודד
 // ============================================
@@ -1528,5 +1705,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
