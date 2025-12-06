@@ -520,73 +520,243 @@ function cleanDom($) {
 }
 
 // ============================================
-// 📝 חילוץ תוכן חכם (משופר!)
-// ============================================
-// ============================================
-// 📝 חילוץ תוכן חכם (משופר - דפים דינמיים!)
+// 📝 חילוץ תוכן מתקדם
 // ============================================
 function extractSmartContent(html, url) {
-  const $ = cheerio.load(html);
-  cleanDom($);
+  let $ = cheerio.load(html);
+  $ = cleanDom($);
 
   const pageType = identifyPageType(url, $);
 
-  // מטא-דאטה
-  const title = $("title").text().trim();
-  const h1 = $("h1").first().text().trim();
-  const description = $("meta[name='description']").attr("content") || "";
-
+  // חילוץ מטא-דאטה
+  const title = removeIgnoredText($("title").text().trim());
+  const description = removeIgnoredText($('meta[name="description"]').attr("content")?.trim() || "");
+  const h1 = removeIgnoredText($("h1").first().text().trim());
+  
   const h2s = $("h2")
-    .map((_, el) => $(el).text().trim())
+    .map((_, el) => removeIgnoredText($(el).text().trim()))
     .get()
     .filter((t) => t.length > 3);
-
+  
   const h3s = $("h3")
-    .map((_, el) => $(el).text().trim())
+    .map((_, el) => removeIgnoredText($(el).text().trim()))
     .get()
     .filter((t) => t.length > 3);
 
-  // חילוץ רשימות (משופר לדפי מוסדות!)
+  // **חילוץ מיוחד לדפי Duda דינמיים**
+  const isDudaPage = 
+    url.includes("courses-per-month") || 
+    url.includes("results-") ||
+    url.includes("search-results-") ||
+    pageType === "institution-page" ||
+    pageType === "course-list";
+  
+  let dudaContent = [];
+  let institutions = [];
+  let coursesByInstitution = {};
+  
+  if (isDudaPage) {
+    // **זיהוי דפי results/month - יש להם מבנה מיוחד**
+    const isResultsOrMonth = url.includes("results-") || url.includes("search-results-") || url.includes("courses-per-month");
+    
+    if (isResultsOrMonth) {
+      console.log(`   🔍 מחלץ מוסדות מדף Duda דינמי (results/month)...`);
+      
+      // טעינה מחדש של Cheerio עם ה-HTML המקורי (לפני cleanDom)
+      // כדי לשמור על המבנה הדינמי
+      const $fresh = cheerio.load(html);
+      
+      // Debug logs
+      console.log(`   📝 אורך HTML: ${html.length} תווים`);
+      console.log(`   📝 האם יש li.listItem בHTML: ${html.includes('class="listItem"')}`);
+      console.log(`   📝 האם יש span.itemName בHTML: ${html.includes('class="itemName"')}`);
+      console.log(`   📝 מספר li.listItem ב-Cheerio טרי: ${$fresh("li.listItem").length}`);
+      console.log(`   📝 מספר span.itemName ב-Cheerio טרי: ${$fresh("span.itemName").length}`);
+      
+      // אסטרטגיה 1: מבנה Duda הסטנדרטי - li.listItem
+      $fresh("li.listItem").each((_, el) => {
+        const $item = $fresh(el);
+        
+        // חילוץ שם המוסד
+        const institutionName = removeIgnoredText($item.find("span.itemName").first().text().trim());
+        
+        if (institutionName && institutionName.length > 5) {
+          if (!institutions.includes(institutionName)) {
+            institutions.push(institutionName);
+            coursesByInstitution[institutionName] = [];
+          }
+          
+          // חילוץ קורסים מ-itemText
+          // חשוב! צריך .html() לא .text() כדי לשמור על <br>
+          const coursesHTML = $item.find("span.itemText").html() || '';
+          
+          if (coursesHTML) {
+            // פיצול לפי <br> tags (כולל עם attributes כמו id)
+            const coursesList = coursesHTML
+              .split(/<br\s*\/?.*?>/i)  // פיצול לפי <br id="..."/> או <br/>
+              .map(c => {
+                // הסרת tags אחרים והסרת רווחים
+                return removeIgnoredText($fresh('<div>').html(c).text().trim());
+              })
+              .filter(c => c.length > 5);  // רק קורסים אמיתיים
+            
+            console.log(`      - ${institutionName.substring(0, 40)}: נמצאו ${coursesList.length} קורסים`);
+            coursesByInstitution[institutionName].push(...coursesList);
+          }
+        }
+      });
+      
+      console.log(`   📊 נמצאו ${institutions.length} מוסדות דרך li.listItem`);
+      
+      // אסטרטגיה 2: אם אין li.listItem, נסה H2 + UL (מבנה ישן יותר)
+      if (institutions.length === 0) {
+        console.log(`   🔄 מנסה אסטרטגיה 2: H2 + UL...`);
+        
+        $("h2").each((_, el) => {
+          const institutionName = removeIgnoredText($(el).text().trim());
+          
+          if (institutionName && 
+              institutionName.length > 5 && 
+              institutionName.length < 150 &&
+              !institutionName.includes("קורסים") &&
+              !institutionName.includes("תוצאות") &&
+              !institutionName.includes("לפי")) {
+            
+            if (!institutions.includes(institutionName)) {
+              institutions.push(institutionName);
+              coursesByInstitution[institutionName] = [];
+            }
+            
+            // חילוץ קורסים מה-UL הבא
+            $(el).nextAll("ul").first().find("li").each((_, li) => {
+              const courseText = removeIgnoredText($(li).text().trim());
+              if (courseText && courseText.length > 10) {
+                coursesByInstitution[institutionName].push(courseText);
+              }
+            });
+          }
+        });
+        
+        console.log(`   📊 נמצאו ${institutions.length} מוסדות דרך H2`);
+      }
+      
+      // אסטרטגיה 3: חיפוש גנרי - span עם מילות מפתח
+      if (institutions.length === 0) {
+        console.log(`   🔄 מנסה אסטרטגיה 3: span עם מילות מפתח...`);
+        
+        $("span, strong, h3, h4").each((_, el) => {
+          const text = removeIgnoredText($(el).text().trim());
+          
+          if (text && 
+              text.length > 5 && 
+              text.length < 150 &&
+              (text.includes("אוניברסיט") || text.includes("מכללה") || 
+               text.includes("מכון") || text.includes("סמינר") ||
+               text.includes("המרכז ל") || text.includes("בית ספר ל"))) {
+            
+            if (!institutions.includes(text)) {
+              institutions.push(text);
+              coursesByInstitution[text] = [];
+            }
+          }
+        });
+        
+        console.log(`   📊 נמצאו ${institutions.length} מוסדות דרך span/strong`);
+      }
+      
+      // אסטרטגיה 4 (fallback): אם אין כלום, נאסוף קורסים
+      if (institutions.length === 0) {
+        console.log(`   ⚠️ לא נמצאו מוסדות - אוסף קורסים כללי`);
+        
+        institutions.push("קורסים זמינים");
+        coursesByInstitution["קורסים זמינים"] = [];
+        
+        $("a").each((_, el) => {
+          const linkText = removeIgnoredText($(el).text().trim());
+          const href = $(el).attr("href") || "";
+          
+          if (linkText && 
+              linkText.length > 15 && 
+              linkText.length < 300 &&
+              !linkText.includes("קרא עוד") && 
+              !linkText.includes("לפרטים") &&
+              !linkText.includes("עמוד הבית") &&
+              href.includes("/")) {
+            coursesByInstitution["קורסים זמינים"].push(linkText);
+          }
+        });
+      }
+      
+      // בניית תוכן
+      console.log(`   ✅ סה"כ ${institutions.length} מוסדות`);
+      institutions.forEach(inst => {
+        dudaContent.push(inst);
+        const courses = coursesByInstitution[inst] || [];
+        if (courses.length > 0) {
+          console.log(`      - ${inst.substring(0, 60)}: ${courses.length} קורסים`);
+          dudaContent.push(...courses.slice(0, 50));
+        }
+      });
+      
+    } else {
+      // דפי מוסדות או דפים דינמיים אחרים - חילוץ רגיל
+      $("body *").each((_, el) => {
+        const text = $(el).contents().filter(function() {
+          return this.type === 'text';
+        }).text().trim();
+        
+        if (text && text.length > 5 && text.length < 500) {
+          dudaContent.push(text);
+        }
+      });
+      
+      // חילוץ data attributes
+      $("[data-title], [data-name], [data-description]").each((_, el) => {
+        const dataTitle = $(el).attr("data-title");
+        const dataName = $(el).attr("data-name");
+        const dataDesc = $(el).attr("data-description");
+        
+        if (dataTitle) dudaContent.push(dataTitle);
+        if (dataName) dudaContent.push(dataName);
+        if (dataDesc) dudaContent.push(dataDesc);
+      });
+      
+      // חילוץ קישורים
+      $("a").each((_, el) => {
+        const linkText = $(el).text().trim();
+        if (linkText && linkText.length > 10 && linkText.length < 200) {
+          dudaContent.push(linkText);
+        }
+      });
+    }
+  }
+
+  // חילוץ רשימות (ul/ol)
   const lists = [];
   $("ul, ol").each((_, list) => {
     const items = $(list)
       .find("li")
-      .map((_, li) => $(li).text().trim())
+      .map((_, li) => removeIgnoredText($(li).text().trim()))
       .get()
       .filter((t) => t.length > 10 && !t.includes("קורסים נוספים"));
-
+    
     if (items.length > 0 && items.length < 50) {
       lists.push(...items);
     }
   });
 
-  // חילוץ טבלאות (משופר! הסרת קישורים)
+  // חילוץ טבלאות (לדפי קורסים)
   const tables = [];
-  if (pageType === "course-detail" || 
-      pageType === "institution-page" || 
-      pageType === "course-list") {
-    
+  if (pageType === "course-detail" || pageType === "institution-page" || pageType === "course-list") {
     $("table").each((_, table) => {
       const rows = $(table).find("tr");
-      
-      // הגדלה ל-150 שורות (במקום 50)
-      if (rows.length > 0 && rows.length < 150) {
-        
+      if (rows.length > 0 && rows.length < 50) {
         rows.each((_, row) => {
           const cells = $(row)
             .find("td, th")
-            .map((_, cell) => {
-              // הסרת קישורי "צרו קשר" ופעולה
-              return $(cell).clone()
-                .find('a[href*="contact"], a:contains("צרו קשר"), a:contains("הרשמה")')
-                .remove()
-                .end()
-                .text().trim();
-            })
+            .map((_, cell) => removeIgnoredText($(cell).text().trim()))
             .get()
-            .filter(t => t.length > 0)
             .join(" | ");
-          
           if (cells) tables.push(cells);
         });
       }
@@ -594,280 +764,62 @@ function extractSmartContent(html, url) {
   }
 
   // חילוץ פסקאות
-  const paragraphs = $("p")
-    .map((_, el) => $(el).text().trim())
-    .get()
-    .filter((t) => t.length > 20 && t.length < 600);
-
-  // ============================================
-  // 🔥 חילוץ תוכן Duda - משופר לכל סוגי הדפים!
-  // ============================================
-  const dudaContent = [];
-  
-  // דפי course-list (results)
-  if (pageType === "course-list") {
-    console.log(`   📋 מחלץ תוכן מדף results...`);
-    
-    $("li.listItem").each((_, el) => {
-      const text = $(el).text().trim();
-      if (text && text.length > 20) {
-        dudaContent.push(text);
-      }
-    });
-
-    $(".dmNewParagraph").each((_, el) => {
-      const text = $(el).text().trim();
-      if (text && text.length > 20) {
-        dudaContent.push(text);
-      }
-    });
-  }
-  
-  // ============================================
-  // 🏫 חילוץ מיוחד לדפי מוסדות עם li.listItem
-  // ============================================
-  if (pageType === "institution-page" && $("li.listItem").length > 0) {
-    console.log(`   🏫 מחלץ מוסדות וקורסים מדף institution...`);
-    
-    $("li.listItem").each((_, item) => {
-      const $item = $(item);
-      
-      // שם המוסד
-      const institutionName = $item.find(".itemName, span.itemName").first().text().trim();
-      if (institutionName && institutionName.length > 5) {
-        dudaContent.push(institutionName);
-        console.log(`      🏫 מוסד: ${institutionName.substring(0, 50)}`);
-      }
-      
-      // רשימת הקורסים של המוסד
-      const coursesList = $item.find(".itemText, span.itemText").first().text().trim();
-      if (coursesList && coursesList.length > 20) {
-        // פיצול לפי שורות חדשות (<br> מתורגם ל-\n ע"י cheerio)
-        const courses = coursesList
-          .split(/\n+/)
-          .map(c => c.trim())
-          .filter(c => c.length > 5);
-        
-        if (courses.length > 0) {
-          console.log(`         📚 ${courses.length} קורסים`);
-          dudaContent.push(...courses);
-        }
-      }
-    });
-    
-    console.log(`   ✅ נמצאו ${$("li.listItem").length} מוסדות`);
-  }
-
-  // חילוץ קישורים (טקסט בלבד)
-  $("a").each((_, el) => {
-    const linkText = $(el).text().trim();
-    if (linkText && linkText.length > 10 && linkText.length < 200) {
-      dudaContent.push(linkText);
+  const paragraphs = [];
+  $("p, blockquote, article, div.content, section").each((_, el) => {
+    const text = removeIgnoredText($(el).text().trim());
+    if (text.length > 20 && text.length < 2000) {
+      paragraphs.push(text);
     }
   });
 
-  // ============================================
-  // 🔥 בניית הטקסט הסופי (משופר לדפי מוסדות!)
-  // ============================================
+  // בניית טקסט סופי עם משקלות
   const parts = [];
-
-  // משקל כפול לכותרות
+  
+  // משקל גבוה לכותרות
   if (title) parts.push(title, title);
   if (h1 && h1 !== title) parts.push(h1, h1);
   if (description) parts.push(description);
-
+  
   // כותרות משנה
   parts.push(...h2s, ...h3s);
-
-  // תוכן עיקרי - **משופר לדפי מוסדות**
-  if (pageType === "institution-page") {
-    // לדפי מוסדות: 100 פריטים (במקום 20!)
-    parts.push(...lists.slice(0, 100));
-    parts.push(...tables.slice(0, 100));
-    parts.push(...dudaContent.slice(0, 200));  // ✨ הגדלה ל-200!
-  } else {
-    // לדפים אחרים: הגבלה רגילה
-    parts.push(...lists.slice(0, 20));
-    parts.push(...tables.slice(0, 15));
+  
+  // תוכן Duda דינמי
+  if (isDudaPage && dudaContent.length > 0) {
     parts.push(...dudaContent.slice(0, 30));
   }
-
+  
+  // תוכן עיקרי
+  parts.push(...lists.slice(0, 20));
+  parts.push(...tables.slice(0, 15));
   parts.push(...paragraphs);
 
-  // הסרת כפילויות
+  // ניקוי והסרת כפילויות
   const uniqueParts = [...new Set(parts)].filter(Boolean);
-  let cleanText = uniqueParts.join(" ");
+  let cleanText = uniqueParts
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .replace(/(\||›|»|·|•|→|←)/g, " ")
+    .replace(/\[.*?\]/g, "")
+    .trim();
 
-  // הסרת משפטים להתעלמות
+  // ניקוי סופי - הסרת המשפטים המיותרים
   cleanText = removeIgnoredText(cleanText);
 
-  // קיצוץ לאורך מקסימלי
-  if (cleanText.length > 8000) {
-    cleanText = cleanText.substring(0, 8000);
-  }
-
-  // חישוב מספר מילים
-  const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
-
   return {
-    text: cleanText,
-    wordCount,
-    title,
+    url,
+    title: title || h1 || "ללא כותרת",
     h1,
-    h2: h2s,
-    h3: h3s,
+    h2: institutions.length > 0 ? institutions : h2s.slice(0, 5),
+    h3: h3s.slice(0, 5),
     description,
     type: pageType,
+    text: cleanText.slice(0, 8000),
+    wordCount: cleanText.split(/\s+/).filter(w => w.length > 0).length,
+    ...(institutions.length > 0 && {
+      institutions: institutions,
+      totalCourses: Object.values(coursesByInstitution).flat().length
+    })
   };
-}
-
-// ============================================
-// 📊 טיפול בדפי RESULTS (רשימות קורסים)
-// ============================================
-function extractResultsPageCourses(html) {
-  const $ = cheerio.load(html);
-  const courses = [];
-
-  // Duda: li.listItem
-  $("li.listItem").each((_, item) => {
-    try {
-      const $item = $(item);
-
-      // חילוץ שם הקורס
-      const courseName = $item.find("h3, .course-title, .dmNewParagraph").first().text().trim();
-      
-      if (!courseName || courseName.length < 5) return;
-      
-      // חילוץ כל המוסדות - 2 שיטות!
-      const institutions = [];
-      
-      // שיטה 1: מקישורים (אם יש)
-      $item.find("a").each((_, link) => {
-        const linkText = $(link).text().trim();
-        const linkHref = $(link).attr("href") || "";
-        
-        // רק קישורים עם טקסט משמעותי
-        if (linkText && 
-            linkText.length > 3 && 
-            linkText.length < 100 &&
-            !linkText.includes("לפרטים") &&
-            !linkText.includes("more") &&
-            !linkText.includes("קרא עוד") &&
-            linkText !== courseName) {
-          
-          institutions.push(linkText);
-        }
-      });
-      
-      // שיטה 2: מטקסטים (אם אין קישורים מספיקים)
-      if (institutions.length < 2) {
-        // חפש spans/divs עם שמות מוסדות
-        $item.find("span, div, p").each((_, el) => {
-          const text = $(el).text().trim();
-          
-          // סינון: רק טקסטים משמעותיים שנראים כמו שמות מוסדות
-          if (text && 
-              text.length > 5 && 
-              text.length < 150 &&
-              !text.includes(courseName) &&
-              !text.match(/^\d+$/) &&  // לא רק מספרים
-              !text.match(/^\d{1,2}[\/\-\.]\d{1,2}/)) {  // לא תאריכים
-            
-            // בדיקה: האם זה נראה כמו שם מוסד?
-            if (text.includes("אוניברסיטת") || 
-                text.includes("מכללת") ||
-                text.includes("המכללה") ||
-                text.includes("האוניברסיטה") ||
-                text.includes("בית") ||
-                text.includes("סמינר") ||
-                text.length > 15) {  // או סתם טקסט ארוך מספיק
-              
-              // ודא שלא כבר נוסף
-              if (!institutions.includes(text)) {
-                institutions.push(text);
-              }
-            }
-          }
-        });
-      }
-
-      // חילוץ תאריכים
-      let dates = [];
-      $item.find("p, span, div").each((_, el) => {
-        const text = $(el).text();
-        const dateMatches = text.match(/\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/g);
-        if (dateMatches) {
-          dates.push(...dateMatches);
-        }
-      });
-
-      // הוספת הקורס - רק אם יש לפחות מוסד אחד
-      if (institutions.length > 0) {
-        courses.push({
-          courseName,
-          institutions: institutions.slice(0, 11),
-          institutionCount: institutions.length,
-          dates: dates.length > 0 ? dates : [],
-        });
-      }
-      
-    } catch (err) {
-      console.error(`⚠️ שגיאה בחילוץ קורס מ-listItem: ${err.message}`);
-    }
-  });
-
-  console.log(`   📚 נמצאו ${courses.length} קורסים בדף`);
-  return courses;
-}
-
-// ============================================
-// 🔗 חילוץ 11 קורסים למוסד (Regex משופר)
-// ============================================
-function extractCoursesFromHtml(html) {
-  const courses = [];
-  
-  // Regex: שם קורס (עם <br>) + עד 10 מוסדות
-  const regex = /<h3[^>]*>(.*?)<\/h3>\s*(?:<br\s*\/?.*?>)?\s*(.*?)(?=<h3|<\/div|$)/gis;
-  
-  let match;
-  while ((match = regex.exec(html)) !== null) {
-    try {
-      const courseName = match[1].replace(/<[^>]*>/g, '').trim();
-      const institutionsBlock = match[2];
-      
-      if (!courseName || courseName.length < 5) continue;
-      
-      // חילוץ עד 10 מוסדות
-      const institutionMatches = institutionsBlock.match(/<a[^>]*>(.*?)<\/a>/gi);
-      const institutions = [];
-      
-      if (institutionMatches) {
-        for (let i = 0; i < Math.min(institutionMatches.length, 10); i++) {
-          const inst = institutionMatches[i]
-            .replace(/<[^>]*>/g, '')
-            .replace(/&nbsp;/g, ' ')
-            .trim();
-          if (inst && inst.length > 2) {
-            institutions.push(inst);
-          }
-        }
-      }
-      
-      if (institutions.length > 0) {
-        courses.push({
-          courseName,
-          institutions: institutions.slice(0, 10),
-          institutionCount: institutions.length
-        });
-      }
-      
-    } catch (err) {
-      console.error(`⚠️ שגיאה בחילוץ קורס: ${err.message}`);
-    }
-  }
-  
-  console.log(`   🎓 חולצו ${courses.length} קורסים עם מוסדות`);
-  return courses;
 }
 
 // ============================================
@@ -1576,4 +1528,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
