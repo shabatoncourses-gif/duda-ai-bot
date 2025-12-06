@@ -424,6 +424,19 @@ function identifyPageType(url, $) {
   ) {
     return "course-list";
   }
+  
+  // ============================================
+  // בדיקה כללית: דף מוסדות עם li.listItem?
+  // ============================================
+  // אם יש li.listItem עם itemName ו-itemText = דף מוסדות!
+  // (גם אם ה-URL לא courses-per-month)
+  const hasInstitutionListStructure = $("li.listItem .itemName").length > 0 && 
+                                       $("li.listItem .itemText").length > 0;
+  
+  if (hasInstitutionListStructure && $("li.listItem").length >= 3) {
+    // זה דף מוסדות! (כל listItem = מוסד אחד עם רשימת קורסים)
+    return "institution-page";
+  }
 
   // דפי מידע ספציפיים
   if (
@@ -704,13 +717,15 @@ function extractResultsPageCourses(html) {
       
       if (!courseName || courseName.length < 5) return;
       
-      // חילוץ כל המוסדות (קישורים בתוך ה-listItem)
+      // חילוץ כל המוסדות - 2 שיטות!
       const institutions = [];
+      
+      // שיטה 1: מקישורים (אם יש)
       $item.find("a").each((_, link) => {
         const linkText = $(link).text().trim();
         const linkHref = $(link).attr("href") || "";
         
-        // רק קישורים עם טקסט משמעותי (לא "לפרטים נוספים" וכו')
+        // רק קישורים עם טקסט משמעותי
         if (linkText && 
             linkText.length > 3 && 
             linkText.length < 100 &&
@@ -722,6 +737,38 @@ function extractResultsPageCourses(html) {
           institutions.push(linkText);
         }
       });
+      
+      // שיטה 2: מטקסטים (אם אין קישורים מספיקים)
+      if (institutions.length < 2) {
+        // חפש spans/divs עם שמות מוסדות
+        $item.find("span, div, p").each((_, el) => {
+          const text = $(el).text().trim();
+          
+          // סינון: רק טקסטים משמעותיים שנראים כמו שמות מוסדות
+          if (text && 
+              text.length > 5 && 
+              text.length < 150 &&
+              !text.includes(courseName) &&
+              !text.match(/^\d+$/) &&  // לא רק מספרים
+              !text.match(/^\d{1,2}[\/\-\.]\d{1,2}/)) {  // לא תאריכים
+            
+            // בדיקה: האם זה נראה כמו שם מוסד?
+            if (text.includes("אוניברסיטת") || 
+                text.includes("מכללת") ||
+                text.includes("המכללה") ||
+                text.includes("האוניברסיטה") ||
+                text.includes("בית") ||
+                text.includes("סמינר") ||
+                text.length > 15) {  // או סתם טקסט ארוך מספיק
+              
+              // ודא שלא כבר נוסף
+              if (!institutions.includes(text)) {
+                institutions.push(text);
+              }
+            }
+          }
+        });
+      }
 
       // חילוץ תאריכים
       let dates = [];
@@ -733,13 +780,15 @@ function extractResultsPageCourses(html) {
         }
       });
 
-      // הוספת הקורס
-      courses.push({
-        courseName,
-        institutions: institutions.length > 0 ? institutions.slice(0, 11) : ["לא צוין"],
-        institutionCount: institutions.length,
-        dates: dates.length > 0 ? dates : [],
-      });
+      // הוספת הקורס - רק אם יש לפחות מוסד אחד
+      if (institutions.length > 0) {
+        courses.push({
+          courseName,
+          institutions: institutions.slice(0, 11),
+          institutionCount: institutions.length,
+          dates: dates.length > 0 ? dates : [],
+        });
+      }
       
     } catch (err) {
       console.error(`⚠️ שגיאה בחילוץ קורס מ-listItem: ${err.message}`);
