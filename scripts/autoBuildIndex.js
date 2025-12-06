@@ -73,7 +73,6 @@ const EXCLUDED_PAGES = [
   "https://www.shabaton.online/jerusalm",
   "https://www.morim.boutique/about",
  ];
-
 // פונקציה לבדיקה אם URL להתעלם
 function isExcludedUrl(url) {
   if (EXCLUDED_PAGES.includes(url)) return true;
@@ -342,19 +341,9 @@ async function detectIfResultsPage(url, html) {
   try {
     const $ = cheerio.load(html);
     
-    // ⚡ בדיקת מבנה - לא רק URL!
-    const hasInstitutionStructure = 
-      $("li.listItem .itemName").length > 0 && 
-      $("li.listItem .itemText").length > 0;
-    
-    // אם יש מבנה institution - זה לא results!
-    if (hasInstitutionStructure) {
-      return { isResultsPage: false };
-    }
-    
-    // רק אם אין מבנה institution, נבדוק לפי URL
     if (url.includes('/results') || 
-        url.includes('/search-results')) {
+        url.includes('/search-results') || 
+        url.includes('/courses-per-month')) {
       return { isResultsPage: true };
     }
     
@@ -501,13 +490,20 @@ function extractSmartContent(html, url) {
   let coursesByInstitution = {};
   
   if (isDudaPage) {
-    // ⚡ תיקון קריטי: דפי results מטופלים ב-extractResultsPageCourses!
-    const isResultsPage = url.includes("results-") || url.includes("search-results-");
-    const isInstitutionPage = url.includes("courses-per-month") || pageType === "institution-page";
+    // ⚡ דפי results/courses-per-month הם למעשה רשימות מוסדות דינמיות!
+    const isDynamicInstitutionList = 
+      url.includes("results-") || 
+      url.includes("search-results-") || 
+      url.includes("courses-per-month");
     
-    // רק דפי institution, לא results!
-    if (isInstitutionPage && !isResultsPage) {
-      console.log(`   🔍 מחלץ מוסדות מדף institution...`);
+    // בדיקה: האם יש מבנה של רשימת מוסדות?
+    const hasInstitutionStructure = 
+      $("li.listItem .itemName").length > 0 && 
+      $("li.listItem .itemText").length > 0;
+    
+    // אם זה דף דינמי של מוסדות - מחלצים מוסדות!
+    if (isDynamicInstitutionList && hasInstitutionStructure) {
+      console.log(`   🔍 מחלץ רשימת מוסדות מדף דינמי...`);
       
       const $fresh = cheerio.load(html);
       
@@ -584,8 +580,8 @@ function extractSmartContent(html, url) {
         }
       });
       
-    } else if (!isResultsPage) {
-      // דפים דינמיים אחרים (לא results, לא institution)
+    } else if (!isDynamicInstitutionList && !hasInstitutionStructure) {
+      // דפים דינמיים אחרים (לא מוסדות)
       $("body *").each((_, el) => {
         const text = $(el).contents().filter(function() {
           return this.type === 'text';
@@ -707,35 +703,19 @@ function extractResultsPageCourses(html) {
   const listItems = $("li.listItem");
   console.log(`   📦 נמצאו ${listItems.length} פריטים`);
 
-listItems.each((idx, item) => {
+  listItems.each((idx, item) => {
     try {
       const $item = $(item);
       
       console.log(`\n   📌 פריט ${idx + 1}/${listItems.length}:`);
 
-      // ⚡ חילוץ שם קורס - ניסיונות מרובים
-      let courseName = $item.find("h3").first().text().trim();
+      const courseName = $item.find("h3, .course-title, .dmNewParagraph").first().text().trim();
       
       if (!courseName || courseName.length < 5) {
-        courseName = $item.find("span.itemName").first().text().trim();
+        console.log(`      ⚠️ אין שם קורס`);
+        return;
       }
       
-      if (!courseName || courseName.length < 5) {
-        courseName = $item.find("div.dmNewParagraph, .dmNewParagraph").first().text().trim();
-      }
-      
-      if (!courseName || courseName.length < 5) {
-        const firstText = $item.find('span, div, p, strong').first().text().trim();
-        if (firstText && firstText.length >= 10 && firstText.length < 200) {
-          courseName = firstText;
-        }
-      }
-      // בדיקה אחרונה - אם עדיין אין שם קורס
-    if (!courseName || courseName.length < 5) {
-     console.log(`      ⚠️ אין שם קורס`);
-    return;
-}
-        
       console.log(`      📚 קורס: ${courseName.substring(0, 60)}`);
       
       const institutions = [];
@@ -783,9 +763,7 @@ listItems.each((idx, item) => {
               text.includes("המכללה") ||
               text.includes("האוניברסיטה") ||
               text.includes("בית") ||
-              text.includes("מכון") ||
               text.includes("סמינר") ||
-              text.includes("הקתדרה") ||
               text.includes("המרכז") ||
               text.length > 15;
             
@@ -1505,7 +1483,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
-
-
-
-
