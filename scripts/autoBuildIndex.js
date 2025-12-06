@@ -399,12 +399,28 @@ function identifyPageType(url, $) {
   const lower = url.toLowerCase();
   const path = new URL(url).pathname.toLowerCase();
 
+  // ============================================
+  // בדיקה מיוחדת לדפי courses-per-month
+  // ============================================
+  // דפים כמו /courses-per-month-sharon הם דפי מוסדות, לא results!
+  // זיהוי: אם יש li.listItem עם itemName ו-itemText = דף מוסדות
+  if (path.includes("/courses-per-month") || path.includes("per-month")) {
+    const hasInstitutionStructure = $("li.listItem .itemName").length > 0 && 
+                                     $("li.listItem .itemText").length > 0;
+    
+    if (hasInstitutionStructure) {
+      // זה דף מוסדות! (כל listItem = מוסד אחד עם רשימת קורסים)
+      return "institution-page";
+    } else {
+      // זה דף results (כל listItem = קורס אחד עם רשימת מוסדות)
+      return "course-list";
+    }
+  }
+
   // דפי תוצאות/חיפוש (רשימות קורסים) - **עדיפות גבוהה**
   if (
     path.includes("/results") ||
-    path.includes("/search-results") ||
-    path.includes("/courses-per-month") ||
-    path.includes("per-month")
+    path.includes("/search-results")
   ) {
     return "course-list";
   }
