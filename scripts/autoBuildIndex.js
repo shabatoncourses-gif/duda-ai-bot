@@ -522,6 +522,9 @@ function cleanDom($) {
 // ============================================
 // 📝 חילוץ תוכן חכם (משופר!)
 // ============================================
+// ============================================
+// 📝 חילוץ תוכן חכם (משופר - דפים דינמיים!)
+// ============================================
 function extractSmartContent(html, url) {
   const $ = cheerio.load(html);
   cleanDom($);
@@ -596,9 +599,15 @@ function extractSmartContent(html, url) {
     .get()
     .filter((t) => t.length > 20 && t.length < 600);
 
-  // חילוץ תוכן Duda (לדפי results)
+  // ============================================
+  // 🔥 חילוץ תוכן Duda - משופר לכל סוגי הדפים!
+  // ============================================
   const dudaContent = [];
+  
+  // דפי course-list (results)
   if (pageType === "course-list") {
+    console.log(`   📋 מחלץ תוכן מדף results...`);
+    
     $("li.listItem").each((_, el) => {
       const text = $(el).text().trim();
       if (text && text.length > 20) {
@@ -614,28 +623,39 @@ function extractSmartContent(html, url) {
     });
   }
   
-  // חילוץ מיוחד לדפי מוסדות עם li.listItem (כמו דף קורסי הוראה מותאמת)
+  // ============================================
+  // 🏫 חילוץ מיוחד לדפי מוסדות עם li.listItem
+  // ============================================
   if (pageType === "institution-page" && $("li.listItem").length > 0) {
+    console.log(`   🏫 מחלץ מוסדות וקורסים מדף institution...`);
+    
     $("li.listItem").each((_, item) => {
       const $item = $(item);
       
       // שם המוסד
-      const institutionName = $item.find(".itemName").first().text().trim();
-      if (institutionName) {
+      const institutionName = $item.find(".itemName, span.itemName").first().text().trim();
+      if (institutionName && institutionName.length > 5) {
         dudaContent.push(institutionName);
+        console.log(`      🏫 מוסד: ${institutionName.substring(0, 50)}`);
       }
       
       // רשימת הקורסים של המוסד
-      const coursesList = $item.find(".itemText").text().trim();
+      const coursesList = $item.find(".itemText, span.itemText").first().text().trim();
       if (coursesList && coursesList.length > 20) {
-        // פיצול לפי <br> לקורסים נפרדים
-        const courses = coursesList.split(/\n|<br\s*\/?>/i)
+        // פיצול לפי שורות חדשות (<br> מתורגם ל-\n ע"י cheerio)
+        const courses = coursesList
+          .split(/\n+/)
           .map(c => c.trim())
           .filter(c => c.length > 5);
         
-        dudaContent.push(...courses);
+        if (courses.length > 0) {
+          console.log(`         📚 ${courses.length} קורסים`);
+          dudaContent.push(...courses);
+        }
       }
     });
+    
+    console.log(`   ✅ נמצאו ${$("li.listItem").length} מוסדות`);
   }
 
   // חילוץ קישורים (טקסט בלבד)
@@ -664,14 +684,15 @@ function extractSmartContent(html, url) {
     // לדפי מוסדות: 100 פריטים (במקום 20!)
     parts.push(...lists.slice(0, 100));
     parts.push(...tables.slice(0, 100));
+    parts.push(...dudaContent.slice(0, 200));  // ✨ הגדלה ל-200!
   } else {
     // לדפים אחרים: הגבלה רגילה
     parts.push(...lists.slice(0, 20));
     parts.push(...tables.slice(0, 15));
+    parts.push(...dudaContent.slice(0, 30));
   }
 
   parts.push(...paragraphs);
-  parts.push(...dudaContent.slice(0, 30));
 
   // הסרת כפילויות
   const uniqueParts = [...new Set(parts)].filter(Boolean);
@@ -1555,3 +1576,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
