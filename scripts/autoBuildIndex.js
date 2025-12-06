@@ -46,7 +46,7 @@ const STATIC_INFO_PAGES = [
 ];
 
 // ============================================
-// 🚫 דפים להתעלמות (EXCLUDED PAGES) - חדש!
+// 🚫 דפים להתעלמות (EXCLUDED PAGES)
 // ============================================
 const EXCLUDED_PAGES = [
   "https://www.shabaton.online/",
@@ -62,15 +62,11 @@ const EXCLUDED_PAGES = [
 
 // פונקציה לבדיקה אם URL להתעלם
 function isExcludedUrl(url) {
-  // בדיקה ברשימה
   if (EXCLUDED_PAGES.includes(url)) return true;
-  
-  // בדיקה לפי patterns
   if (url.includes('/drushim/')) return true;
   if (url.includes('contact-us-phone')) return true;
   if (url.includes('/thanks')) return true;
   if (url.includes('mosad-index')) return true;
-  
   return false;
 }
 
@@ -92,7 +88,6 @@ async function fetchDudaPageWithPuppeteer(url) {
   console.log(`   🌐 טוען דף Duda עם Puppeteer...`);
   
   try {
-    // פתיחת דפדפן (רק פעם אחת)
     if (!browserInstance) {
       browserInstance = await puppeteer.launch({
         headless: true,
@@ -107,28 +102,22 @@ async function fetchDudaPageWithPuppeteer(url) {
     }
     
     const page = await browserInstance.newPage();
-    
-    // הגדרות
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
     await page.setViewport({ width: 1920, height: 1080 });
     
-    // טעינת הדף
     await page.goto(url, {
       waitUntil: 'networkidle2',
       timeout: 30000
     });
     
-    // המתנה ל-li.listItem (עד 10 שניות)
     try {
       await page.waitForSelector('li.listItem', { timeout: 10000 });
       console.log(`   ✅ li.listItem נטען בהצלחה!`);
     } catch {
-      console.log(`   ⚠️ לא נמצא li.listItem (המתנה פסקה), ממשיכים`);
+      console.log(`   ⚠️ לא נמצא li.listItem, ממשיכים`);
     }
     
-    // קבלת ה-HTML המלא (אחרי JavaScript)
     const html = await page.content();
-    
     await page.close();
     
     return {
@@ -143,7 +132,6 @@ async function fetchDudaPageWithPuppeteer(url) {
   }
 }
 
-// סגירת הדפדפן בסוף
 process.on('beforeExit', async () => {
   if (browserInstance) {
     console.log('\n🔚 סוגר דפדפן...');
@@ -153,7 +141,7 @@ process.on('beforeExit', async () => {
 });
 
 // ============================================
-// 🧹 משפטים להתעלמות (IGNORE LIST)
+// 🧹 משפטים להתעלמות
 // ============================================
 const IGNORE_PATTERNS = [
   /רוצים\s+להיות\s+מעודכנים\s*\?\s*הרשמו\s+לעלון\s+שבתון\s+בנושאי\s+לימודים.*?לכם!/gi,
@@ -170,10 +158,8 @@ function removeIgnoredText(text) {
 }
 
 // ============================================
-// 🌐 טיפול ב-URLs (עברית + אנגלית)
+// 🌐 טיפול ב-URLs
 // ============================================
-
-// מיפוי אזורים לעברית
 const REGION_MAP = {
   'all': 'כל הארץ',
   'merkaz': 'מרכז',
@@ -186,13 +172,9 @@ const REGION_MAP = {
 function normalizeUrl(url) {
   try {
     url = url.trim();
-    
-    // אם אין protocol, נוסיף https
     if (!/^https?:\/\//i.test(url)) {
       url = "https://" + url;
     }
-    
-    // שמירת ה-URL כמו שהוא - לא נשנה את ה-encoding
     return url;
   } catch (err) {
     return url.trim();
@@ -233,26 +215,20 @@ async function getUrlsFromSitemap(sitemapUrl) {
     }
 
     const xml = await res.text();
-    
-    // תמיכה ב-sitemap index וגם ב-sitemap רגיל
     const matches = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)];
     const urls = matches
       .map((m) => {
         let url = m[1].trim();
         
         try {
-          // הסרת HTML entities
           url = url
             .replace(/&amp;/g, '&')
             .replace(/&lt;/g, '<')
             .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"');
-          
-          // **רק נחליף רווחים ל-%20, נשאיר עברית כמו שהיא**
-          url = url.replace(/ /g, '%20');
+            .replace(/&quot;/g, '"')
+            .replace(/ /g, '%20');
           
           return url;
-          
         } catch (err) {
           console.warn(`⚠️ בעיה בעיבוד URL: ${url.substring(0, 60)}...`);
           return url.replace(/ /g, '%20');
@@ -260,7 +236,6 @@ async function getUrlsFromSitemap(sitemapUrl) {
       })
       .filter(Boolean)
       .filter((url) => {
-        // סינון דפים שצריך להתעלם מהם
         if (isExcludedUrl(url)) return false;
         
         const lower = url.toLowerCase();
@@ -291,12 +266,11 @@ async function getUrlsFromSitemap(sitemapUrl) {
 }
 
 // ============================================
-// 🔄 Fetch מתקדם עם retry logic + Puppeteer
+// 🔄 Fetch מתקדם עם retry + Puppeteer
 // ============================================
 async function fetchPageWithRetry(url, maxRetries = CONFIG.RETRY_ATTEMPTS) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      // זיהוי דפי results (דינמיים)
       const needsPuppeteer = 
         url.includes('/results-') || 
         url.includes('/search-results-') || 
@@ -309,7 +283,6 @@ async function fetchPageWithRetry(url, maxRetries = CONFIG.RETRY_ATTEMPTS) {
           return response;
         }
       } else {
-        // fetch רגיל
         const response = await fetch(url, {
           headers: {
             "User-Agent": getRandomUA(),
@@ -349,28 +322,21 @@ async function fetchPageWithRetry(url, maxRetries = CONFIG.RETRY_ATTEMPTS) {
 }
 
 // ============================================
-// 🕵️ זיהוי דפי results (רשימות קורסים)
+// 🕵️ זיהוי דפי results
 // ============================================
 async function detectIfResultsPage(url, html) {
   try {
     const $ = cheerio.load(html);
     
-    // זיהוי לפי URL - הכי בטוח
     if (url.includes('/results') || 
         url.includes('/search-results') || 
         url.includes('/courses-per-month')) {
       return { isResultsPage: true };
     }
     
-    // בדיקת מבנה הדף
     const hasList = $('li.listItem').length > 0;
     
-    // ההבדל בין דף results לדף מוסדות:
-    // - דף results: כל listItem = קורס אחד, בתוכו רשימת מוסדות (קישורים)
-    // - דף מוסדות: כל listItem = מוסד אחד, בתוכו רשימת קורסים (טקסט)
-    
     if (hasList) {
-      // בדיקה: האם יש הרבה קישורים בכל listItem? (= results page)
       let avgLinksPerItem = 0;
       const items = $('li.listItem');
       
@@ -381,8 +347,6 @@ async function detectIfResultsPage(url, html) {
       
       avgLinksPerItem = avgLinksPerItem / items.length;
       
-      // דף results: בממוצע 5+ קישורים בכל פריט (מוסדות)
-      // דף מוסדות: בממוצע 1-2 קישורים בכל פריט (רק הקישור הראשי)
       if (avgLinksPerItem > 3) {
         return { isResultsPage: true };
       }
@@ -399,46 +363,28 @@ function identifyPageType(url, $) {
   const lower = url.toLowerCase();
   const path = new URL(url).pathname.toLowerCase();
 
-  // ============================================
-  // בדיקה מיוחדת לדפי courses-per-month
-  // ============================================
-  // דפים כמו /courses-per-month-sharon הם דפי מוסדות, לא results!
-  // זיהוי: אם יש li.listItem עם itemName ו-itemText = דף מוסדות
   if (path.includes("/courses-per-month") || path.includes("per-month")) {
     const hasInstitutionStructure = $("li.listItem .itemName").length > 0 && 
                                      $("li.listItem .itemText").length > 0;
     
     if (hasInstitutionStructure) {
-      // זה דף מוסדות! (כל listItem = מוסד אחד עם רשימת קורסים)
       return "institution-page";
     } else {
-      // זה דף results (כל listItem = קורס אחד עם רשימת מוסדות)
       return "course-list";
     }
   }
 
-  // דפי תוצאות/חיפוש (רשימות קורסים) - **עדיפות גבוהה**
-  if (
-    path.includes("/results") ||
-    path.includes("/search-results")
-  ) {
+  if (path.includes("/results") || path.includes("/search-results")) {
     return "course-list";
   }
   
-  // ============================================
-  // בדיקה כללית: דף מוסדות עם li.listItem?
-  // ============================================
-  // אם יש li.listItem עם itemName ו-itemText = דף מוסדות!
-  // (גם אם ה-URL לא courses-per-month)
   const hasInstitutionListStructure = $("li.listItem .itemName").length > 0 && 
                                        $("li.listItem .itemText").length > 0;
   
   if (hasInstitutionListStructure && $("li.listItem").length >= 3) {
-    // זה דף מוסדות! (כל listItem = מוסד אחד עם רשימת קורסים)
     return "institution-page";
   }
 
-  // דפי מידע ספציפיים
   if (
     path.includes("/btl") ||
     path.includes("/luz") ||
@@ -455,12 +401,11 @@ function identifyPageType(url, $) {
     return "info-page";
   }
 
-  // דף מוסד לימוד - זיהוי משופר + _teachers
   const hasInstitutionPattern = 
     path.includes("-edu") || 
     path.includes("-college") || 
     path.includes("-university") ||
-    path.includes("_teachers") ||  // הוספה חדשה
+    path.includes("_teachers") ||
     path.includes("haifa-") ||
     path.includes("tau-") ||
     path.includes("huji-") ||
@@ -470,7 +415,6 @@ function identifyPageType(url, $) {
     return "institution-page";
   }
 
-  // דף קורס בודד
   if (
     $("table").length > 0 ||
     $(".course-details").length > 0 ||
@@ -483,44 +427,23 @@ function identifyPageType(url, $) {
 }
 
 // ============================================
-// 🧹 סינון מתקדם של אלמנטים לא רלוונטיים
+// 🧹 סינון אלמנטים לא רלוונטיים
 // ============================================
 function cleanDom($) {
-  // הסרת אלמנטים טכניים
   const removeSelectors = [
-    "header",
-    "footer",
-    "nav",
-    ".navbar",
-    ".nav",
-    ".menu",
-    ".breadcrumb",
-    ".breadcrumbs",
-    ".sidebar",
-    ".widget",
-    "script",
-    "style",
-    "noscript",
-    "iframe",
-    "form",
-    ".cookie",
-    ".popup",
-    ".modal",
-    ".advertisement",
-    ".ad",
-    ".social-share",
-    ".comments",
-    ".newsletter",
-    ".subscription",
+    "header", "footer", "nav", ".navbar", ".nav", ".menu",
+    ".breadcrumb", ".breadcrumbs", ".sidebar", ".widget",
+    "script", "style", "noscript", "iframe", "form",
+    ".cookie", ".popup", ".modal", ".advertisement", ".ad",
+    ".social-share", ".comments", ".newsletter", ".subscription",
   ];
 
   removeSelectors.forEach((sel) => $(sel).remove());
-
   return $;
 }
 
 // ============================================
-// 📝 חילוץ תוכן מתקדם
+// 📝 חילוץ תוכן מתקדם - תוקן!
 // ============================================
 function extractSmartContent(html, url) {
   let $ = cheerio.load(html);
@@ -528,7 +451,6 @@ function extractSmartContent(html, url) {
 
   const pageType = identifyPageType(url, $);
 
-  // חילוץ מטא-דאטה
   const title = removeIgnoredText($("title").text().trim());
   const description = removeIgnoredText($('meta[name="description"]').attr("content")?.trim() || "");
   const h1 = removeIgnoredText($("h1").first().text().trim());
@@ -543,7 +465,6 @@ function extractSmartContent(html, url) {
     .get()
     .filter((t) => t.length > 3);
 
-  // **חילוץ מיוחד לדפי Duda דינמיים**
   const isDudaPage = 
     url.includes("courses-per-month") || 
     url.includes("results-") ||
@@ -556,28 +477,23 @@ function extractSmartContent(html, url) {
   let coursesByInstitution = {};
   
   if (isDudaPage) {
-    // **זיהוי דפי results/month - יש להם מבנה מיוחד**
-    const isResultsOrMonth = url.includes("results-") || url.includes("search-results-") || url.includes("courses-per-month");
+    // ⚡ תיקון קריטי: דפי results מטופלים ב-extractResultsPageCourses!
+    const isResultsPage = url.includes("results-") || url.includes("search-results-");
+    const isInstitutionPage = url.includes("courses-per-month") || pageType === "institution-page";
     
-    if (isResultsOrMonth) {
-      console.log(`   🔍 מחלץ מוסדות מדף Duda דינמי (results/month)...`);
+    // רק דפי institution, לא results!
+    if (isInstitutionPage && !isResultsPage) {
+      console.log(`   🔍 מחלץ מוסדות מדף institution...`);
       
-      // טעינה מחדש של Cheerio עם ה-HTML המקורי (לפני cleanDom)
-      // כדי לשמור על המבנה הדינמי
       const $fresh = cheerio.load(html);
       
-      // Debug logs
       console.log(`   📝 אורך HTML: ${html.length} תווים`);
-      console.log(`   📝 האם יש li.listItem בHTML: ${html.includes('class="listItem"')}`);
-      console.log(`   📝 האם יש span.itemName בHTML: ${html.includes('class="itemName"')}`);
-      console.log(`   📝 מספר li.listItem ב-Cheerio טרי: ${$fresh("li.listItem").length}`);
-      console.log(`   📝 מספר span.itemName ב-Cheerio טרי: ${$fresh("span.itemName").length}`);
+      console.log(`   📝 מספר li.listItem: ${$fresh("li.listItem").length}`);
+      console.log(`   📝 מספר span.itemName: ${$fresh("span.itemName").length}`);
       
-      // אסטרטגיה 1: מבנה Duda הסטנדרטי - li.listItem
       $fresh("li.listItem").each((_, el) => {
         const $item = $fresh(el);
         
-        // חילוץ שם המוסד
         const institutionName = removeIgnoredText($item.find("span.itemName").first().text().trim());
         
         if (institutionName && institutionName.length > 5) {
@@ -586,29 +502,24 @@ function extractSmartContent(html, url) {
             coursesByInstitution[institutionName] = [];
           }
           
-          // חילוץ קורסים מ-itemText
-          // חשוב! צריך .html() לא .text() כדי לשמור על <br>
           const coursesHTML = $item.find("span.itemText").html() || '';
           
           if (coursesHTML) {
-            // פיצול לפי <br> tags (כולל עם attributes כמו id)
             const coursesList = coursesHTML
-              .split(/<br\s*\/?.*?>/i)  // פיצול לפי <br id="..."/> או <br/>
+              .split(/<br\s*\/?.*?>/i)
               .map(c => {
-                // הסרת tags אחרים והסרת רווחים
                 return removeIgnoredText($fresh('<div>').html(c).text().trim());
               })
-              .filter(c => c.length > 5);  // רק קורסים אמיתיים
+              .filter(c => c.length > 5);
             
-            console.log(`      - ${institutionName.substring(0, 40)}: נמצאו ${coursesList.length} קורסים`);
+            console.log(`      - ${institutionName.substring(0, 40)}: ${coursesList.length} קורסים`);
             coursesByInstitution[institutionName].push(...coursesList);
           }
         }
       });
       
-      console.log(`   📊 נמצאו ${institutions.length} מוסדות דרך li.listItem`);
+      console.log(`   📊 נמצאו ${institutions.length} מוסדות`);
       
-      // אסטרטגיה 2: אם אין li.listItem, נסה H2 + UL (מבנה ישן יותר)
       if (institutions.length === 0) {
         console.log(`   🔄 מנסה אסטרטגיה 2: H2 + UL...`);
         
@@ -627,7 +538,6 @@ function extractSmartContent(html, url) {
               coursesByInstitution[institutionName] = [];
             }
             
-            // חילוץ קורסים מה-UL הבא
             $(el).nextAll("ul").first().find("li").each((_, li) => {
               const courseText = removeIgnoredText($(li).text().trim());
               if (courseText && courseText.length > 10) {
@@ -640,54 +550,6 @@ function extractSmartContent(html, url) {
         console.log(`   📊 נמצאו ${institutions.length} מוסדות דרך H2`);
       }
       
-      // אסטרטגיה 3: חיפוש גנרי - span עם מילות מפתח
-      if (institutions.length === 0) {
-        console.log(`   🔄 מנסה אסטרטגיה 3: span עם מילות מפתח...`);
-        
-        $("span, strong, h3, h4").each((_, el) => {
-          const text = removeIgnoredText($(el).text().trim());
-          
-          if (text && 
-              text.length > 5 && 
-              text.length < 150 &&
-              (text.includes("אוניברסיט") || text.includes("מכללה") || 
-               text.includes("מכון") || text.includes("סמינר") ||
-               text.includes("המרכז ל") || text.includes("בית ספר ל"))) {
-            
-            if (!institutions.includes(text)) {
-              institutions.push(text);
-              coursesByInstitution[text] = [];
-            }
-          }
-        });
-        
-        console.log(`   📊 נמצאו ${institutions.length} מוסדות דרך span/strong`);
-      }
-      
-      // אסטרטגיה 4 (fallback): אם אין כלום, נאסוף קורסים
-      if (institutions.length === 0) {
-        console.log(`   ⚠️ לא נמצאו מוסדות - אוסף קורסים כללי`);
-        
-        institutions.push("קורסים זמינים");
-        coursesByInstitution["קורסים זמינים"] = [];
-        
-        $("a").each((_, el) => {
-          const linkText = removeIgnoredText($(el).text().trim());
-          const href = $(el).attr("href") || "";
-          
-          if (linkText && 
-              linkText.length > 15 && 
-              linkText.length < 300 &&
-              !linkText.includes("קרא עוד") && 
-              !linkText.includes("לפרטים") &&
-              !linkText.includes("עמוד הבית") &&
-              href.includes("/")) {
-            coursesByInstitution["קורסים זמינים"].push(linkText);
-          }
-        });
-      }
-      
-      // בניית תוכן
       console.log(`   ✅ סה"כ ${institutions.length} מוסדות`);
       institutions.forEach(inst => {
         dudaContent.push(inst);
@@ -698,8 +560,8 @@ function extractSmartContent(html, url) {
         }
       });
       
-    } else {
-      // דפי מוסדות או דפים דינמיים אחרים - חילוץ רגיל
+    } else if (!isResultsPage) {
+      // דפים דינמיים אחרים (לא results, לא institution)
       $("body *").each((_, el) => {
         const text = $(el).contents().filter(function() {
           return this.type === 'text';
@@ -710,7 +572,6 @@ function extractSmartContent(html, url) {
         }
       });
       
-      // חילוץ data attributes
       $("[data-title], [data-name], [data-description]").each((_, el) => {
         const dataTitle = $(el).attr("data-title");
         const dataName = $(el).attr("data-name");
@@ -721,7 +582,6 @@ function extractSmartContent(html, url) {
         if (dataDesc) dudaContent.push(dataDesc);
       });
       
-      // חילוץ קישורים
       $("a").each((_, el) => {
         const linkText = $(el).text().trim();
         if (linkText && linkText.length > 10 && linkText.length < 200) {
@@ -731,7 +591,6 @@ function extractSmartContent(html, url) {
     }
   }
 
-  // חילוץ רשימות (ul/ol)
   const lists = [];
   $("ul, ol").each((_, list) => {
     const items = $(list)
@@ -745,7 +604,6 @@ function extractSmartContent(html, url) {
     }
   });
 
-  // חילוץ טבלאות (לדפי קורסים)
   const tables = [];
   if (pageType === "course-detail" || pageType === "institution-page" || pageType === "course-list") {
     $("table").each((_, table) => {
@@ -763,7 +621,6 @@ function extractSmartContent(html, url) {
     });
   }
 
-  // חילוץ פסקאות
   const paragraphs = [];
   $("p, blockquote, article, div.content, section").each((_, el) => {
     const text = removeIgnoredText($(el).text().trim());
@@ -772,28 +629,22 @@ function extractSmartContent(html, url) {
     }
   });
 
-  // בניית טקסט סופי עם משקלות
   const parts = [];
   
-  // משקל גבוה לכותרות
   if (title) parts.push(title, title);
   if (h1 && h1 !== title) parts.push(h1, h1);
   if (description) parts.push(description);
   
-  // כותרות משנה
   parts.push(...h2s, ...h3s);
   
-  // תוכן Duda דינמי
   if (isDudaPage && dudaContent.length > 0) {
     parts.push(...dudaContent.slice(0, 30));
   }
   
-  // תוכן עיקרי
   parts.push(...lists.slice(0, 20));
   parts.push(...tables.slice(0, 15));
   parts.push(...paragraphs);
 
-  // ניקוי והסרת כפילויות
   const uniqueParts = [...new Set(parts)].filter(Boolean);
   let cleanText = uniqueParts
     .join(" ")
@@ -802,7 +653,6 @@ function extractSmartContent(html, url) {
     .replace(/\[.*?\]/g, "")
     .trim();
 
-  // ניקוי סופי - הסרת המשפטים המיותרים
   cleanText = removeIgnoredText(cleanText);
 
   return {
@@ -821,8 +671,9 @@ function extractSmartContent(html, url) {
     })
   };
 }
+
 // ============================================
-// 📊 טיפול בדפי RESULTS (רשימות קורסים)
+// 📊 טיפול בדפי RESULTS
 // ============================================
 function extractResultsPageCourses(html) {
   const $ = cheerio.load(html);
@@ -838,20 +689,17 @@ function extractResultsPageCourses(html) {
       
       console.log(`\n   📌 פריט ${idx + 1}/${listItems.length}:`);
 
-      // חילוץ שם הקורס
       const courseName = $item.find("h3, .course-title, .dmNewParagraph").first().text().trim();
       
       if (!courseName || courseName.length < 5) {
-        console.log(`      ⚠️ אין שם קורס (או קצר מדי)`);
+        console.log(`      ⚠️ אין שם קורס`);
         return;
       }
       
       console.log(`      📚 קורס: ${courseName.substring(0, 60)}`);
       
-      // חילוץ כל המוסדות - 2 שיטות!
       const institutions = [];
       
-      // שיטה 1: מקישורים
       console.log(`      🔗 מחפש קישורים...`);
       const links = $item.find("a");
       console.log(`         מצאתי ${links.length} קישורים`);
@@ -868,18 +716,16 @@ function extractResultsPageCourses(html) {
             linkText !== courseName) {
           
           institutions.push(linkText);
-          console.log(`         ✅ נוסף: ${linkText.substring(0, 40)}`);
+          console.log(`         ✅ ${linkText.substring(0, 40)}`);
         }
       });
       
-      console.log(`      📊 סה"כ מקישורים: ${institutions.length} מוסדות`);
+      console.log(`      📊 סה"כ מקישורים: ${institutions.length}`);
       
-      // שיטה 2: מטקסטים (אם אין קישורים מספיקים)
       if (institutions.length < 2) {
-        console.log(`      💡 מעט מוסדות, מנסה שיטה 2 (טקסטים)...`);
+        console.log(`      💡 מנסה שיטה 2 (טקסטים)...`);
         
         const textElements = $item.find("span, div, p");
-        console.log(`         מצאתי ${textElements.length} אלמנטים`);
         
         textElements.each((_, el) => {
           const text = $(el).text().trim();
@@ -903,15 +749,12 @@ function extractResultsPageCourses(html) {
             
             if (looksLikeInstitution && !institutions.includes(text)) {
               institutions.push(text);
-              console.log(`         ✅ נוסף (טקסט): ${text.substring(0, 40)}`);
+              console.log(`         ✅ ${text.substring(0, 40)}`);
             }
           }
         });
-        
-        console.log(`      📊 סה"כ אחרי שיטה 2: ${institutions.length} מוסדות`);
       }
 
-      // חילוץ תאריכים
       let dates = [];
       $item.find("p, span, div").each((_, el) => {
         const text = $(el).text();
@@ -921,7 +764,6 @@ function extractResultsPageCourses(html) {
         }
       });
 
-      // הוספת הקורס - רק אם יש לפחות מוסד אחד
       if (institutions.length > 0) {
         courses.push({
           courseName,
@@ -929,9 +771,9 @@ function extractResultsPageCourses(html) {
           institutionCount: institutions.length,
           dates: dates.length > 0 ? dates : [],
         });
-        console.log(`      ✅ נוסף קורס עם ${institutions.length} מוסדות`);
+        console.log(`      ✅ נוסף עם ${institutions.length} מוסדות`);
       } else {
-        console.log(`      ❌ לא נמצאו מוסדות - לא נוסף`);
+        console.log(`      ❌ לא נמצאו מוסדות`);
       }
       
     } catch (err) {
@@ -992,13 +834,14 @@ function extractCoursesFromHtml(html) {
       }
       
     } catch (err) {
-      console.error(`⚠️ שגיאה בחילוץ קורס: ${err.message}`);
+      console.error(`⚠️ שגיאה: ${err.message}`);
     }
   }
   
-  console.log(`   🎓 חולצו ${courses.length} קורסים עם מוסדות (regex)`);
+  console.log(`   🎓 חולצו ${courses.length} קורסים (regex)`);
   return courses;
 }
+
 // ============================================
 // ⚙️ עיבוד דף בודד
 // ============================================
@@ -1009,12 +852,12 @@ async function processPage(url) {
     const response = await fetchPageWithRetry(url);
 
     if (!response) {
-      console.log(`   ❌ כישלון בטעינת הדף`);
+      console.log(`   ❌ כישלון בטעינה`);
       return null;
     }
 
     if (response.status === 404) {
-      console.log(`   🚫 404 - דף לא נמצא`);
+      console.log(`   🚫 404`);
       return "404";
     }
 
@@ -1025,7 +868,7 @@ async function processPage(url) {
     let courses = [];
 
     if (detectionResult.isResultsPage) {
-      console.log(`   📋 דף רשימת קורסים (results)`);
+      console.log(`   📋 דף results`);
       extractedContent = extractSmartContent(html, url);
       courses = extractResultsPageCourses(html);
       
@@ -1035,18 +878,17 @@ async function processPage(url) {
       
       console.log(`   ✅ חולצו ${courses.length} קורסים`);
     } else {
-      console.log(`   📄 דף תוכן רגיל`);
+      console.log(`   📄 דף רגיל`);
       extractedContent = extractSmartContent(html, url);
     }
 
     if (!extractedContent.text || extractedContent.text.length < 50) {
-      console.log(`   ⚠️ אין תוכן מספיק (${extractedContent.text.length} תווים)`);
+      console.log(`   ⚠️ אין תוכן (${extractedContent.text.length} תווים)`);
       return null;
     }
 
     console.log(`   📝 ${extractedContent.wordCount} מילים | ${extractedContent.text.length} תווים`);
 
-    // יצירת embedding
     console.log(`   🔢 יוצר embedding...`);
     const embRes = await client.embeddings.create({
       model: "text-embedding-3-small",
@@ -1071,7 +913,7 @@ async function processPage(url) {
       pageData.courses = courses;
     }
 
-    console.log(`   ✅ הושלם בהצלחה`);
+    console.log(`   ✅ הושלם`);
     return pageData;
 
   } catch (err) {
@@ -1085,7 +927,7 @@ async function processPage(url) {
 // ============================================
 async function uploadToGitHub(filePath, commitMessage) {
   if (!CONFIG.GITHUB_TOKEN || !CONFIG.GITHUB_REPO) {
-    console.log(`⚠️ GitHub לא מוגדר - דילוג על העלאה`);
+    console.log(`⚠️ GitHub לא מוגדר`);
     return true;
   }
 
@@ -1134,22 +976,22 @@ async function uploadToGitHub(filePath, commitMessage) {
     });
 
     if (putRes.ok) {
-      console.log(`✅ הועלה ל-GitHub: ${relativePath}`);
+      console.log(`✅ הועלה: ${relativePath}`);
       return true;
     } else {
       const errorText = await putRes.text();
-      console.error(`❌ שגיאה בהעלאה ל-GitHub: ${putRes.status}`);
+      console.error(`❌ שגיאה: ${putRes.status}`);
       console.error(`   ${errorText.substring(0, 200)}`);
       return false;
     }
   } catch (err) {
-    console.error(`❌ שגיאה בהעלאה ל-GitHub: ${err.message}`);
+    console.error(`❌ שגיאה: ${err.message}`);
     return false;
   }
 }
 
 // ============================================
-// 🔄 אינדוקס אוטומטי (משופר - תיקון לולאה!)
+// 🔄 אינדוקס אוטומטי
 // ============================================
 async function buildIndex(name, sitemapUrl, batchSize, manualPages = []) {
   const dataDir = path.join(process.cwd(), "data");
@@ -1161,57 +1003,50 @@ async function buildIndex(name, sitemapUrl, batchSize, manualPages = []) {
   const indexPath = path.join(dataDir, `${baseName}_index.json`);
   const donePath = path.join(dataDir, `${baseName}_done.json`);
 
-  // טעינת done list
   let done = [];
   if (fs.existsSync(donePath)) {
     try {
       done = JSON.parse(fs.readFileSync(donePath, "utf8"));
-      console.log(`📂 נטען done.json: ${done.length} דפים`);
+      console.log(`📂 נטען done: ${done.length}`);
     } catch (err) {
-      console.log(`⚠️ שגיאה בטעינת done.json: ${err.message}`);
+      console.log(`⚠️ שגיאה: ${err.message}`);
     }
   }
 
-  // טעינת אינדקס קיים
   let pages = [];
   if (fs.existsSync(indexPath)) {
     try {
       pages = JSON.parse(fs.readFileSync(indexPath, "utf8"));
-      console.log(`📂 נטען אינדקס קיים: ${pages.length} דפים`);
+      console.log(`📂 נטען אינדקס: ${pages.length}`);
     } catch (err) {
-      console.log(`⚠️ שגיאה בטעינת אינדקס: ${err.message}`);
+      console.log(`⚠️ שגיאה: ${err.message}`);
     }
   }
 
-  // קבלת URLs מה-sitemap
   const allUrls = await getUrlsFromSitemap(sitemapUrl);
   if (allUrls.length === 0) {
-    console.error("❌ לא נמצאו URLs בsitemap");
+    console.error("❌ לא נמצאו URLs");
     return false;
   }
 
-  // הוספת דפים ידניים
   const combinedUrls = [...new Set([...manualPages, ...allUrls])];
-  console.log(`📝 סה"כ URLs: ${combinedUrls.length} (כולל ${manualPages.length} ידניים)`);
+  console.log(`📝 סה"כ URLs: ${combinedUrls.length}`);
 
-  // סינון דפים שכבר עובדו
   const pending = combinedUrls.filter((u) => !done.includes(u));
-  console.log(`⏳ נותרו לעיבוד: ${pending.length}`);
+  console.log(`⏳ נותרו: ${pending.length}`);
 
   if (pending.length === 0) {
-    console.log(`✅ כל הדפים כבר עובדו!`);
+    console.log(`✅ הכל עובד!`);
     return false;
   }
 
-  // בחירת batch
   const batch = pending.slice(0, batchSize);
-  console.log(`\n🎯 מעבד ${batch.length} דפים בסבב זה...\n`);
+  console.log(`\n🎯 מעבד ${batch.length} דפים...\n`);
 
   let successCount = 0;
   let failCount = 0;
   let notFoundCount = 0;
 
-  // עיבוד כל דף ב-batch
   for (let i = 0; i < batch.length; i++) {
     const url = batch[i];
     console.log(`\n[${i + 1}/${batch.length}] ${url}`);
@@ -1234,53 +1069,48 @@ async function buildIndex(name, sitemapUrl, batchSize, manualPages = []) {
       successCount++;
     }
 
-    // שמירה מיידית
     fs.writeFileSync(indexPath, JSON.stringify(pages, null, 2));
     fs.writeFileSync(donePath, JSON.stringify(done, null, 2));
 
-    // המתנה בין דפים
     if (i < batch.length - 1) {
       const waitTime = 2000 + Math.random() * 3000;
       await delay(waitTime);
     }
   }
 
-  // פיצול לחלקים והעלאה
-  console.log(`\n📦 מפצל לחלקים...`);
+  console.log(`\n📦 מפצל...`);
   const chunks = [];
   for (let i = 0; i < pages.length; i += CONFIG.MAX_PER_FILE) {
     chunks.push(pages.slice(i, i + CONFIG.MAX_PER_FILE));
   }
 
-  console.log(`\n📤 מעלה ${chunks.length} חלקים ל-GitHub...`);
+  console.log(`\n📤 מעלה ${chunks.length} חלקים...\n`);
 
   for (let i = 0; i < chunks.length; i++) {
     const chunkPath = path.join(dataDir, `${baseName}_index_part${i + 1}.json`);
     fs.writeFileSync(chunkPath, JSON.stringify(chunks[i], null, 2));
     await uploadToGitHub(
       chunkPath,
-      `🔄 ${name} - אינדוקס אוטומטי - חלק ${i + 1}/${chunks.length}`
+      `🔄 ${name} - חלק ${i + 1}/${chunks.length}`
     );
   }
 
-  await uploadToGitHub(donePath, `📊 ${name} - דפים שהושלמו`);
+  await uploadToGitHub(donePath, `📊 ${name} - done`);
 
-  // סיכום
   console.log(`\n${"=".repeat(60)}`);
-  console.log(`📊 סיכום סבב:`);
+  console.log(`📊 סיכום:`);
   console.log(`   ✅ הצליחו: ${successCount}`);
   console.log(`   🚫 404: ${notFoundCount}`);
   console.log(`   ⚠️ כשלו: ${failCount}`);
-  console.log(`   📈 סה"כ באינדקס: ${pages.length}`);
+  console.log(`   📈 סה"כ: ${pages.length}`);
   console.log(`   ⏳ נותרו: ${pending.length - batch.length}`);
   console.log(`${"=".repeat(60)}\n`);
 
-  // **תיקון לולאה אינסופית!**
   const remainingPending = pending.length - batch.length;
   const shouldContinue = remainingPending > 0 && successCount > 0;
   
   if (!shouldContinue && successCount === 0) {
-    console.log(`⚠️ אזהרה: כל הניסיונות בסבב זה נכשלו - עוצר!`);
+    console.log(`⚠️ כל הניסיונות נכשלו - עוצר!`);
   }
   
   return shouldContinue;
@@ -1290,9 +1120,7 @@ async function buildIndex(name, sitemapUrl, batchSize, manualPages = []) {
 // 🚀 ריצה מלאה
 // ============================================
 export async function runFullIndexing(name, sitemapUrl, batchSize = CONFIG.BATCH_SIZE) {
-  console.log(`\n🏁 מתחיל אינדוקס מלא ל-${name}\n`);
-
-  console.log(`📘 נוספו ${STATIC_INFO_PAGES.length} דפי מידע ידניים\n`);
+  console.log(`\n🏁 מתחיל אינדוקס: ${name}\n`);
 
   let round = 1;
   let hasMore = true;
@@ -1303,39 +1131,36 @@ export async function runFullIndexing(name, sitemapUrl, batchSize = CONFIG.BATCH
 
     if (hasMore) {
       const waitTime = 8000 + Math.random() * 4000;
-      console.log(`⏳ ממתין ${Math.round(waitTime / 1000)}s לפני הסבב הבא...\n`);
+      console.log(`⏳ ממתין ${Math.round(waitTime / 1000)}s...\n`);
       await delay(waitTime);
       round++;
     }
   }
 
-  console.log(`\n🎉 אינדוקס ${name} הסתיים בהצלחה!\n`);
+  console.log(`\n🎉 אינדוקס ${name} הסתיים!\n`);
 }
 
 // ============================================
-// 📄 עדכון דפים סטטיים בלבד
+// 📄 עדכון דפים סטטיים
 // ============================================
 export async function updateStaticPages(name) {
-  console.log(`\n📄 מעדכן דפים סטטיים בלבד...\n`);
-  console.log(`   📝 ${STATIC_INFO_PAGES.length} דפים לעדכון`);
+  console.log(`\n📄 מעדכן דפים סטטיים...\n`);
   
   const dataDir = path.join(process.cwd(), "data");
   const baseName = name.toLowerCase().replace(/\s+/g, "_");
   const indexPath = path.join(dataDir, `${baseName}_index.json`);
   const donePath = path.join(dataDir, `${baseName}_done.json`);
   
-  // טעינת אינדקס קיים
   let pages = [];
   if (fs.existsSync(indexPath)) {
     try {
       pages = JSON.parse(fs.readFileSync(indexPath, "utf8"));
-      console.log(`📂 נטען אינדקס קיים עם ${pages.length} דפים`);
+      console.log(`📂 נטען: ${pages.length} דפים`);
     } catch (err) {
-      console.log(`⚠️ שגיאה בטעינת אינדקס: ${err.message}`);
+      console.log(`⚠️ שגיאה: ${err.message}`);
     }
   }
   
-  // טעינת done list
   let done = [];
   if (fs.existsSync(donePath)) {
     try {
@@ -1347,38 +1172,29 @@ export async function updateStaticPages(name) {
   let failCount = 0;
   let notFoundCount = 0;
   
-  // עיבוד כל דף סטטי
   for (let i = 0; i < STATIC_INFO_PAGES.length; i++) {
     const url = STATIC_INFO_PAGES[i];
     console.log(`\n[${i + 1}/${STATIC_INFO_PAGES.length}] ${url}`);
     
-    // בדיקה אם הדף כבר באינדקס
     const existingIndex = pages.findIndex(p => p.url === url);
-    
-    // עיבוד הדף
     const result = await processPage(url);
     
     if (!result) {
-      console.log(`❌ כישלון בעיבוד`);
       failCount++;
     } else if (result === "404") {
-      console.log(`🚫 דף לא נמצא (404)`);
+      notFoundCount++;
       if (existingIndex >= 0) {
         pages.splice(existingIndex, 1);
-        console.log(`🗑️ הוסר מהאינדקס`);
       }
       const doneIndex = done.indexOf(url);
       if (doneIndex >= 0) {
         done.splice(doneIndex, 1);
       }
-      notFoundCount++;
     } else {
       if (existingIndex >= 0) {
         pages[existingIndex] = result;
-        console.log(`✅ דף עודכן`);
       } else {
         pages.push(result);
-        console.log(`✅ דף נוסף`);
       }
       
       if (!done.includes(url)) {
@@ -1387,71 +1203,59 @@ export async function updateStaticPages(name) {
       successCount++;
     }
     
-    // שמירה מיידית
     fs.writeFileSync(indexPath, JSON.stringify(pages, null, 2));
     fs.writeFileSync(donePath, JSON.stringify(done, null, 2));
     
-    // המתנה קצרה
     if (i < STATIC_INFO_PAGES.length - 1) {
       await delay(1000 + Math.random() * 1000);
     }
   }
   
-  // פיצול והעלאה
-  console.log(`\n📦 מפצל לחלקים...`);
   const chunks = [];
   for (let i = 0; i < pages.length; i += CONFIG.MAX_PER_FILE) {
     chunks.push(pages.slice(i, i + CONFIG.MAX_PER_FILE));
   }
   
-  console.log(`\n📤 מעלה ${chunks.length} חלקים ל-GitHub...`);
-  
   for (let i = 0; i < chunks.length; i++) {
     const chunkPath = path.join(dataDir, `${baseName}_index_part${i + 1}.json`);
     fs.writeFileSync(chunkPath, JSON.stringify(chunks[i], null, 2));
-    await uploadToGitHub(
-      chunkPath,
-      `📄 ${name} - עדכון דפים סטטיים - חלק ${i + 1}/${chunks.length}`
-    );
+    await uploadToGitHub(chunkPath, `📄 ${name} - סטטי - חלק ${i + 1}/${chunks.length}`);
   }
   
-  await uploadToGitHub(donePath, `📊 ${name} - דפים שהושלמו (עדכון סטטי)`);
+  await uploadToGitHub(donePath, `📊 ${name} - done (סטטי)`);
   
-  // סיכום
   console.log(`\n${"=".repeat(60)}`);
-  console.log(`📊 סיכום עדכון דפים סטטיים:`);
+  console.log(`📊 סיכום:`);
   console.log(`   ✅ הצליחו: ${successCount}`);
   console.log(`   🚫 404: ${notFoundCount}`);
   console.log(`   ⚠️ כשלו: ${failCount}`);
-  console.log(`   📚 סה"כ באינדקס: ${pages.length}`);
+  console.log(`   📚 סה"כ: ${pages.length}`);
   console.log(`${"=".repeat(60)}\n`);
   
   return true;
 }
 
 // ============================================
-// 🏫 עדכון דפי מוסדות בלבד (חדש!)
+// 🏫 עדכון דפי מוסדות
 // ============================================
 export async function updateInstitutionPages(name, sitemapUrl) {
-  console.log(`\n🏫 מעדכן דפי מוסדות בלבד...\n`);
+  console.log(`\n🏫 מעדכן דפי מוסדות...\n`);
   
   const dataDir = path.join(process.cwd(), "data");
   const baseName = name.toLowerCase().replace(/\s+/g, "_");
   const indexPath = path.join(dataDir, `${baseName}_index.json`);
   const donePath = path.join(dataDir, `${baseName}_done.json`);
   
-  // טעינת אינדקס קיים
   let pages = [];
   if (fs.existsSync(indexPath)) {
     try {
       pages = JSON.parse(fs.readFileSync(indexPath, "utf8"));
-      console.log(`📂 נטען אינדקס קיים עם ${pages.length} דפים`);
+      console.log(`📂 נטען: ${pages.length}`);
     } catch (err) {
-      console.log(`⚠️ שגיאה בטעינת אינדקס: ${err.message}`);
+      console.log(`⚠️ שגיאה: ${err.message}`);
     }
   }
   
-  // טעינת done list
   let done = [];
   if (fs.existsSync(donePath)) {
     try {
@@ -1459,27 +1263,18 @@ export async function updateInstitutionPages(name, sitemapUrl) {
     } catch (err) {}
   }
   
-  // קבלת כל ה-URLs מה-sitemap
   const allUrls = await getUrlsFromSitemap(sitemapUrl);
   if (allUrls.length === 0) {
-    console.error("❌ לא נמצאו URLs בsitemap");
+    console.error("❌ לא נמצאו URLs");
     return false;
   }
   
-  // סינון רק דפי מוסדות
   const institutionUrls = allUrls.filter(url => {
-    // לא דף מידע סטטי
     if (STATIC_INFO_PAGES.includes(url)) return false;
-    
-    // לא דף דינמי
     if (url.includes('/results-') || 
         url.includes('/search-results-') || 
         url.includes('/courses-per-month-')) return false;
-    
-    // לא דף להתעלם
     if (isExcludedUrl(url)) return false;
-    
-    // הכל השאר = דף מוסד
     return true;
   });
   
@@ -1489,7 +1284,6 @@ export async function updateInstitutionPages(name, sitemapUrl) {
   let failCount = 0;
   let notFoundCount = 0;
   
-  // עיבוד כל דף מוסד
   for (let i = 0; i < institutionUrls.length; i++) {
     const url = institutionUrls[i];
     console.log(`\n[${i + 1}/${institutionUrls.length}] ${url}`);
@@ -1498,26 +1292,21 @@ export async function updateInstitutionPages(name, sitemapUrl) {
     const result = await processPage(url);
     
     if (!result) {
-      console.log(`❌ כישלון בעיבוד`);
       failCount++;
     } else if (result === "404") {
-      console.log(`🚫 דף לא נמצא (404)`);
+      notFoundCount++;
       if (existingIndex >= 0) {
         pages.splice(existingIndex, 1);
-        console.log(`🗑️ הוסר מהאינדקס`);
       }
       const doneIndex = done.indexOf(url);
       if (doneIndex >= 0) {
         done.splice(doneIndex, 1);
       }
-      notFoundCount++;
     } else {
       if (existingIndex >= 0) {
         pages[existingIndex] = result;
-        console.log(`✅ דף עודכן`);
       } else {
         pages.push(result);
-        console.log(`✅ דף נוסף`);
       }
       
       if (!done.includes(url)) {
@@ -1526,44 +1315,34 @@ export async function updateInstitutionPages(name, sitemapUrl) {
       successCount++;
     }
     
-    // שמירה מיידית
     fs.writeFileSync(indexPath, JSON.stringify(pages, null, 2));
     fs.writeFileSync(donePath, JSON.stringify(done, null, 2));
     
-    // המתנה בין דפים
     if (i < institutionUrls.length - 1) {
       const waitTime = 2000 + Math.random() * 2000;
       await delay(waitTime);
     }
   }
   
-  // פיצול והעלאה
-  console.log(`\n📦 מפצל לחלקים...`);
   const chunks = [];
   for (let i = 0; i < pages.length; i += CONFIG.MAX_PER_FILE) {
     chunks.push(pages.slice(i, i + CONFIG.MAX_PER_FILE));
   }
   
-  console.log(`\n📤 מעלה ${chunks.length} חלקים ל-GitHub...`);
-  
   for (let i = 0; i < chunks.length; i++) {
     const chunkPath = path.join(dataDir, `${baseName}_index_part${i + 1}.json`);
     fs.writeFileSync(chunkPath, JSON.stringify(chunks[i], null, 2));
-    await uploadToGitHub(
-      chunkPath,
-      `🏫 ${name} - עדכון דפי מוסדות - חלק ${i + 1}/${chunks.length}`
-    );
+    await uploadToGitHub(chunkPath, `🏫 ${name} - מוסדות - חלק ${i + 1}/${chunks.length}`);
   }
   
-  await uploadToGitHub(donePath, `📊 ${name} - דפים שהושלמו (עדכון מוסדות)`);
+  await uploadToGitHub(donePath, `📊 ${name} - done (מוסדות)`);
   
-  // סיכום
   console.log(`\n${"=".repeat(60)}`);
-  console.log(`📊 סיכום עדכון דפי מוסדות:`);
+  console.log(`📊 סיכום:`);
   console.log(`   ✅ הצליחו: ${successCount}`);
   console.log(`   🚫 404: ${notFoundCount}`);
   console.log(`   ⚠️ כשלו: ${failCount}`);
-  console.log(`   📚 סה"כ באינדקס: ${pages.length}`);
+  console.log(`   📚 סה"כ: ${pages.length}`);
   console.log(`${"=".repeat(60)}\n`);
   
   return true;
@@ -1573,26 +1352,24 @@ export async function updateInstitutionPages(name, sitemapUrl) {
 // 🎯 עדכון דף בודד
 // ============================================
 export async function updateSingleUrl(name, url) {
-  console.log(`\n🎯 מעדכן דף בודד: ${url}\n`);
+  console.log(`\n🎯 מעדכן: ${url}\n`);
   
   const dataDir = path.join(process.cwd(), "data");
   const baseName = name.toLowerCase().replace(/\s+/g, "_");
   const indexPath = path.join(dataDir, `${baseName}_index.json`);
   const donePath = path.join(dataDir, `${baseName}_done.json`);
   
-  // טעינת אינדקס קיים
   let pages = [];
   if (fs.existsSync(indexPath)) {
     try {
       const indexContent = fs.readFileSync(indexPath, "utf8");
       pages = JSON.parse(indexContent);
-      console.log(`📂 נטען אינדקס קיים עם ${pages.length} דפים`);
+      console.log(`📂 נטען: ${pages.length}`);
     } catch (err) {
-      console.log(`⚠️ שגיאה בטעינת אינדקס: ${err.message}`);
+      console.log(`⚠️ שגיאה: ${err.message}`);
     }
   }
   
-  // טעינת done list
   let done = [];
   if (fs.existsSync(donePath)) {
     try {
@@ -1600,28 +1377,19 @@ export async function updateSingleUrl(name, url) {
     } catch (err) {}
   }
   
-  // בדיקה אם הדף כבר באינדקס
   const existingIndex = pages.findIndex(p => p.url === url);
-  if (existingIndex >= 0) {
-    console.log(`📝 דף נמצא באינדקס במיקום ${existingIndex}, מעדכן...`);
-  } else {
-    console.log(`➕ דף חדש, מוסיף לאינדקס...`);
-  }
   
-  // עיבוד הדף
-  console.log(`\n⚙️ מעבד דף...`);
   const result = await processPage(url);
   
   if (!result) {
-    console.log(`❌ כישלון בעיבוד הדף`);
+    console.log(`❌ כישלון`);
     return false;
   }
   
   if (result === "404") {
-    console.log(`🚫 דף לא נמצא (404)`);
+    console.log(`🚫 404`);
     if (existingIndex >= 0) {
       pages.splice(existingIndex, 1);
-      console.log(`🗑️ הדף הוסר מהאינדקס`);
     }
     const doneIndex = done.indexOf(url);
     if (doneIndex >= 0) {
@@ -1630,10 +1398,10 @@ export async function updateSingleUrl(name, url) {
   } else {
     if (existingIndex >= 0) {
       pages[existingIndex] = result;
-      console.log(`✅ דף עודכן בהצלחה`);
+      console.log(`✅ עודכן`);
     } else {
       pages.push(result);
-      console.log(`✅ דף נוסף בהצלחה`);
+      console.log(`✅ נוסף`);
     }
     
     if (!done.includes(url)) {
@@ -1641,39 +1409,30 @@ export async function updateSingleUrl(name, url) {
     }
   }
   
-  // שמירה מקומית
   fs.writeFileSync(indexPath, JSON.stringify(pages, null, 2));
   fs.writeFileSync(donePath, JSON.stringify(done, null, 2));
-  console.log(`💾 נשמר מקומית`);
   
-  // פיצול לחלקים והעלאה
   const chunks = [];
   for (let i = 0; i < pages.length; i += CONFIG.MAX_PER_FILE) {
     chunks.push(pages.slice(i, i + CONFIG.MAX_PER_FILE));
   }
   
-  console.log(`\n📤 מעלה ${chunks.length} חלקים ל-GitHub...`);
-  
   for (let i = 0; i < chunks.length; i++) {
     const chunkPath = path.join(dataDir, `${baseName}_index_part${i + 1}.json`);
     fs.writeFileSync(chunkPath, JSON.stringify(chunks[i], null, 2));
-    await uploadToGitHub(
-      chunkPath,
-      `🔄 ${name} - עדכון דף בודד - חלק ${i + 1}/${chunks.length}`
-    );
+    await uploadToGitHub(chunkPath, `🔄 ${name} - עדכון - חלק ${i + 1}/${chunks.length}`);
   }
   
-  await uploadToGitHub(donePath, `📊 ${name} - דפים שהושלמו (עדכון)`);
+  await uploadToGitHub(donePath, `📊 ${name} - done`);
   
-  console.log(`\n✅ דף עודכן בהצלחה!`);
-  console.log(`   📄 URL: ${url}`);
-  console.log(`   📚 סה"כ דפים באינדקס: ${pages.length}`);
+  console.log(`\n✅ הושלם!`);
+  console.log(`   📚 סה"כ: ${pages.length}`);
   
   return true;
 }
 
 // ============================================
-// 🎯 ריצה ישירה מ-CLI (מעודכן!)
+// 🎯 ריצה ישירה מ-CLI
 // ============================================
 if (import.meta.url === `file://${process.argv[1]}`) {
   (async () => {
@@ -1682,29 +1441,25 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const batchSize = Number(process.env.BATCH_SIZE) || CONFIG.BATCH_SIZE;
 
     console.log(`\n${"=".repeat(60)}`);
-    console.log(`🚀 ריצה ישירה של אינדוקס`);
+    console.log(`🚀 ריצה ישירה`);
     console.log(`   📛 שם: ${name}`);
     
-    // זיהוי אם זה URL בודד או sitemap
     const isSingleUrl = !urlOrSitemap.includes('sitemap') && 
                         !urlOrSitemap.endsWith('.xml') &&
                         urlOrSitemap.startsWith('http');
     
     if (isSingleUrl) {
-      console.log(`   🎯 מצב: עדכון דף בודד`);
+      console.log(`   🎯 מצב: דף בודד`);
       console.log(`   🌐 URL: ${urlOrSitemap}`);
       console.log(`${"=".repeat(60)}\n`);
       
       await updateSingleUrl(name, urlOrSitemap);
     } else {
       console.log(`   🌐 Sitemap: ${urlOrSitemap}`);
-      console.log(`   📦 גודל Batch: ${batchSize}`);
+      console.log(`   📦 Batch: ${batchSize}`);
       console.log(`${"=".repeat(60)}\n`);
       
       await runFullIndexing(name, urlOrSitemap, batchSize);
     }
   })();
 }
-
-
-
