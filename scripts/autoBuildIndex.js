@@ -505,7 +505,28 @@ function extractSmartContent(html, url) {
     .filter((t) => t && t.length > 3);  // כל h2 מעל 3 תווים
   
   const h3s = $("h3")
-    .map((_, el) => removeIgnoredText($(el).text().trim()))
+    .map((_, el) => {
+      const text = removeIgnoredText($(el).text().trim());
+      
+      // סינון: לא לוקחים h3 שהם תפריטים
+      const isMenuHeader = 
+        text === "למידה מרחוק" ||
+        text === "ייעוץ לימודים" ||
+        text === "קורסי הורות ומשפחה" ||
+        text === "הוראה מתקנת" ||
+        text === "טיולים וסיורים לימודיים" ||
+        text === "אימון ,NLP" ||
+        text === "קורסים לציבור הדתי" ||
+        text === "אמנות, העצמה, טיולים ופנאי" ||
+        text === "ספורט ובריאות" ||
+        text === "הנחיית קבוצות";
+      
+      if (isMenuHeader) {
+        return null;
+      }
+      
+      return text;
+    })
     .get()
     .filter((t) => t && t.length > 3);  // כל h3 מעל 3 תווים
 
@@ -640,9 +661,23 @@ function extractSmartContent(html, url) {
   $("ul, ol").each((_, list) => {
     const items = $(list)
       .find("li")
-      .map((_, li) => removeIgnoredText($(li).text().trim()))
+      .map((_, li) => {
+        const text = removeIgnoredText($(li).text().trim());
+        
+        // סינון: לא לוקחים פריטי תפריט
+        const isMenuItem = 
+          text === "למידה מרחוק" ||
+          text === "ייעוץ לימודים" ||
+          text.includes("קורסים נוספים");
+        
+        if (isMenuItem) {
+          return null;
+        }
+        
+        return text;
+      })
       .get()
-      .filter((t) => t.length > 10 && !t.includes("קורסים נוספים"));
+      .filter((t) => t && t.length > 10 && !t.includes("קורסים נוספים"));
     
     if (items.length > 0 && items.length < 50) {
       lists.push(...items);
@@ -669,7 +704,21 @@ function extractSmartContent(html, url) {
   const paragraphs = [];
   $("p, blockquote, article, div.content, section").each((_, el) => {
     const text = removeIgnoredText($(el).text().trim());
-    if (text.length > 20 && text.length < 2000) {
+    
+    // סינון: לא לוקחים CTAs
+    const isCTA = 
+      text.startsWith(">>") ||
+      text.includes("תואר שני בחינוך") ||
+      text.includes("לימודי תעודה, קורסים והשתלמויות") ||
+      text.includes("מתלבטים מה ללמוד") ||
+      text.includes("טופס ייעוץ") ||
+      text.includes("מצאו קורסים נוספים") ||
+      text.includes("פנו ישירות ליועצי") ||
+      text.includes("Write a short description") ||
+      text.includes("נרשמתם בהצלחה") ||
+      text.includes("יש לקבל אישור של קרן");
+    
+    if (!isCTA && text.length > 20 && text.length < 2000) {
       paragraphs.push(text);
     }
   });
