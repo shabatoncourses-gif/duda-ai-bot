@@ -508,27 +508,32 @@ function extractSmartContent(html, url) {
     .map((_, el) => {
       const text = removeIgnoredText($(el).text().trim());
       
-      // סינון: לא לוקחים h3 שהם תפריטים
-      const isMenuHeader = 
+      // סינון: לא לוקחים h3 שהם תפריטים או CTAs
+      const isMenuOrCTA = 
         text === "למידה מרחוק" ||
         text === "ייעוץ לימודים" ||
         text === "קורסי הורות ומשפחה" ||
         text === "הוראה מתקנת" ||
         text === "טיולים וסיורים לימודיים" ||
         text === "אימון ,NLP" ||
+        text === "NLP ,אימון" ||
         text === "קורסים לציבור הדתי" ||
         text === "אמנות, העצמה, טיולים ופנאי" ||
         text === "ספורט ובריאות" ||
-        text === "הנחיית קבוצות";
+        text === "הנחיית קבוצות" ||
+        text === "חשוב בשבתון" ||
+        text.includes("מתכננים שבתון") ||
+        text.includes("הרשמו לקבלת מידע") ||
+        text.length < 10;  // h3 קצרים = תפריטים
       
-      if (isMenuHeader) {
+      if (isMenuOrCTA) {
         return null;
       }
       
       return text;
     })
     .get()
-    .filter((t) => t && t.length > 3);  // כל h3 מעל 3 תווים
+    .filter((t) => t && t.length > 10);  // רק h3 ארוכים  // כל h3 מעל 3 תווים
 
   const isDudaPage = 
     url.includes("courses-per-month") || 
@@ -705,7 +710,7 @@ function extractSmartContent(html, url) {
   $("p, blockquote, article, div.content, section").each((_, el) => {
     const text = removeIgnoredText($(el).text().trim());
     
-    // סינון: לא לוקחים CTAs
+    // סינון: לא לוקחים CTAs ותפריטים
     const isCTA = 
       text.startsWith(">>") ||
       text.includes("תואר שני בחינוך") ||
@@ -716,7 +721,12 @@ function extractSmartContent(html, url) {
       text.includes("פנו ישירות ליועצי") ||
       text.includes("Write a short description") ||
       text.includes("נרשמתם בהצלחה") ||
-      text.includes("יש לקבל אישור של קרן");
+      text.includes("יש לקבל אישור של קרן") ||
+      text.includes("מתכננים שבתון? בשבתון ? הרשמו") ||
+      text === "חשוב בשבתון" ||
+      text === "NLP ,אימון" ||
+      text === "אימון ,NLP" ||
+      text.includes("מסלולי לימוד קורסים והשתלמויות");
     
     if (!isCTA && text.length > 20 && text.length < 2000) {
       paragraphs.push(text);
