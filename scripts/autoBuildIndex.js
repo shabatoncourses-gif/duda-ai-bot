@@ -428,16 +428,16 @@ function identifyPageType(url, $) {
 }
 
 // ============================================
-// 🧹 סינון אלמנטים לא רלוונטיים - תוקן לחלוטין!
+// 🧹 סינון אלמנטים לא רלוונטיים - גרסה מאוזנת
 // ============================================
 function cleanDom($) {
-  // שלב 1: הסרת אלמנטים בסיסיים
+  // שלב 1: הסרת אלמנטים בסיסיים בלבד
   const removeSelectors = [
     "header", "footer", "nav", ".navbar", ".nav", ".menu", ".navigation",
     ".breadcrumb", ".breadcrumbs", ".sidebar", ".widget", ".aside",
-    "script", "style", "noscript", "iframe", "form", "button",
+    "script", "style", "noscript", "iframe", "form input", "button[type='submit']",
     ".cookie", ".popup", ".modal", ".advertisement", ".ad", ".ads",
-    ".social-share", ".social", ".comments", ".newsletter", ".subscription",
+    ".social-share", ".social", ".comments", 
     "#footer", "#header", "#sidebar", "#navigation", "#menu",
     ".footer", ".header", ".site-footer", ".site-header",
   ];
@@ -448,61 +448,27 @@ function cleanDom($) {
     } catch (err) {}
   });
   
-  // שלב 2: הסרת כל ul/ol שמכילים בעיקר קישורים
+  // שלב 2: הסרת footer text בלבד (לא כל הפסקאות!)
+  $("p, div, section").each((_, el) => {
+    const text = $(el).text().trim();
+    
+    // רק אם זה FOOTER מובהק
+    if (text.includes("כל הזכויות שמורות") || 
+        text.includes("info@shabaton.co.il") ||
+        (text.includes("פורטל שבתון") && text.includes("קהל יעד"))) {
+      $(el).remove();
+    }
+  });
+  
+  // שלב 3: הסרת תפריטים - רק אם 100% קישורים
   $("ul, ol").each((_, list) => {
     const $list = $(list);
     const items = $list.find("li");
     const links = $list.find("a");
     
-    // אם יש יותר מ-3 קישורים ברשימה = תפריט
-    if (links.length >= 3) {
+    // רק אם יש 5+ פריטים וכולם קישורים = תפריט
+    if (items.length >= 5 && links.length === items.length) {
       $list.remove();
-    }
-  });
-  
-  // שלב 3: הסרת divs שמכילים בעיקר קישורים
-  $("div, section").each((_, el) => {
-    const $el = $(el);
-    const links = $el.find("a");
-    const text = $el.text().trim();
-    
-    // אם יש 4+ קישורים ב-div קטן = ניווט
-    if (links.length >= 4 && text.length < 400) {
-      $el.remove();
-    }
-  });
-  
-  // שלב 4: הסרת קטעים עם מילות מפתח של CTAs
-  const ctaKeywords = [
-    "מצאו קורסים", "פנו ישירות", "ליועצי לימודים",
-    "הרשמו לקבלת", "תואר שני בחינוך", "לימודי תעודה",
-    "טופס ייעוץ", "מתלבטים מה ללמוד", "קורסים הנפתחים",
-    "כל הזכויות שמורות", "info@shabaton", "פורטל שבתון",
-    "קהל יעד עבורכם", "הצטרפו לקבוצת", "Write a short description"
-  ];
-  
-  $("p, div, span, section").each((_, el) => {
-    const text = $(el).text().trim();
-    
-    if (ctaKeywords.some(keyword => text.includes(keyword))) {
-      $(el).remove();
-    }
-  });
-  
-  // שלב 5: הסרת קישורים בודדים שהם CTAs
-  $("a").each((_, link) => {
-    const text = $(link).text().trim().toLowerCase();
-    
-    const ctaPatterns = [
-      "למידה מרחוק", "ייעוץ לימודים", "קורסי הורות",
-      "הוראה מתקנת", "טיולים וסיורים", "nlp", "אימון",
-      "קורסים לציבור", "אמנות", "העצמה", "ספורט ובריאות",
-      "הנחיית קבוצות", "לפרטים", "קרא עוד", "הרשמו",
-      "פנו אלינו", "לחצו כאן"
-    ];
-    
-    if (ctaPatterns.some(pattern => text.includes(pattern))) {
-      $(link).remove();
     }
   });
   
@@ -525,12 +491,12 @@ function extractSmartContent(html, url) {
   const h2s = $("h2")
     .map((_, el) => removeIgnoredText($(el).text().trim()))
     .get()
-    .filter((t) => t && t.length > 10);  // רק h2 ארוכים (לא תפריטים)
+    .filter((t) => t && t.length > 3);  // כל h2 מעל 3 תווים
   
   const h3s = $("h3")
     .map((_, el) => removeIgnoredText($(el).text().trim()))
     .get()
-    .filter((t) => t && t.length > 10);  // רק h3 ארוכים (לא תפריטים)
+    .filter((t) => t && t.length > 3);  // כל h3 מעל 3 תווים
 
   const isDudaPage = 
     url.includes("courses-per-month") || 
