@@ -415,20 +415,7 @@ function identifyPageType(url, $) {
     return "info-page";
   }
 
-  const hasInstitutionPattern = 
-    path.includes("-edu") || 
-    path.includes("-college") || 
-    path.includes("-university") ||
-    path.includes("_teachers") ||
-    path.includes("haifa-") ||
-    path.includes("tau-") ||
-    path.includes("huji-") ||
-    (($("ul li a").length > 5 || $("a").length > 10) && $("h2, h3").length > 2);
-  
-  if (hasInstitutionPattern) {
-    return "institution-page";
-  }
-
+  // זיהוי דפי פירוט קורס
   if (
     $("table").length > 0 ||
     $(".course-details").length > 0 ||
@@ -441,66 +428,81 @@ function identifyPageType(url, $) {
 }
 
 // ============================================
-// 🧹 סינון אלמנטים לא רלוונטיים
+// 🧹 סינון אלמנטים לא רלוונטיים - תוקן לחלוטין!
 // ============================================
 function cleanDom($) {
+  // שלב 1: הסרת אלמנטים בסיסיים
   const removeSelectors = [
-    "header", "footer", "nav", ".navbar", ".nav", ".menu",
-    ".breadcrumb", ".breadcrumbs", ".sidebar", ".widget",
-    "script", "style", "noscript", "iframe", "form",
-    ".cookie", ".popup", ".modal", ".advertisement", ".ad",
-    ".social-share", ".comments", ".newsletter", ".subscription",
+    "header", "footer", "nav", ".navbar", ".nav", ".menu", ".navigation",
+    ".breadcrumb", ".breadcrumbs", ".sidebar", ".widget", ".aside",
+    "script", "style", "noscript", "iframe", "form", "button",
+    ".cookie", ".popup", ".modal", ".advertisement", ".ad", ".ads",
+    ".social-share", ".social", ".comments", ".newsletter", ".subscription",
+    "#footer", "#header", "#sidebar", "#navigation", "#menu",
+    ".footer", ".header", ".site-footer", ".site-header",
   ];
 
-  removeSelectors.forEach((sel) => $(sel).remove());
+  removeSelectors.forEach((sel) => {
+    try {
+      $(sel).remove();
+    } catch (err) {}
+  });
   
-  // ⚡ סינון מתקדם: הסרת תפריטים ורשימות קישורים
-  
-  // 1. הסרת ul/ol שמכילים רק קישורים (תפריטים)
+  // שלב 2: הסרת כל ul/ol שמכילים בעיקר קישורים
   $("ul, ol").each((_, list) => {
     const $list = $(list);
     const items = $list.find("li");
+    const links = $list.find("a");
     
-    if (items.length > 5) {  // רשימה ארוכה
-      const linksCount = items.find("a").length;
-      const itemsCount = items.length;
-      
-      // אם 80%+ מהפריטים הם קישורים = תפריט
-      if (linksCount >= itemsCount * 0.8) {
-        $list.remove();
-      }
+    // אם יש יותר מ-3 קישורים ברשימה = תפריט
+    if (links.length >= 3) {
+      $list.remove();
     }
   });
   
-  // 2. הסרת divs שמכילים רק קישורים (ניווט)
-  $("div").each((_, div) => {
-    const $div = $(div);
-    const links = $div.find("a");
-    const text = $div.text().trim();
+  // שלב 3: הסרת divs שמכילים בעיקר קישורים
+  $("div, section").each((_, el) => {
+    const $el = $(el);
+    const links = $el.find("a");
+    const text = $el.text().trim();
     
-    if (links.length >= 5 && text.length < 500) {
-      const linksText = links.map((_, a) => $(a).text()).get().join(" ");
-      const totalText = $div.text();
-      
-      // אם 90%+ מהטקסט בתוך קישורים = ניווט
-      if (linksText.length >= totalText.length * 0.9) {
-        $div.remove();
-      }
+    // אם יש 4+ קישורים ב-div קטן = ניווט
+    if (links.length >= 4 && text.length < 400) {
+      $el.remove();
     }
   });
   
-  // 3. הסרת כפתורים ו-CTAs נפוצים
-  $("a, button").each((_, el) => {
-    const text = $(el).text().trim().toLowerCase();
+  // שלב 4: הסרת קטעים עם מילות מפתח של CTAs
+  const ctaKeywords = [
+    "מצאו קורסים", "פנו ישירות", "ליועצי לימודים",
+    "הרשמו לקבלת", "תואר שני בחינוך", "לימודי תעודה",
+    "טופס ייעוץ", "מתלבטים מה ללמוד", "קורסים הנפתחים",
+    "כל הזכויות שמורות", "info@shabaton", "פורטל שבתון",
+    "קהל יעד עבורכם", "הצטרפו לקבוצת", "Write a short description"
+  ];
+  
+  $("p, div, span, section").each((_, el) => {
+    const text = $(el).text().trim();
+    
+    if (ctaKeywords.some(keyword => text.includes(keyword))) {
+      $(el).remove();
+    }
+  });
+  
+  // שלב 5: הסרת קישורים בודדים שהם CTAs
+  $("a").each((_, link) => {
+    const text = $(link).text().trim().toLowerCase();
     
     const ctaPatterns = [
-      "הרשמו", "לחצו כאן", "פנו אלינו", "לפרטים", "קרא עוד",
-      "למידע נוסף", "להרשמה", "הצטרפו", "הירשמו", "לחץ כאן"
+      "למידה מרחוק", "ייעוץ לימודים", "קורסי הורות",
+      "הוראה מתקנת", "טיולים וסיורים", "nlp", "אימון",
+      "קורסים לציבור", "אמנות", "העצמה", "ספורט ובריאות",
+      "הנחיית קבוצות", "לפרטים", "קרא עוד", "הרשמו",
+      "פנו אלינו", "לחצו כאן"
     ];
     
     if (ctaPatterns.some(pattern => text.includes(pattern))) {
-      // לא מוחקים את האלמנט, רק מסמנים שלא לקחת ממנו h3
-      $(el).attr("data-cta", "true");
+      $(link).remove();
     }
   });
   
@@ -521,49 +523,14 @@ function extractSmartContent(html, url) {
   const h1 = removeIgnoredText($("h1").first().text().trim());
   
   const h2s = $("h2")
-    .map((_, el) => {
-      const text = removeIgnoredText($(el).text().trim());
-      
-      // סינון: לא לוקחים h2 שהם כותרות תפריטים
-      const isNavigation = $(el).closest("nav, .menu, .navbar, .sidebar").length > 0;
-      const isMenuHeader = 
-        text.includes("מסלולי לימוד") ||
-        text.includes("קורסים והשתלמויות") ||
-        text.length < 5;
-      
-      if (isNavigation || isMenuHeader) {
-        return null;
-      }
-      
-      return text;
-    })
+    .map((_, el) => removeIgnoredText($(el).text().trim()))
     .get()
-    .filter((t) => t && t.length > 3);
+    .filter((t) => t && t.length > 10);  // רק h2 ארוכים (לא תפריטים)
   
   const h3s = $("h3")
-    .map((_, el) => {
-      const text = removeIgnoredText($(el).text().trim());
-      
-      // סינון: לא לוקחים h3 שהם קישורים לדפים אחרים
-      const isInsideLink = $(el).closest("a[data-cta='true']").length > 0;
-      const isNavigation = $(el).closest("nav, .menu, .navbar").length > 0;
-      
-      // סינון: h3 שהם כותרות תפריטים
-      const isMenuHeader = 
-        text.includes("מסלולי לימוד") ||
-        text.includes("קורסים") && text.length < 30 ||
-        text.includes("השתלמויות") && text.length < 30 ||
-        text.includes("למידה מרחוק") && text.length < 30 ||
-        text.includes("ייעוץ") && text.length < 20;
-      
-      if (isInsideLink || isNavigation || isMenuHeader) {
-        return null;
-      }
-      
-      return text;
-    })
+    .map((_, el) => removeIgnoredText($(el).text().trim()))
     .get()
-    .filter((t) => t && t.length > 3);
+    .filter((t) => t && t.length > 10);  // רק h3 ארוכים (לא תפריטים)
 
   const isDudaPage = 
     url.includes("courses-per-month") || 
@@ -843,9 +810,14 @@ function extractResultsPageCourses(html) {
               text.includes("מכללת") ||
               text.includes("המכללה") ||
               text.includes("האוניברסיטה") ||
+              text.includes("מכון") ||
+              text.includes("המכון") ||
               text.includes("בית") ||
               text.includes("סמינר") ||
               text.includes("המרכז") ||
+              text.includes("הקתדרה") ||
+              text.includes("אקדמיה") ||
+              text.includes("פקולטה") ||
               text.length > 15;
             
             if (looksLikeInstitution && !institutions.includes(text)) {
