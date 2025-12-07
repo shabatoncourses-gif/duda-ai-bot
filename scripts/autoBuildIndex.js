@@ -399,19 +399,29 @@ function identifyPageType(url, $) {
     return "course-list";
   }
 
-  if (
-    path.includes("/btl") ||
-    path.includes("/luz") ||
-    path.includes("/shabaton") ||
-    path.includes("/rights") ||
-    path.includes("/forms") ||
-    path.includes("/tofes") ||
-    path.includes("/maanak") ||
-    path.includes("/pension") ||
-    path.includes("/birth") ||
-    path.includes("/tuition") ||
-    lower.includes("info")
-  ) {
+  // זיהוי דפי מידע - רק דפים ספציפיים!
+  const infoPagePatterns = [
+    "/btl_shabaton",
+    "/shabaton-video",
+    "/learning_programs_shabaton",
+    "/luz_shabaton",
+    "/end_shabaton",
+    "/halforfull_shabaton",
+    "/phones_shabaton",
+    "/forms_shabaton",
+    "/payments_shabaton",
+    "/tlush_maanak_shabaton",
+    "/kabalot_shabaton",
+    "/tuition_reimbursement",
+    "/shabaton-maanak",
+    "/birth_shabatgon",
+    "/pension_shabaton",
+    "/keren_makor_mishor",
+    "/tofes_101",
+    "/rights"
+  ];
+  
+  if (infoPagePatterns.some(pattern => path.endsWith(pattern))) {
     return "info-page";
   }
 
