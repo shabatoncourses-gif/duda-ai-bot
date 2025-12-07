@@ -723,6 +723,7 @@ function extractSmartContent(html, url) {
       text.includes("נרשמתם בהצלחה") ||
       text.includes("יש לקבל אישור של קרן") ||
       text.includes("מתכננים שבתון? בשבתון ? הרשמו") ||
+      text.includes("מעוניינים במידע חשוב") ||
       text === "חשוב בשבתון" ||
       text === "NLP ,אימון" ||
       text === "אימון ,NLP" ||
