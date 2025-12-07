@@ -124,6 +124,18 @@ async function fetchDudaPageWithPuppeteer(url) {
       timeout: 30000
     });
     
+    // ⚡ המתנה נוספת ל-Duda content
+    try {
+      // המתנה ל-h1 או לתוכן עיקרי
+      await page.waitForSelector('h1, .content, main, article', { timeout: 5000 });
+      console.log(`   ✅ תוכן עיקרי נטען`);
+    } catch {
+      console.log(`   ⚠️ לא נמצא h1/content, ממשיכים`);
+    }
+    
+    // המתנה קצרה נוספת לוודא שהכל נטען
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 1000)));
+    
     try {
       await page.waitForSelector('li.listItem', { timeout: 10000 });
       console.log(`   ✅ li.listItem נטען בהצלחה!`);
@@ -133,6 +145,8 @@ async function fetchDudaPageWithPuppeteer(url) {
     
     const html = await page.content();
     await page.close();
+    
+    console.log(`   📝 HTML: ${html.length} תווים`);
     
     return {
       ok: true,
@@ -438,18 +452,17 @@ function identifyPageType(url, $) {
 }
 
 // ============================================
-// 🧹 סינון אלמנטים לא רלוונטיים - גרסה מאוזנת
+// 🧹 סינון אלמנטים לא רלוונטיים - גרסה מינימלית
 // ============================================
 function cleanDom($) {
-  // שלב 1: הסרת אלמנטים בסיסיים בלבד
+  // רק הסרת אלמנטים שבטוח לא תוכן עיקרי
   const removeSelectors = [
-    "header", "footer", "nav", ".navbar", ".nav", ".menu", ".navigation",
-    ".breadcrumb", ".breadcrumbs", ".sidebar", ".widget", ".aside",
-    "script", "style", "noscript", "iframe", "form input", "button[type='submit']",
+    "header", 
+    "nav", ".navbar", ".nav", ".menu", ".navigation",
+    ".breadcrumb", ".breadcrumbs", 
+    "script", "style", "noscript", "iframe",
     ".cookie", ".popup", ".modal", ".advertisement", ".ad", ".ads",
-    ".social-share", ".social", ".comments", 
-    "#footer", "#header", "#sidebar", "#navigation", "#menu",
-    ".footer", ".header", ".site-footer", ".site-header",
+    ".social-share", ".social", ".comments",
   ];
 
   removeSelectors.forEach((sel) => {
@@ -458,27 +471,15 @@ function cleanDom($) {
     } catch (err) {}
   });
   
-  // שלב 2: הסרת footer text בלבד (לא כל הפסקאות!)
-  $("p, div, section").each((_, el) => {
+  // הסרת קטע footer ספציפי (לא כל ה-footer!)
+  $("*").each((_, el) => {
     const text = $(el).text().trim();
     
-    // רק אם זה FOOTER מובהק
-    if (text.includes("כל הזכויות שמורות") || 
-        text.includes("info@shabaton.co.il") ||
-        (text.includes("פורטל שבתון") && text.includes("קהל יעד"))) {
+    // רק טקסט footer מובהק
+    if ((text.includes("כל הזכויות שמורות") && text.length < 200) ||
+        (text === "info@shabaton.co.il") ||
+        (text.includes("2025 - 2004") && text.length < 100)) {
       $(el).remove();
-    }
-  });
-  
-  // שלב 3: הסרת תפריטים - רק אם 100% קישורים
-  $("ul, ol").each((_, list) => {
-    const $list = $(list);
-    const items = $list.find("li");
-    const links = $list.find("a");
-    
-    // רק אם יש 5+ פריטים וכולם קישורים = תפריט
-    if (items.length >= 5 && links.length === items.length) {
-      $list.remove();
     }
   });
   
