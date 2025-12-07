@@ -1416,16 +1416,47 @@ export async function updateSingleUrl(name, url) {
   const indexPath = path.join(dataDir, `${baseName}_index.json`);
   const donePath = path.join(dataDir, `${baseName}_done.json`);
   
+  // ⚡ קריאת כל ה-parts!
   let pages = [];
+  
+  // נסה לטעון את האינדקס הראשי
   if (fs.existsSync(indexPath)) {
     try {
       const indexContent = fs.readFileSync(indexPath, "utf8");
       pages = JSON.parse(indexContent);
-      console.log(`📂 נטען: ${pages.length}`);
+      console.log(`📂 נטען index: ${pages.length}`);
     } catch (err) {
-      console.log(`⚠️ שגיאה: ${err.message}`);
+      console.log(`⚠️ שגיאה באינדקס: ${err.message}`);
     }
   }
+  
+  // ⚡ טען את כל ה-part files!
+  let partNum = 1;
+  while (true) {
+    const partPath = path.join(dataDir, `${baseName}_index_part${partNum}.json`);
+    if (!fs.existsSync(partPath)) {
+      break;
+    }
+    
+    try {
+      const partContent = fs.readFileSync(partPath, "utf8");
+      const partPages = JSON.parse(partContent);
+      
+      // אם זה part1 וכבר יש לנו pages מה-index הראשי, דלג
+      if (partNum === 1 && pages.length > 0) {
+        console.log(`📂 דילוג על part${partNum} (כבר ב-index)`);
+      } else {
+        pages.push(...partPages);
+        console.log(`📂 נטען part${partNum}: ${partPages.length} (סה"כ ${pages.length})`);
+      }
+    } catch (err) {
+      console.log(`⚠️ שגיאה ב-part${partNum}: ${err.message}`);
+    }
+    
+    partNum++;
+  }
+  
+  console.log(`📚 סה"כ רשומות לפני עדכון: ${pages.length}\n`);
   
   let done = [];
   if (fs.existsSync(donePath)) {
@@ -1455,10 +1486,10 @@ export async function updateSingleUrl(name, url) {
   } else {
     if (existingIndex >= 0) {
       pages[existingIndex] = result;
-      console.log(`✅ עודכן`);
+      console.log(`✅ עודכן (מיקום ${existingIndex + 1}/${pages.length})`);
     } else {
       pages.push(result);
-      console.log(`✅ נוסף`);
+      console.log(`✅ נוסף (חדש, סה"כ ${pages.length})`);
     }
     
     if (!done.includes(url)) {
@@ -1466,20 +1497,29 @@ export async function updateSingleUrl(name, url) {
     }
   }
   
-  fs.writeFileSync(indexPath, JSON.stringify(pages, null, 2));
+  // שמירת האינדקס הראשי (מקסימום 500)
+  const mainIndex = pages.slice(0, CONFIG.MAX_PER_FILE);
+  fs.writeFileSync(indexPath, JSON.stringify(mainIndex, null, 2));
+  console.log(`\n💾 נשמר index: ${mainIndex.length}`);
+  
   fs.writeFileSync(donePath, JSON.stringify(done, null, 2));
   
+  // פיצול לחלקים
   const chunks = [];
   for (let i = 0; i < pages.length; i += CONFIG.MAX_PER_FILE) {
     chunks.push(pages.slice(i, i + CONFIG.MAX_PER_FILE));
   }
   
+  console.log(`📦 מפצל ל-${chunks.length} חלקים...\n`);
+  
   for (let i = 0; i < chunks.length; i++) {
     const chunkPath = path.join(dataDir, `${baseName}_index_part${i + 1}.json`);
     fs.writeFileSync(chunkPath, JSON.stringify(chunks[i], null, 2));
+    console.log(`💾 נשמר part${i + 1}: ${chunks[i].length}`);
     await uploadToGitHub(chunkPath, `🔄 ${name} - עדכון - חלק ${i + 1}/${chunks.length}`);
   }
   
+  await uploadToGitHub(indexPath, `📚 ${name} - index ראשי`);
   await uploadToGitHub(donePath, `📊 ${name} - done`);
   
   console.log(`\n✅ הושלם!`);
