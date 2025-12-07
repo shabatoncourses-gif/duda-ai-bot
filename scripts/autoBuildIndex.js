@@ -471,6 +471,21 @@ function cleanDom($) {
     } catch (err) {}
   });
   
+  // ⚡ הסרת grid/cards עם כותרות
+  // זיהוי: אם יש 4+ divs עם תמונה + h3 = זה grid של קטגוריות
+  const cardsWithImages = $("div").filter((_, div) => {
+    const $div = $(div);
+    const hasImage = $div.find("img").length > 0;
+    const hasH3 = $div.find("h3").length === 1;
+    const hasLink = $div.find("a").length > 0;
+    return hasImage && hasH3 && hasLink;
+  });
+  
+  if (cardsWithImages.length >= 4) {
+    console.log(`   🎴 זוהה grid של ${cardsWithImages.length} cards - מוסר h3`);
+    cardsWithImages.find("h3").remove();
+  }
+  
   // הסרת קטע footer ספציפי (לא כל ה-footer!)
   $("*").each((_, el) => {
     const text = $(el).text().trim();
@@ -506,34 +521,53 @@ function extractSmartContent(html, url) {
   
   const h3s = $("h3")
     .map((_, el) => {
-      const text = removeIgnoredText($(el).text().trim());
+      const $el = $(el);
+      const text = removeIgnoredText($el.text().trim());
       
-      // סינון: לא לוקחים h3 שהם תפריטים או CTAs
-      const isMenuOrCTA = 
-        text === "למידה מרחוק" ||
-        text === "ייעוץ לימודים" ||
-        text === "קורסי הורות ומשפחה" ||
-        text === "הוראה מתקנת" ||
-        text === "טיולים וסיורים לימודיים" ||
-        text === "אימון ,NLP" ||
-        text === "NLP ,אימון" ||
-        text === "קורסים לציבור הדתי" ||
-        text === "אמנות, העצמה, טיולים ופנאי" ||
-        text === "ספורט ובריאות" ||
-        text === "הנחיית קבוצות" ||
+      // רשימת מילות מפתח שיכולות להיות תפריט או תוכן
+      const ambiguousKeywords = [
+        "הוראה מתקנת",
+        "NLP",
+        "אימון",
+        "הנחיית קבוצות",
+        "למידה מרחוק",
+        "ייעוץ לימודים",
+        "קורסי הורות",
+        "טיולים וסיורים"
+      ];
+      
+      // בדיקה: האם זה תפריט או תוכן?
+      const hasLink = $el.find("a").length > 0 || $el.closest("nav, .menu, .navigation").length > 0;
+      const isShort = text.length < 20;
+      const isExactMatch = ambiguousKeywords.some(keyword => text === keyword);
+      
+      // זה תפריט אם:
+      // 1. יש לו קישור פנימי
+      // 2. הוא קצר (פחות מ-20 תווים) וזה התאמה מדויקת
+      const isMenuHeader = hasLink || (isShort && isExactMatch);
+      
+      // CTAs ברורים (תמיד למחוק)
+      const isClearCTA = 
         text === "חשוב בשבתון" ||
         text.includes("מתכננים שבתון") ||
         text.includes("הרשמו לקבלת מידע") ||
-        text.length < 10;  // h3 קצרים = תפריטים
+        text === "אימון ,NLP" ||
+        text === "NLP ,אימון" ||
+        text === "קורסי הורות ומשפחה" ||
+        text === "קורסים לציבור הדתי" ||
+        text === "אמנות, העצמה, טיולים ופנאי" ||
+        text === "ספורט ובריאות" ||
+        text === "טיולים וסיורים לימודיים" ||
+        text.length < 10;
       
-      if (isMenuOrCTA) {
+      if (isMenuHeader || isClearCTA) {
         return null;
       }
       
       return text;
     })
     .get()
-    .filter((t) => t && t.length > 10);  // רק h3 ארוכים  // כל h3 מעל 3 תווים
+    .filter((t) => t && t.length > 10);  // רק h3 ארוכים
 
   const isDudaPage = 
     url.includes("courses-per-month") || 
