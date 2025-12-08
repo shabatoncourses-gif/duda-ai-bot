@@ -510,7 +510,11 @@ function extractSmartContent(html, url) {
 
   const pageType = identifyPageType(url, $);
 
-  const title = removeIgnoredText($("title").text().trim());
+  const title = removeIgnoredText($("title").text().trim())
+    .replace(/\n/g, ' ')
+    .replace(/close carousel/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   const description = removeIgnoredText($('meta[name="description"]').attr("content")?.trim() || "");
   const h1 = removeIgnoredText($("h1").first().text().trim());
   
@@ -758,6 +762,9 @@ function extractSmartContent(html, url) {
       text.includes("יש לקבל אישור של קרן") ||
       text.includes("מתכננים שבתון? בשבתון ? הרשמו") ||
       text.includes("מעוניינים במידע חשוב") ||
+      text.includes("AudioEye enabled") ||
+      text.includes("optimized for accessibility") ||
+      text.startsWith("This website is AudioEye") ||
       text === "חשוב בשבתון" ||
       text === "NLP ,אימון" ||
       text === "אימון ,NLP" ||
