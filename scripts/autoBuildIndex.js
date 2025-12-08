@@ -603,7 +603,19 @@ function extractSmartContent(html, url) {
       $fresh("li.listItem").each((_, el) => {
         const $item = $fresh(el);
         
-        const institutionName = removeIgnoredText($item.find("span.itemName").first().text().trim());
+        // חילוץ שם המוסד - בלי כפילויות
+        let institutionName = removeIgnoredText($item.find("span.itemName").first().text().trim());
+        
+        // הסרת כפילויות (לפעמים השם מופיע פעמיים)
+        const words = institutionName.split(/\s+/);
+        const halfLength = Math.floor(words.length / 2);
+        if (words.length > halfLength * 2) {
+          const firstHalf = words.slice(0, halfLength).join(' ');
+          const secondHalf = words.slice(halfLength, halfLength * 2).join(' ');
+          if (firstHalf === secondHalf) {
+            institutionName = firstHalf;
+          }
+        }
         
         if (institutionName && institutionName.length > 5) {
           if (!institutions.includes(institutionName)) {
@@ -611,15 +623,32 @@ function extractSmartContent(html, url) {
             coursesByInstitution[institutionName] = [];
           }
           
+          // חילוץ קורסים - עם פיצול נכון
           const coursesHTML = $item.find("span.itemText").html() || '';
           
           if (coursesHTML) {
-            const coursesList = coursesHTML
+            // פיצול לפי <br> או ירידת שורה
+            let coursesList = coursesHTML
               .split(/<br\s*\/?.*?>/i)
               .map(c => {
-                return removeIgnoredText($fresh('<div>').html(c).text().trim());
+                const cleanText = removeIgnoredText($fresh('<div>').html(c).text().trim());
+                // פיצול נוסף לפי ירידת שורה בטקסט
+                return cleanText.split(/\n+/).map(line => line.trim()).filter(line => line.length > 5);
               })
-              .filter(c => c.length > 5);
+              .flat()
+              .filter(c => c.length > 10 && c.length < 500);
+            
+            // אם לא נמצאו קורסים מפוצלים, נסה לחלץ מהטקסט
+            if (coursesList.length === 0 || coursesList.length === 1) {
+              const fullText = $item.find("span.itemText").text().trim();
+              // חיפוש אחר מילות מפתח שמסמנות קורס חדש
+              const courseMarkers = /(?:^|\n|\.)\s*([א-ת][^.]+?(?:תואר|קורס|הכשר|תוכנית|השתלמות|לימוד)[^.]*)/g;
+              const matches = [...fullText.matchAll(courseMarkers)];
+              
+              if (matches.length > 1) {
+                coursesList = matches.map(m => removeIgnoredText(m[1].trim())).filter(c => c.length > 10);
+              }
+            }
             
             console.log(`      - ${institutionName.substring(0, 40)}: ${coursesList.length} קורסים`);
             coursesByInstitution[institutionName].push(...coursesList);
@@ -813,7 +842,8 @@ function extractSmartContent(html, url) {
     wordCount: cleanText.split(/\s+/).filter(w => w.length > 0).length,
     ...(institutions.length > 0 && {
       institutions: institutions,
-      totalCourses: Object.values(coursesByInstitution).flat().length
+      totalCourses: Object.values(coursesByInstitution).flat().length,
+      coursesByInstitution: coursesByInstitution  // ⚡ הוספה!
     })
   };
 }
