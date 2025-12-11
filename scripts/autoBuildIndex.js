@@ -516,17 +516,27 @@ function extractSmartContent(html, url) {
     .replace(/\s+/g, ' ')
     .trim();
   const description = removeIgnoredText($('meta[name="description"]').attr("content")?.trim() || "");
-  const h1 = removeIgnoredText($("h1").first().text().trim());
+  
+  // ⚡ h1 עם ניקוי \n ומרכאות
+  let h1 = removeIgnoredText($("h1").first().text().trim());
+  h1 = h1.replace(/\n/g, ' ').replace(/\s+/g, ' ').replace(/\\"/g, '"').replace(/\"/g, "'").trim();
   
   const h2s = $("h2")
-    .map((_, el) => removeIgnoredText($(el).text().trim()))
+    .map((_, el) => {
+      let text = removeIgnoredText($(el).text().trim());
+      // ניקוי \n ומרכאות
+      text = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').replace(/\\"/g, '"').replace(/\"/g, "'").trim();
+      return text;
+    })
     .get()
     .filter((t) => t && t.length > 3);  // כל h2 מעל 3 תווים
   
   const h3s = $("h3")
     .map((_, el) => {
       const $el = $(el);
-      const text = removeIgnoredText($el.text().trim());
+      let text = removeIgnoredText($el.text().trim());
+      // ניקוי \n ומרכאות
+      text = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').replace(/\\"/g, '"').replace(/\"/g, "'").trim();
       
       // רשימת מילות מפתח שיכולות להיות תפריט או תוכן
       const ambiguousKeywords = [
@@ -583,6 +593,7 @@ function extractSmartContent(html, url) {
   let dudaContent = [];
   let institutions = [];
   let coursesByInstitution = {};
+  let institutionLinks = {};  // ⚡ חדש - שמירת קישורים למוסדות
   
   if (isDudaPage) {
     // ⚡ בדיקת מבנה institution
@@ -606,21 +617,58 @@ function extractSmartContent(html, url) {
         // חילוץ שם המוסד - בלי כפילויות
         let institutionName = removeIgnoredText($item.find("span.itemName").first().text().trim());
         
-        // הסרת כפילויות (לפעמים השם מופיע פעמיים)
+        // ⚡ הסרת כפילויות - אסטרטגיה 1: חלוקה למילים
         const words = institutionName.split(/\s+/);
         const halfLength = Math.floor(words.length / 2);
-        if (words.length > halfLength * 2) {
+        
+        if (words.length >= 6 && words.length % 2 === 0) {
           const firstHalf = words.slice(0, halfLength).join(' ');
-          const secondHalf = words.slice(halfLength, halfLength * 2).join(' ');
+          const secondHalf = words.slice(halfLength).join(' ');
+          
           if (firstHalf === secondHalf) {
             institutionName = firstHalf;
+            console.log(`      🔧 תוקן כפילות (מילים): "${institutionName}"`);
+          }
+        }
+        
+        // ⚡ הסרת כפילויות - אסטרטגיה 2: חלוקה לתווים (עבור שמות דבוקים)
+        if (institutionName.length >= 20 && institutionName.length % 2 === 0) {
+          const halfLen = Math.floor(institutionName.length / 2);
+          const firstHalfText = institutionName.substring(0, halfLen);
+          const secondHalfText = institutionName.substring(halfLen);
+          
+          if (firstHalfText === secondHalfText) {
+            institutionName = firstHalfText;
+            console.log(`      🔧 תוקן כפילות (תווים): "${institutionName}"`);
+          }
+        }
+        
+        // ⚡ הסרת כפילויות - אסטרטגיה 3: חיפוש חזרתיות בטקסט
+        // לדוגמה: "ABC ABC" או "ABCABC"
+        const len = institutionName.length;
+        for (let i = 3; i <= len / 2; i++) {
+          const pattern = institutionName.substring(0, i);
+          const rest = institutionName.substring(i);
+          
+          if (pattern === rest || pattern === rest.trim()) {
+            institutionName = pattern;
+            console.log(`      🔧 תוקן כפילות (pattern): "${institutionName}"`);
+            break;
           }
         }
         
         if (institutionName && institutionName.length > 5) {
+          // ⚡ חילוץ קישור למוסד
+          const institutionLink = $item.find("a").first().attr("href") || "";
+          
           if (!institutions.includes(institutionName)) {
             institutions.push(institutionName);
             coursesByInstitution[institutionName] = [];
+            
+            // שמירת קישור אם קיים
+            if (institutionLink) {
+              institutionLinks[institutionName] = institutionLink;
+            }
           }
           
           // חילוץ קורסים - עם פיצול נכון
@@ -646,7 +694,9 @@ function extractSmartContent(html, url) {
               const matches = [...fullText.matchAll(courseMarkers)];
               
               if (matches.length > 1) {
-                coursesList = matches.map(m => removeIgnoredText(m[1].trim())).filter(c => c.length > 10);
+                coursesList = matches
+                  .map(m => removeIgnoredText(m[1].trim()))
+                  .filter(c => c.length > 10);
               }
             }
             
@@ -657,6 +707,18 @@ function extractSmartContent(html, url) {
       });
       
       console.log(`   📊 נמצאו ${institutions.length} מוסדות`);
+      
+      // ⚡ אם זה דף institution - השתמש ב-title כ-h1
+      if (institutions.length > 0 && (!h1 || h1.includes("מצאו עוד קורסים"))) {
+        h1 = title;
+        
+        // ⚡ אם יש h2 עם מיקום - הוסף אותו ל-h1
+        if (h2s.length > 0 && h2s[0].includes("ב")) {
+          h1 = `${title} ${h2s[0]}`;
+        }
+        
+        console.log(`   🔧 h1 הוחלף ל: "${h1}"`);
+      }
       
       if (institutions.length === 0) {
         console.log(`   🔄 מנסה אסטרטגיה 2: H2 + UL...`);
@@ -730,11 +792,16 @@ function extractSmartContent(html, url) {
   }
 
   const lists = [];
+  const seenItems = new Set();  // ⚡ למניעת כפילויות
+  
   $("ul, ol").each((_, list) => {
     const items = $(list)
       .find("li")
       .map((_, li) => {
-        const text = removeIgnoredText($(li).text().trim());
+        let text = removeIgnoredText($(li).text().trim());
+        
+        // ⚡ ניקוי ירידות שורה
+        text = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
         
         // סינון: לא לוקחים פריטי תפריט
         const isMenuItem = 
@@ -751,27 +818,99 @@ function extractSmartContent(html, url) {
       .get()
       .filter((t) => t && t.length > 10 && !t.includes("קורסים נוספים"));
     
+    // ⚡ הוספה רק של פריטים ייחודיים
     if (items.length > 0 && items.length < 50) {
-      lists.push(...items);
+      items.forEach(item => {
+        if (!seenItems.has(item)) {
+          seenItems.add(item);
+          lists.push(item);
+        }
+      });
     }
   });
 
+  // ⚡ חילוץ טבלאות (לכל סוגי הדפים!)
   const tables = [];
-  if (pageType === "course-detail" || pageType === "institution-page" || pageType === "course-list") {
-    $("table").each((_, table) => {
-      const rows = $(table).find("tr");
-      if (rows.length > 0 && rows.length < 50) {
-        rows.each((_, row) => {
-          const cells = $(row)
-            .find("td, th")
-            .map((_, cell) => removeIgnoredText($(cell).text().trim()))
-            .get()
-            .join(" | ");
-          if (cells) tables.push(cells);
-        });
-      }
-    });
-  }
+  $("table").each((_, table) => {
+    const rows = $(table).find("tr");
+    if (rows.length > 0 && rows.length < 50) {
+      rows.each((_, row) => {
+        const allCells = $(row).find("td, th")
+          .map((_, cell) => {
+            const $cell = $(cell);
+            let html = $cell.html() || '';
+            
+            // המרת <br> ל-\n
+            html = html.replace(/<br\s*\/?>/gi, '\n');
+            
+            // חילוץ טקסט
+            let text = $('<div>').html(html).text().trim();
+            text = removeIgnoredText(text);
+            text = text.replace(/\\"/g, '"').replace(/\"/g, "'");
+            
+            return text;
+          })
+          .get()
+          .filter(cell => {
+            const isContact = 
+              cell === "צרו קשר" ||
+              cell === "צור קשר" ||
+              cell === "פרטים" ||
+              cell === "לפרטים" ||
+              cell === "הרשמה" ||
+              cell === "להרשמה" ||
+              cell === "מועד פתיחה" ||
+              cell === "קורס" ||
+              cell.includes("פנו למידע") ||
+              cell.includes("פנו לייעוץ") ||
+              cell.includes("ליעוץ אישי") ||
+              cell.includes("למידע נוסף");
+            return !isContact && cell.length > 0;
+          });
+        
+        if (allCells.length === 0) return;
+        
+        // ⚡ בדיקה: האם יש שורות ריקות כפולות (קורסים נפרדים)?
+        const firstCell = allCells[0] || '';
+        const hasDoubleLinesBreak = /\n\s*\n/.test(firstCell);
+        
+        if (hasDoubleLinesBreak) {
+          // מצב 1: קורסים נפרדים (גישות) - פצל לפי \n\n
+          const courses = firstCell.split(/\n\s*\n/).filter(c => c.trim());
+          
+          courses.forEach(course => {
+            const lines = course.split('\n').map(l => l.trim()).filter(l => l);
+            const courseText = lines.join(' ').replace(/\s+/g, ' ').trim();
+            
+            if (courseText && courseText.length >= 10) {
+              tables.push(courseText);
+            }
+          });
+        } else if (firstCell.includes('\n')) {
+          // מצב 2: רשימת תאריכים (חדווה) - המר \n לפסיקים
+          const cleanedCells = allCells.map(cell => {
+            const lines = cell.split('\n')
+              .map(l => l.trim())
+              .filter(l => l && l.length > 0);
+            return lines.join(', ');
+          });
+          
+          const rowText = cleanedCells.join(' | ').replace(/\s+/g, ' ').trim();
+          
+          if (rowText && rowText.length >= 10) {
+            tables.push(rowText);
+          }
+        } else {
+          // מצב 3: שורה רגילה ללא \n
+          const rowText = allCells.join(' | ').replace(/\s+/g, ' ').trim();
+          
+          if (rowText && rowText.length >= 10) {
+            tables.push(rowText);
+          }
+        }
+      });
+    }
+  });
 
   const paragraphs = [];
   $("p, blockquote, article, div.content, section").each((_, el) => {
@@ -834,16 +973,25 @@ function extractSmartContent(html, url) {
     url,
     title: title || h1 || "ללא כותרת",
     h1,
-    h2: institutions.length > 0 ? institutions : h2s.slice(0, 5),
+    h2: h2s.slice(0, 5),  // ⚡ תמיד הכותרות המקוריות!
     h3: h3s.slice(0, 5),
     description,
     type: pageType,
     text: cleanText.slice(0, 8000),
     wordCount: cleanText.split(/\s+/).filter(w => w.length > 0).length,
+    // ⚡ bulletPoints רק אם זה לא דף institution (כי יש כבר coursesByInstitution)
+    ...(lists.length > 0 && institutions.length === 0 && {
+      bulletPoints: lists.slice(0, 20)
+    }),
+    // ⚡ טבלאות (אם יש)
+    ...(tables.length > 0 && {
+      tables: tables.slice(0, 20)
+    }),
     ...(institutions.length > 0 && {
       institutions: institutions,
       totalCourses: Object.values(coursesByInstitution).flat().length,
-      coursesByInstitution: coursesByInstitution  // ⚡ הוספה!
+      coursesByInstitution: coursesByInstitution,
+      institutionLinks: institutionLinks  // ⚡ קישורים למוסדות!
     })
   };
 }
