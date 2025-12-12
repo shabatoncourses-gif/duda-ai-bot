@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>שבתון - צ'אט בוט</title>
+  <style>
+    /* ========================================
+       🎨 עיצוב כללי
+    ======================================== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f5f5f5;
+      direction: rtl;
+    }
+
+    /* ========================================
+       💬 כפתור פתיחת צ'אט
+    ======================================== */
+    #shabaton-chat-button {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      transition: all 0.3s ease;
+      z-index: 9998;
+    }
+
+    #shabaton-chat-button:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    #shabaton-chat-button.active {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    /* ========================================
+       💬 חלון הצ'אט
+    ======================================== */
+    #shabaton-chat-container {
+      position: fixed;
+      bottom: 90px;
+      left: 20px;
+      width: 380px;
+      height: 600px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 9999;
+      animation: slideUp 0.3s ease;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    #shabaton-chat-container.active {
+      display: flex;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 480px) {
+      #shabaton-chat-container {
+        width: calc(100vw - 20px);
+        height: calc(100vh - 100px);
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+      }
+    }
+
+    /* ========================================
+       🎨 כותרת הצ'אט
+    ======================================== */
+    #shabaton-chat-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    #shabaton-chat-header h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    #shabaton-chat-header p {
+      font-size: 12px;
+      opacity: 0.9;
+      margin-top: 4px;
+    }
+
+    #shabaton-clear-chat {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    #shabaton-clear-chat:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* ========================================
+       💬 תוכן הצ'אט
+    ======================================== */
+    #shabaton-chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #f8f9fa;
+      scroll-behavior: smooth;
+    }
+
+    /* Scrollbar Styling */
+    #shabaton-chat-messages::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #shabaton-chat-messages::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    #shabaton-chat-messages::-webkit-scrollbar-thumb {
+      background: #ddd;
+      border-radius: 3px;
+    }
+
+    /* ========================================
+       💬 הודעות
+    ======================================== */
+    .shabaton-message {
+      margin-bottom: 16px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .shabaton-message-bot {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .shabaton-message-user {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .shabaton-bot-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .shabaton-message-content {
+      background: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      max-width: 75%;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .shabaton-message-user .shabaton-message-content {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    /* ========================================
+       🔗 כפתור "פנו למידע"
+    ======================================== */
+    .shabaton-link-button {
+      display: inline-block;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      margin-top: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.2s;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .shabaton-link-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    /* ========================================
+       ⏳ אינדיקטור טעינה
+    ======================================== */
+    .shabaton-typing {
+      display: flex;
+      gap: 4px;
+      padding: 12px 16px;
+      background: white;
+      border-radius: 12px;
+      width: fit-content;
+    }
+
+    .shabaton-typing span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #667eea;
+      animation: bounce 1.4s infinite;
+    }
+
+    .shabaton-typing span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .shabaton-typing span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes bounce {
+      0%, 60%, 100% {
+        transform: translateY(0);
+      }
+      30% {
+        transform: translateY(-8px);
+      }
+    }
+
+    /* ========================================
+       ✍️ קלט הודעה
+    ======================================== */
+    #shabaton-chat-input-container {
+      padding: 16px;
+      background: white;
+      border-top: 1px solid #e0e0e0;
+      display: flex;
+      gap: 8px;
+    }
+
+    #shabaton-chat-input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 24px;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+      font-family: inherit;
+      direction: rtl;
+    }
+
+    #shabaton-chat-input:focus {
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    #shabaton-chat-send {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    #shabaton-chat-send:hover:not(:disabled) {
+      transform: scale(1.1);
+    }
+
+    #shabaton-chat-send:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ========================================
+       🎯 הודעת פתיחה
+    ======================================== */
+    .shabaton-welcome-message {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+    }
+
+    .shabaton-welcome-message h4 {
+      color: #667eea;
+      margin-bottom: 8px;
+    }
+
+    .shabaton-welcome-message p {
+      font-size: 13px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+<!-- כפתור פתיחת צ'אט -->
+<button id="shabaton-chat-button" aria-label="פתח צ'אט">
+  💬
+</button>
+
+<!-- חלון הצ'אט -->
+<div id="shabaton-chat-container">
+  <!-- כותרת -->
+  <div id="shabaton-chat-header">
+    <div>
+      <h3>שבתון - עוזר וירטואלי</h3>
+      <p>שואלים, אנחנו עונים 😊</p>
+    </div>
+    <button id="shabaton-clear-chat">🗑️ נקה שיחה</button>
+  </div>
+
+  <!-- הודעות -->
+  <div id="shabaton-chat-messages">
+    <div class="shabaton-welcome-message">
+      <h4>👋 שלום וברוכים הבאים!</h4>
+      <p>אני כאן לעזור לכם למצוא את הקורס המושלם.<br>שאלו אותי על קורסים, אזורים, או מידע על שבתון!</p>
+    </div>
+  </div>
+
+  <!-- קלט -->
+  <div id="shabaton-chat-input-container">
+    <input 
+      type="text" 
+      id="shabaton-chat-input" 
+      placeholder="שאלו אותי משהו..."
+      autocomplete="off"
+    >
+    <button id="shabaton-chat-send" disabled>
+      ➤
+    </button>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ========================================
+  // ⚙️ הגדרות
+  // ========================================
+  const API_URL = 'YOUR_API_ENDPOINT_HERE'; // 🔥 להחליף בכתובת ה-API שלך!
+  
+  // ========================================
+  // 📦 אלמנטים
+  // ========================================
+  const chatButton = document.getElementById('shabaton-chat-button');
+  const chatContainer = document.getElementById('shabaton-chat-container');
+  const chatMessages = document.getElementById('shabaton-chat-messages');
+  const chatInput = document.getElementById('shabaton-chat-input');
+  const chatSend = document.getElementById('shabaton-chat-send');
+  const clearButton = document.getElementById('shabaton-clear-chat');
+
+  // ========================================
+  // 💾 ניהול היסטוריה
+  // ========================================
+  let conversationHistory = [];
+
+  // טעינה מ-localStorage
+  function loadHistory() {
+    try {
+      const saved = localStorage.getItem('shabaton_chat_history');
+      if (saved) {
+        conversationHistory = JSON.parse(saved);
+        conversationHistory.forEach(msg => {
+          addMessageToUI(msg.role, msg.content, false);
+        });
+      }
+    } catch (err) {
+      console.error('שגיאה בטעינת היסטוריה:', err);
+    }
+  }
+
+  // שמירה ל-localStorage
+  function saveHistory() {
+    try {
+      localStorage.setItem('shabaton_chat_history', JSON.stringify(conversationHistory));
+    } catch (err) {
+      console.error('שגיאה בשמירת היסטוריה:', err);
+    }
+  }
+
+  // ניקוי היסטוריה
+  function clearHistory() {
+    conversationHistory = [];
+    localStorage.removeItem('shabaton_chat_history');
+    chatMessages.innerHTML = `
+      <div class="shabaton-welcome-message">
+        <h4>👋 שלום וברוכים הבאים!</h4>
+        <p>אני כאן לעזור לכם למצוא את הקורס המושלם.<br>שאלו אותי על קורסים, אזורים, או מידע על שבתון!</p>
+      </div>
+    `;
+  }
+
+  // ========================================
+  // 🎨 UI Functions
+  // ========================================
+  
+  // פתיחה/סגירה של הצ'אט
+  function toggleChat() {
+    const isActive = chatContainer.classList.toggle('active');
+    chatButton.classList.toggle('active');
+    
+    if (isActive) {
+      chatInput.focus();
+    }
+  }
+
+  // הוספת הודעה ל-UI
+  function addMessageToUI(role, content, saveToHistory = true) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = role === 'user' ? 'shabaton-message shabaton-message-user' : 'shabaton-message shabaton-message-bot';
+
+    if (role === 'assistant') {
+      messageDiv.innerHTML = `
+        <div class="shabaton-bot-avatar">🤖</div>
+        <div class="shabaton-message-content">${formatMessage(content)}</div>
+      `;
+    } else {
+      messageDiv.innerHTML = `
+        <div class="shabaton-message-content">${escapeHtml(content)}</div>
+      `;
+    }
+
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    // שמירה להיסטוריה
+    if (saveToHistory) {
+      conversationHistory.push({ role, content });
+      saveHistory();
+    }
+  }
+
+  // פורמט הודעת בוט (עם כפתורי קישור)
+  function formatMessage(content) {
+    // המרת URLs לכפתורים
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    
+    let formatted = escapeHtml(content);
+    
+    // החלפת קישורים בכפתורים
+    formatted = formatted.replace(urlRegex, (url) => {
+      return `<br><a href="${url}" target="_blank" class="shabaton-link-button">פנו למידע 📞</a>`;
+    });
+    
+    // המרת ירידות שורה
+    formatted = formatted.replace(/\n/g, '<br>');
+    
+    return formatted;
+  }
+
+  // Escape HTML
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // הצגת אינדיקטור טעינה
+  function showTyping() {
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'shabaton-message shabaton-message-bot';
+    typingDiv.id = 'shabaton-typing-indicator';
+    typingDiv.innerHTML = `
+      <div class="shabaton-bot-avatar">🤖</div>
+      <div class="shabaton-typing">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    `;
+    chatMessages.appendChild(typingDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  // הסרת אינדיקטור טעינה
+  function hideTyping() {
+    const typingIndicator = document.getElementById('shabaton-typing-indicator');
+    if (typingIndicator) {
+      typingIndicator.remove();
+    }
+  }
+
+  // ========================================
+  // 🚀 שליחת הודעה
+  // ========================================
+  async function sendMessage() {
+    const message = chatInput.value.trim();
+    
+    if (!message) return;
+
+    // הוספת הודעת המשתמש
+    addMessageToUI('user', message);
+    chatInput.value = '';
+    chatSend.disabled = true;
+
+    // הצגת טעינה
+    showTyping();
+
+    try {
+      // שליחה ל-API
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: message,
+          history: conversationHistory.slice(-10) // 10 הודעות אחרונות
+        })
+      });
+
+      hideTyping();
+
+      if (!response.ok) {
+        throw new Error('שגיאה בתקשורת עם השרת');
+      }
+
+      const data = await response.json();
+      
+      // הוספת תשובת הבוט
+      addMessageToUI('assistant', data.response || 'מצטער, אין לי תשובה כרגע.');
+
+    } catch (error) {
+      hideTyping();
+      console.error('שגיאה:', error);
+      addMessageToUI('assistant', 'מצטער, הייתה בעיה. אנא נסו שוב מאוחר יותר.');
+    }
+  }
+
+  // ========================================
+  // 🎯 Event Listeners
+  // ========================================
+  
+  // פתיחת צ'אט
+  chatButton.addEventListener('click', toggleChat);
+
+  // שליחה בלחיצה על כפתור
+  chatSend.addEventListener('click', sendMessage);
+
+  // שליחה ב-Enter
+  chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  // הפעלת כפתור שליחה
+  chatInput.addEventListener('input', () => {
+    chatSend.disabled = !chatInput.value.trim();
+  });
+
+  // ניקוי שיחה
+  clearButton.addEventListener('click', () => {
+    if (confirm('האם למחוק את כל ההיסטוריה?')) {
+      clearHistory();
+    }
+  });
+
+  // ========================================
+  // 🚀 אתחול
+  // ========================================
+  
+  // בדיקה אם אנחנו בדף הנכון (רק ruppin בשלב ראשון)
+  const currentPath = window.location.pathname;
+  if (!currentPath.includes('/ruppin')) {
+    // אם לא בדף ruppin - הסתר את הבוט
+    chatButton.style.display = 'none';
+    return;
+  }
+
+  // טעינת היסטוריה
+  loadHistory();
+
+  console.log('✅ שבתון צ\'אט בוט נטען בהצלחה!');
+})();
+</script>
+
+</body>
+</html>
