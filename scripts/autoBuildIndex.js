@@ -42,7 +42,7 @@ const STATIC_INFO_PAGES = [
   "https://www.shabaton.online/pension_shabaton",
   "https://www.shabaton.online/keren_makor_mishor",
   "https://www.shabaton.online/tofes_101",
-  "https://www.morim.boutique/rights",
+  // הוסר: https://www.morim.boutique/rights (דף לא קיים)
 ];
 
 // ============================================
@@ -57,21 +57,24 @@ const EXCLUDED_PAGES = [
   "https://www.shabaton.online/משרות-הוראה",
   "https://www.shabaton.online/הוספת-מודעה-למציעי-משרה",
   "https://www.shabaton.online/הוספת-מודעה-למבקשי-משרה",
+  // ⚡ דפי קטגוריות morim.boutique
   "https://www.morim.boutique/קורסי-נגרות-וחידוש-רהיטים",
   "https://www.morim.boutique/art",
+  "https://www.morim.boutique/mosaic",
+  "https://www.morim.boutique/courses-jewelry",
   "https://www.morim.boutique/empowering",
   "https://www.morim.boutique/cooking",
   "https://www.morim.boutique/trips",
   "https://www.morim.boutique/health",
   "https://www.morim.boutique/fashion",
-  "https://www.morim.boutique/courses-jewelry",
+  "https://www.morim.boutique/about",
+  // דפי אזורים
   "https://www.shabaton.online/bekarov",
   "https://www.shabaton.online/tel-aviv",
   "https://www.shabaton.online/sharon",
   "https://www.shabaton.online/heifa",
   "https://www.shabaton.online/darom",
   "https://www.shabaton.online/jerusalm",
-  "https://www.morim.boutique/about",
 ];
 
 // פונקציה לבדיקה אם URL להתעלם
@@ -1313,7 +1316,20 @@ async function buildIndex(name, sitemapUrl, batchSize, manualPages = []) {
     return false;
   }
 
-  const combinedUrls = [...new Set([...manualPages, ...allUrls])];
+  // ⚡ סינון STATIC_PAGES לפי דומיין של ה-sitemap
+  const sitemapDomain = new URL(sitemapUrl).hostname;
+  const relevantStaticPages = manualPages.filter(url => {
+    try {
+      const urlDomain = new URL(url).hostname;
+      return urlDomain === sitemapDomain;
+    } catch {
+      return false;
+    }
+  });
+  
+  console.log(`📋 דפים סטטיים רלוונטיים: ${relevantStaticPages.length}/${manualPages.length}`);
+
+  const combinedUrls = [...new Set([...relevantStaticPages, ...allUrls])];
   console.log(`📝 סה"כ URLs: ${combinedUrls.length}`);
 
   const pending = combinedUrls.filter((u) => !done.includes(u));
