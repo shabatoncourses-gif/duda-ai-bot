@@ -15,9 +15,9 @@ const CONFIG = {
   GITHUB_REPO: process.env.GITHUB_REPO,
   GITHUB_BRANCH: process.env.GITHUB_BRANCH || "main",
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-  BATCH_SIZE: Number(process.env.BATCH_SIZE) || 40,
+  BATCH_SIZE: Number(process.env.BATCH_SIZE) || 80,  // ⚡ הגדלה ל-80 לעיבוד מהיר יותר
   MAX_PER_FILE: 500,
-  RETRY_ATTEMPTS: 3,
+  RETRY_ATTEMPTS: 2,  // ⚡ הפחתה ל-2 ניסיונות (במקום 3)
   BASE_DELAY: 4000,
 };
 
@@ -81,6 +81,14 @@ function isExcludedUrl(url) {
   if (url.includes('contact-us-phone')) return true;
   if (url.includes('/thanks')) return true;
   if (url.includes('mosad-index')) return true;
+  
+  // ⚡ סינון דפי blog (לא רלוונטיים לחיפוש קורסים)
+  if (url.includes('/blog/')) return true;
+  if (url.includes('blog-post')) return true;
+  if (url.includes('/my-first-')) return true;
+  if (url.includes('/10-reasons-')) return true;
+  if (url.includes('-you-should-')) return true;
+  
   return false;
 }
 
