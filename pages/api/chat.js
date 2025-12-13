@@ -79,26 +79,31 @@ function generateSmartResponse(userMessage) {
   if (studyFields.length > 0 && region) {
     const field = studyFields[0];
     const regionSlug = region.slug;
-    const url = `https://www.shabaton.online/results-${regionSlug}/${field.slug}`;
+    
+    // קידוד נכון של ה-URL
+    const encodedSlug = encodeURIComponent(field.slug);
+    const url = `https://www.shabaton.online/results-${regionSlug}/${encodedSlug}`;
     
     response = `מצאתי עבורך ${field.name} ${region.city ? `ב${region.city}` : `ב${region.name}`}! 🎓\n\n`;
-    response += `${field.name} ב${region.name}:\n${url}\n\n`;
+    response += `${url}\n\n`;
     
     if (studyFields.length > 1) {
       response += `💡 זיהיתי גם תחומים נוספים שעשויים לעניין אותך:\n`;
       for (let i = 1; i < Math.min(3, studyFields.length); i++) {
-        const additionalUrl = `https://www.shabaton.online/results-${regionSlug}/${studyFields[i].slug}`;
-        response += `\n${studyFields[i].name} ב${region.name}:\n${additionalUrl}\n`;
+        const additionalEncodedSlug = encodeURIComponent(studyFields[i].slug);
+        const additionalUrl = `https://www.shabaton.online/results-${regionSlug}/${additionalEncodedSlug}`;
+        response += `\n${additionalUrl}\n`;
       }
     }
     
   // מקרה 2: יש תחום אבל אין אזור
   } else if (studyFields.length > 0) {
     const field = studyFields[0];
-    const url = `https://www.shabaton.online/results-all/${field.slug}`;
+    const encodedSlug = encodeURIComponent(field.slug);
+    const url = `https://www.shabaton.online/results-all/${encodedSlug}`;
     
     response = `מצאתי עבורך ${field.name} בכל הארץ! 🎓\n\n`;
-    response += `${field.name} בכל הארץ:\n${url}\n\n`;
+    response += `${url}\n\n`;
     response += `💡 אם תרצה, ספר לי באיזה אזור אתה מעוניין ואתאים לך את התוצאות.\n\n`;
     response += `לדוגמה: "${field.name} בתל אביב"`;
     
