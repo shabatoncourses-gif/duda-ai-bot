@@ -80,78 +80,60 @@ function generateSmartResponse(userMessage) {
     const field = studyFields[0];
     const regionSlug = region.slug;
     
-    // URL ללא encoding - הדפדפן יטפל בזה
-    const url = `https://www.shabaton.online/results-${regionSlug}/${field.slug}`;
+    // קידוד URL - החלפת רווחים ב-%20
+    const encodedSlug = field.slug.replace(/ /g, '%20');
+    const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
     
-    response = `מצאתי עבורך ${field.name} ${region.city ? `ב${region.city}` : `ב${region.name}`}! 🎓\n\n`;
-    response += `${url}\n\n`;
+    response = `מצאתי עבורך קורסים ב${region.city ? region.city : region.name}! 🎓\n\n`;
+    response += `${field.slug}\n${url}`;
     
     if (studyFields.length > 1) {
-      response += `💡 זיהיתי גם תחומים נוספים שעשויים לעניין אותך:\n`;
+      response += `\n\n💡 תחומים נוספים שעשויים לעניין:\n`;
       for (let i = 1; i < Math.min(3, studyFields.length); i++) {
-        const additionalUrl = `https://www.shabaton.online/results-${regionSlug}/${studyFields[i].slug}`;
-        response += `\n${additionalUrl}\n`;
+        const additionalEncodedSlug = studyFields[i].slug.replace(/ /g, '%20');
+        const additionalUrl = `https://www.shabaton.online/${regionSlug}/${additionalEncodedSlug}`;
+        response += `\n${studyFields[i].slug}\n${additionalUrl}`;
       }
     }
     
   // מקרה 2: יש תחום אבל אין אזור
   } else if (studyFields.length > 0) {
     const field = studyFields[0];
-    const url = `https://www.shabaton.online/results-all/${field.slug}`;
+    const encodedSlug = field.slug.replace(/ /g, '%20');
+    const url = `https://www.shabaton.online/results-all/${encodedSlug}`;
     
-    response = `מצאתי עבורך ${field.name} בכל הארץ! 🎓\n\n`;
-    response += `${url}\n\n`;
-    response += `💡 אם תרצה, ספר לי באיזה אזור אתה מעוניין ואתאים לך את התוצאות.\n\n`;
-    response += `לדוגמה: "${field.name} בתל אביב"`;
-    
-    if (studyFields.length > 1) {
-      response += `\n\n🔍 זיהיתי גם תחומים נוספים:\n`;
-      for (let i = 1; i < Math.min(3, studyFields.length); i++) {
-        response += `• ${studyFields[i].name}\n`;
-      }
-    }
+    response = `מצאתי עבורך קורסים בכל הארץ! 🎓\n\n`;
+    response += `${field.slug}\n${url}\n\n`;
+    response += `💡 רוצה לצמצם לאזור מסוים? ספר לי!`;
     
   // מקרה 3: יש אזור אבל אין תחום
   } else if (region) {
-    response = `אשמח לעזור לך למצוא קורסים ב${region.name}! 🗺️\n\n`;
-    response += `באיזה תחום אתה מעוניין? הנה כמה אפשרויות פופולריות:\n\n`;
-    
-    const popularFields = [
-      'הנחיית קבוצות',
-      'טכנולוגיה דיגיטלית ואינטרנט',
-      'ייעוץ חינוכי',
-      'חינוך והוראה',
-      'העצמה והתפתחות אישית'
-    ];
-    
-    popularFields.forEach(fieldName => {
-      response += `📚 ${fieldName}\n`;
-    });
-    
-    response += `\nפשוט ספר לי מה מעניין אותך!`;
+    response = `מעולה! ${region.name} 🗺️\n\n`;
+    response += `באיזה תחום תרצה להתמחות?\n\n`;
+    response += `📚 הנחיית קבוצות\n`;
+    response += `💻 טכנולוגיה דיגיטלית\n`;
+    response += `🎓 ייעוץ חינוכי\n`;
+    response += `👨‍🏫 חינוך והוראה\n`;
+    response += `✨ העצמה אישית`;
     
   // מקרה 4: שאלה כללית על שבתון
   } else if (userMessage.toLowerCase().includes('שבתון') || 
              userMessage.toLowerCase().includes('מענק') ||
              userMessage.toLowerCase().includes('זכאות')) {
-    response = `אשמח לעזור לך עם מידע על שנת שבתון! 📘\n\n`;
+    response = `שנת שבתון - מידע כללי 📘\n\n`;
     response += `מה תרצה לדעת?\n`;
     response += `• זכאות למענק\n`;
     response += `• תלוש מענק\n`;
-    response += `• תקנון שבתון\n`;
-    response += `• קורסים מוכרים\n\n`;
-    response += `או שאל אותי ישירות!`;
+    response += `• תקנון\n`;
+    response += `• קורסים מוכרים`;
     
   // מקרה 5: לא זיהיתי כלום
   } else {
-    response = `אשמח לעזור לך למצוא את הקורס המתאים! 🎯\n\n`;
+    response = `בוא נמצא את הקורס המושלם עבורך! 🎯\n\n`;
     response += `ספר לי:\n`;
-    response += `1️⃣ איזה תחום מעניין אותך?\n`;
-    response += `2️⃣ באיזה אזור בארץ?\n\n`;
-    response += `🔍 לדוגמה:\n`;
-    response += `• "קורס הנחיית קבוצות בתל אביב"\n`;
-    response += `• "טכנולוגיה בהוראה בחיפה"\n`;
-    response += `• "ייעוץ חינוכי בירושלים"`;
+    response += `📍 באיזה אזור?\n`;
+    response += `📚 איזה תחום?\n\n`;
+    response += `דוגמה: "הנחיית קבוצות בחיפה"`;
   }
   
   return response;
