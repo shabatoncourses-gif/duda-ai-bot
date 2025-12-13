@@ -80,9 +80,8 @@ function generateSmartResponse(userMessage) {
     const field = studyFields[0];
     const regionSlug = region.slug;
     
-    // קידוד נכון של ה-URL
-    const encodedSlug = encodeURIComponent(field.slug);
-    const url = `https://www.shabaton.online/results-${regionSlug}/${encodedSlug}`;
+    // URL ללא encoding - הדפדפן יטפל בזה
+    const url = `https://www.shabaton.online/results-${regionSlug}/${field.slug}`;
     
     response = `מצאתי עבורך ${field.name} ${region.city ? `ב${region.city}` : `ב${region.name}`}! 🎓\n\n`;
     response += `${url}\n\n`;
@@ -90,8 +89,7 @@ function generateSmartResponse(userMessage) {
     if (studyFields.length > 1) {
       response += `💡 זיהיתי גם תחומים נוספים שעשויים לעניין אותך:\n`;
       for (let i = 1; i < Math.min(3, studyFields.length); i++) {
-        const additionalEncodedSlug = encodeURIComponent(studyFields[i].slug);
-        const additionalUrl = `https://www.shabaton.online/results-${regionSlug}/${additionalEncodedSlug}`;
+        const additionalUrl = `https://www.shabaton.online/results-${regionSlug}/${studyFields[i].slug}`;
         response += `\n${additionalUrl}\n`;
       }
     }
@@ -99,8 +97,7 @@ function generateSmartResponse(userMessage) {
   // מקרה 2: יש תחום אבל אין אזור
   } else if (studyFields.length > 0) {
     const field = studyFields[0];
-    const encodedSlug = encodeURIComponent(field.slug);
-    const url = `https://www.shabaton.online/results-all/${encodedSlug}`;
+    const url = `https://www.shabaton.online/results-all/${field.slug}`;
     
     response = `מצאתי עבורך ${field.name} בכל הארץ! 🎓\n\n`;
     response += `${url}\n\n`;
