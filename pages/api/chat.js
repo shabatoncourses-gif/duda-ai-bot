@@ -150,7 +150,7 @@ function searchPages(query, region = null, pageType = 'all') {
     
     // בדיקה אם תואם לאזור
     let matchesRegion = true;
-    if (region && isStaticPage) {
+    if (region && region.cities && isStaticPage) {
       const location = (page.location || '').toLowerCase();
       matchesRegion = region.cities.some(city => 
         location.includes(city.toLowerCase().replace(/-/g, ' ')) ||
