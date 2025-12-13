@@ -124,8 +124,18 @@ function searchPages(query, region = null, pageType = 'all') {
   cleanQuery = cleanQuery.replace(/-/g, ' ');
   cleanQuery = cleanQuery.replace(/קורס(י)?/g, '').trim();
   
-  // חילוץ מילות מפתח מהשאילתה
-  const queryWords = cleanQuery.split(/\s+/).filter(w => w.length > 2);
+  // חילוץ מילות מפתח מהשאילתה - סינון מילות עזר
+  const stopWords = ['מרכז', 'הארץ', 'במרכז', 'בארץ', 'ב', 'ה', 'של', 'את', 'עם', 'על', 'אל', 'כל'];
+  const queryWords = cleanQuery.split(/\s+/)
+    .filter(w => w.length > 2 && !stopWords.includes(w));
+  
+  // אם אין מילות חיפוש משמעותיות - החזר ריק
+  if (queryWords.length === 0) {
+    return [];
+  }
+  
+  // המילה העיקרית = המילה הראשונה (הכי חשובה)
+  const mainWord = queryWords[0];
   
   let results = [];
   
@@ -148,20 +158,36 @@ function searchPages(query, region = null, pageType = 'all') {
     if (pageType === 'static' && !isStaticPage) continue;
     if (pageType === 'info' && !isInfoPage) continue;
     
+    // **דרישה: המילה העיקרית חייבת להופיע!**
+    const mainWordInTitle = title.includes(mainWord);
+    const mainWordInDescription = description.includes(mainWord);
+    const mainWordInKeywords = keywords.some(k => k.includes(mainWord));
+    const mainWordInUrl = url.includes(mainWord);
+    
+    // אם המילה העיקרית לא מופיעה בשום מקום - דלג!
+    if (!mainWordInTitle && !mainWordInDescription && !mainWordInKeywords && !mainWordInUrl) {
+      continue;
+    }
+    
     // חישוב התאמה
     let matchScore = 0;
     
-    // בדיקה אם השאילתה המלאה מופיעה
-    if (title.includes(cleanQuery)) matchScore += 10;
-    if (description.includes(cleanQuery)) matchScore += 5;
-    if (url.includes(cleanQuery)) matchScore += 3;
+    // ציון גבוה למילה העיקרית
+    if (mainWordInTitle) matchScore += 20;
+    if (mainWordInDescription) matchScore += 10;
+    if (mainWordInKeywords) matchScore += 8;
+    if (mainWordInUrl) matchScore += 5;
     
-    // בדיקת מילות מפתח נפרדות
-    for (const word of queryWords) {
+    // בדיקה אם השאילתה המלאה מופיעה (בונוס)
+    if (title.includes(cleanQuery)) matchScore += 15;
+    if (description.includes(cleanQuery)) matchScore += 8;
+    
+    // בדיקת מילות מפתח נוספות (ציון נמוך יותר)
+    for (let i = 1; i < queryWords.length; i++) {
+      const word = queryWords[i];
       if (title.includes(word)) matchScore += 3;
       if (description.includes(word)) matchScore += 2;
       if (keywords.some(k => k.includes(word))) matchScore += 2;
-      if (url.includes(word)) matchScore += 1;
     }
     
     // בדיקה אם תואם לאזור
@@ -194,6 +220,9 @@ function searchPages(query, region = null, pageType = 'all') {
     if (!a.isStatic && b.isStatic) return 1;
     return b.score - a.score;
   });
+  
+  // **סינון נוסף: רק תוצאות עם ציון מעל 15**
+  results = results.filter(r => r.score >= 15);
   
   return results.slice(0, 10); // מקסימום 10 תוצאות
 }
