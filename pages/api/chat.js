@@ -82,13 +82,13 @@ function generateSmartResponse(userMessage) {
     const url = `https://www.shabaton.online/results-${regionSlug}/${field.slug}`;
     
     response = `מצאתי עבורך ${field.name} ${region.city ? `ב${region.city}` : `ב${region.name}`}! 🎓\n\n`;
-    response += `📋 רשימת הקורסים באזור:\n${url}\n\n`;
+    response += `${field.name} ב${region.name}:\n${url}\n\n`;
     
     if (studyFields.length > 1) {
-      response += `💡 שים לב: זיהיתי גם תחומים נוספים שעשויים לעניין אותך:\n`;
+      response += `💡 זיהיתי גם תחומים נוספים שעשויים לעניין אותך:\n`;
       for (let i = 1; i < Math.min(3, studyFields.length); i++) {
         const additionalUrl = `https://www.shabaton.online/results-${regionSlug}/${studyFields[i].slug}`;
-        response += `• ${studyFields[i].name}\n${additionalUrl}\n`;
+        response += `\n${studyFields[i].name} ב${region.name}:\n${additionalUrl}\n`;
       }
     }
     
@@ -98,7 +98,7 @@ function generateSmartResponse(userMessage) {
     const url = `https://www.shabaton.online/results-all/${field.slug}`;
     
     response = `מצאתי עבורך ${field.name} בכל הארץ! 🎓\n\n`;
-    response += `📋 רשימת כל הקורסים:\n${url}\n\n`;
+    response += `${field.name} בכל הארץ:\n${url}\n\n`;
     response += `💡 אם תרצה, ספר לי באיזה אזור אתה מעוניין ואתאים לך את התוצאות.\n\n`;
     response += `לדוגמה: "${field.name} בתל אביב"`;
     
