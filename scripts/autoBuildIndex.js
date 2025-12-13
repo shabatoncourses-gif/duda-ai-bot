@@ -1411,6 +1411,17 @@ async function buildIndex(name, sitemapUrl, batchSize, manualPages = []) {
   
   if (!shouldContinue && successCount === 0) {
     console.log(`⚠️ כל הניסיונות נכשלו - עוצר!`);
+    return false;
+  }
+  
+  if (remainingPending === 0) {
+    console.log(`✅ כל הדפים אונדקסו - סיום!`);
+    return false;
+  }
+  
+  if (successCount === 0 && failCount > 0) {
+    console.log(`⚠️ אין התקדמות - עוצר!`);
+    return false;
   }
   
   return shouldContinue;
@@ -1424,9 +1435,10 @@ export async function runFullIndexing(name, sitemapUrl, batchSize = CONFIG.BATCH
 
   let round = 1;
   let hasMore = true;
+  const MAX_ROUNDS = 50; // ⚡ הגבלה: מקסימום 50 סבבים
 
-  while (hasMore) {
-    console.log(`\n🔄 סבב ${round}`);
+  while (hasMore && round <= MAX_ROUNDS) {
+    console.log(`\n🔄 סבב ${round}/${MAX_ROUNDS}`);
     hasMore = await buildIndex(name, sitemapUrl, batchSize, STATIC_INFO_PAGES);
 
     if (hasMore) {
@@ -1437,7 +1449,11 @@ export async function runFullIndexing(name, sitemapUrl, batchSize = CONFIG.BATCH
     }
   }
 
-  console.log(`\n🎉 אינדוקס ${name} הסתיים!\n`);
+  if (round > MAX_ROUNDS) {
+    console.log(`\n⚠️ הגעה למקסימום סבבים (${MAX_ROUNDS}) - עוצר!`);
+  } else {
+    console.log(`\n🎉 אינדוקס ${name} הסתיים!\n`);
+  }
 }
 
 // ============================================
