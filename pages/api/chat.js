@@ -27,17 +27,31 @@ function loadConfigs() {
 // ========================================
 function detectRegion(message) {
   loadConfigs();
-  const lowerMessage = message.toLowerCase();
+  let lowerMessage = message.toLowerCase();
+  
+  // ניקוי: הסרת "ב" בהתחלת מילים והחלפת מקפים ברווחים
+  lowerMessage = lowerMessage.replace(/\sב([א-ת])/g, ' $1'); // "ברמת גן" → "רמת גן"
+  lowerMessage = lowerMessage.replace(/-/g, ' '); // "רמת-גן" → "רמת גן"
   
   for (const region of REGIONS) {
-    // בדיקה אם נזכר שם האזור
+    // בדיקת מילות מפתח (אם קיימות)
+    if (region.keywords) {
+      for (const keyword of region.keywords) {
+        if (lowerMessage.includes(keyword.toLowerCase())) {
+          return { name: region.name, slug: region.slug };
+        }
+      }
+    }
+    
+    // בדיקה אם נזכר שם האזור המלא
     if (lowerMessage.includes(region.name.toLowerCase())) {
       return { name: region.name, slug: region.slug };
     }
     
     // בדיקה אם נזכרה עיר מהאזור
     for (const city of region.cities) {
-      if (lowerMessage.includes(city.toLowerCase())) {
+      const normalizedCity = city.toLowerCase().replace(/-/g, ' ');
+      if (lowerMessage.includes(normalizedCity)) {
         return { name: region.name, slug: region.slug, city: city };
       }
     }
