@@ -3,8 +3,9 @@ import fs from 'fs';
 import path from 'path';
 
 // ========================================
-// 📦 טעינת קבצי הגדרות
+// 📚 טעינת כל קבצי האינדקס
 // ========================================
+let ALL_PAGES = null;
 let REGIONS = null;
 let STUDY_FIELDS = null;
 
@@ -20,6 +21,198 @@ function loadConfigs() {
     const fieldsData = JSON.parse(fs.readFileSync(fieldsPath, 'utf8'));
     STUDY_FIELDS = fieldsData.studyFields;
   }
+}
+
+function loadAllPages() {
+  if (!ALL_PAGES) {
+    try {
+      ALL_PAGES = [];
+      
+      // טעינת כל קבצי האינדקס
+      const indexFiles = [
+        'shabaton_index_part1.json',
+        'shabaton_index_part2.json',
+        'morim_index_part1.json',
+        'shabaton_index.json'
+      ];
+      
+      for (const filename of indexFiles) {
+        try {
+          const filepath = path.join(process.cwd(), 'data', filename);
+          const data = JSON.parse(fs.readFileSync(filepath, 'utf8'));
+          
+          // אם זה מערך - הוסף ישירות
+          if (Array.isArray(data)) {
+            ALL_PAGES = ALL_PAGES.concat(data);
+          } else if (data.pages) {
+            // אם יש שדה pages
+            ALL_PAGES = ALL_PAGES.concat(data.pages);
+          } else {
+            // אחרת הוסף את האובייקט עצמו
+            ALL_PAGES.push(data);
+          }
+        } catch (err) {
+          console.log(`Could not load ${filename}:`, err.message);
+        }
+      }
+      
+      console.log(`Loaded ${ALL_PAGES.length} total pages from all indexes`);
+    } catch (error) {
+      console.error('Error loading indexes:', error);
+      ALL_PAGES = [];
+    }
+  }
+  return ALL_PAGES;
+}
+
+// ========================================
+// 📅 בדיקה אם תאריך פתיחה בתוך 3 חודשים
+// ========================================
+function isWithinThreeMonths(dateStr) {
+  if (!dateStr) return false;
+  
+  try {
+    const courseDate = new Date(dateStr);
+    const today = new Date();
+    const threeMonthsFromNow = new Date();
+    threeMonthsFromNow.setMonth(today.getMonth() + 3);
+    
+    return courseDate >= today && courseDate <= threeMonthsFromNow;
+  } catch {
+    return false;
+  }
+}
+
+// ========================================
+// 🚫 בדיקה אם URL צריך להיות מסונן
+// ========================================
+function shouldFilterUrl(url) {
+  if (!url) return true;
+  
+  const blockedPatterns = [
+    'morim.boutique',
+    '/drushim/',
+    '/consult',
+    '/contact',
+    '/knassim',
+    '/משרות-הוראה',
+    '/הוספת-מודעה',
+    'https://www.shabaton.online/$', // דף הבית
+    '/art',
+    '/mosaic',
+    '/courses-jewelry',
+    '/empowering',
+    '/cooking',
+    '/trips',
+    '/health',
+    '/fashion',
+    'קורסי-נגרות-וחידוש-רהיטים'
+  ];
+  
+  return blockedPatterns.some(pattern => url.includes(pattern));
+}
+
+// ========================================
+// 🔍 חיפוש דפים באינדקסים (סטטיים ודינמיים)
+// ========================================
+function searchPages(query, region = null, pageType = 'all') {
+  const pages = loadAllPages();
+  const lowerQuery = query.toLowerCase();
+  
+  // ניקוי השאילתה (הסרת "ב" ומקפים)
+  let cleanQuery = lowerQuery.replace(/\sב([א-ת])/g, ' $1');
+  cleanQuery = cleanQuery.replace(/-/g, ' ');
+  
+  let results = [];
+  
+  for (const page of pages) {
+    // דילוג על דפים מסוננים
+    if (shouldFilterUrl(page.url)) {
+      continue;
+    }
+    
+    const title = (page.title || page.h1 || '').toLowerCase();
+    const description = (page.description || '').toLowerCase();
+    const url = (page.url || '').toLowerCase();
+    
+    // זיהוי סוג הדף
+    const isStaticPage = !url.includes('/results-') && !url.includes('/search-results-');
+    const isInfoPage = url.includes('/זכאות') || url.includes('/מענק') || url.includes('/תקנון');
+    
+    // סינון לפי סוג דף מבוקש
+    if (pageType === 'static' && !isStaticPage) continue;
+    if (pageType === 'info' && !isInfoPage) continue;
+    
+    // בדיקה אם תואם לשאילתה
+    const matchesQuery = title.includes(cleanQuery) || 
+                         description.includes(cleanQuery) ||
+                         (page.keywords && page.keywords.some(k => k.toLowerCase().includes(cleanQuery)));
+    
+    // בדיקה אם תואם לאזור
+    let matchesRegion = true;
+    if (region && isStaticPage) {
+      const location = (page.location || '').toLowerCase();
+      matchesRegion = region.cities.some(city => 
+        location.includes(city.toLowerCase().replace(/-/g, ' ')) ||
+        title.includes(city.toLowerCase().replace(/-/g, ' '))
+      );
+    }
+    
+    if (matchesQuery && matchesRegion) {
+      results.push({
+        ...page,
+        isStatic: isStaticPage,
+        isInfo: isInfoPage
+      });
+    }
+  }
+  
+  // מיון: דפים סטטיים קודם
+  results.sort((a, b) => {
+    if (a.isStatic && !b.isStatic) return -1;
+    if (!a.isStatic && b.isStatic) return 1;
+    return 0;
+  });
+  
+  return results;
+}
+
+// ========================================
+// 📝 פורמט תוצאות חיפוש
+// ========================================
+function formatSearchResults(pages, region = null) {
+  if (pages.length === 0) return null;
+  
+  let response = '';
+  const staticPages = pages.filter(p => p.isStatic);
+  const dynamicPages = pages.filter(p => !p.isStatic);
+  
+  // 1.1.1 דפים סטטיים
+  if (staticPages.length > 0) {
+    staticPages.forEach((page, index) => {
+      const title = page.title || page.h1 || 'ללא כותרת';
+      
+      response += `${title}\n`;
+      
+      // הצגת תאריך אם ב-3 חודשים הקרובים
+      if (page.startDate && isWithinThreeMonths(page.startDate)) {
+        const courseName = page.courseName || title;
+        const date = new Date(page.startDate).toLocaleDateString('he-IL');
+        response += `${courseName} - מועד פתיחה: ${date}\n`;
+      }
+      
+      response += `${page.url}\n\n`;
+    });
+  }
+  
+  // 1.1.2 דפים דינמיים (רק אם אין סטטיים או כתוספת)
+  if (dynamicPages.length > 0 && staticPages.length === 0) {
+    const page = dynamicPages[0];
+    const title = page.title || page.h1 || '';
+    response += `${title}\n${page.url}\n`;
+  }
+  
+  return response;
 }
 
 // ========================================
@@ -81,7 +274,7 @@ function detectStudyField(message) {
 }
 
 // ========================================
-// 🤖 יצירת תשובה חכמה
+// 🤖 יצירת תשובה חכמה (לפי המפרט!)
 // ========================================
 function generateSmartResponse(userMessage) {
   const region = detectRegion(userMessage);
@@ -89,38 +282,92 @@ function generateSmartResponse(userMessage) {
   
   let response = '';
   
-  // מקרה 1: יש תחום ואזור
+  // **זיהוי סוג השאלה**
+  const isInfoQuestion = userMessage.toLowerCase().includes('שבתון') || 
+                         userMessage.toLowerCase().includes('מענק') ||
+                         userMessage.toLowerCase().includes('זכאות') ||
+                         userMessage.toLowerCase().includes('תקנון');
+  
+  // **שאלות מידע על שבתון**
+  if (isInfoQuestion) {
+    const infoResults = searchPages(userMessage, null, 'info');
+    
+    if (infoResults && infoResults.length > 0) {
+      response = formatSearchResults(infoResults);
+      return response;
+    } else {
+      response = `שנת שבתון - מידע כללי 📘\n\n`;
+      response += `מה תרצה לדעת?\n`;
+      response += `• זכאות למענק\n`;
+      response += `• תלוש מענק\n`;
+      response += `• תקנון\n`;
+      response += `• קורסים מוכרים\n\n`;
+      response += `אם לא מצאתי תשובה, אפשר לשאול בקבוצת WhatsApp:\n`;
+      response += `https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME`;
+      return response;
+    }
+  }
+  
+  // **1.1.1 חיפוש דפים באינדקסים**
+  const searchResults = searchPages(userMessage, region);
+  
+  if (searchResults && searchResults.length > 0) {
+    response = formatSearchResults(searchResults, region);
+    
+    // **1.1.2 הוספת קישור לדף דינמי (אם יש תחום ואזור)**
+    if (studyFields.length > 0 && region) {
+      const field = studyFields[0];
+      const regionSlug = region.slug;
+      const encodedSlug = field.slug.replace(/ /g, '%20');
+      const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
+      
+      response += `\n${field.slug}\n${url}`;
+    }
+    
+    return response;
+  }
+  
+  // **1.1.3 לא נמצאו תוצאות באזור - חיפוש בכל הארץ**
+  if (studyFields.length > 0 && region) {
+    const allResults = searchPages(userMessage, null);
+    
+    if (allResults && allResults.length > 0) {
+      response = `לא מצאתי מוסד מתאים באזור ${region.name}.\n`;
+      response += `להלן מוסדות מתאימים באיזורים אחרים בארץ:\n\n`;
+      response += formatSearchResults(allResults);
+    } else {
+      // אין תוצאות בכלל - קישור ל-results-all
+      response = `לא מצאתי מוסד מתאים באיזור שבקשת.\n`;
+      response += `להלן מוסדות מתאימים באיזורים אחרים בארץ:\n\n`;
+      
+      const field = studyFields[0];
+      const encodedSlug = field.slug.replace(/ /g, '%20');
+      const url = `https://www.shabaton.online/results-all/${encodedSlug}`;
+      response += `${field.slug}\n${url}`;
+    }
+    
+    return response;
+  }
+  
+  // **מקרה: יש תחום ואזור (אבל לא נמצאו תוצאות)**
   if (studyFields.length > 0 && region) {
     const field = studyFields[0];
     const regionSlug = region.slug;
-    
-    // קידוד URL - החלפת רווחים ב-%20
     const encodedSlug = field.slug.replace(/ /g, '%20');
     const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
     
-    response = `מצאתי עבורך קורסים ב${region.city ? region.city : region.name}! 🎓\n\n`;
-    response += `${field.slug}\n${url}`;
+    response = `${field.slug}\n${url}`;
     
-    if (studyFields.length > 1) {
-      response += `\n\n💡 תחומים נוספים שעשויים לעניין:\n`;
-      for (let i = 1; i < Math.min(3, studyFields.length); i++) {
-        const additionalEncodedSlug = studyFields[i].slug.replace(/ /g, '%20');
-        const additionalUrl = `https://www.shabaton.online/${regionSlug}/${additionalEncodedSlug}`;
-        response += `\n${studyFields[i].slug}\n${additionalUrl}`;
-      }
-    }
-    
-  // מקרה 2: יש תחום אבל אין אזור
+  // **מקרה: יש תחום אבל אין אזור**
   } else if (studyFields.length > 0) {
     const field = studyFields[0];
     const encodedSlug = field.slug.replace(/ /g, '%20');
     const url = `https://www.shabaton.online/results-all/${encodedSlug}`;
     
-    response = `מצאתי עבורך קורסים בכל הארץ! 🎓\n\n`;
-    response += `${field.slug}\n${url}\n\n`;
+    response = `${field.slug}\n${url}\n\n`;
     response += `💡 רוצה לצמצם לאזור מסוים? ספר לי!`;
     
-  // מקרה 3: יש אזור אבל אין תחום
+  // **מקרה: יש אזור אבל אין תחום**
   } else if (region) {
     response = `מעולה! ${region.name} 🗺️\n\n`;
     response += `באיזה תחום תרצה להתמחות?\n\n`;
@@ -130,24 +377,15 @@ function generateSmartResponse(userMessage) {
     response += `👨‍🏫 חינוך והוראה\n`;
     response += `✨ העצמה אישית`;
     
-  // מקרה 4: שאלה כללית על שבתון
-  } else if (userMessage.toLowerCase().includes('שבתון') || 
-             userMessage.toLowerCase().includes('מענק') ||
-             userMessage.toLowerCase().includes('זכאות')) {
-    response = `שנת שבתון - מידע כללי 📘\n\n`;
-    response += `מה תרצה לדעת?\n`;
-    response += `• זכאות למענק\n`;
-    response += `• תלוש מענק\n`;
-    response += `• תקנון\n`;
-    response += `• קורסים מוכרים`;
-    
-  // מקרה 5: לא זיהיתי כלום
+  // **מקרה: לא זיהיתי כלום**
   } else {
-    response = `בוא נמצא את הקורס המושלם עבורך! 🎯\n\n`;
+    response = `אשמח לעזור! 🎯\n\n`;
     response += `ספר לי:\n`;
     response += `📍 באיזה אזור?\n`;
     response += `📚 איזה תחום?\n\n`;
-    response += `דוגמה: "הנחיית קבוצות בחיפה"`;
+    response += `דוגמה: "הנחיית קבוצות בחיפה"\n\n`;
+    response += `אם אין לי תשובה מתאימה, אפשר לשאול בקבוצת WhatsApp:\n`;
+    response += `https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME`;
   }
   
   return response;
