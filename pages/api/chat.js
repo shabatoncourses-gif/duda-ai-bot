@@ -228,38 +228,43 @@ function searchPages(query, region = null, pageType = 'all') {
 }
 
 // ========================================
-// 📝 פורמט תוצאות חיפוש
+// 📝 פורמט תוצאות חיפוש (פורמט חדש!)
 // ========================================
 function formatSearchResults(pages, region = null) {
   if (pages.length === 0) return null;
   
   let response = '';
   const staticPages = pages.filter(p => p.isStatic);
-  const dynamicPages = pages.filter(p => !p.isStatic);
   
-  // 1.1.1 דפים סטטיים
+  // הצגת מוסדות (דפים סטטיים בלבד)
   if (staticPages.length > 0) {
-    staticPages.forEach((page, index) => {
-      const title = page.title || page.h1 || 'ללא כותרת';
+    staticPages.forEach((page) => {
+      const title = page.title || page.h1 || 'מוסד לימודים';
       
+      // שם המוסד
       response += `${title}\n`;
       
-      // הצגת תאריך אם ב-3 חודשים הקרובים
+      // רשימת קורסים (אם קיימת)
+      if (page.courses && Array.isArray(page.courses)) {
+        page.courses.slice(0, 3).forEach(course => {
+          response += `• ${course}\n`;
+        });
+      } else if (page.description && page.description.length < 200) {
+        // אם אין courses, הצג תיאור קצר
+        const desc = page.description.substring(0, 150);
+        if (desc) response += `${desc}\n`;
+      }
+      
+      // תאריך פתיחה (אם ב-3 חודשים הקרובים)
       if (page.startDate && isWithinThreeMonths(page.startDate)) {
         const courseName = page.courseName || title;
         const date = new Date(page.startDate).toLocaleDateString('he-IL');
-        response += `${courseName} - מועד פתיחה: ${date}\n`;
+        response += `מועד פתיחה: ${date}\n`;
       }
       
-      response += `${page.url}\n\n`;
+      // קישור טקסטואלי (לא כפתור!)
+      response += `פנו ישירות למוסד הלימודים:\n${page.url}\n\n`;
     });
-  }
-  
-  // 1.1.2 דפים דינמיים (רק אם אין סטטיים או כתוספת)
-  if (dynamicPages.length > 0 && staticPages.length === 0) {
-    const page = dynamicPages[0];
-    const title = page.title || page.h1 || '';
-    response += `${title}\n${page.url}\n`;
   }
   
   return response;
@@ -324,10 +329,11 @@ function detectStudyField(message) {
 }
 
 // ========================================
-// 🤖 יצירת תשובה חכמה (לפי המפרט!)
+// 🤖 יצירת תשובה חכמה (לוגיקה חדשה!)
 // ========================================
 function generateSmartResponse(userMessage) {
   const region = detectRegion(userMessage);
+  const studyFields = detectStudyField(userMessage);
   
   let response = '';
   
@@ -357,46 +363,89 @@ function generateSmartResponse(userMessage) {
     }
   }
   
-  // **שלב 1: חיפוש באינדקס לפי המילה המדויקת שהגולש כתב!**
-  // זה המפתח! לא תלוי ב-study-fields בכלל!
-  const searchResults = searchPages(userMessage, region);
+  // **אם יש תחום אבל אין אזור - שאל איפה!**
+  if (studyFields.length > 0 && !region) {
+    const field = studyFields[0];
+    
+    response = `באיזה אזור תרצה ללמוד ${field.name}?\n\n`;
+    response += `📍 תל אביב והמרכז\n`;
+    response += `📍 חיפה והצפון\n`;
+    response += `📍 השרון\n`;
+    response += `📍 ירושלים והסביבה\n`;
+    response += `📍 השפלה והדרום\n`;
+    response += `💻 למידה מרחוק\n`;
+    response += `🌍 כל הארץ`;
+    
+    return response;
+  }
+  
+  // **חיפוש באינדקס (דפים סטטיים של מוסדות)**
+  const searchResults = searchPages(userMessage, region, 'static');
   
   if (searchResults && searchResults.length > 0) {
-    // **מצאנו תוצאות באינדקס!**
-    response = formatSearchResults(searchResults, region);
+    // **הצגת מוסדות**
+    const institutionName = studyFields.length > 0 ? studyFields[0].name : 'קורסים';
+    const regionName = region ? region.name : '';
     
-    // נסה למצוא תחום מתאים (לקישור דינמי)
-    const studyFields = detectStudyField(userMessage);
+    response = `מצאתי ${searchResults.length} מוסדות ל${institutionName}`;
+    if (regionName) response += ` ב${regionName}`;
+    response += `:\n\n`;
     
-    // **הוספת קישור לדף דינמי (אם יש תחום ואזור)**
+    searchResults.forEach((page) => {
+      const title = page.title || page.h1 || 'מוסד לימודים';
+      
+      response += `${title}\n`;
+      
+      // אם יש רשימת קורסים - הצג (נניח שזה בתיאור)
+      if (page.courses && Array.isArray(page.courses)) {
+        page.courses.slice(0, 3).forEach(course => {
+          response += `• ${course}\n`;
+        });
+      } else if (page.description && page.description.length < 200) {
+        response += `${page.description}\n`;
+      }
+      
+      response += `פנו ישירות למוסד הלימודים:\n${page.url}\n\n`;
+    });
+    
+    // **קישור לדף דינמי (ככפתור)**
     if (studyFields.length > 0 && region) {
       const field = studyFields[0];
       const regionSlug = region.slug;
       const encodedSlug = field.slug.replace(/ /g, '%20');
       const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
       
-      response += `\n${field.slug}\n${url}`;
+      response += `${url}`;
     }
     
     return response;
   }
   
-  // **שלב 2: לא מצאנו באינדקס באזור - נחפש בכל הארץ**
-  if (region) {
-    const allResults = searchPages(userMessage, null);
+  // **לא נמצא באזור - הצע אזורים אחרים**
+  if (studyFields.length > 0 && region) {
+    const field = studyFields[0];
+    
+    // חיפוש בכל הארץ
+    const allResults = searchPages(userMessage, null, 'static');
     
     if (allResults && allResults.length > 0) {
-      response = `לא מצאתי מוסד מתאים באזור ${region.name}.\n`;
-      response += `להלן מוסדות מתאימים באיזורים אחרים בארץ:\n\n`;
-      response += formatSearchResults(allResults);
+      response = `לא מצאתי ${field.name} באזור ${region.name}.\n\n`;
+      response += `האם תרצה לראות באזורים אחרים או בלמידה מרחוק?`;
+      return response;
+    } else {
+      // אין בכלל - הצע דף דינמי
+      response = `לא מצאתי ${field.name} באזור ${region.name}.\n\n`;
+      
+      const regionSlug = region.slug;
+      const encodedSlug = field.slug.replace(/ /g, '%20');
+      const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
+      
+      response += `${url}`;
       return response;
     }
   }
   
-  // **שלב 3: לא מצאנו כלום באינדקס - נשתמש ב-study-fields**
-  const studyFields = detectStudyField(userMessage);
-  
-  // **מקרה: יש תחום ואזור**
+  // **יש תחום ואזור אבל לא מצאנו - קישור לדף דינמי**
   if (studyFields.length > 0 && region) {
     const field = studyFields[0];
     const regionSlug = region.slug;
@@ -405,16 +454,7 @@ function generateSmartResponse(userMessage) {
     
     response = `${field.slug}\n${url}`;
     
-  // **מקרה: יש תחום אבל אין אזור**
-  } else if (studyFields.length > 0) {
-    const field = studyFields[0];
-    const encodedSlug = field.slug.replace(/ /g, '%20');
-    const url = `https://www.shabaton.online/results-all/${encodedSlug}`;
-    
-    response = `${field.slug}\n${url}\n\n`;
-    response += `💡 רוצה לצמצם לאזור מסוים? ספר לי!`;
-    
-  // **מקרה: יש אזור אבל אין תחום**
+  // **יש אזור אבל אין תחום**
   } else if (region) {
     response = `מעולה! ${region.name} 🗺️\n\n`;
     response += `באיזה תחום תרצה להתמחות?\n\n`;
@@ -424,7 +464,7 @@ function generateSmartResponse(userMessage) {
     response += `👨‍🏫 חינוך והוראה\n`;
     response += `✨ העצמה אישית`;
     
-  // **מקרה: לא זיהיתי כלום**
+  // **לא זיהיתי כלום**
   } else {
     response = `אשמח לעזור! 🎯\n\n`;
     response += `ספר לי:\n`;
