@@ -513,7 +513,7 @@ function cleanDom($) {
 }
 
 // ============================================
-// 📝 חילוץ תוכן מתקדם - תוקן!
+// 📝 חילוץ תוכן מתקדם - גרסה תקינה ללא כפילויות
 // ============================================
 function extractSmartContent(html, url) {
   let $ = cheerio.load(html);
@@ -521,33 +521,28 @@ function extractSmartContent(html, url) {
 
   const pageType = identifyPageType(url, $);
 
-const title = removeIgnoredText($("title").text().trim())
-  .replace(/\n/g, ' ')
-  .replace(/close carousel/gi, '')
-  .replace(/\s+/g, ' ')
-  .trim();
-const description = removeIgnoredText($('meta[name="description"]').attr("content")?.trim() || "");
-
-// ⚡ h1 - תפוס את הראשון שאינו ריק
-let h1 = '';
-$("h1").each((_, el) => {
-  if (h1) return; // כבר מצאנו
-  const text = removeIgnoredText($(el).text().trim());
-  if (text && text.length > 0) {
-    h1 = text
-      .replace(/\n/g, ' ')
-      .replace(/\s+/g, ' ')
-      .replace(/\\"/g, '"')
-      .replace(/\"/g, "'")
-      .trim();
-  }
-});
+  const title = removeIgnoredText($("title").text().trim())
+    .replace(/\n/g, ' ')
+    .replace(/close carousel/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   
   const description = removeIgnoredText($('meta[name="description"]').attr("content")?.trim() || "");
   
-  // ⚡ h1 עם ניקוי \n ומרכאות
-  let h1 = removeIgnoredText($("h1").first().text().trim());
-  h1 = h1.replace(/\n/g, ' ').replace(/\s+/g, ' ').replace(/\\"/g, '"').replace(/\"/g, "'").trim();
+  // ⚡ h1 - תפוס את הראשון שאינו ריק
+  let h1 = '';
+  $("h1").each((_, el) => {
+    if (h1) return; // כבר מצאנו
+    const text = removeIgnoredText($(el).text().trim());
+    if (text && text.length > 0) {
+      h1 = text
+        .replace(/\n/g, ' ')
+        .replace(/\s+/g, ' ')
+        .replace(/\\"/g, '"')
+        .replace(/\"/g, "'")
+        .trim();
+    }
+  });
   
   const h2s = $("h2")
     .map((_, el) => {
@@ -1001,7 +996,7 @@ $("h1").each((_, el) => {
     url,
     title: title || h1 || "ללא כותרת",
     h1,
-    h2: h2s.slice(0, 5),  // ⚡ תמיד הכותרות המקוריות!
+    h2: h2s.slice(0, 5),
     h3: h3s.slice(0, 5),
     description,
     type: pageType,
@@ -1019,7 +1014,7 @@ $("h1").each((_, el) => {
       institutions: institutions,
       totalCourses: Object.values(coursesByInstitution).flat().length,
       coursesByInstitution: coursesByInstitution,
-      institutionLinks: institutionLinks  // ⚡ קישורים למוסדות!
+      institutionLinks: institutionLinks
     })
   };
 }
@@ -1836,4 +1831,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
