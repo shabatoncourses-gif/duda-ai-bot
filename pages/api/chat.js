@@ -117,18 +117,18 @@ function shouldFilterUrl(url) {
 }
 
 // ========================================
-// 🔍 חיפוש דפים באינדקסים (סטטיים ודינמיים)
+// 🔍 חיפוש דפים באינדקסים (חיפוש חכם!)
 // ========================================
 function searchPages(query, region = null, pageType = 'all') {
   const pages = loadAllPages();
   const lowerQuery = query.toLowerCase();
   
-  // ניקוי השאילתה (הסרת "ב", מקפים, "קורס", "קורסי")
+  // ניקוי השאילתה
   let cleanQuery = lowerQuery.replace(/\sב([א-ת])/g, ' $1');
   cleanQuery = cleanQuery.replace(/-/g, ' ');
   cleanQuery = cleanQuery.replace(/קורס(י)?/g, '').trim();
   
-  // **הסרת שמות ערים מהשאילתה!**
+  // הסרת שמות ערים
   if (region && region.cities) {
     for (const city of region.cities) {
       const cityLower = city.toLowerCase();
@@ -136,20 +136,22 @@ function searchPages(query, region = null, pageType = 'all') {
     }
   }
   
-  // הסרת מילות עזר נוספות
+  // הסרת מילות עזר
   const stopWords = ['מרכז', 'הארץ', 'במרכז', 'בארץ', 'ב', 'ה', 'של', 'את', 'עם', 'על', 'אל', 'כל', 'צפון', 'בצפון', 'הצפון', 'דרום', 'בדרום', 'שרון', 'בשרון'];
   const queryWords = cleanQuery.split(/\s+/)
     .filter(w => w.length > 2 && !stopWords.includes(w));
   
-  // אם אין מילות חיפוש משמעותיות - החזר ריק
   if (queryWords.length === 0) {
     return [];
   }
   
+  // **זיהוי: האם זו שאילתה ספציפית? (3+ מילות מפתח)**
+  const isSpecificQuery = queryWords.length >= 3;
+  const minScore = isSpecificQuery ? 40 : 15; // סף גבוה לשאילתות ספציפיות!
+  
   let results = [];
   
   for (const page of pages) {
-    // דילוג על דפים מסוננים
     if (shouldFilterUrl(page.url)) {
       continue;
     }
@@ -179,47 +181,52 @@ function searchPages(query, region = null, pageType = 'all') {
                        url.includes('/tofes_101') ||
                        url.includes('/learning_programs_shabaton');
     
-    // סינון לפי סוג דף מבוקש
     if (pageType === 'static' && !isStaticPage) continue;
     if (pageType === 'info' && !isInfoPage) continue;
     
-    // חישוב התאמה
     let matchScore = 0;
     
-    // **בדיקה אם השאילתה המלאה מופיעה (עדיפות מאוד גבוהה!)**
-    if (cleanQuery.length > 3) {
-      if (title.includes(cleanQuery)) matchScore += 50; // ביטוי מלא בכותרת!
-      if (description.includes(cleanQuery)) matchScore += 30; // ביטוי מלא בתיאור!
-      if (url.includes(cleanQuery)) matchScore += 20;
+    // **עדיפות עליונה: ביטוי מלא מופיע!**
+    if (cleanQuery.length > 5) {
+      if (title.includes(cleanQuery)) {
+        matchScore += 100; // ביטוי מלא בכותרת = התאמה מושלמת!
+      }
+      if (description.includes(cleanQuery)) {
+        matchScore += 70; // ביטוי מלא בתיאור = מאוד טוב!
+      }
     }
     
     // **בדיקת מילות מפתח בודדות**
-    let wordMatches = 0;
+    let wordMatchesInTitle = 0;
+    let wordMatchesInDesc = 0;
+    
     for (const word of queryWords) {
       if (title.includes(word)) {
-        matchScore += 10;
-        wordMatches++;
+        matchScore += 15;
+        wordMatchesInTitle++;
       }
       if (description.includes(word)) {
-        matchScore += 5;
-        wordMatches++;
+        matchScore += 8;
+        wordMatchesInDesc++;
       }
       if (keywords.some(k => k.includes(word))) {
         matchScore += 5;
-        wordMatches++;
-      }
-      if (url.includes(word)) {
-        matchScore += 3;
-        wordMatches++;
       }
     }
     
-    // בונוס אם כל המילים נמצאו
-    if (wordMatches >= queryWords.length * 2) {
-      matchScore += 20;
+    // **בונוס אם רוב המילים בכותרת או בתיאור**
+    const totalWordMatches = wordMatchesInTitle + wordMatchesInDesc;
+    if (totalWordMatches >= queryWords.length) {
+      matchScore += 20; // כל המילים נמצאו!
     }
     
-    // בדיקה אם תואם לאזור (לפי location בדף)
+    // **עונש לדפים לא רלוונטיים**
+    // אם זו שאילתה ספציפית אבל הדף לא מכיל את הביטוי המלא
+    if (isSpecificQuery && matchScore < 50) {
+      matchScore = Math.floor(matchScore * 0.3); // הורדת ציון משמעותית
+    }
+    
+    // בדיקת אזור
     let matchesRegion = true;
     if (region && region.cities && isStaticPage) {
       const location = (page.location || '').toLowerCase();
@@ -228,7 +235,7 @@ function searchPages(query, region = null, pageType = 'all') {
       );
       
       if (!matchesRegion) {
-        matchScore = 0; // אפס התאמה אם לא באזור הנכון
+        matchScore = 0;
       }
     }
     
@@ -242,17 +249,17 @@ function searchPages(query, region = null, pageType = 'all') {
     }
   }
   
-  // מיון לפי ציון (גבוה לנמוך), ודפים סטטיים קודם
+  // מיון
   results.sort((a, b) => {
     if (a.isStatic && !b.isStatic) return -1;
     if (!a.isStatic && b.isStatic) return 1;
     return b.score - a.score;
   });
   
-  // **סינון נוסף: רק תוצאות עם ציון מעל 15**
-  results = results.filter(r => r.score >= 15);
+  // **סינון לפי סף מינימלי**
+  results = results.filter(r => r.score >= minScore);
   
-  return results.slice(0, 10); // מקסימום 10 תוצאות
+  return results.slice(0, 10);
 }
 
 // ========================================
@@ -344,6 +351,14 @@ function detectStudyField(message) {
   const lowerMessage = message.toLowerCase();
   const detectedFields = [];
   
+  // ספירת מילות מפתח בשאילתה (לאחר ניקוי)
+  const cleanedMessage = lowerMessage
+    .replace(/קורס(י)?/g, '')
+    .replace(/\sב([א-ת])/g, ' $1')
+    .trim();
+  const significantWords = cleanedMessage.split(/\s+/).filter(w => w.length > 2);
+  const isSpecificQuery = significantWords.length >= 3; // שאילתה ספציפית = 3+ מילים
+  
   // **שלב 1: חיפוש התאמה מדויקת לשם התחום (עדיפות גבוהה)**
   for (const field of STUDY_FIELDS) {
     const fieldNameLower = field.name.toLowerCase();
@@ -358,9 +373,14 @@ function detectStudyField(message) {
     for (const keyword of field.keywords) {
       const keywordLower = keyword.toLowerCase();
       
-      // בדיקה אם המילה מופיעה כמילה שלמה (לא חלק ממילה אחרת)
+      // בדיקה אם המילה מופיעה כמילה שלמה
       const regex = new RegExp('\\b' + keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
       if (regex.test(lowerMessage)) {
+        // **אם זו שאילתה ספציפית - דלג על תחומים כלליים (1-2 מילים)**
+        if (isSpecificQuery && keywordLower.split(/\s+/).length <= 2) {
+          continue; // דלג על "אמנות", "פיסול" וכו'
+        }
+        
         matches.push({ field, keyword, length: keywordLower.length });
         break;
       }
@@ -371,8 +391,8 @@ function detectStudyField(message) {
   matches.sort((a, b) => b.length - a.length);
   detectedFields.push(...matches.map(m => m.field));
   
-  // **שלב 3: אם עדיין לא מצאנו - חיפוש חלקי**
-  if (detectedFields.length === 0) {
+  // **שלב 3: אם עדיין לא מצאנו ולא שאילתה ספציפית - חיפוש חלקי**
+  if (detectedFields.length === 0 && !isSpecificQuery) {
     for (const field of STUDY_FIELDS) {
       for (const keyword of field.keywords) {
         if (lowerMessage.includes(keyword.toLowerCase())) {
@@ -429,26 +449,26 @@ function generateSmartResponse(userMessage) {
     const searchResults = searchPages(userMessage, region, 'static');
     
     if (searchResults && searchResults.length > 0) {
-      // **מצאנו דפים סטטיים! נציג אותם**
-      response = `מצאתי ${searchResults.length} מוסדות ל${field.name} ב${region.name}:\n\n`;
+      // **מצאנו דפים סטטיים רלוונטיים!**
+      response = `מצאתי ${searchResults.length} תוצאות רלוונטיות ב${region.name}:\n\n`;
       response += formatSearchResults(searchResults);
       
-      // **הוספת קישור לדף דינמי בסוף**
+      // **הוספת קישור לדף דינמי - קורסים נוספים**
       const regionSlug = region.slug;
       const encodedSlug = field.slug.replace(/ /g, '%20');
       const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
       
-      response += `\n${url}`;
+      response += `\nלקורסים נוספים ב${field.name}:\n${url}`;
       
       return response;
     }
     
-    // **לא מצאנו דפים סטטיים - נלך לדף דינמי**
+    // **לא מצאנו תוצאות ספציפיות - נציע את הדף הדינמי**
     const regionSlug = region.slug;
     const encodedSlug = field.slug.replace(/ /g, '%20');
     const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
     
-    response = `מצאתי ${field.name} ב${region.name}! 🎓\n\n`;
+    response = `לא מצאתי תוצאות ספציפיות לשאילתה שלך, אבל תוכל למצוא קורסים ב${field.name} ב${region.name}:\n\n`;
     response += `${url}`;
     
     return response;
