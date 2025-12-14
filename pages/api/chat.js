@@ -279,15 +279,32 @@ function formatSearchResults(pages, region = null) {
       // כותרת מוסד (ללא אייקון, גופן רגיל)
       response += `**${title}**\n`;
       
-      // רשימת קורסים או תיאור (מקסימום 2 שורות)
+      // רשימת קורסים או תיאור
       if (page.courses && Array.isArray(page.courses) && page.courses.length > 0) {
         // הצג עד 2 קורסים
         page.courses.slice(0, 2).forEach(course => {
           response += `${course}\n`;
         });
       } else if (page.description) {
-        // תיאור קצר - עד 250 תווים
-        const desc = page.description.substring(0, 250).trim();
+        // תיאור חכם - עד 250 תווים, חיתוך במילה שלמה
+        let desc = page.description.trim();
+        
+        if (desc.length > 250) {
+          // חתוך ב-250 תווים
+          desc = desc.substring(0, 250);
+          
+          // מצא את הרווח האחרון (גבול מילה)
+          const lastSpace = desc.lastIndexOf(' ');
+          
+          if (lastSpace > 200) {
+            // אם יש רווח סביר, חתוך שם
+            desc = desc.substring(0, lastSpace) + '...';
+          } else {
+            // אם אין רווח, פשוט חתוך ב-250
+            desc = desc + '...';
+          }
+        }
+        
         if (desc) response += `${desc}\n`;
       }
       
