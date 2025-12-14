@@ -90,7 +90,6 @@ function shouldFilterUrl(url) {
   if (!url) return true;
   
   const blockedPatterns = [
-    'morim.boutique',
     '/drushim/',
     '/consult',
     '/contact',
@@ -98,18 +97,20 @@ function shouldFilterUrl(url) {
     '/משרות-הוראה',
     '/הוספת-מודעה',
     'https://www.shabaton.online/$', // דף הבית
-    '/art',
-    '/mosaic',
-    '/courses-jewelry',
-    '/empowering',
-    '/cooking',
-    '/trips',
-    '/health',
-    '/fashion',
-    'קורסי-נגרות-וחידוש-רהיטים',
     '/courses-per-month-', // דפי חודשים - לא רלוונטי!
     '/Ma_Edu_', // דפי תואר שני כלליים
-    'close carousel' // תוכן לא רלוונטי
+    'close carousel', // תוכן לא רלוונטי
+    // דפים ספציפיים ב-morim.boutique שלא רלוונטיים
+    'morim.boutique/art',
+    'morim.boutique/mosaic',
+    'morim.boutique/courses-jewelry',
+    'morim.boutique/empowering',
+    'morim.boutique/cooking',
+    'morim.boutique/trips',
+    'morim.boutique/health',
+    'morim.boutique/fashion',
+    'morim.boutique/$', // דף הבית של morim
+    'קורסי-נגרות-וחידוש-רהיטים'
   ];
   
   return blockedPatterns.some(pattern => url.includes(pattern));
@@ -128,7 +129,6 @@ function searchPages(query, region = null, pageType = 'all') {
   cleanQuery = cleanQuery.replace(/קורס(י)?/g, '').trim();
   
   // **הסרת שמות ערים מהשאילתה!**
-  // כדי שלא נחפש "חיפה" בתוכן הדפים
   if (region && region.cities) {
     for (const city of region.cities) {
       const cityLower = city.toLowerCase();
@@ -145,9 +145,6 @@ function searchPages(query, region = null, pageType = 'all') {
   if (queryWords.length === 0) {
     return [];
   }
-  
-  // המילה העיקרית = המילה הראשונה (הכי חשובה)
-  const mainWord = queryWords[0];
   
   let results = [];
   
@@ -186,41 +183,43 @@ function searchPages(query, region = null, pageType = 'all') {
     if (pageType === 'static' && !isStaticPage) continue;
     if (pageType === 'info' && !isInfoPage) continue;
     
-    // **דרישה: המילה העיקרית חייבת להופיע!**
-    const mainWordInTitle = title.includes(mainWord);
-    const mainWordInDescription = description.includes(mainWord);
-    const mainWordInKeywords = keywords.some(k => k.includes(mainWord));
-    const mainWordInUrl = url.includes(mainWord);
-    
-    // אם המילה העיקרית לא מופיעה בשום מקום - דלג!
-    if (!mainWordInTitle && !mainWordInDescription && !mainWordInKeywords && !mainWordInUrl) {
-      continue;
-    }
-    
     // חישוב התאמה
     let matchScore = 0;
     
-    // ציון גבוה למילה העיקרית
-    if (mainWordInTitle) matchScore += 20;
-    if (mainWordInDescription) matchScore += 10;
-    if (mainWordInKeywords) matchScore += 8;
-    if (mainWordInUrl) matchScore += 5;
-    
-    // בדיקה אם השאילתה המלאה מופיעה (בונוס)
+    // **בדיקה אם השאילתה המלאה מופיעה (עדיפות מאוד גבוהה!)**
     if (cleanQuery.length > 3) {
-      if (title.includes(cleanQuery)) matchScore += 15;
-      if (description.includes(cleanQuery)) matchScore += 8;
+      if (title.includes(cleanQuery)) matchScore += 50; // ביטוי מלא בכותרת!
+      if (description.includes(cleanQuery)) matchScore += 30; // ביטוי מלא בתיאור!
+      if (url.includes(cleanQuery)) matchScore += 20;
     }
     
-    // בדיקת מילות מפתח נוספות (ציון נמוך יותר)
-    for (let i = 1; i < queryWords.length; i++) {
-      const word = queryWords[i];
-      if (title.includes(word)) matchScore += 3;
-      if (description.includes(word)) matchScore += 2;
-      if (keywords.some(k => k.includes(word))) matchScore += 2;
+    // **בדיקת מילות מפתח בודדות**
+    let wordMatches = 0;
+    for (const word of queryWords) {
+      if (title.includes(word)) {
+        matchScore += 10;
+        wordMatches++;
+      }
+      if (description.includes(word)) {
+        matchScore += 5;
+        wordMatches++;
+      }
+      if (keywords.some(k => k.includes(word))) {
+        matchScore += 5;
+        wordMatches++;
+      }
+      if (url.includes(word)) {
+        matchScore += 3;
+        wordMatches++;
+      }
     }
     
-    // בדיקה אם תואם לאזור (לפי location בדף, לא לפי שם העיר בתוכן!)
+    // בונוס אם כל המילים נמצאו
+    if (wordMatches >= queryWords.length * 2) {
+      matchScore += 20;
+    }
+    
+    // בדיקה אם תואם לאזור (לפי location בדף)
     let matchesRegion = true;
     if (region && region.cities && isStaticPage) {
       const location = (page.location || '').toLowerCase();
