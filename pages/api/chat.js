@@ -286,8 +286,8 @@ function formatSearchResults(pages, region = null) {
           response += `${course}\n`;
         });
       } else if (page.description) {
-        // תיאור קצר - עד 100 תווים
-        const desc = page.description.substring(0, 100).trim();
+        // תיאור קצר - עד 250 תווים
+        const desc = page.description.substring(0, 250).trim();
         if (desc) response += `${desc}\n`;
       }
       
