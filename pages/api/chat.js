@@ -117,7 +117,7 @@ function shouldFilterUrl(url) {
 }
 
 // ========================================
-// 🔍 חיפוש דפים באינדקסים (חיפוש חכם!)
+// 🔍 חיפוש דפים באינדקסים (חיפוש חכם וקפדני!)
 // ========================================
 function searchPages(query, region = null, pageType = 'all') {
   const pages = loadAllPages();
@@ -145,9 +145,11 @@ function searchPages(query, region = null, pageType = 'all') {
     return [];
   }
   
-  // **זיהוי: האם זו שאילתה ספציפית? (3+ מילות מפתח)**
-  const isSpecificQuery = queryWords.length >= 3;
-  const minScore = isSpecificQuery ? 40 : 15; // סף גבוה לשאילתות ספציפיות!
+  // זיהוי: שאילתה ספציפית? (2+ מילות מפתח)
+  const isSpecificQuery = queryWords.length >= 2;
+  
+  // **סף גבוה יותר לשאילתות ספציפיות!**
+  const minScore = isSpecificQuery ? 60 : 25;
   
   let results = [];
   
@@ -189,41 +191,50 @@ function searchPages(query, region = null, pageType = 'all') {
     // **עדיפות עליונה: ביטוי מלא מופיע!**
     if (cleanQuery.length > 5) {
       if (title.includes(cleanQuery)) {
-        matchScore += 100; // ביטוי מלא בכותרת = התאמה מושלמת!
+        matchScore += 100; // ביטוי מלא בכותרת!
       }
       if (description.includes(cleanQuery)) {
-        matchScore += 70; // ביטוי מלא בתיאור = מאוד טוב!
+        matchScore += 70;
       }
     }
     
-    // **בדיקת מילות מפתח בודדות**
+    // **בדיקת מילות מפתח - דרישה קפדנית!**
     let wordMatchesInTitle = 0;
     let wordMatchesInDesc = 0;
+    let wordMatchesInKeywords = 0;
     
     for (const word of queryWords) {
-      if (title.includes(word)) {
-        matchScore += 15;
+      let foundInTitle = title.includes(word);
+      let foundInDesc = description.includes(word);
+      let foundInKeywords = keywords.some(k => k.includes(word));
+      
+      if (foundInTitle) {
+        matchScore += 20; // ציון גבוה למילה בכותרת
         wordMatchesInTitle++;
       }
-      if (description.includes(word)) {
-        matchScore += 8;
+      if (foundInDesc) {
+        matchScore += 10;
         wordMatchesInDesc++;
       }
-      if (keywords.some(k => k.includes(word))) {
-        matchScore += 5;
+      if (foundInKeywords) {
+        matchScore += 8;
+        wordMatchesInKeywords++;
       }
     }
     
-    // **בונוס אם רוב המילים בכותרת או בתיאור**
-    const totalWordMatches = wordMatchesInTitle + wordMatchesInDesc;
-    if (totalWordMatches >= queryWords.length) {
-      matchScore += 20; // כל המילים נמצאו!
+    // **דרישה קפדנית: כל המילים חייבות להימצא!**
+    const totalMatches = wordMatchesInTitle + wordMatchesInDesc + wordMatchesInKeywords;
+    
+    if (isSpecificQuery && totalMatches < queryWords.length) {
+      // אם זו שאילתה ספציפית ולא כל המילים נמצאו - דלג!
+      continue;
     }
     
-    // **עונש לדפים לא רלוונטיים**
-    // אם זו שאילתה ספציפית אבל הדף לא מכיל את הביטוי המלא
-    if (isSpecificQuery && matchScore < 50) {
-      matchScore = Math.floor(matchScore * 0.3); // הורדת ציון משמעותית
+    // **בונוס אם כל המילים בכותרת או בתיאור**
+    if (wordMatchesInTitle >= queryWords.length) {
+      matchScore += 30; // כל המילים בכותרת!
+    } else if (wordMatchesInDesc >= queryWords.length) {
+      matchScore += 20; // כל המילים בתיאור
     }
     
     // בדיקת אזור
@@ -256,7 +267,7 @@ function searchPages(query, region = null, pageType = 'all') {
     return b.score - a.score;
   });
   
-  // **סינון לפי סף מינימלי**
+  // **סינון לפי סף מינימלי גבוה!**
   results = results.filter(r => r.score >= minScore);
   
   return results.slice(0, 10);
