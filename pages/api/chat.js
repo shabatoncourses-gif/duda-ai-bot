@@ -297,7 +297,7 @@ function formatSearchResults(pages, region = null) {
       }
       
       // קישור מוסתר מאחורי טקסט
-      response += `   [פנו למוסד הלימודים](${page.url})\n`;
+      response += `[פנו למוסד הלימודים](${page.url})\n`;
       
       // מפריד בין מוסדות (לא אחרי האחרון)
       if (index < staticPages.length - 1) {
