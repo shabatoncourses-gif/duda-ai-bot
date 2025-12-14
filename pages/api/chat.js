@@ -124,8 +124,17 @@ function searchPages(query, region = null, pageType = 'all') {
   cleanQuery = cleanQuery.replace(/-/g, ' ');
   cleanQuery = cleanQuery.replace(/קורס(י)?/g, '').trim();
   
-  // חילוץ מילות מפתח מהשאילתה - סינון מילות עזר
-  const stopWords = ['מרכז', 'הארץ', 'במרכז', 'בארץ', 'ב', 'ה', 'של', 'את', 'עם', 'על', 'אל', 'כל'];
+  // **הסרת שמות ערים מהשאילתה!**
+  // כדי שלא נחפש "חיפה" בתוכן הדפים
+  if (region && region.cities) {
+    for (const city of region.cities) {
+      const cityLower = city.toLowerCase();
+      cleanQuery = cleanQuery.replace(new RegExp('\\b' + cityLower + '\\b', 'gi'), '').trim();
+    }
+  }
+  
+  // הסרת מילות עזר נוספות
+  const stopWords = ['מרכז', 'הארץ', 'במרכז', 'בארץ', 'ב', 'ה', 'של', 'את', 'עם', 'על', 'אל', 'כל', 'צפון', 'בצפון', 'הצפון', 'דרום', 'בדרום', 'שרון', 'בשרון'];
   const queryWords = cleanQuery.split(/\s+/)
     .filter(w => w.length > 2 && !stopWords.includes(w));
   
@@ -179,8 +188,10 @@ function searchPages(query, region = null, pageType = 'all') {
     if (mainWordInUrl) matchScore += 5;
     
     // בדיקה אם השאילתה המלאה מופיעה (בונוס)
-    if (title.includes(cleanQuery)) matchScore += 15;
-    if (description.includes(cleanQuery)) matchScore += 8;
+    if (cleanQuery.length > 3) {
+      if (title.includes(cleanQuery)) matchScore += 15;
+      if (description.includes(cleanQuery)) matchScore += 8;
+    }
     
     // בדיקת מילות מפתח נוספות (ציון נמוך יותר)
     for (let i = 1; i < queryWords.length; i++) {
@@ -190,13 +201,12 @@ function searchPages(query, region = null, pageType = 'all') {
       if (keywords.some(k => k.includes(word))) matchScore += 2;
     }
     
-    // בדיקה אם תואם לאזור
+    // בדיקה אם תואם לאזור (לפי location בדף, לא לפי שם העיר בתוכן!)
     let matchesRegion = true;
     if (region && region.cities && isStaticPage) {
       const location = (page.location || '').toLowerCase();
       matchesRegion = region.cities.some(city => 
-        location.includes(city.toLowerCase().replace(/-/g, ' ')) ||
-        title.includes(city.toLowerCase().replace(/-/g, ' '))
+        location.includes(city.toLowerCase().replace(/-/g, ' '))
       );
       
       if (!matchesRegion) {
