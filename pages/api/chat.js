@@ -263,7 +263,7 @@ function searchPages(query, region = null, pageType = 'all') {
 }
 
 // ========================================
-// 📝 פורמט תוצאות חיפוש (פורמט חדש!)
+// 📝 פורמט תוצאות חיפוש (עיצוב משופר!)
 // ========================================
 function formatSearchResults(pages, region = null) {
   if (pages.length === 0) return null;
@@ -273,32 +273,38 @@ function formatSearchResults(pages, region = null) {
   
   // הצגת מוסדות (דפים סטטיים בלבד)
   if (staticPages.length > 0) {
-    staticPages.forEach((page) => {
+    staticPages.forEach((page, index) => {
       const title = page.title || page.h1 || 'מוסד לימודים';
       
-      // שם המוסד
-      response += `${title}\n`;
+      // אייקון + כותרת בבולד
+      response += `🎓 **${title}**\n`;
       
       // רשימת קורסים (אם קיימת)
       if (page.courses && Array.isArray(page.courses)) {
         page.courses.slice(0, 3).forEach(course => {
-          response += `• ${course}\n`;
+          response += `   • ${course}\n`;
         });
       } else if (page.description && page.description.length < 200) {
         // אם אין courses, הצג תיאור קצר
         const desc = page.description.substring(0, 150);
-        if (desc) response += `${desc}\n`;
+        if (desc) response += `   ${desc}\n`;
       }
       
       // תאריך פתיחה (אם ב-3 חודשים הקרובים)
       if (page.startDate && isWithinThreeMonths(page.startDate)) {
-        const courseName = page.courseName || title;
         const date = new Date(page.startDate).toLocaleDateString('he-IL');
-        response += `מועד פתיחה: ${date}\n`;
+        response += `   📅 מועד פתיחה: ${date}\n`;
       }
       
-      // קישור טקסטואלי (לא כפתור!)
-      response += `פנו ישירות למוסד הלימודים:\n${page.url}\n\n`;
+      // קישור מוסתר מאחורי טקסט
+      response += `   [פנו למוסד הלימודים](${page.url})\n`;
+      
+      // מפריד בין מוסדות (לא אחרי האחרון)
+      if (index < staticPages.length - 1) {
+        response += `\n───────────────────\n\n`;
+      } else {
+        response += `\n`;
+      }
     });
   }
   
