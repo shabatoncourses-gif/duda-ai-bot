@@ -173,7 +173,7 @@ function searchPages(query, region = null, pageType = 'all') {
                        url.includes('/Payments_shabaton') ||
                        url.includes('/tlush_maanak_shabaton') ||
                        url.includes('/btl-morim-shabaton') ||
-                       url.includes('//birth_shabatgon') ||
+                       url.includes('/birth_shabatgon') ||
                        url.includes('/tuition_reimbursement') ||
                        url.includes('/kabalot_shabaton') ||
                        url.includes('/shabaton-maanak') ||
@@ -345,11 +345,41 @@ function detectStudyField(message) {
   const lowerMessage = message.toLowerCase();
   const detectedFields = [];
   
+  // **שלב 1: חיפוש התאמה מדויקת לשם התחום (עדיפות גבוהה)**
+  for (const field of STUDY_FIELDS) {
+    const fieldNameLower = field.name.toLowerCase();
+    if (lowerMessage.includes(fieldNameLower)) {
+      return [field]; // מצאנו התאמה מדויקת - נחזיר מיד!
+    }
+  }
+  
+  // **שלב 2: חיפוש במילות מפתח עם word boundaries**
+  const matches = [];
   for (const field of STUDY_FIELDS) {
     for (const keyword of field.keywords) {
-      if (lowerMessage.includes(keyword.toLowerCase())) {
-        detectedFields.push(field);
+      const keywordLower = keyword.toLowerCase();
+      
+      // בדיקה אם המילה מופיעה כמילה שלמה (לא חלק ממילה אחרת)
+      const regex = new RegExp('\\b' + keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
+      if (regex.test(lowerMessage)) {
+        matches.push({ field, keyword, length: keywordLower.length });
         break;
+      }
+    }
+  }
+  
+  // מיון לפי אורך מילת המפתח (ארוכה יותר = ספציפית יותר)
+  matches.sort((a, b) => b.length - a.length);
+  detectedFields.push(...matches.map(m => m.field));
+  
+  // **שלב 3: אם עדיין לא מצאנו - חיפוש חלקי**
+  if (detectedFields.length === 0) {
+    for (const field of STUDY_FIELDS) {
+      for (const keyword of field.keywords) {
+        if (lowerMessage.includes(keyword.toLowerCase())) {
+          detectedFields.push(field);
+          break;
+        }
       }
     }
   }
@@ -475,22 +505,27 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'חסרה הודעה' });
     }
     
-    // **בניית הקשר מלא מההיסטוריה**
-    let fullContext = message;
+    // **קודם - ננסה לזהות מההודעה הנוכחית בלבד**
+    let response = generateSmartResponse(message);
     
-    if (history && Array.isArray(history) && history.length > 0) {
-      // לקיחת כל הודעות המשתמש מההיסטוריה
-      const userMessages = history
+    // **אם ההודעה הנוכחית לא הצליחה (חסר תחום או אזור) - נשתמש בהיסטוריה**
+    // זה מתאים למקרים כמו: "תל אביב" אחרי "הנחיית קבוצות"
+    const needsContext = response.includes('באיזה אזור') || 
+                         response.includes('באיזה תחום') ||
+                         response.includes('אשמח לעזור');
+    
+    if (needsContext && history && Array.isArray(history) && history.length > 0) {
+      // לקיחת רק 3 הודעות אחרונות של המשתמש
+      const recentUserMessages = history
         .filter(msg => msg.role === 'user')
+        .slice(-3)
         .map(msg => msg.content)
         .join(' ');
       
       // איחוד עם ההודעה הנוכחית
-      fullContext = userMessages + ' ' + message;
+      const fullContext = recentUserMessages + ' ' + message;
+      response = generateSmartResponse(fullContext);
     }
-    
-    // יצירת תשובה עם ההקשר המלא
-    const response = generateSmartResponse(fullContext);
     
     return res.status(200).json({
       response: response,
