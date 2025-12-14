@@ -422,9 +422,29 @@ function generateSmartResponse(userMessage) {
     }
   }
   
-  // **אם יש תחום מזוהה ואזור - ישר לדף דינמי!**
+  // **אם יש תחום מזוהה ואזור - חיפוש באינדקס קודם!**
   if (studyFields.length > 0 && region) {
     const field = studyFields[0];
+    
+    // **קודם: חיפוש דפים סטטיים באינדקס**
+    const searchResults = searchPages(userMessage, region, 'static');
+    
+    if (searchResults && searchResults.length > 0) {
+      // **מצאנו דפים סטטיים! נציג אותם**
+      response = `מצאתי ${searchResults.length} מוסדות ל${field.name} ב${region.name}:\n\n`;
+      response += formatSearchResults(searchResults);
+      
+      // **הוספת קישור לדף דינמי בסוף**
+      const regionSlug = region.slug;
+      const encodedSlug = field.slug.replace(/ /g, '%20');
+      const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
+      
+      response += `\n${url}`;
+      
+      return response;
+    }
+    
+    // **לא מצאנו דפים סטטיים - נלך לדף דינמי**
     const regionSlug = region.slug;
     const encodedSlug = field.slug.replace(/ /g, '%20');
     const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
