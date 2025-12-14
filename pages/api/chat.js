@@ -408,12 +408,8 @@ function generateSmartResponse(userMessage) {
   // **אם יש אזור אבל אין תחום**
   if (region) {
     response = `מעולה! ${region.name} 🗺️\n\n`;
-    response += `באיזה תחום תרצה להתמחות?\n\n`;
-    response += `📚 הנחיית קבוצות\n`;
-    response += `💻 טכנולוגיה דיגיטלית\n`;
-    response += `🎓 ייעוץ חינוכי\n`;
-    response += `👨‍🏫 חינוך והוראה\n`;
-    response += `✨ העצמה אישית`;
+    response += `באיזה תחום תרצה להתמחות?\n`;
+    response += `ספר לי במילים שלך - למשל: "גישור", "צילום", "NLP", "בישול", "תכשיטים"...`;
     
     return response;
   }
@@ -463,7 +459,22 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'חסרה הודעה' });
     }
     
-    const response = generateSmartResponse(message);
+    // **בניית הקשר מלא מההיסטוריה**
+    let fullContext = message;
+    
+    if (history && Array.isArray(history) && history.length > 0) {
+      // לקיחת כל הודעות המשתמש מההיסטוריה
+      const userMessages = history
+        .filter(msg => msg.role === 'user')
+        .map(msg => msg.content)
+        .join(' ');
+      
+      // איחוד עם ההודעה הנוכחית
+      fullContext = userMessages + ' ' + message;
+    }
+    
+    // יצירת תשובה עם ההקשר המלא
+    const response = generateSmartResponse(fullContext);
     
     return res.status(200).json({
       response: response,
