@@ -263,7 +263,7 @@ function searchPages(query, region = null, pageType = 'all') {
 }
 
 // ========================================
-// 📝 פורמט תוצאות חיפוש (עיצוב משופר!)
+// 📝 פורמט תוצאות חיפוש (עיצוב אלגנטי!)
 // ========================================
 function formatSearchResults(pages, region = null) {
   if (pages.length === 0) return null;
@@ -276,33 +276,32 @@ function formatSearchResults(pages, region = null) {
     staticPages.forEach((page, index) => {
       const title = page.title || page.h1 || 'מוסד לימודים';
       
-      // אייקון + כותרת בבולד
-      response += `🔵 **${title}**\n`;
+      // כותרת מוסד (ללא אייקון, גופן רגיל)
+      response += `**${title}**\n`;
       
-      // רשימת קורסים (אם קיימת)
-      if (page.courses && Array.isArray(page.courses)) {
-        page.courses.slice(0, 3).forEach(course => {
-          response += `   • ${course}\n`;
+      // רשימת קורסים או תיאור (מקסימום 2 שורות)
+      if (page.courses && Array.isArray(page.courses) && page.courses.length > 0) {
+        // הצג עד 2 קורסים
+        page.courses.slice(0, 2).forEach(course => {
+          response += `${course}\n`;
         });
-      } else if (page.description && page.description.length < 200) {
-        // אם אין courses, הצג תיאור קצר
-        const desc = page.description.substring(0, 150);
-        if (desc) response += `   ${desc}\n`;
+      } else if (page.description) {
+        // תיאור קצר - עד 100 תווים
+        const desc = page.description.substring(0, 100).trim();
+        if (desc) response += `${desc}\n`;
       }
       
       // תאריך פתיחה (אם ב-3 חודשים הקרובים)
       if (page.startDate && isWithinThreeMonths(page.startDate)) {
         const date = new Date(page.startDate).toLocaleDateString('he-IL');
-        response += `   📅 מועד פתיחה: ${date}\n`;
+        response += `📅 ${date}\n`;
       }
       
-      // קישור מוסתר מאחורי טקסט
-      response += `[פנו למוסד הלימודים](${page.url})\n`;
+      // קישור עם חץ כתום
+      response += `[→ פנו למוסד הלימודים](${page.url})\n`;
       
-      // מפריד בין מוסדות (לא אחרי האחרון)
+      // מפריד דק בין מוסדות (לא אחרי האחרון)
       if (index < staticPages.length - 1) {
-        response += `\n───────────────────\n\n`;
-      } else {
         response += `\n`;
       }
     });
