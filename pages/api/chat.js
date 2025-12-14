@@ -117,39 +117,48 @@ function shouldFilterUrl(url) {
 }
 
 // ========================================
-// 🔍 חיפוש דפים באינדקסים (חיפוש חכם וקפדני!)
+// 🔍 חיפוש דפים באינדקסים (חיפוש מאוזן!)
 // ========================================
 function searchPages(query, region = null, pageType = 'all') {
   const pages = loadAllPages();
   const lowerQuery = query.toLowerCase();
   
-  // ניקוי השאילתה
+  // ניקוי השאילתה לחיפוש
   let cleanQuery = lowerQuery.replace(/\sב([א-ת])/g, ' $1');
   cleanQuery = cleanQuery.replace(/-/g, ' ');
   cleanQuery = cleanQuery.replace(/קורס(י)?/g, '').trim();
   
-  // הסרת שמות ערים
+  // חלץ מילות מפתח לפני הסרת ערים
+  const stopWords = ['מרכז', 'הארץ', 'במרכז', 'בארץ', 'ב', 'ה', 'של', 'את', 'עם', 'על', 'אל', 'כל', 'צפון', 'בצפון', 'הצפון', 'דרום', 'בדרום', 'שרון', 'בשרון'];
+  let queryWords = cleanQuery.split(/\s+/)
+    .filter(w => w.length > 2 && !stopWords.includes(w));
+  
+  // זיהוי: שאילתה ספציפית? (2+ מילות מפתח כולל עיר)
+  const isSpecificQuery = queryWords.length >= 2;
+  
+  // עכשיו הסר שמות ערים מה-cleanQuery (אבל לא מ-queryWords!)
+  let cleanQueryForSearch = cleanQuery;
   if (region && region.cities) {
     for (const city of region.cities) {
       const cityLower = city.toLowerCase();
-      cleanQuery = cleanQuery.replace(new RegExp('\\b' + cityLower + '\\b', 'gi'), '').trim();
+      cleanQueryForSearch = cleanQueryForSearch.replace(new RegExp('\\b' + cityLower + '\\b', 'gi'), '').trim();
     }
   }
   
-  // הסרת מילות עזר
-  const stopWords = ['מרכז', 'הארץ', 'במרכז', 'בארץ', 'ב', 'ה', 'של', 'את', 'עם', 'על', 'אל', 'כל', 'צפון', 'בצפון', 'הצפון', 'דרום', 'בדרום', 'שרון', 'בשרון'];
-  const queryWords = cleanQuery.split(/\s+/)
+  // עדכן queryWords ללא שמות ערים
+  const queryWordsWithoutCities = cleanQueryForSearch.split(/\s+/)
     .filter(w => w.length > 2 && !stopWords.includes(w));
   
-  if (queryWords.length === 0) {
+  if (queryWordsWithoutCities.length === 0) {
     return [];
   }
   
-  // זיהוי: שאילתה ספציפית? (2+ מילות מפתח)
-  const isSpecificQuery = queryWords.length >= 2;
+  // **סף מאוזן - מאפשר תוצאות טובות אבל מסנן זבל**
+  const minScore = isSpecificQuery ? 35 : 20;
   
-  // **סף גבוה יותר לשאילתות ספציפיות!**
-  const minScore = isSpecificQuery ? 60 : 25;
+  // **זיהוי מילת הנושא העיקרית (המילה הראשונה)**
+  // לדוגמה: "גישור בירושלים" → "גישור" הוא הנושא העיקרי
+  const mainTopicWord = queryWordsWithoutCities[0];
   
   let results = [];
   
@@ -189,64 +198,99 @@ function searchPages(query, region = null, pageType = 'all') {
     let matchScore = 0;
     
     // **עדיפות עליונה: ביטוי מלא מופיע!**
-    if (cleanQuery.length > 5) {
-      if (title.includes(cleanQuery)) {
+    if (cleanQueryForSearch.length > 5) {
+      if (title.includes(cleanQueryForSearch)) {
         matchScore += 100; // ביטוי מלא בכותרת!
       }
-      if (description.includes(cleanQuery)) {
+      if (description.includes(cleanQueryForSearch)) {
         matchScore += 70;
       }
     }
     
-    // **בדיקת מילות מפתח - דרישה קפדנית!**
+    // **בדיקת מילות מפתח**
     let wordMatchesInTitle = 0;
     let wordMatchesInDesc = 0;
     let wordMatchesInKeywords = 0;
+    let hasMainTopic = false;
     
-    for (const word of queryWords) {
+    for (const word of queryWordsWithoutCities) {
       let foundInTitle = title.includes(word);
       let foundInDesc = description.includes(word);
       let foundInKeywords = keywords.some(k => k.includes(word));
       
+      // זיהוי אם זו מילת הנושא העיקרית
+      const isMainTopic = (word === mainTopicWord);
+      
       if (foundInTitle) {
-        matchScore += 20; // ציון גבוה למילה בכותרת
+        matchScore += isMainTopic ? 30 : 20; // ציון גבוה יותר לנושא העיקרי
         wordMatchesInTitle++;
+        if (isMainTopic) hasMainTopic = true;
       }
       if (foundInDesc) {
-        matchScore += 10;
+        matchScore += isMainTopic ? 15 : 10;
         wordMatchesInDesc++;
+        if (isMainTopic) hasMainTopic = true;
       }
       if (foundInKeywords) {
-        matchScore += 8;
+        matchScore += isMainTopic ? 12 : 8;
         wordMatchesInKeywords++;
+        if (isMainTopic) hasMainTopic = true;
       }
     }
     
-    // **דרישה קפדנית: כל המילים חייבות להימצא!**
-    const totalMatches = wordMatchesInTitle + wordMatchesInDesc + wordMatchesInKeywords;
-    
-    if (isSpecificQuery && totalMatches < queryWords.length) {
-      // אם זו שאילתה ספציפית ולא כל המילים נמצאו - דלג!
+    // **דרישה קריטית: הנושא העיקרי חייב להימצא!**
+    if (isSpecificQuery && !hasMainTopic) {
+      // אם לא מצאנו את הנושא העיקרי - דלג!
       continue;
     }
     
-    // **בונוס אם כל המילים בכותרת או בתיאור**
-    if (wordMatchesInTitle >= queryWords.length) {
-      matchScore += 30; // כל המילים בכותרת!
-    } else if (wordMatchesInDesc >= queryWords.length) {
-      matchScore += 20; // כל המילים בתיאור
+    // **בונוס אם רוב המילים נמצאו**
+    const totalMatches = wordMatchesInTitle + wordMatchesInDesc + wordMatchesInKeywords;
+    const matchRatio = totalMatches / queryWordsWithoutCities.length;
+    
+    if (matchRatio >= 0.7) {
+      // 70% מהמילים נמצאו
+      matchScore += 25;
     }
     
-    // בדיקת אזור
+    // **בונוס נוסף אם כל המילים בכותרת**
+    if (wordMatchesInTitle >= queryWordsWithoutCities.length) {
+      matchScore += 30; // כל המילים בכותרת!
+    }
+    
+    // בדיקת אזור - גמישה יותר
     let matchesRegion = true;
+    let regionBonus = 0;
+    
     if (region && region.cities && isStaticPage) {
       const location = (page.location || '').toLowerCase();
-      matchesRegion = region.cities.some(city => 
-        location.includes(city.toLowerCase().replace(/-/g, ' '))
-      );
+      const titleAndDesc = (title + ' ' + description).toLowerCase();
+      
+      // בדוק גם ב-location וגם בכותרת/תיאור
+      const inLocation = region.cities.some(city => {
+        const cityLower = city.toLowerCase().replace(/-/g, ' ');
+        return location.includes(cityLower);
+      });
+      
+      const inTitleOrDesc = region.cities.some(city => {
+        const cityLower = city.toLowerCase().replace(/-/g, ' ');
+        return titleAndDesc.includes(cityLower);
+      });
+      
+      matchesRegion = inLocation || inTitleOrDesc;
+      
+      // בונוס אם מוזכר באזור הנכון
+      if (inLocation) {
+        regionBonus = 15; // בונוס גבוה למיקום מדויק
+      } else if (inTitleOrDesc) {
+        regionBonus = 10; // בונוס נמוך יותר אם רק בתיאור
+      }
+      
+      matchScore += regionBonus;
       
       if (!matchesRegion) {
-        matchScore = 0;
+        // הנמכת ציון משמעותית במקום אפס מוחלט
+        matchScore = Math.floor(matchScore * 0.3); // 70% הנחה
       }
     }
     
@@ -267,7 +311,7 @@ function searchPages(query, region = null, pageType = 'all') {
     return b.score - a.score;
   });
   
-  // **סינון לפי סף מינימלי גבוה!**
+  // **סינון לפי סף**
   results = results.filter(r => r.score >= minScore);
   
   return results.slice(0, 10);
