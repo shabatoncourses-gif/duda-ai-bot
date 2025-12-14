@@ -277,7 +277,7 @@ function formatSearchResults(pages, region = null) {
       const title = page.title || page.h1 || 'מוסד לימודים';
       
       // אייקון + כותרת בבולד
-      response += `🎓 **${title}**\n`;
+      response += `🏫 **${title}**\n`;
       
       // רשימת קורסים (אם קיימת)
       if (page.courses && Array.isArray(page.courses)) {
