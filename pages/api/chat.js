@@ -163,8 +163,24 @@ function searchPages(query, region = null, pageType = 'all') {
     const keywords = (page.keywords || []).map(k => k.toLowerCase());
     
     // זיהוי סוג הדף
-    const isStaticPage = !url.includes('/results-') && !url.includes('/search-results-');
-    const isInfoPage = url.includes('/זכאות') || url.includes('/מענק') || url.includes('/תקנון');
+    const isStaticPage = !url.includes('/results-') && !url.includes('/search-results-') && !url.includes('/courses-per-month');
+    const isInfoPage = url.includes('/luz_shabaton') ||
+                       url.includes('/shabaton-video') ||
+                       url.includes('/end_shabaton') ||
+                       url.includes('/halforfull_shabaton') ||
+                       url.includes('/phones_shabaton') ||
+                       url.includes('/forms_shabaton') ||
+                       url.includes('/Payments_shabaton') ||
+                       url.includes('/tlush_maanak_shabaton') ||
+                       url.includes('/btl-morim-shabaton') ||
+                       url.includes('//birth_shabatgon') ||
+                       url.includes('/tuition_reimbursement') ||
+                       url.includes('/kabalot_shabaton') ||
+                       url.includes('/shabaton-maanak') ||
+                       url.includes('/pension_shabaton') ||
+                       url.includes('/keren_makor_mishor') ||
+                       url.includes('/tofes_101') ||
+                       url.includes('/learning_programs_shabaton');
     
     // סינון לפי סוג דף מבוקש
     if (pageType === 'static' && !isStaticPage) continue;
@@ -353,8 +369,8 @@ function generateSmartResponse(userMessage) {
   // **זיהוי סוג השאלה**
   const isInfoQuestion = userMessage.toLowerCase().includes('שבתון') || 
                          userMessage.toLowerCase().includes('מענק') ||
-                         userMessage.toLowerCase().includes('זכאות') ||
-                         userMessage.toLowerCase().includes('תקנון');
+                         userMessage.toLowerCase().includes('ביטוח לאומי') ||
+                         userMessage.toLowerCase().includes('לידה');
   
   // **שאלות מידע על שבתון**
   if (isInfoQuestion) {
@@ -366,10 +382,10 @@ function generateSmartResponse(userMessage) {
     } else {
       response = `שנת שבתון - מידע כללי 📘\n\n`;
       response += `מה תרצה לדעת?\n`;
-      response += `• זכאות למענק\n`;
-      response += `• תלוש מענק\n`;
-      response += `• תקנון\n`;
-      response += `• קורסים מוכרים\n\n`;
+      response += `• מענק בשבתון\n`;
+      response += `• ביטוח לאומי\n`;
+      response += `• לידה בשבתון\n`;
+      response += `• תוכנית הלימודים\n\n`;
       response += `אם לא מצאתי תשובה, אפשר לשאול בקבוצת WhatsApp:\n`;
       response += `https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME`;
       return response;
