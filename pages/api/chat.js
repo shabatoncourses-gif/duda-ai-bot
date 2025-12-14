@@ -106,7 +106,10 @@ function shouldFilterUrl(url) {
     '/trips',
     '/health',
     '/fashion',
-    'קורסי-נגרות-וחידוש-רהיטים'
+    'קורסי-נגרות-וחידוש-רהיטים',
+    '/courses-per-month-', // דפי חודשים - לא רלוונטי!
+    '/Ma_Edu_', // דפי תואר שני כלליים
+    'close carousel' // תוכן לא רלוונטי
   ];
   
   return blockedPatterns.some(pattern => url.includes(pattern));
@@ -339,7 +342,7 @@ function detectStudyField(message) {
 }
 
 // ========================================
-// 🤖 יצירת תשובה חכמה (לוגיקה חדשה!)
+// 🤖 יצירת תשובה חכמה (לוגיקה פשוטה!)
 // ========================================
 function generateSmartResponse(userMessage) {
   const region = detectRegion(userMessage);
@@ -373,6 +376,19 @@ function generateSmartResponse(userMessage) {
     }
   }
   
+  // **אם יש תחום מזוהה ואזור - ישר לדף דינמי!**
+  if (studyFields.length > 0 && region) {
+    const field = studyFields[0];
+    const regionSlug = region.slug;
+    const encodedSlug = field.slug.replace(/ /g, '%20');
+    const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
+    
+    response = `מצאתי ${field.name} ב${region.name}! 🎓\n\n`;
+    response += `${url}`;
+    
+    return response;
+  }
+  
   // **אם יש תחום אבל אין אזור - שאל איפה!**
   if (studyFields.length > 0 && !region) {
     const field = studyFields[0];
@@ -389,83 +405,8 @@ function generateSmartResponse(userMessage) {
     return response;
   }
   
-  // **חיפוש באינדקס (דפים סטטיים של מוסדות)**
-  const searchResults = searchPages(userMessage, region, 'static');
-  
-  if (searchResults && searchResults.length > 0) {
-    // **הצגת מוסדות**
-    const institutionName = studyFields.length > 0 ? studyFields[0].name : 'קורסים';
-    const regionName = region ? region.name : '';
-    
-    response = `מצאתי ${searchResults.length} מוסדות ל${institutionName}`;
-    if (regionName) response += ` ב${regionName}`;
-    response += `:\n\n`;
-    
-    searchResults.forEach((page) => {
-      const title = page.title || page.h1 || 'מוסד לימודים';
-      
-      response += `${title}\n`;
-      
-      // אם יש רשימת קורסים - הצג (נניח שזה בתיאור)
-      if (page.courses && Array.isArray(page.courses)) {
-        page.courses.slice(0, 3).forEach(course => {
-          response += `• ${course}\n`;
-        });
-      } else if (page.description && page.description.length < 200) {
-        response += `${page.description}\n`;
-      }
-      
-      response += `פנו ישירות למוסד הלימודים:\n${page.url}\n\n`;
-    });
-    
-    // **קישור לדף דינמי (ככפתור)**
-    if (studyFields.length > 0 && region) {
-      const field = studyFields[0];
-      const regionSlug = region.slug;
-      const encodedSlug = field.slug.replace(/ /g, '%20');
-      const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
-      
-      response += `${url}`;
-    }
-    
-    return response;
-  }
-  
-  // **לא נמצא באזור - הצע אזורים אחרים**
-  if (studyFields.length > 0 && region) {
-    const field = studyFields[0];
-    
-    // חיפוש בכל הארץ
-    const allResults = searchPages(userMessage, null, 'static');
-    
-    if (allResults && allResults.length > 0) {
-      response = `לא מצאתי ${field.name} באזור ${region.name}.\n\n`;
-      response += `האם תרצה לראות באזורים אחרים או בלמידה מרחוק?`;
-      return response;
-    } else {
-      // אין בכלל - הצע דף דינמי
-      response = `לא מצאתי ${field.name} באזור ${region.name}.\n\n`;
-      
-      const regionSlug = region.slug;
-      const encodedSlug = field.slug.replace(/ /g, '%20');
-      const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
-      
-      response += `${url}`;
-      return response;
-    }
-  }
-  
-  // **יש תחום ואזור אבל לא מצאנו - קישור לדף דינמי**
-  if (studyFields.length > 0 && region) {
-    const field = studyFields[0];
-    const regionSlug = region.slug;
-    const encodedSlug = field.slug.replace(/ /g, '%20');
-    const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
-    
-    response = `${field.slug}\n${url}`;
-    
-  // **יש אזור אבל אין תחום**
-  } else if (region) {
+  // **אם יש אזור אבל אין תחום**
+  if (region) {
     response = `מעולה! ${region.name} 🗺️\n\n`;
     response += `באיזה תחום תרצה להתמחות?\n\n`;
     response += `📚 הנחיית קבוצות\n`;
@@ -474,16 +415,26 @@ function generateSmartResponse(userMessage) {
     response += `👨‍🏫 חינוך והוראה\n`;
     response += `✨ העצמה אישית`;
     
-  // **לא זיהיתי כלום**
-  } else {
-    response = `אשמח לעזור! 🎯\n\n`;
-    response += `ספר לי:\n`;
-    response += `📍 באיזה אזור?\n`;
-    response += `📚 איזה תחום?\n\n`;
-    response += `דוגמה: "הנחיית קבוצות בחיפה"\n\n`;
-    response += `אם אין לי תשובה מתאימה, אפשר לשאול בקבוצת WhatsApp:\n`;
-    response += `https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME`;
+    return response;
   }
+  
+  // **אם אין תחום ואין אזור - חיפוש כללי באינדקס**
+  const searchResults = searchPages(userMessage, null, 'static');
+  
+  if (searchResults && searchResults.length > 0) {
+    response = `מצאתי ${searchResults.length} תוצאות:\n\n`;
+    response += formatSearchResults(searchResults);
+    return response;
+  }
+  
+  // **לא זיהיתי כלום**
+  response = `אשמח לעזור! 🎯\n\n`;
+  response += `ספר לי:\n`;
+  response += `📍 באיזה אזור?\n`;
+  response += `📚 איזה תחום?\n\n`;
+  response += `דוגמה: "הנחיית קבוצות בחיפה"\n\n`;
+  response += `אם אין לי תשובה מתאימה, אפשר לשאול בקבוצת WhatsApp:\n`;
+  response += `https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME`;
   
   return response;
 }
