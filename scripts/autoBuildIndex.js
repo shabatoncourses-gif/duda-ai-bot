@@ -104,10 +104,10 @@ if (!CONFIG.OPENAI_API_KEY?.startsWith("sk-")) {
 const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
+// ============================================
+// 🌐 Puppeteer -
+// ============================================
 
-// ============================================
-// 🌐 Puppeteer - לדפי Duda דינמיים
-// ============================================
 let browserInstance = null;
 
 async function fetchDudaPageWithPuppeteer(url) {
@@ -115,7 +115,7 @@ async function fetchDudaPageWithPuppeteer(url) {
   
   try {
     if (!browserInstance) {
-      browserInstance = await puppeteer.launch({
+      const launchOptions = {
         headless: true,
         args: [
           '--no-sandbox',
@@ -123,7 +123,14 @@ async function fetchDudaPageWithPuppeteer(url) {
           '--disable-dev-shm-usage',
           '--disable-gpu'
         ]
-      });
+      };
+      
+      // ⚡ תמיכה ב-GitHub Actions (רק שורה אחת!)
+      if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+        launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+      }
+      
+      browserInstance = await puppeteer.launch(launchOptions);
       console.log(`   ✅ דפדפן נפתח`);
     }
     
@@ -1832,6 +1839,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
