@@ -103,7 +103,7 @@ if (!CONFIG.OPENAI_API_KEY?.startsWith("sk-")) {
 
 const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
- ============================================
+
 // ============================================
 // 🌐 Puppeteer - תוקן ל-GitHub Actions
 // ============================================
@@ -283,6 +283,7 @@ process.on('beforeExit', closeBrowser);
 process.on('exit', () => {
   console.log('👋 התהליך מסתיים');
 });
+
 // ============================================
 // 🧹 משפטים להתעלמות
 // ============================================
@@ -1935,6 +1936,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
