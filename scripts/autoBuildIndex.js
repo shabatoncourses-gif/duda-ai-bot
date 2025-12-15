@@ -103,9 +103,8 @@ if (!CONFIG.OPENAI_API_KEY?.startsWith("sk-")) {
 
 const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-
 // ============================================
-// 🎯 Puppeteer - ממתין לטעינת data-binding של דודא
+// 🎯 Puppeteer - תוקן ל-Puppeteer חדש (ללא waitForTimeout)
 // ============================================
 
 let browserInstance = null;
@@ -116,13 +115,13 @@ async function fetchDudaPageWithPuppeteer(url) {
   try {
     if (!browserInstance) {
       const launchOptions = {
-        headless: 'new',  // ⭐ השתנה ל-'new'
+        headless: 'new',
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
           '--disable-gpu',
-          '--disable-blink-features=AutomationControlled'  // ⭐ מסתיר שזה bot
+          '--disable-blink-features=AutomationControlled'
         ]
       };
       
@@ -136,7 +135,7 @@ async function fetchDudaPageWithPuppeteer(url) {
     
     const page = await browserInstance.newPage();
     
-    // ⭐ הסתרת automation flags
+    // הסתרת automation flags
     await page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, 'webdriver', {
         get: () => false,
@@ -148,34 +147,29 @@ async function fetchDudaPageWithPuppeteer(url) {
     
     console.log(`   📡 נווט לדף...`);
     
-    // ⭐ ניווט בלי networkidle - פשוט load
     await page.goto(url, {
-      waitUntil: 'load',  // ⭐ רק load, לא networkidle
+      waitUntil: 'load',
       timeout: 60000
     });
     
     console.log(`   ✅ דף נטען`);
     
-    // ⭐ המתנה ארוכה לתוכן דינמי של דודא
+    // ⭐ המתנה של 8 שניות (ללא waitForTimeout)
     console.log(`   ⏳ ממתין 8 שניות ל-JavaScript של דודא...`);
-    await page.waitForTimeout(8000);  // ⭐ 8 שניות המתנה קבועה
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 8000)));
     
-    // ⭐ בדוק אם data-binding עדיין קיים (אם כן, התוכן לא נטען)
+    // בדוק אם data-binding עדיין קיים
     const hasDataBinding = await page.evaluate(() => {
       const element = document.querySelector('[data-binding]');
-      if (element) {
-        console.log('נמצא data-binding:', element.getAttribute('data-binding').substring(0, 50));
-        return true;
-      }
-      return false;
+      return !!element;
     });
     
     if (hasDataBinding) {
       console.log(`   ⚠️ data-binding עדיין קיים - ממשיכים להמתין...`);
-      await page.waitForTimeout(5000);  // עוד 5 שניות
+      await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
     }
     
-    // ⭐ בדוק אם li.listItem קיימים
+    // בדוק כמה li.listItem יש
     const itemCount = await page.evaluate(() => {
       return document.querySelectorAll('li.listItem').length;
     });
@@ -184,7 +178,7 @@ async function fetchDudaPageWithPuppeteer(url) {
     
     if (itemCount === 0) {
       console.log(`   ⚠️ לא נמצאו פריטים - ממשיכים להמתין...`);
-      await page.waitForTimeout(5000);  // עוד 5 שניות
+      await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
       
       const itemCount2 = await page.evaluate(() => {
         return document.querySelectorAll('li.listItem').length;
@@ -192,12 +186,12 @@ async function fetchDudaPageWithPuppeteer(url) {
       console.log(`   📊 נמצאו ${itemCount2} פריטים אחרי המתנה נוספת`);
     }
     
-    // ⭐ Scroll למטה
+    // Scroll למטה
     console.log(`   📜 Scroll למטה...`);
-    await page.evaluate(async () => {
+    await page.evaluate(() => {
       window.scrollTo(0, document.body.scrollHeight);
     });
-    await page.waitForTimeout(2000);
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
     
     // קבלת HTML
     const html = await page.content();
@@ -207,12 +201,19 @@ async function fetchDudaPageWithPuppeteer(url) {
     
     if (html.length < 1000) {
       console.log(`   ❌❌❌ HTML קצר מדי! (${html.length} תווים)`);
-      
-      // ⭐ נסה שוב עם המתנה ארוכה יותר
       console.log(`   🔄 מנסה שוב עם המתנה של 15 שניות...`);
+      
       const page2 = await browserInstance.newPage();
+      await page2.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, 'webdriver', {
+          get: () => false,
+        });
+      });
+      await page2.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      
       await page2.goto(url, { waitUntil: 'load', timeout: 60000 });
-      await page2.waitForTimeout(15000);  // 15 שניות!
+      await page2.evaluate(() => new Promise(resolve => setTimeout(resolve, 15000)));
+      
       const html2 = await page2.content();
       await page2.close();
       
@@ -1897,6 +1898,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
