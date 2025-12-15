@@ -105,15 +105,16 @@ if (!CONFIG.OPENAI_API_KEY?.startsWith("sk-")) {
 
 const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+
 // ============================================
-// 🎯 Puppeteer - עם בדיקת redirects
+// 🥷 PUPPETEER STEALTH - פונקציה מלאה
 // ============================================
 
 let browserInstance = null;
 
 async function fetchDudaPageWithPuppeteer(url) {
-  console.log(`   🌐 טוען דף Duda עם Puppeteer...`);
-  console.log(`   📍 URL מקורי: ${url}`);
+  console.log(`   🌐 טוען דף Duda עם Puppeteer-Stealth...`);
+  console.log(`   📍 URL: ${url}`);
   
   try {
     if (!browserInstance) {
@@ -123,8 +124,7 @@ async function fetchDudaPageWithPuppeteer(url) {
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--disable-blink-features=AutomationControlled'
+          '--disable-gpu'
         ]
       };
       
@@ -133,53 +133,41 @@ async function fetchDudaPageWithPuppeteer(url) {
       }
       
       browserInstance = await puppeteer.launch(launchOptions);
-      console.log(`   ✅ דפדפן נפתח`);
+      console.log(`   ✅ דפדפן נפתח (עם Stealth Plugin)`);
     }
     
     const page = await browserInstance.newPage();
-    
-    // הסתרת automation flags
-    await page.evaluateOnNewDocument(() => {
-      Object.defineProperty(navigator, 'webdriver', {
-        get: () => false,
-      });
-    });
-    
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1920, height: 1080 });
     
     console.log(`   📡 נווט לדף...`);
     
-    // ⭐ נווט ונבדוק את ה-URL הסופי
     const response = await page.goto(url, {
       waitUntil: 'load',
       timeout: 60000
     });
     
-    // ⭐ בדיקת URL אחרי redirect
-    const finalUrl = page.url();
-    if (finalUrl !== url) {
-      console.log(`   🔄 Redirect זוהה!`);
-      console.log(`   📍 URL סופי: ${finalUrl}`);
-    } else {
-      console.log(`   ✅ אין redirect - URL זהה`);
-    }
+    const status = response.status();
+    console.log(`   📊 Status: ${status}`);
     
-    // ⭐ בדיקת status
-    console.log(`   📊 Status: ${response.status()}`);
-    
-    if (response.status() === 404) {
-      console.log(`   ❌❌❌ שגיאת 404 - הדף לא נמצא!`);
-      console.log(`   💡 URL שנכשל: ${finalUrl}`);
+    // בדיקת status
+    if (status === 403) {
+      console.log(`   ❌ Status 403: הדף חוסם גישה (אפילו עם Stealth)`);
       await page.close();
       return null;
     }
     
-    if (response.status() !== 200) {
-      console.log(`   ⚠️ Status לא תקין: ${response.status()}`);
+    if (status === 404) {
+      console.log(`   ❌ Status 404: הדף לא נמצא`);
+      await page.close();
+      return null;
     }
     
-    console.log(`   ⏳ ממתין 8 שניות ל-JavaScript של דודא...`);
+    if (status !== 200) {
+      console.log(`   ⚠️ Status לא תקין: ${status}`);
+    }
+    
+    // המתנה לתוכן דינמי
+    console.log(`   ⏳ ממתין 8 שניות לתוכן דינמי...`);
     await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 8000)));
     
     // בדוק כמה li.listItem יש
@@ -190,7 +178,7 @@ async function fetchDudaPageWithPuppeteer(url) {
     console.log(`   📊 נמצאו ${itemCount} פריטי li.listItem`);
     
     if (itemCount === 0) {
-      console.log(`   ⚠️ לא נמצאו פריטים - ממשיכים להמתין...`);
+      console.log(`   ⚠️ לא נמצאו פריטים - עוד 5 שניות המתנה...`);
       await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
       
       const itemCount2 = await page.evaluate(() => {
@@ -206,11 +194,11 @@ async function fetchDudaPageWithPuppeteer(url) {
     console.log(`   📝 HTML: ${html.length.toLocaleString()} תווים`);
     
     if (html.length < 1000) {
-      console.log(`   ❌❌❌ HTML קצר מדי! (${html.length} תווים)`);
-      console.log(`   💡 הדף כנראה ריק או 404`);
-      console.log(`   📍 בדקי את URL: ${finalUrl}`);
-      return null;  // ⭐ החזר null במקום לנסות שוב
+      console.log(`   ❌ HTML קצר מדי (${html.length} תווים) - הדף ריק`);
+      return null;
     }
+    
+    console.log(`   ✅✅✅ הצלחה! הדף נטען כראוי`);
     
     return {
       ok: true,
@@ -220,6 +208,7 @@ async function fetchDudaPageWithPuppeteer(url) {
     
   } catch (err) {
     console.error(`   ❌ שגיאת Puppeteer: ${err.message}`);
+    console.error(`   Stack: ${err.stack?.substring(0, 300)}`);
     return null;
   }
 }
