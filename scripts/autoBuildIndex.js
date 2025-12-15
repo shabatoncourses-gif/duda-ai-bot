@@ -104,11 +104,8 @@ if (!CONFIG.OPENAI_API_KEY?.startsWith("sk-")) {
 const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-// ============================================
-// 🌐 Puppeteer - תוקן ל-GitHub Actions
-// ============================================
 
-// החלף את הפונקציה fetchDudaPageWithPuppeteer ב-autoBuildIndex.js
+// החלף את כל הפונקציה fetchDudaPageWithPuppeteer ב-autoBuildIndex.js
 
 let browserInstance = null;
 
@@ -121,7 +118,7 @@ async function fetchDudaPageWithPuppeteer(url) {
     if (!browserInstance) {
       console.log(`   🚀 פותח דפדפן חדש...`);
       
-      // ⚡ תמיכה ב-GitHub Actions
+      // ⚡ הגדרות השקה
       const launchOptions = {
         headless: 'new',
         args: [
@@ -136,7 +133,7 @@ async function fetchDudaPageWithPuppeteer(url) {
         timeout: 60000
       };
       
-      // אם יש PUPPETEER_EXECUTABLE_PATH (GitHub Actions)
+      // ⚡ תמיכה ב-GitHub Actions
       if (process.env.PUPPETEER_EXECUTABLE_PATH) {
         launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
         console.log(`   🎯 משתמש ב-Chromium: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
@@ -163,6 +160,7 @@ async function fetchDudaPageWithPuppeteer(url) {
     
     console.log(`   📊 Status: ${response.status()}`);
     
+    // בדיקת status
     if (response.status() !== 200) {
       console.log(`   ❌ Status לא תקין: ${response.status()}`);
       await page.close();
@@ -180,19 +178,19 @@ async function fetchDudaPageWithPuppeteer(url) {
       console.log(`   ⚠️ לא נמצא h1/body, ממשיכים`);
     }
     
-    // ⚡ המתנה למרכיבים דינמיים
+    // ⚡ המתנה נוספת למרכיבים דינמיים
     await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
     
-    // ⚡ ניסיון להמתין ל-li.listItem
+    // ⚡ המתנה ל-li.listItem (לדפי results)
     if (url.includes('results-') || url.includes('search-results-')) {
       try {
         await page.waitForSelector('li.listItem', { 
           timeout: 10000,
           visible: true
         });
-        console.log(`   ✅ li.listItem נטען!`);
+        console.log(`   ✅ li.listItem נטען בהצלחה!`);
       } catch {
-        console.log(`   ⚠️ לא נמצא li.listItem`);
+        console.log(`   ⚠️ לא נמצא li.listItem, ממשיכים`);
       }
     }
     
@@ -215,6 +213,7 @@ async function fetchDudaPageWithPuppeteer(url) {
         });
       });
       
+      // המתנה נוספת אחרי scroll
       await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 1000)));
     } catch (scrollErr) {
       console.log(`   ⚠️ Scroll נכשל: ${scrollErr.message}`);
@@ -226,9 +225,9 @@ async function fetchDudaPageWithPuppeteer(url) {
     
     console.log(`   📝 HTML נטען: ${html.length.toLocaleString()} תווים`);
     
-    // ⚡ בדיקה שה-HTML לא ריק
+    // ⚡ בדיקה שה-HTML לא ריק או קצר מדי
     if (html.length < 1000) {
-      console.log(`   ⚠️ HTML קצר מדי (${html.length} תווים)`);
+      console.log(`   ⚠️ HTML קצר מדי (${html.length} תווים) - אולי דף שגיאה`);
     }
     
     return {
@@ -280,10 +279,10 @@ process.on('SIGTERM', async () => {
 });
 
 process.on('beforeExit', closeBrowser);
+
 process.on('exit', () => {
   console.log('👋 התהליך מסתיים');
 });
-
 // ============================================
 // 🧹 משפטים להתעלמות
 // ============================================
@@ -1936,6 +1935,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
