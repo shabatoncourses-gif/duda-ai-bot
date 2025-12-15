@@ -103,40 +103,186 @@ if (!CONFIG.OPENAI_API_KEY?.startsWith("sk-")) {
 
 const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+ ============================================
+// ============================================
+// 🌐 Puppeteer - תוקן ל-GitHub Actions
+// ============================================
 
-// ============================================
-// 🌐 Puppeteer - עם המתנות ארוכות יותר
-// ============================================
+// החלף את הפונקציה fetchDudaPageWithPuppeteer ב-autoBuildIndex.js
 
 let browserInstance = null;
+
 async function fetchDudaPageWithPuppeteer(url) {
-  if (!browserInstance) {
-    browserInstance = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']  // ⭐ רק 2!
-    });
-  }
+  console.log(`   🌐 טוען דף Duda עם Puppeteer...`);
   
-  const page = await browserInstance.newPage();
-  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-  await page.setViewport({ width: 1920, height: 1080 });
-  
-  await page.goto(url, {
-    waitUntil: 'networkidle2',  // ⭐ networkidle2
-    timeout: 30000
-  });
+  let page = null;
   
   try {
-    await page.waitForSelector('li.listItem', { timeout: 10000 });
-  } catch {
-    // ממשיכים גם אם לא מצאנו
+    if (!browserInstance) {
+      console.log(`   🚀 פותח דפדפן חדש...`);
+      
+      // ⚡ תמיכה ב-GitHub Actions
+      const launchOptions = {
+        headless: 'new',
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-web-security',
+          '--disable-features=IsolateOrigins,site-per-process',
+          '--window-size=1920,1080'
+        ],
+        timeout: 60000
+      };
+      
+      // אם יש PUPPETEER_EXECUTABLE_PATH (GitHub Actions)
+      if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+        launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        console.log(`   🎯 משתמש ב-Chromium: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+      }
+      
+      browserInstance = await puppeteer.launch(launchOptions);
+      console.log(`   ✅ דפדפן נפתח`);
+    }
+    
+    page = await browserInstance.newPage();
+    
+    // ⚡ User agent מציאותי
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setJavaScriptEnabled(true);
+    
+    console.log(`   📡 מנווט ל-URL...`);
+    
+    // ⚡ ניווט עם timeout ארוך
+    const response = await page.goto(url, {
+      waitUntil: ['networkidle2', 'domcontentloaded'],
+      timeout: 45000
+    });
+    
+    console.log(`   📊 Status: ${response.status()}`);
+    
+    if (response.status() !== 200) {
+      console.log(`   ❌ Status לא תקין: ${response.status()}`);
+      await page.close();
+      return { ok: false, status: response.status() };
+    }
+    
+    // ⚡ המתנה לתוכן עיקרי
+    try {
+      await page.waitForSelector('h1, body, main, article', { 
+        timeout: 10000,
+        visible: true
+      });
+      console.log(`   ✅ תוכן עיקרי נטען`);
+    } catch (err) {
+      console.log(`   ⚠️ לא נמצא h1/body, ממשיכים`);
+    }
+    
+    // ⚡ המתנה למרכיבים דינמיים
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
+    
+    // ⚡ ניסיון להמתין ל-li.listItem
+    if (url.includes('results-') || url.includes('search-results-')) {
+      try {
+        await page.waitForSelector('li.listItem', { 
+          timeout: 10000,
+          visible: true
+        });
+        console.log(`   ✅ li.listItem נטען!`);
+      } catch {
+        console.log(`   ⚠️ לא נמצא li.listItem`);
+      }
+    }
+    
+    // ⚡ Scroll למטה לטעינת lazy content
+    try {
+      await page.evaluate(async () => {
+        await new Promise((resolve) => {
+          let totalHeight = 0;
+          const distance = 100;
+          const timer = setInterval(() => {
+            const scrollHeight = document.body.scrollHeight;
+            window.scrollBy(0, distance);
+            totalHeight += distance;
+
+            if (totalHeight >= scrollHeight) {
+              clearInterval(timer);
+              resolve();
+            }
+          }, 100);
+        });
+      });
+      
+      await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 1000)));
+    } catch (scrollErr) {
+      console.log(`   ⚠️ Scroll נכשל: ${scrollErr.message}`);
+    }
+    
+    // קבלת HTML
+    const html = await page.content();
+    await page.close();
+    
+    console.log(`   📝 HTML נטען: ${html.length.toLocaleString()} תווים`);
+    
+    // ⚡ בדיקה שה-HTML לא ריק
+    if (html.length < 1000) {
+      console.log(`   ⚠️ HTML קצר מדי (${html.length} תווים)`);
+    }
+    
+    return {
+      ok: true,
+      text: async () => html,
+      status: 200
+    };
+    
+  } catch (err) {
+    console.error(`   ❌ שגיאת Puppeteer: ${err.message}`);
+    console.error(`   Stack: ${err.stack?.substring(0, 200)}`);
+    
+    if (page) {
+      try {
+        await page.close();
+      } catch (closeErr) {
+        console.error(`   ⚠️ כשלון בסגירת דף: ${closeErr.message}`);
+      }
+    }
+    
+    return null;
   }
-  
-  const html = await page.content();
-  await page.close();
-  
-  return { ok: true, text: async () => html, status: 200 };
 }
+
+// ⚡ טיפול בסגירת browser
+const closeBrowser = async () => {
+  if (browserInstance) {
+    console.log('\n🔚 סוגר דפדפן...');
+    try {
+      await browserInstance.close();
+      browserInstance = null;
+      console.log('   ✅ דפדפן נסגר');
+    } catch (err) {
+      console.error(`   ⚠️ שגיאה בסגירה: ${err.message}`);
+    }
+  }
+};
+
+process.on('SIGINT', async () => {
+  console.log('\n🛑 קיבלתי SIGINT');
+  await closeBrowser();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\n🛑 קיבלתי SIGTERM');
+  await closeBrowser();
+  process.exit(0);
+});
+
+process.on('beforeExit', closeBrowser);
+process.on('exit', () => {
+  console.log('👋 התהליך מסתיים');
+});
 // ============================================
 // 🧹 משפטים להתעלמות
 // ============================================
@@ -1789,6 +1935,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
