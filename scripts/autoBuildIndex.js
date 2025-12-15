@@ -105,10 +105,6 @@ const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
 // ============================================
-// 🌐 Puppeteer - לדפי Duda דינמיים
-// ============================================
-let browserInstance = null;
-// ============================================
 // 🌐 Puppeteer - גרסה מלאה ומתוקנת ל-GitHub Actions
 // ============================================
 
@@ -1944,6 +1940,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
