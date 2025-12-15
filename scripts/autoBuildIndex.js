@@ -105,10 +105,7 @@ const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
 // ============================================
-// 🌐 Puppeteer - גרסה מלאה ומתוקנת ל-GitHub Actions
-// ============================================
-// ============================================
-// 🌐 Puppeteer - גרסה פשוטה שעובדת + GitHub Actions
+// 🌐 Puppeteer - עם המתנות ארוכות יותר
 // ============================================
 
 let browserInstance = null;
@@ -118,7 +115,6 @@ async function fetchDudaPageWithPuppeteer(url) {
   
   try {
     if (!browserInstance) {
-      // ⚡ הגדרות פשוטות שעובדות
       const launchOptions = {
         headless: true,
         args: [
@@ -129,7 +125,7 @@ async function fetchDudaPageWithPuppeteer(url) {
         ]
       };
       
-      // ⚡ תמיכה ב-GitHub Actions (רק זה!)
+      // תמיכה ב-GitHub Actions
       if (process.env.PUPPETEER_EXECUTABLE_PATH) {
         launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
         console.log(`   🎯 משתמש ב-Chromium: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
@@ -140,37 +136,73 @@ async function fetchDudaPageWithPuppeteer(url) {
     }
     
     const page = await browserInstance.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1920, height: 1080 });
     
+    console.log(`   📡 מנווט לדף...`);
+    
+    // ⚡ ניווט עם timeout ארוך יותר
     await page.goto(url, {
       waitUntil: 'networkidle2',
-      timeout: 30000
+      timeout: 45000  // ⚡ 45 שניות במקום 30
     });
     
-    // ⚡ המתנה נוספת ל-Duda content
+    console.log(`   ✅ דף נטען, ממתין לתוכן דינמי...`);
+    
+    // ⚡ המתנה ארוכה יותר לתוכן עיקרי
     try {
-      // המתנה ל-h1 או לתוכן עיקרי
-      await page.waitForSelector('h1, .content, main, article', { timeout: 5000 });
+      await page.waitForSelector('h1, .content, main, article, body', { 
+        timeout: 10000,  // ⚡ 10 שניות
+        visible: true
+      });
       console.log(`   ✅ תוכן עיקרי נטען`);
     } catch {
       console.log(`   ⚠️ לא נמצא h1/content, ממשיכים`);
     }
     
-    // המתנה קצרה נוספת לוודא שהכל נטען
-    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 1000)));
+    // ⚡ המתנה ארוכה למרכיבים דינמיים
+    console.log(`   ⏳ ממתין 3 שניות למרכיבים דינמיים...`);
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 3000)));  // ⚡ 3 שניות!
     
+    // ⚡ ניסיון למצוא li.listItem
     try {
-      await page.waitForSelector('li.listItem', { timeout: 10000 });
+      await page.waitForSelector('li.listItem', { 
+        timeout: 15000,  // ⚡ 15 שניות!
+        visible: true
+      });
       console.log(`   ✅ li.listItem נטען בהצלחה!`);
     } catch {
-      console.log(`   ⚠️ לא נמצא li.listItem, ממשיכים`);
+      console.log(`   ⚠️ לא נמצא li.listItem אחרי 15s`);
+      
+      // ⚡ ניסיון נוסף - אולי זה בתוך iframe?
+      const frames = page.frames();
+      console.log(`   🔍 בודק ${frames.length} frames...`);
+      
+      for (const frame of frames) {
+        try {
+          const listItems = await frame.$$('li.listItem');
+          if (listItems.length > 0) {
+            console.log(`   ✅ מצאתי ${listItems.length} listItems בתוך frame!`);
+            break;
+          }
+        } catch (err) {
+          // ממשיכים לבדוק frames אחרים
+        }
+      }
     }
+    
+    // ⚡ המתנה נוספת לפני שליפת ה-HTML
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));  // ⚡ עוד 2 שניות
     
     const html = await page.content();
     await page.close();
     
-    console.log(`   📝 HTML: ${html.length} תווים`);
+    console.log(`   📝 HTML: ${html.length.toLocaleString()} תווים`);
+    
+    // ⚡ אזהרה אם ה-HTML קצר מדי
+    if (html.length < 1000) {
+      console.log(`   ⚠️ אזהרה: HTML קצר מדי! אולי הדף לא נטען כראוי.`);
+    }
     
     return {
       ok: true,
@@ -180,6 +212,9 @@ async function fetchDudaPageWithPuppeteer(url) {
     
   } catch (err) {
     console.error(`   ❌ שגיאת Puppeteer: ${err.message}`);
+    if (err.stack) {
+      console.error(`   Stack: ${err.stack.substring(0, 200)}`);
+    }
     return null;
   }
 }
@@ -191,7 +226,6 @@ process.on('beforeExit', async () => {
     browserInstance = null;
   }
 });
-
 // ============================================
 // 🧹 משפטים להתעלמות
 // ============================================
@@ -1844,6 +1878,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
