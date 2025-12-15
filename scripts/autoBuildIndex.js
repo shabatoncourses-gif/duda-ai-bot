@@ -104,13 +104,14 @@ if (!CONFIG.OPENAI_API_KEY?.startsWith("sk-")) {
 const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 // ============================================
-// 🎯 Puppeteer - תוקן ל-Puppeteer חדש (ללא waitForTimeout)
+// 🎯 Puppeteer - עם בדיקת redirects
 // ============================================
 
 let browserInstance = null;
 
 async function fetchDudaPageWithPuppeteer(url) {
   console.log(`   🌐 טוען דף Duda עם Puppeteer...`);
+  console.log(`   📍 URL מקורי: ${url}`);
   
   try {
     if (!browserInstance) {
@@ -147,27 +148,37 @@ async function fetchDudaPageWithPuppeteer(url) {
     
     console.log(`   📡 נווט לדף...`);
     
-    await page.goto(url, {
+    // ⭐ נווט ונבדוק את ה-URL הסופי
+    const response = await page.goto(url, {
       waitUntil: 'load',
       timeout: 60000
     });
     
-    console.log(`   ✅ דף נטען`);
+    // ⭐ בדיקת URL אחרי redirect
+    const finalUrl = page.url();
+    if (finalUrl !== url) {
+      console.log(`   🔄 Redirect זוהה!`);
+      console.log(`   📍 URL סופי: ${finalUrl}`);
+    } else {
+      console.log(`   ✅ אין redirect - URL זהה`);
+    }
     
-    // ⭐ המתנה של 8 שניות (ללא waitForTimeout)
+    // ⭐ בדיקת status
+    console.log(`   📊 Status: ${response.status()}`);
+    
+    if (response.status() === 404) {
+      console.log(`   ❌❌❌ שגיאת 404 - הדף לא נמצא!`);
+      console.log(`   💡 URL שנכשל: ${finalUrl}`);
+      await page.close();
+      return null;
+    }
+    
+    if (response.status() !== 200) {
+      console.log(`   ⚠️ Status לא תקין: ${response.status()}`);
+    }
+    
     console.log(`   ⏳ ממתין 8 שניות ל-JavaScript של דודא...`);
     await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 8000)));
-    
-    // בדוק אם data-binding עדיין קיים
-    const hasDataBinding = await page.evaluate(() => {
-      const element = document.querySelector('[data-binding]');
-      return !!element;
-    });
-    
-    if (hasDataBinding) {
-      console.log(`   ⚠️ data-binding עדיין קיים - ממשיכים להמתין...`);
-      await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
-    }
     
     // בדוק כמה li.listItem יש
     const itemCount = await page.evaluate(() => {
@@ -186,13 +197,6 @@ async function fetchDudaPageWithPuppeteer(url) {
       console.log(`   📊 נמצאו ${itemCount2} פריטים אחרי המתנה נוספת`);
     }
     
-    // Scroll למטה
-    console.log(`   📜 Scroll למטה...`);
-    await page.evaluate(() => {
-      window.scrollTo(0, document.body.scrollHeight);
-    });
-    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
-    
     // קבלת HTML
     const html = await page.content();
     await page.close();
@@ -201,29 +205,9 @@ async function fetchDudaPageWithPuppeteer(url) {
     
     if (html.length < 1000) {
       console.log(`   ❌❌❌ HTML קצר מדי! (${html.length} תווים)`);
-      console.log(`   🔄 מנסה שוב עם המתנה של 15 שניות...`);
-      
-      const page2 = await browserInstance.newPage();
-      await page2.evaluateOnNewDocument(() => {
-        Object.defineProperty(navigator, 'webdriver', {
-          get: () => false,
-        });
-      });
-      await page2.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-      
-      await page2.goto(url, { waitUntil: 'load', timeout: 60000 });
-      await page2.evaluate(() => new Promise(resolve => setTimeout(resolve, 15000)));
-      
-      const html2 = await page2.content();
-      await page2.close();
-      
-      console.log(`   📝 ניסיון 2 - HTML: ${html2.length.toLocaleString()} תווים`);
-      
-      return {
-        ok: true,
-        text: async () => html2,
-        status: 200
-      };
+      console.log(`   💡 הדף כנראה ריק או 404`);
+      console.log(`   📍 בדקי את URL: ${finalUrl}`);
+      return null;  // ⭐ החזר null במקום לנסות שוב
     }
     
     return {
@@ -234,7 +218,6 @@ async function fetchDudaPageWithPuppeteer(url) {
     
   } catch (err) {
     console.error(`   ❌ שגיאת Puppeteer: ${err.message}`);
-    console.error(`   Stack: ${err.stack?.substring(0, 300)}`);
     return null;
   }
 }
@@ -1898,6 +1881,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
