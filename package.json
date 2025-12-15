@@ -20,7 +20,9 @@
     "cheerio": "^1.0.0-rc.12",
     "dotenv": "^16.4.5",
     "raw-body": "^2.5.2",
-	"puppeteer": "^23.10.4"
+	"puppeteer": "^23.10.4",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
   "devDependencies": {
     "@types/node": "^20.10.0"
@@ -38,4 +40,5 @@
     }
   }
 }
+
 
