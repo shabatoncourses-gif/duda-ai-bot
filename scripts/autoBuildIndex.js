@@ -103,8 +103,9 @@ if (!CONFIG.OPENAI_API_KEY?.startsWith("sk-")) {
 
 const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+
 // ============================================
-// 🌐 Puppeteer - גרסה אגרסיבית עם המתנות ארוכות
+// 🎯 Puppeteer - ממתין לטעינת data-binding של דודא
 // ============================================
 
 let browserInstance = null;
@@ -115,12 +116,13 @@ async function fetchDudaPageWithPuppeteer(url) {
   try {
     if (!browserInstance) {
       const launchOptions = {
-        headless: true,
+        headless: 'new',  // ⭐ השתנה ל-'new'
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
-          '--disable-gpu'
+          '--disable-gpu',
+          '--disable-blink-features=AutomationControlled'  // ⭐ מסתיר שזה bot
         ]
       };
       
@@ -133,67 +135,69 @@ async function fetchDudaPageWithPuppeteer(url) {
     }
     
     const page = await browserInstance.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+    
+    // ⭐ הסתרת automation flags
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', {
+        get: () => false,
+      });
+    });
+    
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1920, height: 1080 });
     
     console.log(`   📡 נווט לדף...`);
     
-    // ⚡ ניווט עם timeout ארוך יותר
+    // ⭐ ניווט בלי networkidle - פשוט load
     await page.goto(url, {
-      waitUntil: 'networkidle0',  // ⭐ השתנה ל-networkidle0 (יותר קפדני!)
-      timeout: 60000  // ⭐ 60 שניות במקום 30!
+      waitUntil: 'load',  // ⭐ רק load, לא networkidle
+      timeout: 60000
     });
     
-    console.log(`   ✅ ניווט הושלם`);
+    console.log(`   ✅ דף נטען`);
     
-    // ⚡ המתנה ארוכה מאוד לתוכן דינמי
-    console.log(`   ⏳ ממתין 5 שניות לטעינת JavaScript...`);
-    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
+    // ⭐ המתנה ארוכה לתוכן דינמי של דודא
+    console.log(`   ⏳ ממתין 8 שניות ל-JavaScript של דודא...`);
+    await page.waitForTimeout(8000);  // ⭐ 8 שניות המתנה קבועה
     
-    // ⚡ נסה למצוא li.listItem עם timeout ארוך
-    try {
-      console.log(`   🔍 מחפש li.listItem...`);
-      await page.waitForSelector('li.listItem', { 
-        timeout: 20000,  // ⭐ 20 שניות!
-        visible: true 
-      });
-      console.log(`   ✅✅✅ li.listItem נמצא!`);
-    } catch (err) {
-      console.log(`   ⚠️ לא נמצא li.listItem אחרי 20s: ${err.message}`);
-      
-      // ⚡ המתנה נוספת אם לא מצאנו
-      console.log(`   ⏳ המתנה נוספת של 5 שניות...`);
-      await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
+    // ⭐ בדוק אם data-binding עדיין קיים (אם כן, התוכן לא נטען)
+    const hasDataBinding = await page.evaluate(() => {
+      const element = document.querySelector('[data-binding]');
+      if (element) {
+        console.log('נמצא data-binding:', element.getAttribute('data-binding').substring(0, 50));
+        return true;
+      }
+      return false;
+    });
+    
+    if (hasDataBinding) {
+      console.log(`   ⚠️ data-binding עדיין קיים - ממשיכים להמתין...`);
+      await page.waitForTimeout(5000);  // עוד 5 שניות
     }
     
-    // ⚡ scroll למטה לטעינת lazy content
-    console.log(`   📜 Scroll למטה...`);
-    await page.evaluate(async () => {
-      await new Promise((resolve) => {
-        let totalHeight = 0;
-        const distance = 200;
-        const timer = setInterval(() => {
-          const scrollHeight = document.body.scrollHeight;
-          window.scrollBy(0, distance);
-          totalHeight += distance;
-
-          if (totalHeight >= scrollHeight) {
-            clearInterval(timer);
-            resolve();
-          }
-        }, 100);
-      });
-    });
-    
-    // ⚡ המתנה אחרי scroll
-    console.log(`   ⏳ המתנה אחרי scroll...`);
-    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
-    
-    // ⚡ בדוק כמה li.listItem יש
+    // ⭐ בדוק אם li.listItem קיימים
     const itemCount = await page.evaluate(() => {
       return document.querySelectorAll('li.listItem').length;
     });
+    
     console.log(`   📊 נמצאו ${itemCount} פריטי li.listItem`);
+    
+    if (itemCount === 0) {
+      console.log(`   ⚠️ לא נמצאו פריטים - ממשיכים להמתין...`);
+      await page.waitForTimeout(5000);  // עוד 5 שניות
+      
+      const itemCount2 = await page.evaluate(() => {
+        return document.querySelectorAll('li.listItem').length;
+      });
+      console.log(`   📊 נמצאו ${itemCount2} פריטים אחרי המתנה נוספת`);
+    }
+    
+    // ⭐ Scroll למטה
+    console.log(`   📜 Scroll למטה...`);
+    await page.evaluate(async () => {
+      window.scrollTo(0, document.body.scrollHeight);
+    });
+    await page.waitForTimeout(2000);
     
     // קבלת HTML
     const html = await page.content();
@@ -203,9 +207,22 @@ async function fetchDudaPageWithPuppeteer(url) {
     
     if (html.length < 1000) {
       console.log(`   ❌❌❌ HTML קצר מדי! (${html.length} תווים)`);
-      console.log(`   💡 הדף לא נטען כראוי`);
-    } else {
-      console.log(`   ✅ HTML נראה תקין`);
+      
+      // ⭐ נסה שוב עם המתנה ארוכה יותר
+      console.log(`   🔄 מנסה שוב עם המתנה של 15 שניות...`);
+      const page2 = await browserInstance.newPage();
+      await page2.goto(url, { waitUntil: 'load', timeout: 60000 });
+      await page2.waitForTimeout(15000);  // 15 שניות!
+      const html2 = await page2.content();
+      await page2.close();
+      
+      console.log(`   📝 ניסיון 2 - HTML: ${html2.length.toLocaleString()} תווים`);
+      
+      return {
+        ok: true,
+        text: async () => html2,
+        status: 200
+      };
     }
     
     return {
@@ -216,6 +233,7 @@ async function fetchDudaPageWithPuppeteer(url) {
     
   } catch (err) {
     console.error(`   ❌ שגיאת Puppeteer: ${err.message}`);
+    console.error(`   Stack: ${err.stack?.substring(0, 300)}`);
     return null;
   }
 }
@@ -227,7 +245,6 @@ process.on('beforeExit', async () => {
     browserInstance = null;
   }
 });
-
 // ============================================
 // 🧹 משפטים להתעלמות
 // ============================================
@@ -1880,6 +1897,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
