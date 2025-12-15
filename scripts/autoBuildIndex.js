@@ -3,9 +3,6 @@ import * as cheerio from "cheerio";
 import fs from "fs";
 import path from "path";
 import OpenAI from "openai";
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-puppeteer.use(StealthPlugin());
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -105,121 +102,64 @@ if (!CONFIG.OPENAI_API_KEY?.startsWith("sk-")) {
 
 const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-
 // ============================================
-// 🥷 PUPPETEER STEALTH - פונקציה מלאה
+// 🎯 פתרון סופי - דילוג על דפי results
 // ============================================
 
-let browserInstance = null;
-
-async function fetchDudaPageWithPuppeteer(url) {
-  console.log(`   🌐 טוען דף Duda עם Puppeteer-Stealth...`);
-  console.log(`   📍 URL: ${url}`);
-  
-  try {
-    if (!browserInstance) {
-      const launchOptions = {
-        headless: 'new',
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu'
-        ]
-      };
+// מצאי את הפונקציה הזו ב-autoBuildIndex.js:
+async function fetchPageWithRetry(url, maxRetries = CONFIG.RETRY_ATTEMPTS) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // ⚡ בדיקה: האם זה דף results?
+      const needsPuppeteer = 
+        url.includes('/results-') || 
+        url.includes('/search-results-') || 
+        url.includes('/courses-per-month-');
       
-      if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-        launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+      if (needsPuppeteer) {
+        // ⭐ פתרון סופי: דלג על דפי results!
+        console.log(`   ⏭️  דולג על דף results (דודא חוסמת)`);
+        console.log(`   💡 URL: ${url.substring(0, 80)}...`);
+        return null;  // פשוט מדלגים
       }
       
-      browserInstance = await puppeteer.launch(launchOptions);
-      console.log(`   ✅ דפדפן נפתח (עם Stealth Plugin)`);
-    }
-    
-    const page = await browserInstance.newPage();
-    await page.setViewport({ width: 1920, height: 1080 });
-    
-    console.log(`   📡 נווט לדף...`);
-    
-    const response = await page.goto(url, {
-      waitUntil: 'load',
-      timeout: 60000
-    });
-    
-    const status = response.status();
-    console.log(`   📊 Status: ${status}`);
-    
-    // בדיקת status
-    if (status === 403) {
-      console.log(`   ❌ Status 403: הדף חוסם גישה (אפילו עם Stealth)`);
-      await page.close();
-      return null;
-    }
-    
-    if (status === 404) {
-      console.log(`   ❌ Status 404: הדף לא נמצא`);
-      await page.close();
-      return null;
-    }
-    
-    if (status !== 200) {
-      console.log(`   ⚠️ Status לא תקין: ${status}`);
-    }
-    
-    // המתנה לתוכן דינמי
-    console.log(`   ⏳ ממתין 8 שניות לתוכן דינמי...`);
-    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 8000)));
-    
-    // בדוק כמה li.listItem יש
-    const itemCount = await page.evaluate(() => {
-      return document.querySelectorAll('li.listItem').length;
-    });
-    
-    console.log(`   📊 נמצאו ${itemCount} פריטי li.listItem`);
-    
-    if (itemCount === 0) {
-      console.log(`   ⚠️ לא נמצאו פריטים - עוד 5 שניות המתנה...`);
-      await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
-      
-      const itemCount2 = await page.evaluate(() => {
-        return document.querySelectorAll('li.listItem').length;
+      // דפים רגילים - עובד מצוין!
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": getRandomUA(),
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "he,en-US;q=0.9,en;q=0.8",
+          "Cache-Control": "no-cache",
+        },
+        signal: AbortSignal.timeout(15000),
       });
-      console.log(`   📊 נמצאו ${itemCount2} פריטים אחרי המתנה נוספת`);
+      
+      if (response.ok) {
+        return response;
+      }
+      
+      if (response.status === 404) {
+        return { ok: false, status: 404 };
+      }
+      
+      if (attempt < maxRetries) {
+        const backoff = CONFIG.BASE_DELAY * Math.pow(2, attempt - 1) + Math.random() * 2000;
+        console.log(`   ⏳ ניסיון ${attempt} נכשל, ממתין ${Math.round(backoff / 1000)}s...`);
+        await delay(backoff);
+      }
+      
+    } catch (err) {
+      console.error(`   ⚠️ ניסיון ${attempt}/${maxRetries} נכשל: ${err.message}`);
+      
+      if (attempt < maxRetries) {
+        const backoff = CONFIG.BASE_DELAY * Math.pow(2, attempt - 1) + Math.random() * 2000;
+        await delay(backoff);
+      }
     }
-    
-    // קבלת HTML
-    const html = await page.content();
-    await page.close();
-    
-    console.log(`   📝 HTML: ${html.length.toLocaleString()} תווים`);
-    
-    if (html.length < 1000) {
-      console.log(`   ❌ HTML קצר מדי (${html.length} תווים) - הדף ריק`);
-      return null;
-    }
-    
-    console.log(`   ✅✅✅ הצלחה! הדף נטען כראוי`);
-    
-    return {
-      ok: true,
-      text: async () => html,
-      status: 200
-    };
-    
-  } catch (err) {
-    console.error(`   ❌ שגיאת Puppeteer: ${err.message}`);
-    console.error(`   Stack: ${err.stack?.substring(0, 300)}`);
-    return null;
   }
+  
+  return null;
 }
-
-process.on('beforeExit', async () => {
-  if (browserInstance) {
-    console.log('\n🔚 סוגר דפדפן...');
-    await browserInstance.close();
-    browserInstance = null;
-  }
-});
 // ============================================
 // 🧹 משפטים להתעלמות
 // ============================================
@@ -1872,6 +1812,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
