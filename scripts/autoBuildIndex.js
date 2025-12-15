@@ -103,9 +103,8 @@ if (!CONFIG.OPENAI_API_KEY?.startsWith("sk-")) {
 
 const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-
 // ============================================
-// 🌐 Puppeteer -
+// 🌐 Puppeteer - גרסה אגרסיבית עם המתנות ארוכות
 // ============================================
 
 let browserInstance = null;
@@ -125,7 +124,6 @@ async function fetchDudaPageWithPuppeteer(url) {
         ]
       };
       
-      // ⚡ תמיכה ב-GitHub Actions (רק שורה אחת!)
       if (process.env.PUPPETEER_EXECUTABLE_PATH) {
         launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
       }
@@ -138,34 +136,77 @@ async function fetchDudaPageWithPuppeteer(url) {
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
     await page.setViewport({ width: 1920, height: 1080 });
     
+    console.log(`   📡 נווט לדף...`);
+    
+    // ⚡ ניווט עם timeout ארוך יותר
     await page.goto(url, {
-      waitUntil: 'networkidle2',
-      timeout: 30000
+      waitUntil: 'networkidle0',  // ⭐ השתנה ל-networkidle0 (יותר קפדני!)
+      timeout: 60000  // ⭐ 60 שניות במקום 30!
     });
     
-    // ⚡ המתנה נוספת ל-Duda content
+    console.log(`   ✅ ניווט הושלם`);
+    
+    // ⚡ המתנה ארוכה מאוד לתוכן דינמי
+    console.log(`   ⏳ ממתין 5 שניות לטעינת JavaScript...`);
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
+    
+    // ⚡ נסה למצוא li.listItem עם timeout ארוך
     try {
-      // המתנה ל-h1 או לתוכן עיקרי
-      await page.waitForSelector('h1, .content, main, article', { timeout: 5000 });
-      console.log(`   ✅ תוכן עיקרי נטען`);
-    } catch {
-      console.log(`   ⚠️ לא נמצא h1/content, ממשיכים`);
+      console.log(`   🔍 מחפש li.listItem...`);
+      await page.waitForSelector('li.listItem', { 
+        timeout: 20000,  // ⭐ 20 שניות!
+        visible: true 
+      });
+      console.log(`   ✅✅✅ li.listItem נמצא!`);
+    } catch (err) {
+      console.log(`   ⚠️ לא נמצא li.listItem אחרי 20s: ${err.message}`);
+      
+      // ⚡ המתנה נוספת אם לא מצאנו
+      console.log(`   ⏳ המתנה נוספת של 5 שניות...`);
+      await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
     }
     
-    // המתנה קצרה נוספת לוודא שהכל נטען
-    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 1000)));
+    // ⚡ scroll למטה לטעינת lazy content
+    console.log(`   📜 Scroll למטה...`);
+    await page.evaluate(async () => {
+      await new Promise((resolve) => {
+        let totalHeight = 0;
+        const distance = 200;
+        const timer = setInterval(() => {
+          const scrollHeight = document.body.scrollHeight;
+          window.scrollBy(0, distance);
+          totalHeight += distance;
+
+          if (totalHeight >= scrollHeight) {
+            clearInterval(timer);
+            resolve();
+          }
+        }, 100);
+      });
+    });
     
-    try {
-      await page.waitForSelector('li.listItem', { timeout: 10000 });
-      console.log(`   ✅ li.listItem נטען בהצלחה!`);
-    } catch {
-      console.log(`   ⚠️ לא נמצא li.listItem, ממשיכים`);
-    }
+    // ⚡ המתנה אחרי scroll
+    console.log(`   ⏳ המתנה אחרי scroll...`);
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
     
+    // ⚡ בדוק כמה li.listItem יש
+    const itemCount = await page.evaluate(() => {
+      return document.querySelectorAll('li.listItem').length;
+    });
+    console.log(`   📊 נמצאו ${itemCount} פריטי li.listItem`);
+    
+    // קבלת HTML
     const html = await page.content();
     await page.close();
     
-    console.log(`   📝 HTML: ${html.length} תווים`);
+    console.log(`   📝 HTML: ${html.length.toLocaleString()} תווים`);
+    
+    if (html.length < 1000) {
+      console.log(`   ❌❌❌ HTML קצר מדי! (${html.length} תווים)`);
+      console.log(`   💡 הדף לא נטען כראוי`);
+    } else {
+      console.log(`   ✅ HTML נראה תקין`);
+    }
     
     return {
       ok: true,
@@ -1839,6 +1880,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
