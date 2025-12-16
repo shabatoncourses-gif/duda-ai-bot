@@ -103,12 +103,10 @@ if (!CONFIG.OPENAI_API_KEY?.startsWith("sk-")) {
 
 const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+
 // ============================================
-// 🥷 Puppeteer - הפונקציה החסרה!
+// 🥷 Puppeteer משופר - ממתין יותר זמן!
 // ============================================
-// העתיקי את כל הקטע הזה ושימי אותו אחרי:
-// const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-// =========================================
 
 let browserInstance = null;
 
@@ -139,33 +137,72 @@ async function fetchDudaPageWithPuppeteer(url) {
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
     await page.setViewport({ width: 1920, height: 1080 });
     
+    // ⭐ שלב 1: נווט לדף
     await page.goto(url, {
-      waitUntil: 'networkidle2',
-      timeout: 30000
+      waitUntil: 'networkidle2',  // ממתין לרשת שקטה
+      timeout: 45000  // 45 שניות timeout
     });
     
-    // המתנה ל-h1 או לתוכן עיקרי
+    console.log(`   ✅ דף נטען`);
+    
+    // ⭐ שלב 2: המתנה ארוכה ל-JavaScript של דודא
+    console.log(`   ⏳ ממתין 10 שניות ל-JavaScript של דודא...`);
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 10000)));
+    
+    // ⭐ שלב 3: חיפוש li.listItem עם timeout ארוך
     try {
-      await page.waitForSelector('h1, .content, main, article', { timeout: 5000 });
-      console.log(`   ✅ תוכן עיקרי נטען`);
-    } catch {
-      console.log(`   ⚠️ לא נמצא h1/content, ממשיכים`);
+      console.log(`   🔍 מחפש li.listItem...`);
+      await page.waitForSelector('li.listItem', { 
+        timeout: 20000,  // 20 שניות timeout
+        visible: false  // לא צריך שיהיה visible, רק שיהיה ב-DOM
+      });
+      
+      const itemCount = await page.evaluate(() => {
+        return document.querySelectorAll('li.listItem').length;
+      });
+      
+      console.log(`   ✅ נמצאו ${itemCount} פריטי li.listItem!`);
+      
+      // ⭐ שלב 4: המתנה נוספת אחרי שמצאנו פריטים
+      if (itemCount > 0) {
+        console.log(`   ⏳ ממתין עוד 3 שניות שהתוכן ייטען לגמרי...`);
+        await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 3000)));
+      }
+      
+    } catch (err) {
+      console.log(`   ⚠️ לא נמצא li.listItem אחרי 20 שניות`);
+      console.log(`   💡 מנסה לקבל HTML בכל זאת...`);
     }
     
-    // המתנה קצרה נוספת
-    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 1000)));
-    
+    // ⭐ שלב 5: scroll למטה (לפעמים עוזר לטעינת תוכן)
     try {
-      await page.waitForSelector('li.listItem', { timeout: 10000 });
-      console.log(`   ✅ li.listItem נטען בהצלחה!`);
-    } catch {
-      console.log(`   ⚠️ לא נמצא li.listItem, ממשיכים`);
-    }
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight / 2);
+      });
+      await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
+      console.log(`   ✅ scroll בוצע`);
+    } catch {}
     
+    // ⭐ שלב 6: קבלת HTML
     const html = await page.content();
     await page.close();
     
-    console.log(`   📝 HTML: ${html.length} תווים`);
+    console.log(`   📝 HTML: ${html.length.toLocaleString()} תווים`);
+    
+    // ⭐ בדיקה: האם יש מספיק תוכן?
+    if (html.length < 5000) {
+      console.log(`   ⚠️ HTML קצר מדי (${html.length} תווים)`);
+      console.log(`   💡 הדף כנראה לא נטען כראוי`);
+      
+      // אבל בכל זאת נחזיר את זה - אולי יש משהו
+      return {
+        ok: true,
+        text: async () => html,
+        status: 200
+      };
+    }
+    
+    console.log(`   ✅✅✅ הצלחה! הדף נטען במלואו`);
     
     return {
       ok: true,
@@ -179,18 +216,6 @@ async function fetchDudaPageWithPuppeteer(url) {
   }
 }
 
-process.on('beforeExit', async () => {
-  if (browserInstance) {
-    console.log('\n🔚 סוגר דפדפן...');
-    await browserInstance.close();
-    browserInstance = null;
-  }
-});
-
-// ============================================
-// 🧹 משפטים להתעלמות
-// ============================================
-// המשיכי מפה...
 // ============================================
 // 🧹 משפטים להתעלמות
 // ============================================
@@ -206,21 +231,6 @@ function removeIgnoredText(text) {
     cleaned = cleaned.replace(pattern, '');
   });
   return cleaned.replace(/\s+/g, ' ').trim();
-}
-
-// ============================================
-// 🌐 טיפול ב-URLs
-// ============================================
-function normalizeUrl(url) {
-  try {
-    url = url.trim();
-    if (!/^https?:\/\//i.test(url)) {
-      url = "https://" + url;
-    }
-    return url;
-  } catch (err) {
-    return url.trim();
-  }
 }
 
 // ============================================
@@ -366,55 +376,6 @@ async function fetchPageWithRetry(url, maxRetries = CONFIG.RETRY_ATTEMPTS) {
 // ============================================
 // 🕵️ זיהוי דפי results - תוקן!
 // ============================================
-async function detectIfResultsPage(url, html) {
-  try {
-    const $ = cheerio.load(html);
-    
-    // ⚡ CRITICAL: בדיקת מבנה קודם!
-    // אם יש itemName + itemText = זו רשימת מוסדות, לא results!
-    const hasInstitutionStructure = 
-      $("li.listItem .itemName").length > 0 && 
-      $("li.listItem .itemText").length > 0;
-    
-    if (hasInstitutionStructure) {
-      console.log(`   🏫 זוהה מבנה institution list (itemName + itemText)`);
-      return { isResultsPage: false };  // זה institution list!
-    }
-    
-    // רק אחרי שבדקנו שאין מבנה institution - בודקים URL
-    if (url.includes('/results') || 
-        url.includes('/search-results') || 
-        url.includes('/courses-per-month')) {
-      console.log(`   📋 זוהה כ-results (לפי URL)`);
-      return { isResultsPage: true };
-    }
-    
-    // בדיקה נוספת: האם יש li.listItem עם הרבה קישורים?
-    const hasList = $('li.listItem').length > 0;
-    
-    if (hasList) {
-      let avgLinksPerItem = 0;
-      const items = $('li.listItem');
-      
-      items.each((_, item) => {
-        const links = $(item).find('a').length;
-        avgLinksPerItem += links;
-      });
-      
-      avgLinksPerItem = avgLinksPerItem / items.length;
-      
-      if (avgLinksPerItem > 3) {
-        console.log(`   📋 זוהה כ-results (ממוצע ${avgLinksPerItem.toFixed(1)} קישורים לפריט)`);
-        return { isResultsPage: true };
-      }
-    }
-    
-    return { isResultsPage: false };
-    
-  } catch (err) {
-    return { isResultsPage: false };
-  }
-}
 
 function identifyPageType(url, $) {
   const lower = url.toLowerCase();
@@ -1031,132 +992,6 @@ function extractSmartContent(html, url) {
   };
 }
 
-// ============================================
-// 📊 טיפול בדפי RESULTS (לא בשימוש כרגע)
-// ============================================
-function extractResultsPageCourses(html) {
-  const $ = cheerio.load(html);
-  const courses = [];
-
-  console.log(`   🔍 מחפש li.listItem...`);
-  const listItems = $("li.listItem");
-  console.log(`   📦 נמצאו ${listItems.length} פריטים`);
-
-  listItems.each((idx, item) => {
-    try {
-      const $item = $(item);
-      
-      console.log(`\n   📌 פריט ${idx + 1}/${listItems.length}:`);
-
-      const courseName = $item.find("h3, .course-title, .dmNewParagraph").first().text().trim();
-      
-      if (!courseName || courseName.length < 5) {
-        console.log(`      ⚠️ אין שם קורס`);
-        return;
-      }
-      
-      console.log(`      📚 קורס: ${courseName.substring(0, 60)}`);
-      
-      const institutions = [];
-      
-      console.log(`      🔗 מחפש קישורים...`);
-      const links = $item.find("a");
-      console.log(`         מצאתי ${links.length} קישורים`);
-      
-      links.each((_, link) => {
-        const linkText = $(link).text().trim();
-        
-        if (linkText && 
-            linkText.length > 3 && 
-            linkText.length < 100 &&
-            !linkText.includes("לפרטים") &&
-            !linkText.includes("more") &&
-            !linkText.includes("קרא עוד") &&
-            linkText !== courseName) {
-          
-          institutions.push(linkText);
-          console.log(`         ✅ ${linkText.substring(0, 40)}`);
-        }
-      });
-      
-      console.log(`      📊 סה"כ מקישורים: ${institutions.length}`);
-      
-      if (institutions.length < 2) {
-        console.log(`      💡 מנסה שיטה 2 (טקסטים)...`);
-        
-        const textElements = $item.find("span, div, p");
-        
-        textElements.each((_, el) => {
-          const text = $(el).text().trim();
-          
-          if (text && 
-              text.length > 5 && 
-              text.length < 150 &&
-              !text.includes(courseName) &&
-              !text.match(/^\d+$/) &&
-              !text.match(/^\d{1,2}[\/\-\.]\d{1,2}/)) {
-            
-            const looksLikeInstitution = 
-              text.includes("אוניברסיטת") || 
-              text.includes("מכללת") ||
-              text.includes("המכללה") ||
-              text.includes("האוניברסיטה") ||
-              text.includes("מכון") ||
-              text.includes("המכון") ||
-              text.includes("בית") ||
-              text.includes("סמינר") ||
-              text.includes("המרכז") ||
-              text.includes("הקתדרה") ||
-              text.includes("אקדמיה") ||
-              text.includes("פקולטה") ||
-              text.length > 15;
-            
-            if (looksLikeInstitution && !institutions.includes(text)) {
-              institutions.push(text);
-              console.log(`         ✅ ${text.substring(0, 40)}`);
-            }
-          }
-        });
-      }
-
-      let dates = [];
-      $item.find("p, span, div").each((_, el) => {
-        const text = $(el).text();
-        const dateMatches = text.match(/\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/g);
-        if (dateMatches) {
-          dates.push(...dateMatches);
-        }
-      });
-
-      if (institutions.length > 0) {
-        courses.push({
-          courseName,
-          institutions: institutions.slice(0, 11),
-          institutionCount: institutions.length,
-          dates: dates.length > 0 ? dates : [],
-        });
-        console.log(`      ✅ נוסף עם ${institutions.length} מוסדות`);
-      } else {
-        console.log(`      ❌ לא נמצאו מוסדות`);
-      }
-      
-    } catch (err) {
-      console.error(`      ⚠️ שגיאה: ${err.message}`);
-    }
-  });
-
-  console.log(`\n   📊 סיכום: ${courses.length} קורסים`);
-  
-  if (courses.length > 0) {
-    console.log(`\n   📋 קורסים שחולצו:`);
-    courses.slice(0, 3).forEach((c, i) => {
-      console.log(`      ${i + 1}. ${c.courseName.substring(0, 50)}`);
-      console.log(`         מוסדות (${c.institutionCount}): ${c.institutions.slice(0, 3).join(", ")}`);
-    });
-  }
-  
-  return courses;
-}
 
 // ============================================
 // ⚙️ עיבוד דף בודד
@@ -1178,19 +1013,9 @@ async function processPage(url) {
     }
 
     const html = await response.text();
-    const detectionResult = await detectIfResultsPage(url, html);
-
-    let extractedContent;
-
-    if (detectionResult.isResultsPage) {
-      console.log(`   📋 דף results (ללא מבנה institution)`);
-      extractedContent = extractSmartContent(html, url);
-      // אין courses כי זה לא באמת results - זה institution list
-    } else {
-      console.log(`   📄 דף רגיל (או institution list)`);
-      extractedContent = extractSmartContent(html, url);
-    }
-
+    
+    // ⭐ פשוט! extractSmartContent מטפל בהכל
+    const extractedContent = extractSmartContent(html, url);
     if (!extractedContent.text || extractedContent.text.length < 50) {
       console.log(`   ⚠️ אין תוכן (${extractedContent.text.length} תווים)`);
       return null;
@@ -1810,6 +1635,16 @@ export async function updateSingleUrl(name, url) {
   
   return true;
 }
+// ============================================
+// 🧹 ניקיון - סגירת Puppeteer
+// ============================================
+process.on('beforeExit', async () => {
+  if (browserInstance) {
+    console.log('\n🔚 סוגר דפדפן...');
+    await browserInstance.close();
+    browserInstance = null;
+  }
+});
 
 // ============================================
 // 🎯 ריצה ישירה מ-CLI
@@ -1843,6 +1678,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
