@@ -330,6 +330,7 @@ async function fetchPageWithRetry(url, maxRetries = CONFIG.RETRY_ATTEMPTS) {
     //    url.includes('/search-results-') || 
     //   url.includes('/courses-per-month-');
    // ============================================ 
+      const needsPuppeteer = false;  // ⭐ דודא כבר לא דינמית!
       
       if (needsPuppeteer) {
         console.log(`   🎭 דף דינמי - משתמש ב-Puppeteer (ניסיון ${attempt}/${maxRetries})`);
@@ -1681,6 +1682,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
