@@ -123,7 +123,7 @@ jobs:
         echo "📄 מעדכן רק דפים סטטיים של Shabaton..."
         
         cat > /tmp/update_static.mjs << 'EOF'
-        import { updateStaticPages } from './scripts/autoBuildIndex.js';
+        import { updateStaticPages } from 'scripts/autoBuildIndex.js';
         await updateStaticPages('Shabaton');
         EOF
         
@@ -144,7 +144,7 @@ jobs:
         echo "🏫 מעדכן רק דפי מוסדות של Shabaton..."
         
         cat > /tmp/update_institutions.mjs << 'EOF'
-        import { updateInstitutionPages } from './scripts/autoBuildIndex.js';
+        import { updateInstitutionPages } from 'scripts/autoBuildIndex.js';
         await updateInstitutionPages('Shabaton', 'https://www.shabaton.online/sitemap.xml');
         EOF
         
@@ -260,7 +260,7 @@ jobs:
         echo "📄 מעדכן רק דפים סטטיים של Morim..."
         
         cat > /tmp/update_static.mjs << 'EOF'
-        import { updateStaticPages } from './scripts/autoBuildIndex.js';
+        import { updateStaticPages } from 'scripts/autoBuildIndex.js';
         await updateStaticPages('Morim');
         EOF
         
@@ -281,7 +281,7 @@ jobs:
         echo "🏫 מעדכן רק דפי מוסדות של Morim..."
         
         cat > /tmp/update_institutions.mjs << 'EOF'
-        import { updateInstitutionPages } from './scripts/autoBuildIndex.js';
+        import { updateInstitutionPages } from 'scripts/autoBuildIndex.js';
         await updateInstitutionPages('Morim', 'https://www.morim.boutique/sitemap.xml');
         EOF
         
