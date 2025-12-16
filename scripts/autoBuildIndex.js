@@ -3,6 +3,7 @@ import * as cheerio from "cheerio";
 import fs from "fs";
 import path from "path";
 import OpenAI from "openai";
+import puppeteer from "puppeteer";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -1842,6 +1843,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
