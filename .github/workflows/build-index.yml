@@ -121,16 +121,10 @@ jobs:
         GITHUB_REPO: ${{ github.repository }}
       run: |
         echo "📄 מעדכן רק דפים סטטיים של Shabaton..."
-        
-        cat > /tmp/update_static.mjs << 'EOF'
-        import { updateStaticPages } from 'scripts/autoBuildIndex.js';
-        await updateStaticPages('Shabaton');
-        EOF
-        
-        node /tmp/update_static.mjs
+        node -e "import('./scripts/autoBuildIndex.js').then(m => m.updateStaticPages('Shabaton'))"
 
     # ========================================
-    # 🏫 עדכון דפי מוסדות - Shabaton (חדש!)
+    # 🏫 עדכון דפי מוסדות - Shabaton
     # ========================================
     - name: 🏫 עדכון דפי מוסדות - Shabaton
       if: |
@@ -142,13 +136,7 @@ jobs:
         GITHUB_REPO: ${{ github.repository }}
       run: |
         echo "🏫 מעדכן רק דפי מוסדות של Shabaton..."
-        
-        cat > /tmp/update_institutions.mjs << 'EOF'
-        import { updateInstitutionPages } from 'scripts/autoBuildIndex.js';
-        await updateInstitutionPages('Shabaton', 'https://www.shabaton.online/sitemap.xml');
-        EOF
-        
-        node /tmp/update_institutions.mjs
+        node -e "import('./scripts/autoBuildIndex.js').then(m => m.updateInstitutionPages('Shabaton', 'https://www.shabaton.online/sitemap.xml'))"
 
     # ========================================
     # 🔄 אינדוקס מלא - Shabaton
@@ -258,16 +246,10 @@ jobs:
         GITHUB_REPO: ${{ github.repository }}
       run: |
         echo "📄 מעדכן רק דפים סטטיים של Morim..."
-        
-        cat > /tmp/update_static.mjs << 'EOF'
-        import { updateStaticPages } from 'scripts/autoBuildIndex.js';
-        await updateStaticPages('Morim');
-        EOF
-        
-        node /tmp/update_static.mjs
+        node -e "import('./scripts/autoBuildIndex.js').then(m => m.updateStaticPages('Morim'))"
 
     # ========================================
-    # 🏫 עדכון דפי מוסדות - Morim (חדש!)
+    # 🏫 עדכון דפי מוסדות - Morim
     # ========================================
     - name: 🏫 עדכון דפי מוסדות - Morim
       if: |
@@ -279,13 +261,7 @@ jobs:
         GITHUB_REPO: ${{ github.repository }}
       run: |
         echo "🏫 מעדכן רק דפי מוסדות של Morim..."
-        
-        cat > /tmp/update_institutions.mjs << 'EOF'
-        import { updateInstitutionPages } from 'scripts/autoBuildIndex.js';
-        await updateInstitutionPages('Morim', 'https://www.morim.boutique/sitemap.xml');
-        EOF
-        
-        node /tmp/update_institutions.mjs
+        node -e "import('./scripts/autoBuildIndex.js').then(m => m.updateInstitutionPages('Morim', 'https://www.morim.boutique/sitemap.xml'))"
 
     # ========================================
     # 🔄 אינדוקס מלא - Morim
