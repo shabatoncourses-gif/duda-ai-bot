@@ -102,64 +102,7 @@ if (!CONFIG.OPENAI_API_KEY?.startsWith("sk-")) {
 
 const client = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-// ============================================
-// 🎯 פתרון סופי - דילוג על דפי results
-// ============================================
 
-// מצאי את הפונקציה הזו ב-autoBuildIndex.js:
-async function fetchPageWithRetry(url, maxRetries = CONFIG.RETRY_ATTEMPTS) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      // ⚡ בדיקה: האם זה דף results?
-      const needsPuppeteer = 
-        url.includes('/results-') || 
-        url.includes('/search-results-') || 
-        url.includes('/courses-per-month-');
-      
-      if (needsPuppeteer) {
-        // ⭐ פתרון סופי: דלג על דפי results!
-        console.log(`   ⏭️  דולג על דף results (דודא חוסמת)`);
-        console.log(`   💡 URL: ${url.substring(0, 80)}...`);
-        return null;  // פשוט מדלגים
-      }
-      
-      // דפים רגילים - עובד מצוין!
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent": getRandomUA(),
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "he,en-US;q=0.9,en;q=0.8",
-          "Cache-Control": "no-cache",
-        },
-        signal: AbortSignal.timeout(15000),
-      });
-      
-      if (response.ok) {
-        return response;
-      }
-      
-      if (response.status === 404) {
-        return { ok: false, status: 404 };
-      }
-      
-      if (attempt < maxRetries) {
-        const backoff = CONFIG.BASE_DELAY * Math.pow(2, attempt - 1) + Math.random() * 2000;
-        console.log(`   ⏳ ניסיון ${attempt} נכשל, ממתין ${Math.round(backoff / 1000)}s...`);
-        await delay(backoff);
-      }
-      
-    } catch (err) {
-      console.error(`   ⚠️ ניסיון ${attempt}/${maxRetries} נכשל: ${err.message}`);
-      
-      if (attempt < maxRetries) {
-        const backoff = CONFIG.BASE_DELAY * Math.pow(2, attempt - 1) + Math.random() * 2000;
-        await delay(backoff);
-      }
-    }
-  }
-  
-  return null;
-}
 // ============================================
 // 🧹 משפטים להתעלמות
 // ============================================
@@ -1812,6 +1755,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
