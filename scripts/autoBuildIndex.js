@@ -323,10 +323,13 @@ async function getUrlsFromSitemap(sitemapUrl) {
 async function fetchPageWithRetry(url, maxRetries = CONFIG.RETRY_ATTEMPTS) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const needsPuppeteer = 
-        url.includes('/results-') || 
-        url.includes('/search-results-') || 
-        url.includes('/courses-per-month-');
+
+    // ============================================
+    //  const needsPuppeteer = 
+    //   url.includes('/results-') || 
+    //    url.includes('/search-results-') || 
+    //   url.includes('/courses-per-month-');
+   // ============================================ 
       
       if (needsPuppeteer) {
         console.log(`   🎭 דף דינמי - משתמש ב-Puppeteer (ניסיון ${attempt}/${maxRetries})`);
@@ -1678,6 +1681,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
