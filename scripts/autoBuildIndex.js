@@ -233,6 +233,69 @@ function removeIgnoredText(text) {
   return cleaned.replace(/\s+/g, ' ').trim();
 }
 
+
+// ============================================
+// 🏷️ חילוץ h1 מתאים לדפי results
+// ============================================
+function extractH1FromResultsUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    
+    // מיפוי אזורים
+    const regionMap = {
+      'merkaz': 'תל אביב והמרכז',
+      'search-results-merkaz': 'תל אביב והמרכז',
+      'Zafon': 'חיפה והצפון',
+      'results-Zafon': 'חיפה והצפון',
+      'Sharon': 'השרון',
+      'results-Sharon': 'השרון',
+      'jerusalem': 'ירושלים והסביבה',
+      'results-jerusalem': 'ירושלים והסביבה',
+      'shfea-darom': 'השפלה והדרום',
+      'results-shfea-darom': 'השפלה והדרום',
+      'all': 'כל הארץ',
+      'results-all': 'כל הארץ'
+    };
+    
+    // חילוץ חלקים
+    const parts = pathname.split('/').filter(Boolean);
+    
+    if (parts.length < 2) {
+      return null;
+    }
+    
+    const regionPart = parts[0];
+    let topicPart = parts.slice(1).join('/');
+    
+    // ניקוי encoding
+    topicPart = decodeURIComponent(topicPart);
+    
+    // מציאת האזור
+    let regionName = null;
+    for (const [key, value] of Object.entries(regionMap)) {
+      if (regionPart.includes(key)) {
+        regionName = value;
+        break;
+      }
+    }
+    
+    if (!regionName) {
+      regionName = 'כל הארץ';
+    }
+    
+    // בניית h1
+    if (topicPart.startsWith('קורסי')) {
+      return `${topicPart} ב${regionName}`;
+    } else {
+      return `קורסי ${topicPart} ב${regionName}`;
+    }
+    
+  } catch (err) {
+    console.error(`   ⚠️ שגיאה בחילוץ h1: ${err.message}`);
+    return null;
+  }
+}
 // ============================================
 // 🎭 User-Agents רנדומליים
 // ============================================
@@ -708,17 +771,25 @@ function extractSmartContent(html, url) {
       
       console.log(`   📊 נמצאו ${institutions.length} מוסדות`);
       
-      // ⚡ אם זה דף institution - השתמש ב-title כ-h1
-      if (institutions.length > 0 && (!h1 || h1.includes("מצאו עוד קורסים"))) {
-        h1 = title;
-        
-        // ⚡ אם יש h2 עם מיקום - הוסף אותו ל-h1
-        if (h2s.length > 0 && h2s[0].includes("ב")) {
-          h1 = `${title} ${h2s[0]}`;
-        }
-        
-        console.log(`   🔧 h1 הוחלף ל: "${h1}"`);
-      }
+     // ⚡ אם זה דף institution - חלץ h1 מה-URL
+if (institutions.length > 0 && (!h1 || h1.includes("מצאו עוד קורסים"))) {
+  // ⭐ נסה לחלץ h1 מה-URL
+  const h1FromUrl = extractH1FromResultsUrl(url);
+  
+  if (h1FromUrl) {
+    h1 = h1FromUrl;
+    console.log(`   🏷️ h1 מה-URL: "${h1}"`);
+  } else {
+    // fallback - אם לא הצלחנו לחלץ מה-URL
+    h1 = title;
+    
+    if (h2s.length > 0 && h2s[0].includes("ב")) {
+      h1 = `${title} ${h2s[0]}`;
+    }
+    
+    console.log(`   🔧 h1 מ-title: "${h1}"`);
+  }
+}
       
       if (institutions.length === 0) {
         console.log(`   🔄 מנסה אסטרטגיה 2: H2 + UL...`);
@@ -1682,6 +1753,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
