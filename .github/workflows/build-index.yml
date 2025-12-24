@@ -13,17 +13,18 @@ on:
           - morim
           - both
       reindex_mode:
-        description: 'מה לעדכן?'
-        required: true
-        type: choice
-        default: 'dynamic-only'
-        options:
-          - dynamic-only
-          - static-pages-only
-          - institute-pages-only
-          - all-pages
-          - fresh-start
-          - single-url
+      description: 'מה לעדכן?'
+      required: true
+      type: choice
+      default: 'dynamic-only'
+      options:
+      - dynamic-only
+      - static-pages-only
+      - institute-pages-only
+      - all-pages
+      - fresh-start
+      - single-url
+      - remove-url  # ⭐ חדש!
       single_url:
         description: 'URL של דף בודד (רק אם בחרת single-url)'
         required: false
@@ -108,6 +109,28 @@ jobs:
         echo "🎯 מעדכן דף בודד: $SINGLE_URL"
         node scripts/autoBuildIndex.js Shabaton "$SINGLE_URL"
 
+     # ========================================
+    # 🗑️ הסרת URL מהאינדקס - Shabaton
+    # ========================================
+    - name: 🗑️ הסרת URL - Shabaton
+      if: |
+        contains(steps.sites.outputs.sites, 'shabaton') && 
+        github.event.inputs.reindex_mode == 'remove-url'
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPO: ${{ github.repository }}
+      run: |
+        SINGLE_URL="${{ github.event.inputs.single_url }}"
+        
+        if [ -z "$SINGLE_URL" ]; then
+          echo "❌ שגיאה: לא סופק URL להסרה"
+          exit 1
+        fi
+        
+        echo "🗑️ מסיר URL: $SINGLE_URL"
+        node -e "import('./scripts/autoBuildIndex.js').then(m => m.removeUrlFromIndex('Shabaton', '$SINGLE_URL'))"
+        
     # ========================================
     # 📄 עדכון דפים סטטיים - Shabaton
     # ========================================
@@ -142,11 +165,12 @@ jobs:
     # 🔄 אינדוקס מלא - Shabaton
     # ========================================
     - name: 🔄 אינדוקס Shabaton
-      if: |
-        contains(steps.sites.outputs.sites, 'shabaton') && 
-        github.event.inputs.reindex_mode != 'single-url' &&
-        github.event.inputs.reindex_mode != 'static-pages-only' &&
-        github.event.inputs.reindex_mode != 'institute-pages-only'
+     if: |
+      contains(steps.sites.outputs.sites, 'shabaton') && 
+      github.event.inputs.reindex_mode != 'single-url' &&
+      github.event.inputs.reindex_mode != 'remove-url' &&
+      github.event.inputs.reindex_mode != 'static-pages-only' &&
+      github.event.inputs.reindex_mode != 'institute-pages-only'
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -234,6 +258,28 @@ jobs:
         node scripts/autoBuildIndex.js Morim "$SINGLE_URL"
 
     # ========================================
+    # 🗑️ הסרת URL מהאינדקס - Morim
+    # ========================================
+    - name: 🗑️ הסרת URL - Morim
+      if: |
+        contains(steps.sites.outputs.sites, 'morim') && 
+        github.event.inputs.reindex_mode == 'remove-url'
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPO: ${{ github.repository }}
+      run: |
+        SINGLE_URL="${{ github.event.inputs.single_url }}"
+        
+        if [ -z "$SINGLE_URL" ]; then
+          echo "❌ שגיאה: לא סופק URL להסרה"
+          exit 1
+        fi
+        
+        echo "🗑️ מסיר URL: $SINGLE_URL"
+        node -e "import('./scripts/autoBuildIndex.js').then(m => m.removeUrlFromIndex('Morim', '$SINGLE_URL'))"
+        
+    # ========================================
     # 📄 עדכון דפים סטטיים - Morim
     # ========================================
     - name: 📄 עדכון דפים סטטיים - Morim
@@ -267,11 +313,12 @@ jobs:
     # 🔄 אינדוקס מלא - Morim
     # ========================================
     - name: 🔄 אינדוקס Morim
-      if: |
-        contains(steps.sites.outputs.sites, 'morim') && 
-        github.event.inputs.reindex_mode != 'single-url' &&
-        github.event.inputs.reindex_mode != 'static-pages-only' &&
-        github.event.inputs.reindex_mode != 'institute-pages-only'
+     if: |
+      contains(steps.sites.outputs.sites, 'shabaton') && 
+      github.event.inputs.reindex_mode != 'single-url' &&
+      github.event.inputs.reindex_mode != 'remove-url' &&
+      github.event.inputs.reindex_mode != 'static-pages-only' &&
+      github.event.inputs.reindex_mode != 'institute-pages-only'
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
