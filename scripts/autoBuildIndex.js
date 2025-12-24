@@ -1722,6 +1722,149 @@ process.on('beforeExit', async () => {
 });
 
 // ============================================
+// 🗑️ הסרת URL מהאינדקס
+// ============================================
+export async function removeUrlFromIndex(name, url) {
+  console.log(`\n🗑️ מסיר URL: ${url}\n`);
+  
+  const dataDir = path.join(process.cwd(), "data");
+  const baseName = name.toLowerCase().replace(/\s+/g, "_");
+  const indexPath = path.join(dataDir, `${baseName}_index.json`);
+  const donePath = path.join(dataDir, `${baseName}_done.json`);
+  
+  let totalRemoved = 0;
+  
+  // ⚡ טען את כל ה-parts
+  let allPages = [];
+  
+  // נסה לטעון את האינדקס הראשי
+  if (fs.existsSync(indexPath)) {
+    try {
+      const indexContent = fs.readFileSync(indexPath, "utf8");
+      allPages = JSON.parse(indexContent);
+      console.log(`📂 נטען index: ${allPages.length}`);
+    } catch (err) {
+      console.log(`⚠️ שגיאה באינדקס: ${err.message}`);
+    }
+  }
+  
+  // טען את כל ה-part files
+  let partNum = 1;
+  while (true) {
+    const partPath = path.join(dataDir, `${baseName}_index_part${partNum}.json`);
+    if (!fs.existsSync(partPath)) {
+      break;
+    }
+    
+    try {
+      const partContent = fs.readFileSync(partPath, "utf8");
+      const partPages = JSON.parse(partContent);
+      
+      if (partNum === 1 && allPages.length > 0) {
+        console.log(`📂 דילוג על part${partNum} (כבר ב-index)`);
+      } else {
+        allPages.push(...partPages);
+        console.log(`📂 נטען part${partNum}: ${partPages.length} (סה"כ ${allPages.length})`);
+      }
+    } catch (err) {
+      console.log(`⚠️ שגיאה ב-part${partNum}: ${err.message}`);
+    }
+    
+    partNum++;
+  }
+  
+  console.log(`\n📚 סה"כ רשומות לפני הסרה: ${allPages.length}`);
+  
+  // ⚡ מצא והסר את ה-URL
+  const beforeLength = allPages.length;
+  const filteredPages = allPages.filter(page => {
+    if (page.url === url) {
+      console.log(`   🗑️ מוחק: ${url}`);
+      console.log(`      📄 כותרת: ${page.title || 'ללא כותרת'}`);
+      console.log(`      📊 סוג: ${page.type || 'general'}`);
+      totalRemoved++;
+      return false;
+    }
+    return true;
+  });
+  
+  if (totalRemoved === 0) {
+    console.log(`\n⚠️ URL לא נמצא באינדקס: ${url}`);
+    return false;
+  }
+  
+  console.log(`\n✅ נמצא ונמחק: ${totalRemoved} רשומה`);
+  console.log(`   📊 לפני: ${beforeLength}`);
+  console.log(`   📊 אחרי: ${filteredPages.length}`);
+  
+  // ⚡ הסר מ-done.json
+  let done = [];
+  if (fs.existsSync(donePath)) {
+    try {
+      done = JSON.parse(fs.readFileSync(donePath, "utf8"));
+      const beforeDone = done.length;
+      done = done.filter(u => u !== url);
+      
+      if (done.length < beforeDone) {
+        console.log(`   ✅ הוסר גם מ-done.json`);
+      }
+    } catch (err) {
+      console.log(`   ⚠️ שגיאה ב-done.json: ${err.message}`);
+    }
+  }
+  
+  // ⚡ שמור את האינדקס המעודכן
+  const mainIndex = filteredPages.slice(0, CONFIG.MAX_PER_FILE);
+  fs.writeFileSync(indexPath, JSON.stringify(mainIndex, null, 2));
+  console.log(`\n💾 נשמר index: ${mainIndex.length}`);
+  
+  fs.writeFileSync(donePath, JSON.stringify(done, null, 2));
+  console.log(`💾 נשמר done: ${done.length}`);
+  
+  // ⚡ פצל לחלקים
+  const chunks = [];
+  for (let i = 0; i < filteredPages.length; i += CONFIG.MAX_PER_FILE) {
+    chunks.push(filteredPages.slice(i, i + CONFIG.MAX_PER_FILE));
+  }
+  
+  console.log(`\n📦 מפצל ל-${chunks.length} חלקים...\n`);
+  
+  // ⚡ העלה לגיטהאב
+  for (let i = 0; i < chunks.length; i++) {
+    const chunkPath = path.join(dataDir, `${baseName}_index_part${i + 1}.json`);
+    fs.writeFileSync(chunkPath, JSON.stringify(chunks[i], null, 2));
+    console.log(`💾 נשמר part${i + 1}: ${chunks[i].length}`);
+    await uploadToGitHub(chunkPath, `🗑️ ${name} - הסרת URL - חלק ${i + 1}/${chunks.length}`);
+  }
+  
+  // ⚡ מחק part files מיותרים (אם היו)
+  const totalParts = chunks.length;
+  let deletedParts = 0;
+  for (let i = totalParts + 1; i < 20; i++) {
+    const partPath = path.join(dataDir, `${baseName}_index_part${i}.json`);
+    if (fs.existsSync(partPath)) {
+      fs.unlinkSync(partPath);
+      deletedParts++;
+      console.log(`🗑️ מחק part${i} מיותר`);
+    }
+  }
+  
+  await uploadToGitHub(indexPath, `📚 ${name} - index ראשי (לאחר הסרה)`);
+  await uploadToGitHub(donePath, `📊 ${name} - done (לאחר הסרה)`);
+  
+  console.log(`\n${"=".repeat(60)}`);
+  console.log(`✅ ההסרה הושלמה!`);
+  console.log(`   🗑️ URLs שהוסרו: ${totalRemoved}`);
+  console.log(`   📚 סה"כ נותרו: ${filteredPages.length}`);
+  console.log(`   📦 מספר חלקים: ${chunks.length}`);
+  if (deletedParts > 0) {
+    console.log(`   🗑️ חלקים מיותרים שנמחקו: ${deletedParts}`);
+  }
+  console.log(`${"=".repeat(60)}\n`);
+  
+  return true;
+}
+// ============================================
 // 🎯 ריצה ישירה מ-CLI
 // ============================================
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -1753,6 +1896,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
 
 
 
