@@ -13,18 +13,18 @@ on:
           - morim
           - both
       reindex_mode:
-      description: 'מה לעדכן?'
-      required: true
-      type: choice
-      default: 'dynamic-only'
-      options:
-      - dynamic-only
-      - static-pages-only
-      - institute-pages-only
-      - all-pages
-      - fresh-start
-      - single-url
-      - remove-url  # ⭐ חדש!
+        description: 'מה לעדכן?'
+        required: true
+        type: choice
+        default: 'dynamic-only'
+        options:
+         - dynamic-only
+         - static-pages-only
+         - institute-pages-only
+         - all-pages
+         - fresh-start
+         - single-url
+         - remove-url  # ⭐ חדש!
       single_url:
         description: 'URL של דף בודד (רק אם בחרת single-url)'
         required: false
@@ -165,12 +165,12 @@ jobs:
     # 🔄 אינדוקס מלא - Shabaton
     # ========================================
     - name: 🔄 אינדוקס Shabaton
-     if: |
-      contains(steps.sites.outputs.sites, 'shabaton') && 
-      github.event.inputs.reindex_mode != 'single-url' &&
-      github.event.inputs.reindex_mode != 'remove-url' &&
-      github.event.inputs.reindex_mode != 'static-pages-only' &&
-      github.event.inputs.reindex_mode != 'institute-pages-only'
+      if: |
+        contains(steps.sites.outputs.sites, 'shabaton') && 
+        github.event.inputs.reindex_mode != 'single-url' &&
+        github.event.inputs.reindex_mode != 'remove-url' &&
+        github.event.inputs.reindex_mode != 'static-pages-only' &&
+        github.event.inputs.reindex_mode != 'institute-pages-only'
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -313,12 +313,12 @@ jobs:
     # 🔄 אינדוקס מלא - Morim
     # ========================================
     - name: 🔄 אינדוקס Morim
-     if: |
-      contains(steps.sites.outputs.sites, 'shabaton') && 
-      github.event.inputs.reindex_mode != 'single-url' &&
-      github.event.inputs.reindex_mode != 'remove-url' &&
-      github.event.inputs.reindex_mode != 'static-pages-only' &&
-      github.event.inputs.reindex_mode != 'institute-pages-only'
+      if: |
+        contains(steps.sites.outputs.sites, 'shabaton') && 
+        github.event.inputs.reindex_mode != 'single-url' &&
+        github.event.inputs.reindex_mode != 'remove-url' &&
+        github.event.inputs.reindex_mode != 'static-pages-only' &&
+        github.event.inputs.reindex_mode != 'institute-pages-only'
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
