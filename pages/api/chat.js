@@ -507,6 +507,13 @@ function detectStudyField(message) {
   
   // **שלב 2: חיפוש במילות מפתח עם word boundaries**
   const matches = [];
+  
+  // רשימת מילים כלליות שצריך לדלג עליהן בשאילתות ספציפיות
+  const genericKeywords = [
+    'אמנות', 'אומנות', 'חינוך', 'הוראה', 'לימוד', 'לימודים',
+    'קורס', 'קורסים', 'תחום', 'מקצוע', 'השתלמות', 'הכשרה'
+  ];
+  
   for (const field of STUDY_FIELDS) {
     for (const keyword of field.keywords) {
       const keywordLower = keyword.toLowerCase();
@@ -514,9 +521,9 @@ function detectStudyField(message) {
       // בדיקה אם המילה מופיעה כמילה שלמה
       const regex = new RegExp('\\b' + keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
       if (regex.test(lowerMessage)) {
-        // **אם זו שאילתה ספציפית - דלג על תחומים כלליים (1-2 מילים)**
-        if (isSpecificQuery && keywordLower.split(/\s+/).length <= 2) {
-          continue; // דלג על "אמנות", "פיסול" וכו'
+        // **דלג רק על מילות מפתח כלליות בשאילתות ספציפיות**
+        if (isSpecificQuery && genericKeywords.includes(keywordLower)) {
+          continue;
         }
         
         matches.push({ field, keyword, length: keywordLower.length });
