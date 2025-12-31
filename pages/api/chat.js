@@ -258,11 +258,34 @@ function searchPages(query, region = null, pageType = 'all') {
       matchScore += 30; // כל המילים בכותרת!
     }
     
-    // בדיקת אזור - גמישה יותר
+    // ⭐ זיהוי עיר ספציפית (קודם!)
+    const specificCity = detectSpecificCity(query, region);
+    
+    // בדיקת עיר ספציפית - בונוס ענק!
+    let cityBonus = 0;
+    let isInSpecificCity = false;
+    
+    if (specificCity && isStaticPage) {
+      const location = (page.location || '').toLowerCase();
+      const titleAndDesc = (title + ' ' + description + ' ' + url).toLowerCase();
+      const cityLower = specificCity.toLowerCase().replace(/-/g, ' ');
+      
+      // בדיקה אם הדף מהעיר הספציפית
+      const inLocation = location.includes(cityLower);
+      const inTitleOrDesc = titleAndDesc.includes(cityLower);
+      
+      if (inLocation || inTitleOrDesc) {
+        isInSpecificCity = true;
+        cityBonus = 100; // ⭐ בונוס ענק לעיר ספציפית!
+        matchScore += cityBonus;
+      }
+    }
+    
+    // בדיקת אזור (רק אם לא מצאנו עיר ספציפית)
     let matchesRegion = true;
     let regionBonus = 0;
     
-    if (region && region.cities && isStaticPage) {
+    if (region && region.cities && isStaticPage && !isInSpecificCity) {
       const location = (page.location || '').toLowerCase();
       const titleAndDesc = (title + ' ' + description).toLowerCase();
       
@@ -281,9 +304,9 @@ function searchPages(query, region = null, pageType = 'all') {
       
       // בונוס אם מוזכר באזור הנכון
       if (inLocation) {
-        regionBonus = 15; // בונוס גבוה למיקום מדויק
+        regionBonus = 20; // בונוס גבוה למיקום מדויק
       } else if (inTitleOrDesc) {
-        regionBonus = 10; // בונוס נמוך יותר אם רק בתיאור
+        regionBonus = 15; // בונוס נמוך יותר אם רק בתיאור
       }
       
       matchScore += regionBonus;
@@ -299,15 +322,24 @@ function searchPages(query, region = null, pageType = 'all') {
         ...page,
         isStatic: isStaticPage,
         isInfo: isInfoPage,
+        isInSpecificCity: isInSpecificCity,  // ⭐ חדש!
+        specificCity: isInSpecificCity ? specificCity : null,  // ⭐ חדש!
         score: matchScore
       });
     }
   }
   
-  // מיון
+  // מיון משופר
   results.sort((a, b) => {
+    // ⭐ עדיפות ראשונה: עיר ספציפית!
+    if (a.isInSpecificCity && !b.isInSpecificCity) return -1;
+    if (!a.isInSpecificCity && b.isInSpecificCity) return 1;
+    
+    // עדיפות שנייה: דפים סטטיים
     if (a.isStatic && !b.isStatic) return -1;
     if (!a.isStatic && b.isStatic) return 1;
+    
+    // עדיפות שלישית: ציון
     return b.score - a.score;
   });
   
@@ -398,22 +430,51 @@ function detectRegion(message) {
     if (region.keywords) {
       for (const keyword of region.keywords) {
         if (lowerMessage.includes(keyword.toLowerCase())) {
-          return { name: region.name, slug: region.slug };
+          return { name: region.name, slug: region.slug, cities: region.cities };
         }
       }
     }
     
     // בדיקה אם נזכר שם האזור המלא
     if (lowerMessage.includes(region.name.toLowerCase())) {
-      return { name: region.name, slug: region.slug };
+      return { name: region.name, slug: region.slug, cities: region.cities };
     }
     
     // בדיקה אם נזכרה עיר מהאזור
     for (const city of region.cities) {
       const normalizedCity = city.toLowerCase().replace(/-/g, ' ');
       if (lowerMessage.includes(normalizedCity)) {
-        return { name: region.name, slug: region.slug, city: city };
+        return { name: region.name, slug: region.slug, cities: region.cities, city: city };
       }
+    }
+  }
+  
+  return null;
+}
+
+// ========================================
+// 🏙️ זיהוי עיר ספציפית מהשאלה
+// ========================================
+function detectSpecificCity(message, region = null) {
+  loadConfigs();
+  let lowerMessage = message.toLowerCase();
+  
+  // ניקוי
+  lowerMessage = lowerMessage.replace(/\sב([א-ת])/g, ' $1');
+  lowerMessage = lowerMessage.replace(/-/g, ' ');
+  
+  // אם יש אזור מזוהה - חפש רק ערים מהאזור הזה
+  const citiesToCheck = region && region.cities ? region.cities : 
+                        REGIONS.flatMap(r => r.cities);
+  
+  for (const city of citiesToCheck) {
+    const normalizedCity = city.toLowerCase().replace(/-/g, ' ');
+    
+    // בדיקה עם word boundaries
+    const regex = new RegExp('\\b' + normalizedCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
+    
+    if (regex.test(lowerMessage)) {
+      return city;
     }
   }
   
