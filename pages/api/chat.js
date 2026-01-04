@@ -121,6 +121,15 @@ function formatInsuranceAnswer(qa) {
     });
   }
   
+  // ✨ תמיד הוסף את הקישור המרכזי לביטוח לאומי
+  // (רק אם הוא לא כבר מוצג)
+  const btlLink = 'https://www.shabaton.online/btl_shabaton';
+  const alreadyHasLink = qa.relatedLinks && qa.relatedLinks.some(link => link.url === btlLink);
+  
+  if (!alreadyHasLink) {
+    response += `\n[למידע מפורט על ביטוח לאומי בשבתון](${btlLink})\n`;
+  }
+  
   return response;
 }
 
@@ -132,8 +141,15 @@ function formatGeneralInsuranceInfo() {
   
   let response = `💼 **ביטוח לאומי בשבתון**\n\n`;
   response += `${INSURANCE_QA.generalInfo.content}\n\n`;
-  response += `**לוח זמנים מלא:**\n`;
-  response += `${INSURANCE_QA.generalInfo.link}\n\n`;
+  
+  // הקישור המרכזי לביטוח לאומי
+  response += `**למידע מפורט:**\n`;
+  response += `[ביטוח לאומי בשבתון - מדריך מלא](https://www.shabaton.online/btl_shabaton)\n\n`;
+  
+  // לוח זמנים
+  response += `**לוח זמנים:**\n`;
+  response += `[לוח הזמנים לשנת השבתון](${INSURANCE_QA.generalInfo.link})\n\n`;
+  
   response += `**שאלות נפוצות:**\n`;
   
   // הצג 3 שאלות נפוצות
