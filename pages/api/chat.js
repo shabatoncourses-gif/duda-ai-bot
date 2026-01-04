@@ -28,10 +28,18 @@ function loadInsuranceQA() {
   if (!INSURANCE_QA) {
     try {
       const insurancePath = path.join(process.cwd(), 'data', 'insurance-qa.json');
-      INSURANCE_QA = JSON.parse(fs.readFileSync(insurancePath, 'utf8'));
-      console.log(`💼 נטען מידע ביטוח לאומי: ${INSURANCE_QA.questions.length} שאלות`);
+      const fileContent = fs.readFileSync(insurancePath, 'utf8');
+      INSURANCE_QA = JSON.parse(fileContent);
+      
+      console.log(`✅ נטען insurance-qa.json: ${INSURANCE_QA.questions.length} שאלות, ${INSURANCE_QA.keywords.length} keywords`);
+      
+      // בדיקת תקינות
+      if (!INSURANCE_QA.keywords || INSURANCE_QA.keywords.length === 0) {
+        console.error('❌ שגיאה: insurance-qa.json לא מכיל keywords!');
+      }
     } catch (error) {
-      console.error('Error loading insurance-qa.json:', error);
+      console.error('❌ שגיאה בטעינת insurance-qa.json:', error.message);
+      console.log('⚠️ מערכת ביטוח לאומי לא תעבוד עד שהקובץ יועלה');
       INSURANCE_QA = { questions: [], keywords: [], generalInfo: {}, fallbackMessage: '' };
     }
   }
@@ -45,10 +53,19 @@ function detectInsuranceQuestion(message) {
   loadInsuranceQA();
   const lowerMessage = message.toLowerCase();
   
+  // ✅ בדיקת תקינות: וודא ש-keywords קיים ולא ריק
+  if (!INSURANCE_QA || !INSURANCE_QA.keywords || INSURANCE_QA.keywords.length === 0) {
+    console.log('⚠️ insurance-qa.json לא נטען נכון - דולג על בדיקת ביטוח לאומי');
+    return false;
+  }
+  
   // בדיקה אם יש מילות מפתח של ביטוח לאומי
-  const hasInsuranceKeyword = INSURANCE_QA.keywords.some(keyword => 
-    lowerMessage.includes(keyword.toLowerCase())
-  );
+  const hasInsuranceKeyword = INSURANCE_QA.keywords.some(keyword => {
+    const keywordLower = keyword.toLowerCase();
+    // בדיקה עם word boundaries למניעת false positives
+    const regex = new RegExp('\\b' + keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+    return regex.test(lowerMessage);
+  });
   
   return hasInsuranceKeyword;
 }
@@ -58,6 +75,13 @@ function detectInsuranceQuestion(message) {
 // ========================================
 function findInsuranceAnswer(message) {
   loadInsuranceQA();
+  
+  // ✅ בדיקת תקינות
+  if (!INSURANCE_QA || !INSURANCE_QA.questions || INSURANCE_QA.questions.length === 0) {
+    console.log('⚠️ insurance-qa.json לא נטען נכון - אין שאלות');
+    return null;
+  }
+  
   const lowerMessage = message.toLowerCase();
   
   // ניקוי השאילתה
@@ -138,6 +162,12 @@ function formatInsuranceAnswer(qa) {
 // ========================================
 function formatGeneralInsuranceInfo() {
   loadInsuranceQA();
+  
+  // ✅ בדיקת תקינות
+  if (!INSURANCE_QA || !INSURANCE_QA.generalInfo || !INSURANCE_QA.questions) {
+    console.log('⚠️ insurance-qa.json לא נטען נכון - מחזיר הודעת fallback');
+    return `לא מצאתי מידע על ביטוח לאומי. אתה מוזמן לעיין בפורטל שבתון:\nhttps://www.shabaton.online/btl_shabaton\n\nאו לשאול בקבוצת WhatsApp:\nhttps://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME`;
+  }
   
   let response = `💼 **ביטוח לאומי בשבתון**\n\n`;
   response += `${INSURANCE_QA.generalInfo.content}\n\n`;
