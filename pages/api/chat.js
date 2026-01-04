@@ -489,14 +489,6 @@ function detectStudyField(message) {
   const lowerMessage = message.toLowerCase();
   const detectedFields = [];
   
-  // ספירת מילות מפתח בשאילתה (לאחר ניקוי)
-  const cleanedMessage = lowerMessage
-    .replace(/קורס(י)?/g, '')
-    .replace(/\sב([א-ת])/g, ' $1')
-    .trim();
-  const significantWords = cleanedMessage.split(/\s+/).filter(w => w.length > 2);
-  const isSpecificQuery = significantWords.length >= 3; // שאילתה ספציפית = 3+ מילים
-  
   // **שלב 1: חיפוש התאמה מדויקת לשם התחום (עדיפות גבוהה)**
   for (const field of STUDY_FIELDS) {
     const fieldNameLower = field.name.toLowerCase();
@@ -508,12 +500,6 @@ function detectStudyField(message) {
   // **שלב 2: חיפוש במילות מפתח עם word boundaries**
   const matches = [];
   
-  // רשימת מילים כלליות שצריך לדלג עליהן בשאילתות ספציפיות
-  const genericKeywords = [
-    'אמנות', 'אומנות', 'חינוך', 'הוראה', 'לימוד', 'לימודים',
-    'קורס', 'קורסים', 'תחום', 'מקצוע', 'השתלמות', 'הכשרה'
-  ];
-  
   for (const field of STUDY_FIELDS) {
     for (const keyword of field.keywords) {
       const keywordLower = keyword.toLowerCase();
@@ -521,11 +507,6 @@ function detectStudyField(message) {
       // בדיקה אם המילה מופיעה כמילה שלמה
       const regex = new RegExp('\\b' + keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
       if (regex.test(lowerMessage)) {
-        // **דלג רק על מילות מפתח כלליות בשאילתות ספציפיות**
-        if (isSpecificQuery && genericKeywords.includes(keywordLower)) {
-          continue;
-        }
-        
         matches.push({ field, keyword, length: keywordLower.length });
         break;
       }
@@ -536,8 +517,8 @@ function detectStudyField(message) {
   matches.sort((a, b) => b.length - a.length);
   detectedFields.push(...matches.map(m => m.field));
   
-  // **שלב 3: אם עדיין לא מצאנו ולא שאילתה ספציפית - חיפוש חלקי**
-  if (detectedFields.length === 0 && !isSpecificQuery) {
+  // **שלב 3: אם עדיין לא מצאנו - חיפוש חלקי**
+  if (detectedFields.length === 0) {
     for (const field of STUDY_FIELDS) {
       for (const keyword of field.keywords) {
         if (lowerMessage.includes(keyword.toLowerCase())) {
