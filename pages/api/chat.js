@@ -8,6 +8,7 @@ import path from 'path';
 let ALL_PAGES = null;
 let REGIONS = null;
 let STUDY_FIELDS = null;
+let INSURANCE_QA = null;
 
 function loadConfigs() {
   if (!REGIONS) {
@@ -21,6 +22,129 @@ function loadConfigs() {
     const fieldsData = JSON.parse(fs.readFileSync(fieldsPath, 'utf8'));
     STUDY_FIELDS = fieldsData.studyFields;
   }
+}
+
+function loadInsuranceQA() {
+  if (!INSURANCE_QA) {
+    try {
+      const insurancePath = path.join(process.cwd(), 'data', 'insurance-qa.json');
+      INSURANCE_QA = JSON.parse(fs.readFileSync(insurancePath, 'utf8'));
+      console.log(`💼 נטען מידע ביטוח לאומי: ${INSURANCE_QA.questions.length} שאלות`);
+    } catch (error) {
+      console.error('Error loading insurance-qa.json:', error);
+      INSURANCE_QA = { questions: [], keywords: [], generalInfo: {}, fallbackMessage: '' };
+    }
+  }
+  return INSURANCE_QA;
+}
+
+// ========================================
+// 🔍 זיהוי שאלה על ביטוח לאומי
+// ========================================
+function detectInsuranceQuestion(message) {
+  loadInsuranceQA();
+  const lowerMessage = message.toLowerCase();
+  
+  // בדיקה אם יש מילות מפתח של ביטוח לאומי
+  const hasInsuranceKeyword = INSURANCE_QA.keywords.some(keyword => 
+    lowerMessage.includes(keyword.toLowerCase())
+  );
+  
+  return hasInsuranceKeyword;
+}
+
+// ========================================
+// 🎯 חיפוש התשובה הטובה ביותר
+// ========================================
+function findInsuranceAnswer(message) {
+  loadInsuranceQA();
+  const lowerMessage = message.toLowerCase();
+  
+  // ניקוי השאילתה
+  const cleanMessage = lowerMessage
+    .replace(/\?/g, '')
+    .replace(/\./g, '')
+    .trim();
+  
+  // חישוב ציון התאמה לכל שאלה
+  const scoredQuestions = INSURANCE_QA.questions.map(qa => {
+    let score = 0;
+    
+    // התאמה למילות מפתח של השאלה
+    for (const keyword of qa.keywords) {
+      if (cleanMessage.includes(keyword.toLowerCase())) {
+        score += 10;
+      }
+    }
+    
+    // התאמה לטקסט השאלה עצמה
+    const questionWords = qa.question.toLowerCase().split(/\s+/);
+    const messageWords = cleanMessage.split(/\s+/);
+    
+    for (const word of messageWords) {
+      if (word.length > 2 && questionWords.some(qw => qw.includes(word) || word.includes(qw))) {
+        score += 5;
+      }
+    }
+    
+    return { qa, score };
+  });
+  
+  // מיון לפי ציון
+  scoredQuestions.sort((a, b) => b.score - a.score);
+  
+  // החזרת התשובה הטובה ביותר (אם הציון מספיק גבוה)
+  if (scoredQuestions[0] && scoredQuestions[0].score >= 10) {
+    return scoredQuestions[0].qa;
+  }
+  
+  return null;
+}
+
+// ========================================
+// 📝 עיצוב תשובה על ביטוח לאומי
+// ========================================
+function formatInsuranceAnswer(qa) {
+  let response = `💼 **ביטוח לאומי בשבתון**\n\n`;
+  
+  // השאלה
+  response += `**שאלה:**\n${qa.question}\n\n`;
+  
+  // התשובה
+  response += `**תשובה:**\n${qa.answer}\n`;
+  
+  // קישורים נוספים (אם יש)
+  if (qa.relatedLinks && qa.relatedLinks.length > 0) {
+    response += `\n`;
+    qa.relatedLinks.forEach(link => {
+      response += `[${link.text}](${link.url})\n`;
+    });
+  }
+  
+  return response;
+}
+
+// ========================================
+// 📋 עיצוב תשובה כללית על ביטוח לאומי
+// ========================================
+function formatGeneralInsuranceInfo() {
+  loadInsuranceQA();
+  
+  let response = `💼 **ביטוח לאומי בשבתון**\n\n`;
+  response += `${INSURANCE_QA.generalInfo.content}\n\n`;
+  response += `**לוח זמנים מלא:**\n`;
+  response += `${INSURANCE_QA.generalInfo.link}\n\n`;
+  response += `**שאלות נפוצות:**\n`;
+  
+  // הצג 3 שאלות נפוצות
+  INSURANCE_QA.questions.slice(0, 3).forEach((qa, i) => {
+    const shortQ = qa.question.length > 80 ? qa.question.substring(0, 77) + '...' : qa.question;
+    response += `${i + 1}. ${shortQ}\n`;
+  });
+  
+  response += `\nאפשר לשאול אותי שאלה ספציפית על ביטוח לאומי!`;
+  
+  return response;
 }
 
 function loadAllPages() {
@@ -536,6 +660,19 @@ function detectStudyField(message) {
 // 🤖 יצירת תשובה חכמה (לוגיקה פשוטה!)
 // ========================================
 function generateSmartResponse(userMessage) {
+  // ✅ ראשית - בדוק אם זו שאלה על ביטוח לאומי
+  if (detectInsuranceQuestion(userMessage)) {
+    const answer = findInsuranceAnswer(userMessage);
+    
+    if (answer) {
+      // מצאנו תשובה ספציפית!
+      return formatInsuranceAnswer(answer);
+    } else {
+      // שאלה על ביטוח לאומי, אבל לא מצאנו תשובה ספציפית
+      return formatGeneralInsuranceInfo();
+    }
+  }
+  
   const region = detectRegion(userMessage);
   const studyFields = detectStudyField(userMessage);
   
