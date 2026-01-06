@@ -59,13 +59,16 @@ function detectInsuranceQuestion(message) {
     return false;
   }
   
-  // בדיקה אם יש מילות מפתח של ביטוח לאומי
+  // בדיקה פשוטה - האם יש מילת מפתח של ביטוח לאומי?
+  // (ללא word boundaries שיכולים לגרום לבעיות עם עברית)
   const hasInsuranceKeyword = INSURANCE_QA.keywords.some(keyword => {
     const keywordLower = keyword.toLowerCase();
-    // בדיקה עם word boundaries למניעת false positives
-    const regex = new RegExp('\\b' + keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
-    return regex.test(lowerMessage);
+    return lowerMessage.includes(keywordLower);
   });
+  
+  if (hasInsuranceKeyword) {
+    console.log('✅ זוהתה שאלה על ביטוח לאומי');
+  }
   
   return hasInsuranceKeyword;
 }
@@ -118,7 +121,8 @@ function findInsuranceAnswer(message) {
   scoredQuestions.sort((a, b) => b.score - a.score);
   
   // החזרת התשובה הטובה ביותר (אם הציון מספיק גבוה)
-  if (scoredQuestions[0] && scoredQuestions[0].score >= 10) {
+  // הורדנו את הסף מ-10 ל-5 כדי להיות יותר סלחניים
+  if (scoredQuestions[0] && scoredQuestions[0].score >= 5) {
     return scoredQuestions[0].qa;
   }
   
