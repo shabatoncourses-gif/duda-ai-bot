@@ -59,6 +59,12 @@ function detectInsuranceQuestion(message) {
     return false;
   }
   
+  // 🛡️ הגנה כפולה: השאילתה חייבת להכיל את המילה "ביטוח"
+  // (למניעת false positives!)
+  if (!lowerMessage.includes('ביטוח')) {
+    return false;
+  }
+  
   // בדיקה פשוטה - האם יש מילת מפתח של ביטוח לאומי?
   // (ללא word boundaries שיכולים לגרום לבעיות עם עברית)
   const hasInsuranceKeyword = INSURANCE_QA.keywords.some(keyword => {
