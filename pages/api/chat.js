@@ -120,12 +120,19 @@ function findInsuranceAnswer(message) {
   // מיון לפי ציון
   scoredQuestions.sort((a, b) => b.score - a.score);
   
-  // החזרת התשובה הטובה ביותר (אם הציון מספיק גבוה)
-  // הורדנו את הסף מ-10 ל-5 כדי להיות יותר סלחניים
-  if (scoredQuestions[0] && scoredQuestions[0].score >= 5) {
-    return scoredQuestions[0].qa;
+  const bestMatch = scoredQuestions[0];
+  const bestScore = bestMatch ? bestMatch.score : 0;
+  
+  console.log(`🔍 ציון התאמה מירבי: ${bestScore}`);
+  
+  // ✅ החזרת התשובה הטובה ביותר **רק אם הציון גבוה מספיק**
+  // ציון מינימלי: 30 (כדי לוודא שזו באמת שאלה ספציפית)
+  if (bestMatch && bestScore >= 30) {
+    console.log(`✅ נמצאה תשובה ספציפית: "${bestMatch.qa.question.substring(0, 50)}..."`);
+    return bestMatch.qa;
   }
   
+  console.log('⚠️ אין תשובה ספציפית מספיק טובה - מציג מידע כללי');
   return null;
 }
 
@@ -170,29 +177,20 @@ function formatGeneralInsuranceInfo() {
   // ✅ בדיקת תקינות
   if (!INSURANCE_QA || !INSURANCE_QA.generalInfo || !INSURANCE_QA.questions) {
     console.log('⚠️ insurance-qa.json לא נטען נכון - מחזיר הודעת fallback');
-    return `לא מצאתי מידע על ביטוח לאומי. אתה מוזמן לעיין בפורטל שבתון:\nhttps://www.shabaton.online/btl_shabaton\n\nאו לשאול בקבוצת WhatsApp:\nhttps://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME`;
+    return `💼 **ביטוח לאומי בשבתון**\n\nלמידע מפורט על ביטוח לאומי בשבתון:\n[ביטוח לאומי בשבתון - מדריך מלא](https://www.shabaton.online/btl_shabaton)\n\nאו לשאול בקבוצת WhatsApp:\n[פנו למידע נוסף](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)`;
   }
   
   let response = `💼 **ביטוח לאומי בשבתון**\n\n`;
   response += `${INSURANCE_QA.generalInfo.content}\n\n`;
   
-  // הקישור המרכזי לביטוח לאומי
-  response += `**למידע מפורט:**\n`;
+  // 🎯 הקישור המרכזי - זה מה שהמשתמש צריך!
+  response += `**📘 למידע מפורט ולוח זמנים:**\n`;
   response += `[ביטוח לאומי בשבתון - מדריך מלא](https://www.shabaton.online/btl_shabaton)\n\n`;
   
-  // לוח זמנים
-  response += `**לוח זמנים:**\n`;
-  response += `[לוח הזמנים לשנת השבתון](${INSURANCE_QA.generalInfo.link})\n\n`;
-  
-  response += `**שאלות נפוצות:**\n`;
-  
-  // הצג 3 שאלות נפוצות
-  INSURANCE_QA.questions.slice(0, 3).forEach((qa, i) => {
-    const shortQ = qa.question.length > 80 ? qa.question.substring(0, 77) + '...' : qa.question;
-    response += `${i + 1}. ${shortQ}\n`;
-  });
-  
-  response += `\nאפשר לשאול אותי שאלה ספציפית על ביטוח לאומי!`;
+  response += `💡 אפשר גם לשאול אותי שאלות ספציפיות, למשל:\n`;
+  response += `• "מתי להירשם לביטוח לאומי?"\n`;
+  response += `• "אם אעבוד בשבתון צריך לשלם?"\n`;
+  response += `• "מה ההבדל בין שבתון מלא לחצי?"`;
   
   return response;
 }
