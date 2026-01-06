@@ -93,6 +93,19 @@ function findInsuranceAnswer(message) {
   
   const lowerMessage = message.toLowerCase();
   
+  // 🎯 בדיקה: האם זו שאלה ספציפית?
+  // שאלה ספציפית = מכילה מילת שאלה
+  const questionWords = ['מתי', 'איך', 'מה', 'למה', 'האם', 'מדוע', 'איפה', 'כמה', 'האם'];
+  const isSpecificQuestion = questionWords.some(word => lowerMessage.includes(word));
+  
+  // אם זו לא שאלה ספציפית - הפנה לדף כללי
+  if (!isSpecificQuestion) {
+    console.log('⚠️ שאלה כללית (אין מילת שאלה) - מציג מידע כללי');
+    return null;
+  }
+  
+  console.log('✅ שאלה ספציפית - מחפש תשובה');
+  
   // ניקוי השאילתה
   const cleanMessage = lowerMessage
     .replace(/\?/g, '')
@@ -131,14 +144,13 @@ function findInsuranceAnswer(message) {
   
   console.log(`🔍 ציון התאמה מירבי: ${bestScore}`);
   
-  // ✅ החזרת התשובה הטובה ביותר **רק אם הציון גבוה מספיק**
-  // ציון מינימלי: 30 (כדי לוודא שזו באמת שאלה ספציפית)
-  if (bestMatch && bestScore >= 30) {
-    console.log(`✅ נמצאה תשובה ספציפית: "${bestMatch.qa.question.substring(0, 50)}..."`);
+  // לשאלה ספציפית - החזר את התשובה הכי טובה
+  if (bestMatch && bestScore >= 10) {
+    console.log(`✅ נמצאה תשובה: "${bestMatch.qa.question.substring(0, 50)}..."`);
     return bestMatch.qa;
   }
   
-  console.log('⚠️ אין תשובה ספציפית מספיק טובה - מציג מידע כללי');
+  console.log('⚠️ לא נמצאה תשובה טובה מספיק');
   return null;
 }
 
