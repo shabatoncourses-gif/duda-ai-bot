@@ -344,7 +344,7 @@ function searchPages(query, region = null, pageType = 'all') {
   }
   
   // **סף מאוזן - מאפשר תוצאות טובות אבל מסנן זבל**
-  const minScore = isSpecificQuery ? 35 : 20;
+  const minScore = isSpecificQuery ? 25 : 10;
   
   // **זיהוי מילת הנושא העיקרית (המילה הראשונה)**
   // לדוגמה: "גישור בירושלים" → "גישור" הוא הנושא העיקרי
@@ -779,7 +779,7 @@ function generateSmartResponse(userMessage) {
     
     if (searchResults && searchResults.length > 0) {
       // **מצאנו דפים סטטיים רלוונטיים!**
-      response = `מצאתי ${searchResults.length} תוצאות רלוונטיות ב${region.name}:\n\n`;
+      response = `מצאתי ${searchResults.length} ${searchResults.length === 1 ? 'מוסד' : 'מוסדות'} ב${region.name} ל${field.name}:\n\n`;
       response += formatSearchResults(searchResults);
       
       // **הוספת קישור לדף דינמי - קורסים נוספים**
@@ -787,7 +787,7 @@ function generateSmartResponse(userMessage) {
       const encodedSlug = field.slug.replace(/ /g, '%20');
       const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
       
-      response += `\nלקורסים נוספים ב${field.name}:\n${url}`;
+      response += `\n💡 לכל הקורסים ב${field.name} ב${region.name}:\n${url}`;
       
       return response;
     }
@@ -797,8 +797,9 @@ function generateSmartResponse(userMessage) {
     const encodedSlug = field.slug.replace(/ /g, '%20');
     const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
     
-    response = `לא מצאתי תוצאות ספציפיות לשאילתה שלך, אבל תוכל למצוא קורסים ב${field.name} ב${region.name}:\n\n`;
-    response += `${url}`;
+    response = `🎯 מצאתי קורסים ב${field.name} ב${region.name}:\n\n`;
+    response += `${url}\n\n`;
+    response += `💡 כאן תמצא/י את כל הקורסים הזמינים באזור!`;
     
     return response;
   }
