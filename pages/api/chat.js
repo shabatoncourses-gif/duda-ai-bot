@@ -517,17 +517,34 @@ function searchPages(query, region = null, pageType = 'all') {
           }
         }
         
-        // אם לא מצאנו עיר כלל - דלג על הדף!
-        // (כשיש סינון אזור, רק דפים עם עיר מפורשת צריכים לעבור)
-        if (firstCity === null) {
-          continue; // ← אין עיר מוזכרת - דלג על הדף!
+        // בדוק אם יש עיר כלשהי מוזכרת (מכל אזור)
+        let anyCityMentioned = false;
+        for (const r of REGIONS) {
+          for (const city of r.cities) {
+            const cityLower = city.toLowerCase().replace(/-/g, ' ');
+            if (titleAndDesc.includes(cityLower)) {
+              anyCityMentioned = true;
+              break;
+            }
+          }
+          if (anyCityMentioned) break;
         }
         
-        // אם העיר הראשונה לא מהאזור המבוקש - דלג!
-        if (!firstCityInRegion) {
+        // אם אין שום עיר מוזכרת - תן לעבור
+        // (זה אולי דף כללי על האזור, כמו "קורס בצפון")
+        if (!anyCityMentioned) {
+          matchesRegion = true;
+          regionBonus = 10; // בונוס קטן לדפים כלליים
+        } else if (firstCity === null) {
+          // יש עיר מוזכרת אבל לא מצאנו אותה - שגיאה?
           continue;
+        } else {
+          // יש עיר - בדוק אם היא מהאזור הנכון
+          if (!firstCityInRegion) {
+            continue;
+          }
+          matchesRegion = true;
         }
-        matchesRegion = true;
       }
       
       // בונוס אם מוזכר באזור הנכון
