@@ -380,7 +380,12 @@ function searchPages(query, region = null, pageType = 'all') {
                        url.includes('/pension_shabaton') ||
                        url.includes('/keren_makor_mishor') ||
                        url.includes('/tofes_101') ||
-                       url.includes('/learning_programs_shabaton');
+                       url.includes('/learning_programs_shabaton') ||
+                       url.includes('/time') ||  // לוח זמנים
+                       url.includes('/schedule') ||  // לוח זמנים
+                       url.includes('/timetable') ||  // לוח זמנים
+                       title.includes('לוח זמנים') ||  // לוח זמנים בכותרת
+                       title.includes('לוח הזמנים');  // לוח הזמנים בכותרת
     
     if (pageType === 'static' && !isStaticPage) continue;
     if (pageType === 'info' && !isInfoPage) continue;
@@ -512,16 +517,17 @@ function searchPages(query, region = null, pageType = 'all') {
           }
         }
         
-        // אם לא מצאנו עיר כלל - אין סינון
+        // אם לא מצאנו עיר כלל - דלג על הדף!
+        // (כשיש סינון אזור, רק דפים עם עיר מפורשת צריכים לעבור)
         if (firstCity === null) {
-          matchesRegion = true; // אין עיר מוזכרת - תן לעבור
-        } else {
-          // אם העיר הראשונה לא מהאזור המבוקש - דלג!
-          if (!firstCityInRegion) {
-            continue;
-          }
-          matchesRegion = true;
+          continue; // ← אין עיר מוזכרת - דלג על הדף!
         }
+        
+        // אם העיר הראשונה לא מהאזור המבוקש - דלג!
+        if (!firstCityInRegion) {
+          continue;
+        }
+        matchesRegion = true;
       }
       
       // בונוס אם מוזכר באזור הנכון
