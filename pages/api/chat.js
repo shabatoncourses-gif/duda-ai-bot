@@ -485,22 +485,49 @@ function searchPages(query, region = null, pageType = 'all') {
         return location.includes(cityLower);
       });
       
-      const inTitleOrDesc = region.cities.some(city => {
-        const cityLower = city.toLowerCase().replace(/-/g, ' ');
-        return titleAndDesc.includes(cityLower);
-      });
-      
-      matchesRegion = inLocation || inTitleOrDesc;
-      
-      // ✅ אם הדף לא מהאזור - דלג עליו לגמרי!
-      if (!matchesRegion) {
-        continue; // ← פשוט דלג על הדף הזה!
+      // ✅ אם יש location מדויק - תסתמך עליו!
+      if (location && location.trim() !== '') {
+        matchesRegion = inLocation;
+        
+        if (!matchesRegion) {
+          continue; // ← הדף לא מהאזור לפי ה-location - דלג!
+        }
+      } else {
+        // אם אין location - בדוק מה העיר הראשונה שמופיעה בכותרת/תיאור
+        let firstCityPosition = Infinity;
+        let firstCity = null;
+        let firstCityInRegion = false;
+        
+        // עבור על כל הערים בכל האזורים
+        for (const r of REGIONS) {
+          for (const city of r.cities) {
+            const cityLower = city.toLowerCase().replace(/-/g, ' ');
+            const pos = titleAndDesc.indexOf(cityLower);
+            
+            if (pos !== -1 && pos < firstCityPosition) {
+              firstCityPosition = pos;
+              firstCity = city;
+              firstCityInRegion = (r.name === region.name);
+            }
+          }
+        }
+        
+        // אם לא מצאנו עיר כלל - אין סינון
+        if (firstCity === null) {
+          matchesRegion = true; // אין עיר מוזכרת - תן לעבור
+        } else {
+          // אם העיר הראשונה לא מהאזור המבוקש - דלג!
+          if (!firstCityInRegion) {
+            continue;
+          }
+          matchesRegion = true;
+        }
       }
       
       // בונוס אם מוזכר באזור הנכון
       if (inLocation) {
         regionBonus = 20; // בונוס גבוה למיקום מדויק
-      } else if (inTitleOrDesc) {
+      } else if (matchesRegion) {
         regionBonus = 15; // בונוס נמוך יותר אם רק בתיאור
       }
       
