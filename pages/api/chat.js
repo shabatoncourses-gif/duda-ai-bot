@@ -538,7 +538,7 @@ function searchPages(query, region = null, pageType = 'all') {
         if (!anyCityMentioned) {
           // בדוק אם שם האזור או מילות מפתח של האזור מופיעים בדף
           const regionMentioned = titleAndDesc.includes(region.name.toLowerCase()) ||
-                                  region.keywords.some(k => titleAndDesc.includes(k.toLowerCase()));
+                                  (region.keywords && region.keywords.some(k => titleAndDesc.includes(k.toLowerCase())));
           
           if (regionMentioned) {
             matchesRegion = true;
