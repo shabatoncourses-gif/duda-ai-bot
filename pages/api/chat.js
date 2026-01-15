@@ -492,6 +492,11 @@ function searchPages(query, region = null, pageType = 'all') {
       
       matchesRegion = inLocation || inTitleOrDesc;
       
+      // ✅ אם הדף לא מהאזור - דלג עליו לגמרי!
+      if (!matchesRegion) {
+        continue; // ← פשוט דלג על הדף הזה!
+      }
+      
       // בונוס אם מוזכר באזור הנכון
       if (inLocation) {
         regionBonus = 20; // בונוס גבוה למיקום מדויק
@@ -500,11 +505,6 @@ function searchPages(query, region = null, pageType = 'all') {
       }
       
       matchScore += regionBonus;
-      
-      if (!matchesRegion) {
-        // הנמכת ציון משמעותית במקום אפס מוחלט
-        matchScore = Math.floor(matchScore * 0.3); // 70% הנחה
-      }
     }
     
     if (matchScore > 0) {
