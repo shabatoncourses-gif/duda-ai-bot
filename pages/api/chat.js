@@ -620,21 +620,35 @@ function detectRegion(message) {
     if (region.keywords) {
       for (const keyword of region.keywords) {
         if (lowerMessage.includes(keyword.toLowerCase())) {
-          return { name: region.name, slug: region.slug, cities: region.cities };
+          return { name: region.name, slug: region.slug, cities: region.cities, abbreviations: region.abbreviations };
         }
       }
     }
     
     // בדיקה אם נזכר שם האזור המלא
     if (lowerMessage.includes(region.name.toLowerCase())) {
-      return { name: region.name, slug: region.slug, cities: region.cities };
+      return { name: region.name, slug: region.slug, cities: region.cities, abbreviations: region.abbreviations };
+    }
+    
+    // ✨ בדיקת קיצורים של ערים
+    if (region.abbreviations) {
+      for (const [cityName, abbrevs] of Object.entries(region.abbreviations)) {
+        for (const abbrev of abbrevs) {
+          const abbrevLower = abbrev.toLowerCase();
+          // בדיקה עם word boundaries לקיצורים
+          const regex = new RegExp('\\b' + abbrevLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
+          if (regex.test(lowerMessage)) {
+            return { name: region.name, slug: region.slug, cities: region.cities, city: cityName, abbreviations: region.abbreviations };
+          }
+        }
+      }
     }
     
     // בדיקה אם נזכרה עיר מהאזור
     for (const city of region.cities) {
       const normalizedCity = city.toLowerCase().replace(/-/g, ' ');
       if (lowerMessage.includes(normalizedCity)) {
-        return { name: region.name, slug: region.slug, cities: region.cities, city: city };
+        return { name: region.name, slug: region.slug, cities: region.cities, city: city, abbreviations: region.abbreviations };
       }
     }
   }
@@ -652,6 +666,20 @@ function detectSpecificCity(message, region = null) {
   // ניקוי
   lowerMessage = lowerMessage.replace(/\sב([א-ת])/g, ' $1');
   lowerMessage = lowerMessage.replace(/-/g, ' ');
+  
+  // אם יש אזור מזוהה - בדוק קיצורים תחילה
+  if (region && region.abbreviations) {
+    for (const [cityName, abbrevs] of Object.entries(region.abbreviations)) {
+      for (const abbrev of abbrevs) {
+        const abbrevLower = abbrev.toLowerCase();
+        // בדיקה עם word boundaries
+        const regex = new RegExp('\\b' + abbrevLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
+        if (regex.test(lowerMessage)) {
+          return cityName;
+        }
+      }
+    }
+  }
   
   // אם יש אזור מזוהה - חפש רק ערים מהאזור הזה
   const citiesToCheck = region && region.cities ? region.cities : 
