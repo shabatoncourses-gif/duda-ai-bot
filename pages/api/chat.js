@@ -346,9 +346,13 @@ function searchPages(query, region = null, pageType = 'all') {
   // **סף מאוזן - מאפשר תוצאות טובות אבל מסנן זבל**
   const minScore = isSpecificQuery ? 25 : 10;
   
-  // **זיהוי מילת הנושא העיקרית (המילה הראשונה)**
-  // לדוגמה: "גישור בירושלים" → "גישור" הוא הנושא העיקרי
-  const mainTopicWord = queryWordsWithoutCities[0];
+  // **זיהוי מילת הנושא העיקרית (לא כולל מילות רעש)**
+  // מילות רעש: קורס, קורסי, לימודי, השתלמות, וכו'
+  const noiseWords = ['קורס', 'קורסי', 'קורסים', 'לימודי', 'לימוד', 'השתלמות', 'השתלמויות', 'סדנה', 'סדנת', 'סדנאות', 'הכשרה', 'הכשרת'];
+  const topicWords = queryWordsWithoutCities.filter(w => !noiseWords.includes(w));
+  
+  // המילה העיקרית היא הראשונה שאינה מילת רעש
+  const mainTopicWord = topicWords.length > 0 ? topicWords[0] : queryWordsWithoutCities[0];
   
   let results = [];
   
@@ -530,11 +534,19 @@ function searchPages(query, region = null, pageType = 'all') {
           if (anyCityMentioned) break;
         }
         
-        // אם אין שום עיר מוזכרת - תן לעבור
-        // (זה אולי דף כללי על האזור, כמו "קורס בצפון")
+        // אם אין שום עיר מוזכרת - בדוק אם האזור מוזכר במפורש
         if (!anyCityMentioned) {
-          matchesRegion = true;
-          regionBonus = 10; // בונוס קטן לדפים כלליים
+          // בדוק אם שם האזור או מילות מפתח של האזור מופיעים בדף
+          const regionMentioned = titleAndDesc.includes(region.name.toLowerCase()) ||
+                                  region.keywords.some(k => titleAndDesc.includes(k.toLowerCase()));
+          
+          if (regionMentioned) {
+            matchesRegion = true;
+            regionBonus = 10; // בונוס קטן לדפים כלליים של האזור
+          } else {
+            // אין עיר ואין אזור - דלג!
+            continue;
+          }
         } else if (firstCity === null) {
           // יש עיר מוזכרת אבל לא מצאנו אותה - שגיאה?
           continue;
@@ -642,7 +654,14 @@ function formatSearchResults(pages, region = null) {
       }
       
       // קישור עם חץ כתום
-      response += `[→ פנו למוסד הלימודים](${page.url})\n`;
+      // ווד שה-URL לא מתחיל כפול
+      let cleanUrl = page.url;
+      if (cleanUrl && cleanUrl.includes('://') && cleanUrl.indexOf('://') !== cleanUrl.lastIndexOf('://')) {
+        // יש שני :// - כנראה URL כפול!
+        const parts = cleanUrl.split('://');
+        cleanUrl = parts[0] + '://' + parts[parts.length - 1];
+      }
+      response += `[→ פנו למוסד הלימודים](${cleanUrl})\n`;
       
       // מפריד דק בין מוסדות (לא אחרי האחרון)
       if (index < staticPages.length - 1) {
@@ -859,13 +878,6 @@ function generateSmartResponse(userMessage) {
       // **מצאנו דפים סטטיים רלוונטיים!**
       response = `מצאתי ${searchResults.length} ${searchResults.length === 1 ? 'מוסד' : 'מוסדות'} ב${region.name} ל${field.name}:\n\n`;
       response += formatSearchResults(searchResults);
-      
-      // **הוספת קישור לדף דינמי - קורסים נוספים**
-      const regionSlug = region.slug;
-      const encodedSlug = field.slug.replace(/ /g, '%20');
-      const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
-      
-      response += `\n💡 לכל הקורסים ב${field.name} ב${region.name}:\n${url}`;
       
       return response;
     }
