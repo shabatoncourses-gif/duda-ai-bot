@@ -309,7 +309,7 @@ function shouldFilterUrl(url) {
 // ========================================
 // 🔍 חיפוש דפים באינדקסים (חיפוש מאוזן!)
 // ========================================
-function searchPages(query, region = null, pageType = 'all') {
+function searchPages(query, region = null, pageType = 'all', studyField = null) {
   const pages = loadAllPages();
   const lowerQuery = query.toLowerCase();
   
@@ -438,9 +438,23 @@ function searchPages(query, region = null, pageType = 'all') {
     }
     
     // **דרישה קריטית: הנושא העיקרי חייב להימצא!**
+    // אבל אם יש study field מזוהה, בדוק את ה-keywords שלו במקום
     if (isSpecificQuery && !hasMainTopic) {
-      // אם לא מצאנו את הנושא העיקרי - דלג!
-      continue;
+      if (studyField && studyField.keywords) {
+        // יש study field - בדוק אם אחד מה-keywords שלו מופיע
+        const hasStudyFieldKeyword = studyField.keywords.some(kw => {
+          const kwLower = kw.toLowerCase();
+          return title.includes(kwLower) || description.includes(kwLower) || keywords.some(k => k.includes(kwLower));
+        });
+        
+        if (!hasStudyFieldKeyword) {
+          // גם ה-keywords של study field לא מופיעים - דלג!
+          continue;
+        }
+      } else {
+        // אין study field ואין mainTopicWord - דלג!
+        continue;
+      }
     }
     
     // **בונוס אם רוב המילים נמצאו**
@@ -872,7 +886,7 @@ function generateSmartResponse(userMessage) {
     const field = studyFields[0];
     
     // **קודם: חיפוש דפים סטטיים באינדקס**
-    const searchResults = searchPages(userMessage, region, 'static');
+    const searchResults = searchPages(userMessage, region, 'static', field);
     
     if (searchResults && searchResults.length > 0) {
       // **מצאנו דפים סטטיים רלוונטיים!**
