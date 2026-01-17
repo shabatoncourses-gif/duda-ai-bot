@@ -337,7 +337,7 @@ function shouldFilterUrl(url, title = '') {
 // ========================================
 function searchPagesStrict(query, region, studyField) {
   const results = [];
-  const REGIONS = require('./data/regions.json').regions;
+  const pages = loadAllPages(); // טען את כל הדפים!
   
   for (const page of pages) {
     // ==============================
@@ -363,14 +363,16 @@ function searchPagesStrict(query, region, studyField) {
     
     // לא דפי מידע!
     const isInfoPage = url.includes('/luz_shabaton') ||
-                       url.includes('/shabaton') ||
+                       url.includes('/shabaton-video') ||
+                       url.includes('/end_shabaton') ||
+                       url.includes('/halforfull_shabaton') ||
+                       url.includes('/phones_shabaton') ||
+                       url.includes('/forms_shabaton') ||
                        url.includes('/time') ||
                        url.includes('/schedule') ||
                        url.includes('/timetable') ||
                        title.includes('לוח זמנים') ||
-                       title.includes('לוח הזמנים') ||
-                       title.includes('שנת שבתון') ||
-                       title.includes('מידע כללי');
+                       title.includes('לוח הזמנים');
     
     if (isInfoPage) continue;
     
