@@ -333,6 +333,115 @@ function shouldFilterUrl(url, title = '') {
 }
 
 // ========================================
+// 🔍 חיפוש מחמיר - רק התאמות חזקות!
+// ========================================
+function searchPagesStrict(query, region, studyField) {
+  const results = [];
+  const REGIONS = require('./data/regions.json').regions;
+  
+  for (const page of pages) {
+    // ==============================
+    // שלב 1: בדיקות בסיסיות
+    // ==============================
+    
+    // חסום URLs לא רלוונטיים
+    if (shouldFilterUrl(page.url, page.title || page.h1)) {
+      continue;
+    }
+    
+    const title = (page.title || page.h1 || '').toLowerCase();
+    const description = (page.description || '').toLowerCase();
+    const url = (page.url || '').toLowerCase();
+    const location = (page.location || '').toLowerCase();
+    
+    // רק דפים סטטיים
+    const isStaticPage = !url.includes('/results-') && 
+                         !url.includes('/search-results-') && 
+                         !url.includes('/courses-per-month');
+    
+    if (!isStaticPage) continue;
+    
+    // לא דפי מידע!
+    const isInfoPage = url.includes('/luz_shabaton') ||
+                       url.includes('/shabaton') ||
+                       url.includes('/time') ||
+                       url.includes('/schedule') ||
+                       url.includes('/timetable') ||
+                       title.includes('לוח זמנים') ||
+                       title.includes('לוח הזמנים') ||
+                       title.includes('שנת שבתון') ||
+                       title.includes('מידע כללי');
+    
+    if (isInfoPage) continue;
+    
+    // ==============================
+    // שלב 2: בדיקת אזור (חובה!)
+    // ==============================
+    
+    let inRegion = false;
+    
+    // אופציה 1: יש location field
+    if (location && location.trim() !== '') {
+      inRegion = region.cities.some(city => {
+        const cityLower = city.toLowerCase().replace(/-/g, ' ');
+        return location.includes(cityLower);
+      });
+    } else {
+      // אופציה 2: יש עיר בכותרת או תיאור
+      const titleAndDesc = title + ' ' + description;
+      
+      for (const city of region.cities) {
+        const cityLower = city.toLowerCase().replace(/-/g, ' ');
+        if (titleAndDesc.includes(cityLower)) {
+          inRegion = true;
+          break;
+        }
+      }
+    }
+    
+    // אם לא מהאזור - דלג!
+    if (!inRegion) continue;
+    
+    // ==============================
+    // שלב 3: בדיקת keywords (חובה!)
+    // ==============================
+    
+    let hasKeyword = false;
+    
+    if (studyField && studyField.keywords) {
+      for (const kw of studyField.keywords) {
+        const kwLower = kw.toLowerCase();
+        
+        // בדוק אם המילה מופיעה כמילה שלמה
+        const regex = new RegExp('\\b' + kwLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
+        
+        if (regex.test(title) || regex.test(description)) {
+          hasKeyword = true;
+          break;
+        }
+      }
+    }
+    
+    // אם אין keyword - דלג!
+    if (!hasKeyword) continue;
+    
+    // ==============================
+    // שלב 4: הדף עבר את כל הבדיקות!
+    // ==============================
+    
+    results.push({
+      ...page,
+      matchScore: 100 // כל דף שעבר מקבל ציון מלא
+    });
+  }
+  
+  // החזר את התוצאות ממוינות לפי ציון
+  return results
+    .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
+    .slice(0, 20); // מקסימום 20 תוצאות
+}
+
+// ========================================
 // 🔍 חיפוש דפים באינדקסים (חיפוש מאוזן!)
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
@@ -910,12 +1019,12 @@ function generateSmartResponse(userMessage) {
     }
   }
   
-  // **אם יש תחום מזוהה ואזור - חיפוש באינדקס קודם!**
+  // **אם יש תחום מזוהה ואזור - חיפוש מחמיר!**
   if (studyFields.length > 0 && region) {
     const field = studyFields[0];
     
-    // **קודם: חיפוש דפים סטטיים באינדקס**
-    const searchResults = searchPages(userMessage, region, 'static', field);
+    // **חיפוש מחמיר: רק דפים עם התאמה חזקה**
+    const searchResults = searchPagesStrict(userMessage, region, field);
     
     if (searchResults && searchResults.length > 0) {
       // **מצאנו דפים סטטיים רלוונטיים!**
