@@ -558,8 +558,10 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
             matchesRegion = true;
             regionBonus = 10; // בונוס קטן לדפים כלליים של האזור
           } else {
-            // אין עיר ואין אזור - דלג!
-            continue;
+            // אין עיר ואין אזור - תן בונוס נמוך מאוד ואל תדלג!
+            // (כי אולי זה דף כללי שרלוונטי לכל הארץ)
+            matchesRegion = true;
+            regionBonus = 2; // בונוס מינימלי
           }
         } else if (firstCity === null) {
           // יש עיר מוזכרת אבל לא מצאנו אותה - שגיאה?
