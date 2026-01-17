@@ -300,7 +300,12 @@ function shouldFilterUrl(url) {
     'morim.boutique/health',
     'morim.boutique/fashion',
     'morim.boutique/$', // דף הבית של morim
-    'קורסי-נגרות-וחידוש-רהיטים'
+    'קורסי-נגרות-וחידוש-רהיטים',
+    // דפים כלליים/קולקטיביים
+    'קורסי-העשרה-ופנאי',
+    'קורסי העשרה ופנאי',
+    '/enrichment',
+    '/all-courses'
   ];
   
   return blockedPatterns.some(pattern => url.includes(pattern));
@@ -344,7 +349,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   }
   
   // **סף מאוזן - מאפשר תוצאות טובות אבל מסנן זבל**
-  const minScore = isSpecificQuery ? 25 : 10;
+  const minScore = isSpecificQuery ? 30 : 15;
   
   // **זיהוי מילת הנושא העיקרית (לא כולל מילות רעש)**
   // מילות רעש: קורס, קורסי, לימודי, השתלמות, וכו'
