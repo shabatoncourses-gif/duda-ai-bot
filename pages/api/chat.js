@@ -274,10 +274,13 @@ function isWithinThreeMonths(dateStr) {
 }
 
 // ========================================
-// 🚫 בדיקה אם URL צריך להיות מסונן
+// 🚫 בדיקה אם URL או כותרת צריכים להיות מסוננים
 // ========================================
-function shouldFilterUrl(url) {
+function shouldFilterUrl(url, title = '') {
   if (!url) return true;
+  
+  const urlLower = url.toLowerCase();
+  const titleLower = (title || '').toLowerCase();
   
   const blockedPatterns = [
     '/drushim/',
@@ -300,15 +303,33 @@ function shouldFilterUrl(url) {
     'morim.boutique/health',
     'morim.boutique/fashion',
     'morim.boutique/$', // דף הבית של morim
-    'קורסי-נגרות-וחידוש-רהיטים',
-    // דפים כלליים/קולקטיביים
-    'קורסי-העשרה-ופנאי',
-    'קורסי העשרה ופנאי',
-    '/enrichment',
-    '/all-courses'
+    'קורסי-נגרות-וחידוש-רהיטים'
   ];
   
-  return blockedPatterns.some(pattern => url.includes(pattern));
+  // בדיקת URL
+  if (blockedPatterns.some(pattern => urlLower.includes(pattern))) {
+    return true;
+  }
+  
+  // בדיקת כותרת - דפים כלליים
+  const blockedTitles = [
+    'קורסי העשרה',
+    'העשרה ופנאי',
+    'קורסים כלליים',
+    'לוח זמנים',
+    'לוח הזמנים',
+    'סמינר הקיבוצים',
+    'המכללה האקדמית',
+    'השתלמויות מורים',
+    'מרכז י.נ.ר',
+    'נישואין ומשפחה'
+  ];
+  
+  if (blockedTitles.some(pattern => titleLower.includes(pattern))) {
+    return true;
+  }
+  
+  return false;
 }
 
 // ========================================
@@ -349,7 +370,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   }
   
   // **סף מאוזן - מאפשר תוצאות טובות אבל מסנן זבל**
-  const minScore = isSpecificQuery ? 30 : 15;
+  const minScore = isSpecificQuery ? 40 : 20;
   
   // **זיהוי מילת הנושא העיקרית (לא כולל מילות רעש)**
   // מילות רעש: קורס, קורסי, לימודי, השתלמות, וכו'
@@ -362,7 +383,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   let results = [];
   
   for (const page of pages) {
-    if (shouldFilterUrl(page.url)) {
+    if (shouldFilterUrl(page.url, page.title || page.h1)) {
       continue;
     }
     
@@ -449,7 +470,9 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         // יש study field - בדוק אם אחד מה-keywords שלו מופיע
         const hasStudyFieldKeyword = studyField.keywords.some(kw => {
           const kwLower = kw.toLowerCase();
-          return title.includes(kwLower) || description.includes(kwLower) || keywords.some(k => k.includes(kwLower));
+          // דרוש word boundary - המילה צריכה להיות עצמאית
+          const regex = new RegExp('\\b' + kwLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
+          return regex.test(title) || regex.test(description) || keywords.some(k => regex.test(k));
         });
         
         if (!hasStudyFieldKeyword) {
@@ -563,10 +586,9 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
             matchesRegion = true;
             regionBonus = 10; // בונוס קטן לדפים כלליים של האזור
           } else {
-            // אין עיר ואין אזור - תן בונוס נמוך מאוד ואל תדלג!
-            // (כי אולי זה דף כללי שרלוונטי לכל הארץ)
-            matchesRegion = true;
-            regionBonus = 2; // בונוס מינימלי
+            // אין עיר ואין אזור - דלג!
+            // (כאשר מחפשים באזור ספציפי, רק דפים מהאזור צריכים לעבור)
+            continue;
           }
         } else if (firstCity === null) {
           // יש עיר מוזכרת אבל לא מצאנו אותה - שגיאה?
