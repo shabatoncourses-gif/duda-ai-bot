@@ -377,35 +377,7 @@ function searchPagesStrict(query, region, studyField) {
     if (isInfoPage) continue;
     
     // ==============================
-    // שלב 2: בדיקת אזור (חובה!)
-    // ==============================
-    
-    let inRegion = false;
-    
-    // אופציה 1: יש location field
-    if (location && location.trim() !== '') {
-      inRegion = region.cities.some(city => {
-        const cityLower = city.toLowerCase().replace(/-/g, ' ');
-        return location.includes(cityLower);
-      });
-    } else {
-      // אופציה 2: יש עיר בכותרת או תיאור
-      const titleAndDesc = title + ' ' + description;
-      
-      for (const city of region.cities) {
-        const cityLower = city.toLowerCase().replace(/-/g, ' ');
-        if (titleAndDesc.includes(cityLower)) {
-          inRegion = true;
-          break;
-        }
-      }
-    }
-    
-    // אם לא מהאזור - דלג!
-    if (!inRegion) continue;
-    
-    // ==============================
-    // שלב 3: בדיקת keywords (חובה!)
+    // שלב 2: בדיקת keywords (חובה!)
     // ==============================
     
     let hasKeyword = false;
@@ -428,12 +400,50 @@ function searchPagesStrict(query, region, studyField) {
     if (!hasKeyword) continue;
     
     // ==============================
+    // שלב 3: בדיקת אזור (בונוס!)
+    // ==============================
+    
+    let inRegion = false;
+    let regionScore = 0;
+    
+    // אופציה 1: יש location field
+    if (location && location.trim() !== '') {
+      inRegion = region.cities.some(city => {
+        const cityLower = city.toLowerCase().replace(/-/g, ' ');
+        return location.includes(cityLower);
+      });
+      
+      if (inRegion) {
+        regionScore = 50; // בונוס גבוה למוסד מהאזור
+      } else {
+        continue; // אם יש location ספציפי שלא מהאזור - דלג
+      }
+    } else {
+      // אופציה 2: יש עיר בכותרת או תיאור
+      const titleAndDesc = title + ' ' + description;
+      
+      for (const city of region.cities) {
+        const cityLower = city.toLowerCase().replace(/-/g, ' ');
+        if (titleAndDesc.includes(cityLower)) {
+          inRegion = true;
+          regionScore = 30; // בונוס בינוני לעיר בכותרת
+          break;
+        }
+      }
+      
+      // אם אין location ואין עיר - תן בונוס קטן
+      if (!inRegion) {
+        regionScore = 10; // בונוס קטן לדפים כלליים
+      }
+    }
+    
+    // ==============================
     // שלב 4: הדף עבר את כל הבדיקות!
     // ==============================
     
     results.push({
       ...page,
-      matchScore: 100 // כל דף שעבר מקבל ציון מלא
+      matchScore: 100 + regionScore // ציון בסיס + בונוס אזור
     });
   }
   
@@ -1073,6 +1083,15 @@ function generateSmartResponse(userMessage) {
       const regionsText = regionNames.length > 1 ? regionNames.join(' ו') : regionNames[0];
       response = `מצאתי ${uniqueResults.length} ${uniqueResults.length === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
       response += formatSearchResults(uniqueResults);
+      
+      // הוסף גם קישור לדף כללי
+      response += `\n\n💡 לכל הקורסים ב${field.name}:\n`;
+      for (const region of regions) {
+        const regionSlug = region.slug;
+        const encodedSlug = field.slug.replace(/ /g, '%20');
+        const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
+        response += `[${region.name}](${url})\n`;
+      }
       
       return response;
     }
