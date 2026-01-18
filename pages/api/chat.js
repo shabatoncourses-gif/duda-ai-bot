@@ -830,7 +830,7 @@ function formatSearchResults(pages, region = null) {
 // ========================================
 // 🔍 זיהוי אזור מהשאלה
 // ========================================
-function detectRegion(message) {
+function detectRegions(message) {
   loadConfigs();
   let lowerMessage = message.toLowerCase();
   
@@ -838,45 +838,66 @@ function detectRegion(message) {
   lowerMessage = lowerMessage.replace(/\sב([א-ת])/g, ' $1'); // "ברמת גן" → "רמת גן"
   lowerMessage = lowerMessage.replace(/-/g, ' '); // "רמת-גן" → "רמת גן"
   
+  const foundRegions = []; // מערך של אזורים שנמצאו
+  
   for (const region of REGIONS) {
+    let matched = false;
+    
     // בדיקת מילות מפתח (אם קיימות)
     if (region.keywords) {
       for (const keyword of region.keywords) {
         if (lowerMessage.includes(keyword.toLowerCase())) {
-          return { name: region.name, slug: region.slug, cities: region.cities, abbreviations: region.abbreviations };
+          matched = true;
+          break;
         }
       }
     }
     
     // בדיקה אם נזכר שם האזור המלא
-    if (lowerMessage.includes(region.name.toLowerCase())) {
-      return { name: region.name, slug: region.slug, cities: region.cities, abbreviations: region.abbreviations };
+    if (!matched && lowerMessage.includes(region.name.toLowerCase())) {
+      matched = true;
     }
     
     // ✨ בדיקת קיצורים של ערים
-    if (region.abbreviations) {
+    if (!matched && region.abbreviations) {
       for (const [cityName, abbrevs] of Object.entries(region.abbreviations)) {
         for (const abbrev of abbrevs) {
           const abbrevLower = abbrev.toLowerCase();
           // בדיקה עם word boundaries לקיצורים
           const regex = new RegExp('\\b' + abbrevLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
           if (regex.test(lowerMessage)) {
-            return { name: region.name, slug: region.slug, cities: region.cities, city: cityName, abbreviations: region.abbreviations };
+            matched = true;
+            break;
           }
         }
+        if (matched) break;
       }
     }
     
     // בדיקה אם נזכרה עיר מהאזור
-    for (const city of region.cities) {
-      const normalizedCity = city.toLowerCase().replace(/-/g, ' ');
-      if (lowerMessage.includes(normalizedCity)) {
-        return { name: region.name, slug: region.slug, cities: region.cities, city: city, abbreviations: region.abbreviations };
+    if (!matched) {
+      for (const city of region.cities) {
+        const normalizedCity = city.toLowerCase().replace(/-/g, ' ');
+        if (lowerMessage.includes(normalizedCity)) {
+          matched = true;
+          break;
+        }
       }
+    }
+    
+    // אם נמצא התאמה - הוסף את האזור למערך
+    if (matched) {
+      foundRegions.push({
+        name: region.name,
+        slug: region.slug,
+        cities: region.cities,
+        keywords: region.keywords,
+        abbreviations: region.abbreviations
+      });
     }
   }
   
-  return null;
+  return foundRegions.length > 0 ? foundRegions : null;
 }
 
 // ========================================
@@ -990,7 +1011,7 @@ function generateSmartResponse(userMessage) {
     }
   }
   
-  const region = detectRegion(userMessage);
+  const regions = detectRegions(userMessage); // מערך של אזורים!
   const studyFields = detectStudyField(userMessage);
   
   let response = '';
@@ -1021,35 +1042,59 @@ function generateSmartResponse(userMessage) {
     }
   }
   
-  // **אם יש תחום מזוהה ואזור - חיפוש מחמיר!**
-  if (studyFields.length > 0 && region) {
+  // **אם יש תחום מזוהה ואזורים - חיפוש מחמיר!**
+  if (studyFields.length > 0 && regions && regions.length > 0) {
     const field = studyFields[0];
     
-    // **חיפוש מחמיר: רק דפים עם התאמה חזקה**
-    const searchResults = searchPagesStrict(userMessage, region, field);
+    // חפש בכל האזורים ואחד את התוצאות
+    let allResults = [];
+    const regionNames = [];
     
-    if (searchResults && searchResults.length > 0) {
+    for (const region of regions) {
+      regionNames.push(region.name);
+      const searchResults = searchPagesStrict(userMessage, region, field);
+      if (searchResults && searchResults.length > 0) {
+        allResults = allResults.concat(searchResults);
+      }
+    }
+    
+    // הסר כפילויות (דפים שמופיעים ביותר מאזור אחד)
+    const uniqueResults = [];
+    const seenUrls = new Set();
+    for (const result of allResults) {
+      if (!seenUrls.has(result.url)) {
+        seenUrls.add(result.url);
+        uniqueResults.push(result);
+      }
+    }
+    
+    if (uniqueResults.length > 0) {
       // **מצאנו דפים סטטיים רלוונטיים!**
-      response = `מצאתי ${searchResults.length} ${searchResults.length === 1 ? 'מוסד' : 'מוסדות'} ב${region.name} ל${field.name}:\n\n`;
-      response += formatSearchResults(searchResults);
+      const regionsText = regionNames.length > 1 ? regionNames.join(' ו') : regionNames[0];
+      response = `מצאתי ${uniqueResults.length} ${uniqueResults.length === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
+      response += formatSearchResults(uniqueResults);
       
       return response;
     }
     
-    // **לא מצאנו תוצאות ספציפיות - נציע את הדף הדינמי**
-    const regionSlug = region.slug;
-    const encodedSlug = field.slug.replace(/ /g, '%20');
-    const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
+    // **לא מצאנו תוצאות ספציפיות - נציע דפים דינמיים**
+    response = `🎯 מצאתי קורסים ב${field.name} ב${regionNames.join(' ו')}:\n\n`;
     
-    response = `🎯 מצאתי קורסים ב${field.name} ב${region.name}:\n\n`;
-    response += `${url}\n\n`;
-    response += `💡 כאן תמצא/י את כל הקורסים הזמינים באזור!`;
+    // הוסף קישורים לדפים דינמיים של כל אזור
+    for (const region of regions) {
+      const regionSlug = region.slug;
+      const encodedSlug = field.slug.replace(/ /g, '%20');
+      const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
+      response += `[${region.name}](${url})\n`;
+    }
+    
+    response += `\n💡 כאן תמצא/י את כל הקורסים הזמינים באזור!`;
     
     return response;
   }
   
   // **אם יש תחום אבל אין אזור - שאל איפה!**
-  if (studyFields.length > 0 && !region) {
+  if (studyFields.length > 0 && (!regions || regions.length === 0)) {
     const field = studyFields[0];
     
     response = `באיזה אזור תרצה ללמוד ${field.name}?\n\n`;
@@ -1065,8 +1110,9 @@ function generateSmartResponse(userMessage) {
   }
   
   // **אם יש אזור אבל אין תחום**
-  if (region) {
-    response = `מעולה! ${region.name} 🗺️\n\n`;
+  if (regions && regions.length > 0) {
+    const regionNames = regions.map(r => r.name).join(' ו');
+    response = `מעולה! ${regionNames} 🗺️\n\n`;
     response += `באיזה תחום תרצה להתמחות?\n`;
     response += `ספר לי במילים שלך - למשל: "גישור", "צילום", "NLP", "בישול", "תכשיטים"...`;
     
