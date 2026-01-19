@@ -594,18 +594,24 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     }
     
     // **דרישה קריטית: הנושא העיקרי חייב להימצא!**
-    // אבל אם יש study field מזוהה, בדוק את ה-keywords שלו במקום
     if (isSpecificQuery && !hasMainTopic) {
+      // אם יש study field, בדוק אם mainTopicWord הוא keyword של study field
       if (studyField && studyField.keywords) {
-        // יש study field - בדוק אם אחד מה-keywords שלו מופיע
+        const mainTopicIsKeyword = studyField.keywords.some(kw => 
+          kw.toLowerCase() === mainTopicWord.toLowerCase()
+        );
+        
+        if (mainTopicIsKeyword) {
+          // mainTopicWord הוא keyword של study field אבל לא מופיע בדף - דלג!
+          continue;
+        }
+        // אחרת - mainTopicWord לא keyword, בדוק keywords כלליים
         const hasStudyFieldKeyword = studyField.keywords.some(kw => {
           const kwLower = kw.toLowerCase();
-          // בדיקה פשוטה - includes
           return title.includes(kwLower) || description.includes(kwLower) || keywords.some(k => k.includes(kwLower));
         });
         
         if (!hasStudyFieldKeyword) {
-          // גם ה-keywords של study field לא מופיעים - דלג!
           continue;
         }
       } else {
