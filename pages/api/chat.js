@@ -386,10 +386,8 @@ function searchPagesStrict(query, region, studyField) {
       for (const kw of studyField.keywords) {
         const kwLower = kw.toLowerCase();
         
-        // בדוק אם המילה מופיעה כמילה שלמה
-        const regex = new RegExp('\\b' + kwLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
-        
-        if (regex.test(title) || regex.test(description)) {
+        // בדוק אם המילה מופיעה (includes פשוט)
+        if (title.includes(kwLower) || description.includes(kwLower)) {
           hasKeyword = true;
           break;
         }
@@ -416,7 +414,18 @@ function searchPagesStrict(query, region, studyField) {
       if (inRegion) {
         regionScore = 50; // בונוס גבוה למוסד מהאזור
       } else {
-        continue; // אם יש location ספציפי שלא מהאזור - דלג
+        // בדוק אם ה-location הוא ארצי/כללי
+        const isNationalLocation = location.includes('ארצי') || 
+                                    location.includes('כל הארץ') ||
+                                    location.includes('למידה מרחוק') ||
+                                    location.includes('אונליין') ||
+                                    location.includes('online');
+        
+        if (isNationalLocation) {
+          regionScore = 5; // בונוס קטן מאוד לקורסים ארציים
+        } else {
+          continue; // location ספציפי לא מהאזור - דלג
+        }
       }
     } else {
       // אופציה 2: יש עיר בכותרת או תיאור
@@ -491,7 +500,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   }
   
   // **סף מאוזן - מאפשר תוצאות טובות אבל מסנן זבל**
-  const minScore = isSpecificQuery ? 40 : 20;
+  const minScore = isSpecificQuery ? 25 : 15;
   
   // **זיהוי מילת הנושא העיקרית (לא כולל מילות רעש)**
   // מילות רעש: קורס, קורסי, לימודי, השתלמות, וכו'
@@ -591,9 +600,8 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         // יש study field - בדוק אם אחד מה-keywords שלו מופיע
         const hasStudyFieldKeyword = studyField.keywords.some(kw => {
           const kwLower = kw.toLowerCase();
-          // דרוש word boundary - המילה צריכה להיות עצמאית
-          const regex = new RegExp('\\b' + kwLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
-          return regex.test(title) || regex.test(description) || keywords.some(k => regex.test(k));
+          // בדיקה פשוטה - includes
+          return title.includes(kwLower) || description.includes(kwLower) || keywords.some(k => k.includes(kwLower));
         });
         
         if (!hasStudyFieldKeyword) {
@@ -1062,7 +1070,7 @@ function generateSmartResponse(userMessage) {
     
     for (const region of regions) {
       regionNames.push(region.name);
-      const searchResults = searchPagesStrict(userMessage, region, field);
+      const searchResults = searchPages(userMessage, region, 'static', field);
       if (searchResults && searchResults.length > 0) {
         allResults = allResults.concat(searchResults);
       }
