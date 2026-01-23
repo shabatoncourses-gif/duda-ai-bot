@@ -510,12 +510,50 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   // המילה העיקרית היא הראשונה שאינה מילת רעש
   const mainTopicWord = topicWords.length > 0 ? topicWords[0] : queryWordsWithoutCities[0];
   
-  // **בדיקה פשוטה: אם studyField.name מכיל רווח והוא בשאילתה - דרוש אותו בדף!**
+  // **חכם: זיהוי ביטויים אמיתיים (לא רשימות)**
+  // ביטוי אמיתי = 2+ מילים בלי מפרידים כמו "ו" מחבר, "-", ","
+  function isRealPhrase(text) {
+    if (!text || !text.includes(' ')) return false;
+    
+    // בדיקה אם זו רשימה (יש מפרידים מחברים)
+    // "ו" מחבר = רווח לפני "ו" (לא "ו" באמצע מילה)
+    const hasConnectingVav = / ו/.test(text);  // רווח + ו (כמו "פסיפס ו")
+    const hasDash = text.includes(' - ');
+    const hasComma = text.includes(',');
+    const hasOr = text.includes(' או ');
+    
+    if (hasConnectingVav || hasDash || hasComma || hasOr) {
+      return false; // זו רשימה, לא ביטוי!
+    }
+    
+    return true; // ביטוי אמיתי!
+  }
+  
+  // **בדיקה חכמה: רק ביטויים אמיתיים נדרשים ברצף**
   let requiredPhrase = null;
-  if (studyField && studyField.name && studyField.name.includes(' ')) {
-    const fieldNameLower = studyField.name.toLowerCase();
-    if (lowerQuery.includes(fieldNameLower)) {
-      requiredPhrase = fieldNameLower; // "הנחיית קבוצות"
+  
+  // בדיקה 1: שם התחום
+  if (studyField && studyField.name) {
+    if (isRealPhrase(studyField.name)) {
+      const fieldNameLower = studyField.name.toLowerCase();
+      if (lowerQuery.includes(fieldNameLower)) {
+        requiredPhrase = fieldNameLower; // "הנחיית קבוצות" ✓
+      }
+    }
+  }
+  
+  // בדיקה 2: keywords עם רווח (רק ביטויים אמיתיים)
+  if (!requiredPhrase && studyField && studyField.keywords) {
+    for (const keyword of studyField.keywords) {
+      if (!keyword) continue;
+      
+      if (isRealPhrase(keyword)) {
+        const keywordLower = keyword.toLowerCase();
+        if (lowerQuery.includes(keywordLower)) {
+          requiredPhrase = keywordLower; // "הדרכת הורים", "עיצוב פנים" ✓
+          break;
+        }
+      }
     }
   }
   
