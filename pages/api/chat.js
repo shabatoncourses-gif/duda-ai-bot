@@ -510,30 +510,6 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   // המילה העיקרית היא הראשונה שאינה מילת רעש
   const mainTopicWord = topicWords.length > 0 ? topicWords[0] : queryWordsWithoutCities[0];
   
-  // **זיהוי ביטויים מרובי-מילים (phrases) - חדש!**
-  let requiredPhrase = null;
-  if (studyField && studyField.keywords) {
-    // בדוק אם יש keyword מרובה-מילים (2+ מילים) שמופיע בשאילתה המקורית
-    for (const keyword of studyField.keywords) {
-      if (!keyword) continue; // דלג אם keyword הוא null או undefined
-      
-      const keywordLower = keyword.toLowerCase();
-      // בדוק אם זה ביטוי (יש רווח) ומופיע בשאילתה
-      if (keywordLower.includes(' ') && lowerQuery.includes(keywordLower)) {
-        requiredPhrase = keywordLower;
-        break; // מצאנו ביטוי - זה חובה!
-      }
-    }
-    
-    // אם לא מצאנו ביטוי, בדוק את השם המלא של studyField
-    if (!requiredPhrase && studyField.name) {
-      const fieldNameLower = studyField.name.toLowerCase();
-      if (fieldNameLower.includes(' ') && lowerQuery.includes(fieldNameLower)) {
-        requiredPhrase = fieldNameLower;
-      }
-    }
-  }
-  
   let results = [];
   
   for (const page of pages) {
@@ -620,19 +596,6 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     // **חשב סך המילים שנמצאו**
     const totalMatches = wordMatchesInTitle + wordMatchesInDesc + wordMatchesInKeywords;
     const matchRatio = totalMatches / queryWordsWithoutCities.length;
-    
-    // **בדיקת ביטוי חובה - חדש!**
-    // אם יש ביטוי מרובה-מילים בשאילתה (כמו "הנחיית קבוצות"), הוא חייב להופיע ברצף בדף!
-    if (requiredPhrase) {
-      const titleAndDesc = (title + ' ' + description).toLowerCase();
-      const keywordsText = (keywords && keywords.length > 0) ? keywords.join(' ').toLowerCase() : '';
-      const allText = titleAndDesc + ' ' + keywordsText;
-      
-      if (!allText.includes(requiredPhrase)) {
-        // הביטוי המלא לא מופיע בדף - דלג!
-        continue;
-      }
-    }
     
     // **דרישה: לפחות מילה אחת מהשאילתה חייבת להימצא!**
     if (studyField && totalMatches === 0) {
