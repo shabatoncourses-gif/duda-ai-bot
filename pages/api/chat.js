@@ -510,6 +510,15 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   // המילה העיקרית היא הראשונה שאינה מילת רעש
   const mainTopicWord = topicWords.length > 0 ? topicWords[0] : queryWordsWithoutCities[0];
   
+  // **בדיקה פשוטה: אם studyField.name מכיל רווח והוא בשאילתה - דרוש אותו בדף!**
+  let requiredPhrase = null;
+  if (studyField && studyField.name && studyField.name.includes(' ')) {
+    const fieldNameLower = studyField.name.toLowerCase();
+    if (lowerQuery.includes(fieldNameLower)) {
+      requiredPhrase = fieldNameLower; // "הנחיית קבוצות"
+    }
+  }
+  
   let results = [];
   
   for (const page of pages) {
@@ -596,6 +605,14 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     // **חשב סך המילים שנמצאו**
     const totalMatches = wordMatchesInTitle + wordMatchesInDesc + wordMatchesInKeywords;
     const matchRatio = totalMatches / queryWordsWithoutCities.length;
+    
+    // **בדיקה פשוטה של ביטוי שלם**
+    if (requiredPhrase) {
+      const pageText = (title + ' ' + description).toLowerCase();
+      if (!pageText.includes(requiredPhrase)) {
+        continue; // הביטוי השלם לא מופיע - דלג!
+      }
+    }
     
     // **דרישה: לפחות מילה אחת מהשאילתה חייבת להימצא!**
     if (studyField && totalMatches === 0) {
@@ -960,16 +977,17 @@ function detectStudyField(message) {
     }
   }
   
-  // **שלב 2: חיפוש במילות מפתח עם word boundaries**
+  // **שלב 2: חיפוש במילות מפתח - חיפוש פשוט**
   const matches = [];
   
   for (const field of STUDY_FIELDS) {
     for (const keyword of field.keywords) {
+      if (!keyword) continue; // בטיחות
+      
       const keywordLower = keyword.toLowerCase();
       
-      // בדיקה אם המילה מופיעה כמילה שלמה
-      const regex = new RegExp('\\b' + keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
-      if (regex.test(lowerMessage)) {
+      // בדיקה פשוטה - includes (לא word boundary!)
+      if (lowerMessage.includes(keywordLower)) {
         matches.push({ field, keyword, length: keywordLower.length });
         break;
       }
@@ -980,14 +998,8 @@ function detectStudyField(message) {
   matches.sort((a, b) => b.length - a.length);
   detectedFields.push(...matches.map(m => m.field));
   
-  // **שלב 3: אם עדיין לא מצאנו - חיפוש חלקי**
-  if (detectedFields.length === 0) {
-    for (const field of STUDY_FIELDS) {
-      for (const keyword of field.keywords) {
-        if (lowerMessage.includes(keyword.toLowerCase())) {
-          detectedFields.push(field);
-          break;
-        }
+  // **שלב 3: אם עדיין לא מצאנו - כבר חיפשנו בשלב 2**
+  // (אין צורך בשלב 3 נפרד)
       }
     }
   }
