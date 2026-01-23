@@ -620,7 +620,8 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     }
     
     // **בונוס אם רוב המילים נמצאו**
-      matchScore += 25;
+    if (matchRatio >= 0.7) {
+      matchScore += 25; // 70% מהמילים נמצאו
     }
     
     // **בונוס נוסף אם כל המילים בכותרת**
@@ -997,12 +998,6 @@ function detectStudyField(message) {
   // מיון לפי אורך מילת המפתח (ארוכה יותר = ספציפית יותר)
   matches.sort((a, b) => b.length - a.length);
   detectedFields.push(...matches.map(m => m.field));
-  
-  // **שלב 3: אם עדיין לא מצאנו - כבר חיפשנו בשלב 2**
-  // (אין צורך בשלב 3 נפרד)
-      }
-    }
-  }
   
   return detectedFields;
 }
