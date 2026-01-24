@@ -498,6 +498,12 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   const pages = loadAllPages();
   const lowerQuery = query.toLowerCase();
   
+  console.log(`\n========== [searchPages] START ==========`);
+  console.log(`Query: "${query}"`);
+  console.log(`Region: ${region?.name || 'none'}`);
+  console.log(`Study Field: ${studyField?.name || 'none'}`);
+  console.log(`Total pages loaded: ${pages?.length || 0}`);
+  
   // ניקוי השאילתה לחיפוש
   let cleanQuery = lowerQuery.replace(/\sב([א-ת])/g, ' $1');
   cleanQuery = cleanQuery.replace(/-/g, ' ');
@@ -559,27 +565,25 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     }
   }
   
-  console.log(`[DEBUG] Total pages loaded: ${pages?.length || 0}`);
-  console.log(`[DEBUG] Detected phrase: "${detectedPhrase || 'none'}"`);
+  console.log(`[searchPages] Detected phrase: "${detectedPhrase || 'none'}"`);
   if (phraseVariations.length > 0) {
-    console.log(`[DEBUG] Phrase variations: ${phraseVariations.join(', ')}`);
+    console.log(`[searchPages] Phrase variations: ${phraseVariations.join(', ')}`);
   }
-  
-  // Debug: הדפס את האזורים שזוהו
-  console.log(`[DEBUG] Detected regions: ${regions.map(r => r.name).join(', ')}`);
-  if (regions.length > 0) {
-    regions.forEach(r => {
-      console.log(`[DEBUG]   Region "${r.name}" has ${r.cities?.length || 0} cities`);
-    });
-  }
+  console.log(`[searchPages] Starting page loop...`);
   
   let results = [];
   let passedPhraseCheck = 0;
   let failedPhraseCheck = 0;
-  let passedTotalMatches = 0;
-  let failedTotalMatches = 0;
+  let totalPagesChecked = 0;
   
   for (const page of pages) {
+    totalPagesChecked++;
+    
+    // לוג את ה-10 הדפים הראשונים
+    if (totalPagesChecked <= 10) {
+      console.log(`[searchPages] Page ${totalPagesChecked}: "${page.title || page.h1}"`);
+    }
+    
     if (shouldFilterUrl(page.url, page.title || page.h1)) {
       continue;
     }
@@ -699,10 +703,21 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       // אם אף וריאציה לא נמצאה - דלג על הדף!
       if (!foundPhraseVariation) {
         failedPhraseCheck++;
+        
+        // לוג את ה-5 הדפים הראשונים שנדחו
+        if (failedPhraseCheck <= 5) {
+          console.log(`[searchPages] Page REJECTED (no phrase): "${page.title || page.h1}"`);
+        }
+        
         continue;
       }
       
       passedPhraseCheck++;
+      
+      // לוג את ה-5 הדפים הראשונים שעברו
+      if (passedPhraseCheck <= 5) {
+        console.log(`[searchPages] Page PASSED (has phrase): "${page.title || page.h1}" - found: "${exactVariation}"`);
+      }
       
       // בונוס אם הביטוי המדויק (לא וריאציה) נמצא
       if (exactVariation === detectedPhrase) {
@@ -858,11 +873,15 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     }
   }
   
-  console.log(`[DEBUG] Pages that passed phrase check: ${passedPhraseCheck}`);
-  console.log(`[DEBUG] Pages that failed phrase check: ${failedPhraseCheck}`);
-  console.log(`[DEBUG] Pages that passed totalMatches: ${passedTotalMatches}`);
-  console.log(`[DEBUG] Pages that failed totalMatches: ${failedTotalMatches}`);
-  console.log(`[DEBUG] Results before filtering: ${results.length}`);
+  console.log(`\n[searchPages] ========== SUMMARY ==========`);
+  console.log(`[searchPages] Total pages checked: ${totalPagesChecked}`);
+  console.log(`[searchPages] Phrase check: ${passedPhraseCheck} passed, ${failedPhraseCheck} failed`);
+  console.log(`[searchPages] Results before filtering: ${results.length}`);
+  console.log(`[searchPages] Min score required: ${minScore}`);
+  
+  if (results.length > 0) {
+    console.log(`[searchPages] Top 3 scores: ${results.slice(0, 3).map(r => r.score).join(', ')}`);
+  }
   
   // מיון משופר
   results.sort((a, b) => {
@@ -880,6 +899,10 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   
   // **סינון לפי סף**
   results = results.filter(r => r.score >= minScore);
+  
+  console.log(`[searchPages] After score filter (>=${minScore}): ${results.length} results`);
+  console.log(`[searchPages] Returning: ${Math.min(results.length, 10)} results`);
+  console.log(`[searchPages] ========== END ==========\n`);
   
   return results.slice(0, 10);
 }
