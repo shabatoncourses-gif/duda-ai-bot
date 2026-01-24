@@ -549,6 +549,14 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     console.log(`[DEBUG] Phrase variations: ${phraseVariations.join(', ')}`);
   }
   
+  // Debug: הדפס את האזורים שזוהו
+  console.log(`[DEBUG] Detected regions: ${regions.map(r => r.name).join(', ')}`);
+  if (regions.length > 0) {
+    regions.forEach(r => {
+      console.log(`[DEBUG]   Region "${r.name}" has ${r.cities?.length || 0} cities`);
+    });
+  }
+  
   let results = [];
   let passedPhraseCheck = 0;
   let failedPhraseCheck = 0;
