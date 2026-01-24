@@ -961,6 +961,13 @@ function formatSearchResults(pages, region = null) {
 // ========================================
 function detectRegions(message) {
   loadConfigs();
+  
+  // וודא ש-REGIONS הוא מערך (במקרה ש-loadConfigs נכשל)
+  if (!REGIONS || !Array.isArray(REGIONS)) {
+    console.error('REGIONS is not an array, returning empty array');
+    return [];
+  }
+  
   let lowerMessage = message.toLowerCase();
   
   // ניקוי: הסרת "ב" בהתחלת מילים והחלפת מקפים ברווחים
@@ -1077,6 +1084,13 @@ function detectSpecificCity(message, region = null) {
 // ========================================
 function detectStudyField(message) {
   loadConfigs();
+  
+  // וודא ש-STUDY_FIELDS הוא מערך (במקרה ש-loadConfigs נכשל)
+  if (!STUDY_FIELDS || !Array.isArray(STUDY_FIELDS)) {
+    console.error('STUDY_FIELDS is not an array, returning empty array');
+    return [];
+  }
+  
   const lowerMessage = message.toLowerCase();
   const detectedFields = [];
   
