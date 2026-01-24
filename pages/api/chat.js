@@ -585,6 +585,8 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   let passedPhraseCheck = 0;
   let failedPhraseCheck = 0;
   let totalPagesChecked = 0;
+  let passedTotalMatches = 0;
+  let failedTotalMatches = 0;
   
   for (const page of pages) {
     totalPagesChecked++;
