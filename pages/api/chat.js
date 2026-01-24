@@ -12,16 +12,26 @@ let INSURANCE_QA = null;
 let REQUIRED_PHRASES = null; // חדש! מילון ביטויים שחייבים להופיע ברצף
 
 function loadConfigs() {
-  if (!REGIONS) {
-    const regionsPath = path.join(process.cwd(), 'data', 'regions.json');
-    const regionsData = JSON.parse(fs.readFileSync(regionsPath, 'utf8'));
-    REGIONS = regionsData.regions;
+  try {
+    if (!REGIONS) {
+      const regionsPath = path.join(process.cwd(), 'data', 'regions.json');
+      const regionsData = JSON.parse(fs.readFileSync(regionsPath, 'utf8'));
+      REGIONS = regionsData.regions;
+    }
+  } catch (error) {
+    console.error('Error loading regions:', error.message);
+    REGIONS = [];
   }
   
-  if (!STUDY_FIELDS) {
-    const fieldsPath = path.join(process.cwd(), 'data', 'study-fields.json');
-    const fieldsData = JSON.parse(fs.readFileSync(fieldsPath, 'utf8'));
-    STUDY_FIELDS = fieldsData.studyFields;
+  try {
+    if (!STUDY_FIELDS) {
+      const fieldsPath = path.join(process.cwd(), 'data', 'study-fields.json');
+      const fieldsData = JSON.parse(fs.readFileSync(fieldsPath, 'utf8'));
+      STUDY_FIELDS = fieldsData.studyFields;
+    }
+  } catch (error) {
+    console.error('Error loading study fields:', error.message);
+    STUDY_FIELDS = [];
   }
   
   // טען מילון ביטויים - חדש!
@@ -32,6 +42,7 @@ function loadConfigs() {
       REQUIRED_PHRASES = phrasesData.requiredPhrases || [];
     } catch (error) {
       // אם הקובץ לא קיים - לא נורא
+      console.log('Required phrases not loaded (optional)');
       REQUIRED_PHRASES = [];
     }
   }
@@ -416,6 +427,11 @@ function searchPagesStrict(query, region, studyField) {
     
     let inRegion = false;
     let regionScore = 0;
+    
+    // בדוק שיש region לפני שניגש ל-cities
+    if (!region || !region.cities) {
+      continue; // אין region - דלג על הדף
+    }
     
     // אופציה 1: יש location field
     if (location && location.trim() !== '') {
@@ -988,7 +1004,7 @@ function detectRegions(message) {
     }
     
     // בדיקה אם נזכרה עיר מהאזור
-    if (!matched) {
+    if (!matched && region.cities) {
       for (const city of region.cities) {
         const normalizedCity = city.toLowerCase().replace(/-/g, ' ');
         if (lowerMessage.includes(normalizedCity)) {
