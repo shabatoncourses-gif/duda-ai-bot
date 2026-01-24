@@ -40,9 +40,10 @@ function loadConfigs() {
       const phrasesPath = path.join(process.cwd(), 'data', 'required-phrases.json');
       const phrasesData = JSON.parse(fs.readFileSync(phrasesPath, 'utf8'));
       REQUIRED_PHRASES = phrasesData.requiredPhrases || [];
+      console.log(`[loadConfigs] Loaded ${REQUIRED_PHRASES.length} required phrases`);
     } catch (error) {
       // אם הקובץ לא קיים - לא נורא
-      console.log('Required phrases not loaded (optional)');
+      console.log('[loadConfigs] Required phrases not loaded (optional) - continuing without phrase detection');
       REQUIRED_PHRASES = [];
     }
   }
@@ -500,7 +501,9 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Region object:`, region ? JSON.stringify(region) : 'null');
   console.log(`Study Field: ${studyField?.name || 'none'}`);
+  console.log(`Study Field keywords:`, studyField?.keywords || 'none');
   console.log(`REGIONS available:`, REGIONS ? `yes (${REGIONS.length})` : 'no');
+  console.log(`REQUIRED_PHRASES available:`, REQUIRED_PHRASES ? `yes (${REQUIRED_PHRASES.length})` : 'no');
   
   const pages = loadAllPages();
   console.log(`Total pages loaded: ${pages?.length || 0}`);
@@ -538,7 +541,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   }
   
   // **סף נמוך - מאפשר תוצאות גם עם התאמה חלקית**
-  const minScore = 10; // סף נמוך מאוד לגמישות מקסימלית
+  const minScore = 5; // סף נמוך לגמישות מקסימלית
   
   // **זיהוי מילת הנושא העיקרית (לא כולל מילות רעש)**
   // מילות רעש: קורס, קורסי, לימודי, השתלמות, וכו'
@@ -582,13 +585,30 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   for (const page of pages) {
     totalPagesChecked++;
     
+    // 🔍 Debug ספציפי לדף gishot
+    const isGishotPage = page.url && page.url.includes('gishot');
+    if (isGishotPage) {
+      console.log(`\n🎯 [DEBUG-GISHOT] Found gishot page!`);
+      console.log(`  URL: ${page.url}`);
+      console.log(`  Title: ${page.title || page.h1}`);
+      console.log(`  Description: ${page.description || 'none'}`);
+      console.log(`  Location: ${page.location || 'none'}`);
+    }
+    
     // לוג את ה-10 הדפים הראשונים
     if (totalPagesChecked <= 10) {
       console.log(`[searchPages] Page ${totalPagesChecked}: "${page.title || page.h1}"`);
     }
     
     if (shouldFilterUrl(page.url, page.title || page.h1)) {
+      if (isGishotPage) {
+        console.log(`  ❌ FILTERED by shouldFilterUrl`);
+      }
       continue;
+    }
+    
+    if (isGishotPage) {
+      console.log(`  ✅ Passed shouldFilterUrl`);
     }
     
     const title = (page.title || page.h1 || '').toLowerCase();
@@ -625,6 +645,24 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     if (pageType === 'info' && !isInfoPage) continue;
     
     let matchScore = 0;
+    
+    // **בונוס studyField - אם יש התאמה לתחום הלימוד**
+    if (studyField && studyField.keywords) {
+      for (const kw of studyField.keywords) {
+        const kwLower = kw.toLowerCase();
+        
+        if (title.includes(kwLower)) {
+          matchScore += 50; // בונוס גבוה לתואם studyField בכותרת!
+          break;
+        } else if (description.includes(kwLower)) {
+          matchScore += 40; // בונוס גבוה לתואם studyField בתיאור
+          break;
+        } else if (keywords.some(k => k.toLowerCase().includes(kwLower))) {
+          matchScore += 30; // בונוס לתואם studyField ב-keywords
+          break;
+        }
+      }
+    }
     
     // **עדיפות עליונה: ביטוי מלא מופיע!**
     if (cleanQueryForSearch.length > 5) {
@@ -685,12 +723,20 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     const totalMatches = wordMatchesInTitle + wordMatchesInDesc + wordMatchesInKeywords;
     const matchRatio = totalMatches / queryWordsWithoutCities.length;
     
-    // **בדיקת ביטוי מהמילון - חדש!**
-    // אם זוהה ביטוי במילון, דרוש שאחת מהוריאציות שלו תופיע ברצף בדף
+    // **בדיקת ביטוי מהמילון - בונוס בלבד!**
+    // אם זוהה ביטוי במילון ונמצא בדף - תן בונוס גבוה
     let foundPhraseVariation = false; // דגל חדש!
     
     if (detectedPhrase && phraseVariations.length > 0) {
       const pageText = (title + ' ' + description).toLowerCase();
+      
+      // 🔍 Debug לדף gishot
+      if (isGishotPage) {
+        console.log(`  [DEBUG-GISHOT] Phrase check:`);
+        console.log(`    Detected phrase: "${detectedPhrase}"`);
+        console.log(`    Phrase variations:`, phraseVariations);
+        console.log(`    Page text: "${pageText.substring(0, 200)}..."`);
+      }
       
       // בדוק אם אחת מהוריאציות מופיעה בדף
       let exactVariation = null;
@@ -699,43 +745,52 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         if (pageText.includes(variation)) {
           foundPhraseVariation = true; // דף עבר את בדיקת הביטוי!
           exactVariation = variation;
+          
+          if (isGishotPage) {
+            console.log(`    ✅ Found variation: "${variation}"`);
+          }
+          
           break;
         }
       }
       
-      // אם אף וריאציה לא נמצאה - דלג על הדף!
-      if (!foundPhraseVariation) {
-        failedPhraseCheck++;
+      // אם נמצא הביטוי - תן בונוס גבוה!
+      if (foundPhraseVariation) {
+        passedPhraseCheck++;
         
-        // לוג את ה-5 הדפים הראשונים שנדחו
-        if (failedPhraseCheck <= 5) {
-          console.log(`[searchPages] Page REJECTED (no phrase): "${page.title || page.h1}"`);
+        if (isGishotPage) {
+          console.log(`    ✅ Phrase bonus added`);
         }
         
-        continue;
-      }
-      
-      passedPhraseCheck++;
-      
-      // לוג את ה-5 הדפים הראשונים שעברו
-      if (passedPhraseCheck <= 5) {
-        console.log(`[searchPages] Page PASSED (has phrase): "${page.title || page.h1}" - found: "${exactVariation}"`);
-      }
-      
-      // בונוס אם הביטוי המדויק (לא וריאציה) נמצא
-      if (exactVariation === detectedPhrase) {
-        matchScore += 100; // בונוס ענק לביטוי מדויק!
+        // לוג את ה-5 הדפים הראשונים שעברו
+        if (passedPhraseCheck <= 5) {
+          console.log(`[searchPages] Page PASSED (has phrase): "${page.title || page.h1}" - found: "${exactVariation}"`);
+        }
+        
+        // בונוס אם הביטוי המדויק (לא וריאציה) נמצא
+        if (exactVariation === detectedPhrase) {
+          matchScore += 100; // בונוס ענק לביטוי מדויק!
+        } else {
+          matchScore += 50; // בונוס לוריאציה
+        }
       } else {
-        matchScore += 50; // בונוס לוריאציה
+        // אם אין ביטוי - לא נורא, פשוט לא תן בונוס
+        failedPhraseCheck++;
+        
+        if (isGishotPage) {
+          console.log(`    ⚠️ No phrase variation found - no bonus`);
+        }
+        
+        // לוג את ה-5 הדפים הראשונים שלא מצאו ביטוי
+        if (failedPhraseCheck <= 5) {
+          console.log(`[searchPages] Page without phrase (OK): "${page.title || page.h1}"`);
+        }
       }
     }
     
-    // **דרישה: לפחות מילה אחת מהשאילתה חייבת להימצא!**
-    // אבל: אם הדף עבר את בדיקת הביטוי מהמילון - אין צורך בדרישה הזו
-    if (studyField && totalMatches === 0 && !foundPhraseVariation) {
-      failedTotalMatches++;
-      continue;
-    }
+    // **הערה: totalMatches היא רק בונוס, לא דרישה**
+    // דפים יכולים לעבור גם עם totalMatches=0 אם יש להם matchScore מספיק גבוה
+    // (למשל מהתאמת אזור, studyField, וכו')
     
     if (totalMatches > 0 || foundPhraseVariation) {
       passedTotalMatches++;
@@ -792,8 +847,12 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       if (location && location.trim() !== '') {
         matchesRegion = inLocation;
         
-        if (!matchesRegion) {
-          continue; // ← הדף לא מהאזור לפי ה-location - דלג!
+        if (matchesRegion) {
+          regionBonus = 50; // בונוס גבוה לדף מהאזור
+        } else {
+          // במקום לדחות - פשוט אל תתן בונוס
+          // הדף עדיין יכול לעבור אם יש לו ציון מספיק מתחומים אחרים
+          regionBonus = 0;
         }
       } else {
         // אם אין location - בדוק מה העיר הראשונה שמופיעה בכותרת/תיאור
@@ -871,7 +930,17 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       matchScore += regionBonus;
     }
     
+    // 🔍 Debug לדף gishot - final score
+    if (isGishotPage) {
+      console.log(`  [DEBUG-GISHOT] Final matchScore: ${matchScore}`);
+      console.log(`  [DEBUG-GISHOT] Will be added to results: ${matchScore > 0 ? 'YES' : 'NO'}`);
+    }
+    
     if (matchScore > 0) {
+      if (isGishotPage) {
+        console.log(`  ✅ [DEBUG-GISHOT] ADDED TO RESULTS`);
+      }
+      
       results.push({
         ...page,
         isStatic: isStaticPage,
@@ -890,7 +959,10 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   console.log(`[searchPages] Min score required: ${minScore}`);
   
   if (results.length > 0) {
-    console.log(`[searchPages] Top 3 scores: ${results.slice(0, 3).map(r => r.score).join(', ')}`);
+    console.log(`[searchPages] Top 3 scores: ${results.slice(0, 3).map(r => `${r.score} (${r.title || r.h1})`).join(', ')}`);
+    console.log(`[searchPages] Score range: ${Math.min(...results.map(r => r.score))} - ${Math.max(...results.map(r => r.score))}`);
+  } else {
+    console.log(`[searchPages] ⚠️ NO RESULTS before filtering!`);
   }
   
   // מיון משופר
@@ -908,7 +980,24 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   });
   
   // **סינון לפי סף**
+  const beforeFilterResults = [...results]; // שמור עותק לפני filter
+  const beforeFilter = results.length;
   results = results.filter(r => r.score >= minScore);
+  const afterFilter = results.length;
+  
+  console.log(`[searchPages] After score filter (>=${minScore}): ${afterFilter} results (removed ${beforeFilter - afterFilter})`);
+  
+  // בדוק אם gishot היה בתוצאות לפני/אחרי הfilter
+  const gishotBefore = beforeFilterResults.find(r => r.url && r.url.includes('gishot'));
+  const gishotAfter = results.find(r => r.url && r.url.includes('gishot'));
+  
+  if (gishotBefore) {
+    if (gishotAfter) {
+      console.log(`🎯 [DEBUG-GISHOT] Still in results after filter! Score: ${gishotAfter.score}`);
+    } else {
+      console.log(`❌ [DEBUG-GISHOT] Was in results (score: ${gishotBefore.score}) but REMOVED by filter (minScore: ${minScore})`);
+    }
+  }
   
   console.log(`[searchPages] After score filter (>=${minScore}): ${results.length} results`);
   console.log(`[searchPages] Returning: ${Math.min(results.length, 10)} results`);
