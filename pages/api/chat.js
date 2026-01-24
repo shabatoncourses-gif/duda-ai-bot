@@ -644,11 +644,32 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     const totalMatches = wordMatchesInTitle + wordMatchesInDesc + wordMatchesInKeywords;
     const matchRatio = totalMatches / queryWordsWithoutCities.length;
     
-    // **בדיקה פשוטה של ביטוי שלם**
+    // **בדיקה גמישה של ביטוי שלם**
     if (requiredPhrase) {
       const pageText = (title + ' ' + description).toLowerCase();
-      if (!pageText.includes(requiredPhrase)) {
-        continue; // הביטוי השלם לא מופיע - דלג!
+      
+      // אופציה 1: הביטוי המדויק מופיע ברצף
+      const exactMatch = pageText.includes(requiredPhrase);
+      
+      // אופציה 2: המילים מופיעות קרוב (גמישות)
+      // פיצול הביטוי למילים
+      const phraseWords = requiredPhrase.split(' ');
+      let hasAllPhraseWords = true;
+      for (const word of phraseWords) {
+        if (!pageText.includes(word)) {
+          hasAllPhraseWords = false;
+          break;
+        }
+      }
+      
+      // אם אין התאמה מדויקת וגם לא כל המילים - דלג
+      if (!exactMatch && !hasAllPhraseWords) {
+        continue;
+      }
+      
+      // בונוס לביטוי מדויק
+      if (exactMatch) {
+        matchScore += 50; // בונוס גדול לביטוי מדויק!
       }
     }
     
