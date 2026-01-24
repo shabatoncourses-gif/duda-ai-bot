@@ -9,6 +9,7 @@ let ALL_PAGES = null;
 let REGIONS = null;
 let STUDY_FIELDS = null;
 let INSURANCE_QA = null;
+let REQUIRED_PHRASES = null; // חדש! מילון ביטויים שחייבים להופיע ברצף
 
 function loadConfigs() {
   if (!REGIONS) {
@@ -21,6 +22,18 @@ function loadConfigs() {
     const fieldsPath = path.join(process.cwd(), 'data', 'study-fields.json');
     const fieldsData = JSON.parse(fs.readFileSync(fieldsPath, 'utf8'));
     STUDY_FIELDS = fieldsData.studyFields;
+  }
+  
+  // טען מילון ביטויים - חדש!
+  if (!REQUIRED_PHRASES) {
+    try {
+      const phrasesPath = path.join(process.cwd(), 'data', 'required-phrases.json');
+      const phrasesData = JSON.parse(fs.readFileSync(phrasesPath, 'utf8'));
+      REQUIRED_PHRASES = phrasesData.requiredPhrases || [];
+    } catch (error) {
+      // אם הקובץ לא קיים - לא נורא
+      REQUIRED_PHRASES = [];
+    }
   }
 }
 
@@ -510,49 +523,22 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   // המילה העיקרית היא הראשונה שאינה מילת רעש
   const mainTopicWord = topicWords.length > 0 ? topicWords[0] : queryWordsWithoutCities[0];
   
-  // **חכם: זיהוי ביטויים אמיתיים (לא רשימות)**
-  // ביטוי אמיתי = 2+ מילים בלי מפרידים כמו "ו" מחבר, "-", ","
-  function isRealPhrase(text) {
-    if (!text || !text.includes(' ')) return false;
-    
-    // בדיקה אם זו רשימה (יש מפרידים מחברים)
-    // "ו" מחבר = רווח לפני "ו" (לא "ו" באמצע מילה)
-    const hasConnectingVav = / ו/.test(text);  // רווח + ו (כמו "פסיפס ו")
-    const hasDash = text.includes(' - ');
-    const hasComma = text.includes(',');
-    const hasOr = text.includes(' או ');
-    
-    if (hasConnectingVav || hasDash || hasComma || hasOr) {
-      return false; // זו רשימה, לא ביטוי!
-    }
-    
-    return true; // ביטוי אמיתי!
-  }
+  // **זיהוי ביטוי מהמילון - חדש!**
+  // בדוק אם השאילתה מכילה ביטוי מהמילון של ביטויים שחייבים להופיע ברצף
+  loadConfigs(); // וודא שהמילון נטען
   
-  // **בדיקה חכמה: רק ביטויים אמיתיים נדרשים ברצף**
-  let requiredPhrase = null;
+  let detectedPhrase = null;
+  let phraseVariations = [];
   
-  // בדיקה 1: שם התחום
-  if (studyField && studyField.name) {
-    if (isRealPhrase(studyField.name)) {
-      const fieldNameLower = studyField.name.toLowerCase();
-      if (lowerQuery.includes(fieldNameLower)) {
-        requiredPhrase = fieldNameLower; // "הנחיית קבוצות" ✓
-      }
-    }
-  }
-  
-  // בדיקה 2: keywords עם רווח (רק ביטויים אמיתיים)
-  if (!requiredPhrase && studyField && studyField.keywords) {
-    for (const keyword of studyField.keywords) {
-      if (!keyword) continue;
+  if (REQUIRED_PHRASES && REQUIRED_PHRASES.length > 0) {
+    for (const phraseEntry of REQUIRED_PHRASES) {
+      const mainPhrase = phraseEntry.phrase.toLowerCase();
       
-      if (isRealPhrase(keyword)) {
-        const keywordLower = keyword.toLowerCase();
-        if (lowerQuery.includes(keywordLower)) {
-          requiredPhrase = keywordLower; // "הדרכת הורים", "עיצוב פנים" ✓
-          break;
-        }
+      // בדוק אם השאילתה מכילה את הביטוי הזה
+      if (lowerQuery.includes(mainPhrase)) {
+        detectedPhrase = mainPhrase;
+        phraseVariations = phraseEntry.variations.map(v => v.toLowerCase());
+        break; // מצאנו ביטוי - נעצור
       }
     }
   }
@@ -658,14 +644,33 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     const totalMatches = wordMatchesInTitle + wordMatchesInDesc + wordMatchesInKeywords;
     const matchRatio = totalMatches / queryWordsWithoutCities.length;
     
-    // **בונוס לביטוי שלם (אבל לא סינון!)**
-    // במקום לדרוש את הביטוי, פשוט נתן בונוס גדול אם הוא קיים
-    if (requiredPhrase) {
+    // **בדיקת ביטוי מהמילון - חדש!**
+    // אם זוהה ביטוי במילון, דרוש שאחת מהוריאציות שלו תופיע ברצף בדף
+    if (detectedPhrase && phraseVariations.length > 0) {
       const pageText = (title + ' ' + description).toLowerCase();
       
-      // אם הביטוי המדויק מופיע - בונוס ענק!
-      if (pageText.includes(requiredPhrase)) {
-        matchScore += 100; // בונוס ענק! הדף יהיה ראשון
+      // בדוק אם אחת מהוריאציות מופיעה בדף
+      let foundVariation = false;
+      let exactVariation = null;
+      
+      for (const variation of phraseVariations) {
+        if (pageText.includes(variation)) {
+          foundVariation = true;
+          exactVariation = variation;
+          break;
+        }
+      }
+      
+      // אם אף וריאציה לא נמצאה - דלג על הדף!
+      if (!foundVariation) {
+        continue;
+      }
+      
+      // בונוס אם הביטוי המדויק (לא וריאציה) נמצא
+      if (exactVariation === detectedPhrase) {
+        matchScore += 100; // בונוס ענק לביטוי מדויק!
+      } else {
+        matchScore += 50; // בונוס לוריאציה
       }
     }
     
