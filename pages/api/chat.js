@@ -499,8 +499,8 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     return [];
   }
   
-  // **סף מאוזן - מאפשר תוצאות טובות אבל מסנן זבל**
-  const minScore = 15; // סף נמוך יותר לגמישות
+  // **סף נמוך - מאפשר תוצאות גם עם התאמה חלקית**
+  const minScore = 10; // סף נמוך מאוד לגמישות מקסימלית
   
   // **זיהוי מילת הנושא העיקרית (לא כולל מילות רעש)**
   // מילות רעש: קורס, קורסי, לימודי, השתלמות, וכו'
@@ -615,10 +615,24 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     let wordMatchesInKeywords = 0;
     let hasMainTopic = false;
     
+    // **פונקציה עזרה: התאמה גמישה של מילים (שורש)**
+    function flexibleMatch(text, word) {
+      if (text.includes(word)) return true;
+      if (word.includes(text)) return true;
+      
+      // בדיקת שורש משותף (4+ תווים)
+      if (word.length >= 4) {
+        const stem = word.substring(0, Math.min(word.length - 1, 5));
+        if (text.includes(stem)) return true;
+      }
+      
+      return false;
+    }
+    
     for (const word of queryWordsWithoutCities) {
-      let foundInTitle = title.includes(word);
-      let foundInDesc = description.includes(word);
-      let foundInKeywords = keywords.some(k => k.includes(word));
+      let foundInTitle = flexibleMatch(title, word);
+      let foundInDesc = flexibleMatch(description, word);
+      let foundInKeywords = keywords.some(k => flexibleMatch(k, word));
       
       // זיהוי אם זו מילת הנושא העיקרית
       const isMainTopic = (word === mainTopicWord);
@@ -644,36 +658,19 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     const totalMatches = wordMatchesInTitle + wordMatchesInDesc + wordMatchesInKeywords;
     const matchRatio = totalMatches / queryWordsWithoutCities.length;
     
-    // **בדיקה גמישה של ביטוי שלם**
+    // **בונוס לביטוי שלם (אבל לא סינון!)**
+    // במקום לדרוש את הביטוי, פשוט נתן בונוס גדול אם הוא קיים
     if (requiredPhrase) {
       const pageText = (title + ' ' + description).toLowerCase();
       
-      // אופציה 1: הביטוי המדויק מופיע ברצף
-      const exactMatch = pageText.includes(requiredPhrase);
-      
-      // אופציה 2: המילים מופיעות קרוב (גמישות)
-      // פיצול הביטוי למילים
-      const phraseWords = requiredPhrase.split(' ');
-      let hasAllPhraseWords = true;
-      for (const word of phraseWords) {
-        if (!pageText.includes(word)) {
-          hasAllPhraseWords = false;
-          break;
-        }
-      }
-      
-      // אם אין התאמה מדויקת וגם לא כל המילים - דלג
-      if (!exactMatch && !hasAllPhraseWords) {
-        continue;
-      }
-      
-      // בונוס לביטוי מדויק
-      if (exactMatch) {
-        matchScore += 50; // בונוס גדול לביטוי מדויק!
+      // אם הביטוי המדויק מופיע - בונוס ענק!
+      if (pageText.includes(requiredPhrase)) {
+        matchScore += 100; // בונוס ענק! הדף יהיה ראשון
       }
     }
     
     // **דרישה: לפחות מילה אחת מהשאילתה חייבת להימצא!**
+    // זה חשוב כדי לסנן דפים לא רלוונטיים
     if (studyField && totalMatches === 0) {
       continue;
     }
