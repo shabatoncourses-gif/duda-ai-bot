@@ -272,6 +272,10 @@ function loadAllPages() {
       }
       
       console.log(`Loaded ${ALL_PAGES.length} total pages from all indexes`);
+      
+      if (ALL_PAGES.length === 0) {
+        console.error('⚠️⚠️⚠️ WARNING: ALL_PAGES is EMPTY! No index files loaded! ⚠️⚠️⚠️');
+      }
     } catch (error) {
       console.error('Error loading indexes:', error);
       ALL_PAGES = [];
@@ -1207,9 +1211,13 @@ function detectSpecificCity(message, region = null) {
 function detectStudyField(message) {
   loadConfigs();
   
+  console.log('\n🔍 [detectStudyField] START');
+  console.log(`📝 Message: "${message}"`);
+  console.log(`📚 STUDY_FIELDS available: ${STUDY_FIELDS ? STUDY_FIELDS.length : 0}`);
+  
   // וודא ש-STUDY_FIELDS הוא מערך (במקרה ש-loadConfigs נכשל)
   if (!STUDY_FIELDS || !Array.isArray(STUDY_FIELDS)) {
-    console.error('STUDY_FIELDS is not an array, returning empty array');
+    console.error('❌ STUDY_FIELDS is not an array, returning empty array');
     return [];
   }
   
@@ -1220,6 +1228,7 @@ function detectStudyField(message) {
   for (const field of STUDY_FIELDS) {
     const fieldNameLower = field.name.toLowerCase();
     if (lowerMessage.includes(fieldNameLower)) {
+      console.log(`✅ Found exact match: "${field.name}"`);
       return [field]; // מצאנו התאמה מדויקת - נחזיר מיד!
     }
   }
@@ -1245,6 +1254,12 @@ function detectStudyField(message) {
   matches.sort((a, b) => b.length - a.length);
   detectedFields.push(...matches.map(m => m.field));
   
+  if (detectedFields.length > 0) {
+    console.log(`✅ Found ${detectedFields.length} fields via keywords: ${detectedFields.map(f => f.name).join(', ')}`);
+  } else {
+    console.log(`⚠️ No study fields detected`);
+  }
+  
   return detectedFields;
 }
 
@@ -1252,7 +1267,10 @@ function detectStudyField(message) {
 // 🤖 יצירת תשובה חכמה (לוגיקה פשוטה!)
 // ========================================
 function generateSmartResponse(userMessage) {
-  console.log('[generateSmartResponse] START:', userMessage);
+  console.log('\n\n========================================');
+  console.log('🚀 [generateSmartResponse] START');
+  console.log('📝 Message:', userMessage);
+  console.log('========================================\n');
   
   try {
     // ✅ ראשית - בדוק אם זו שאלה על ביטוח לאומי
@@ -1314,6 +1332,11 @@ function generateSmartResponse(userMessage) {
   if (studyFields.length > 0 && regions && regions.length > 0) {
     const field = studyFields[0];
     
+    console.log('\n🔍 ========== SEARCHING PAGES ==========');
+    console.log(`📚 Field: ${field.name}`);
+    console.log(`📍 Regions: ${regions.map(r => r.name).join(', ')}`);
+    console.log('========================================\n');
+    
     // חפש בכל האזורים ואחד את התוצאות
     let allResults = [];
     const regionNames = [];
@@ -1321,7 +1344,7 @@ function generateSmartResponse(userMessage) {
     for (const region of regions) {
       try {
         regionNames.push(region.name);
-        const searchResults = searchPages(userMessage, region, 'static', field);
+        const searchResults = searchPages(userMessage, region, 'all', field);
         if (searchResults && searchResults.length > 0) {
           allResults = allResults.concat(searchResults);
         }
@@ -1343,6 +1366,39 @@ function generateSmartResponse(userMessage) {
         uniqueResults.push(result);
       }
     }
+    
+    console.log('\n📊 ========== RESULTS SUMMARY ==========');
+    console.log(`🎯 All results: ${allResults.length}`);
+    console.log(`✅ Unique results: ${uniqueResults.length}`);
+    
+    // 🔄 אם אין תוצאות - נסה חיפוש רחב יותר ללא studyField
+    if (uniqueResults.length === 0) {
+      console.log('\n⚠️ No results with studyField - trying without...\n');
+      
+      for (const region of regions) {
+        try {
+          const searchResults = searchPages(userMessage, region, 'all', null);
+          if (searchResults && searchResults.length > 0) {
+            allResults = allResults.concat(searchResults);
+          }
+        } catch (error) {
+          console.error(`Error in fallback search: ${error.message}`);
+        }
+      }
+      
+      // הסר כפילויות שוב
+      const seenUrls2 = new Set();
+      for (const result of allResults) {
+        if (!seenUrls2.has(result.url)) {
+          seenUrls2.add(result.url);
+          uniqueResults.push(result);
+        }
+      }
+      
+      console.log(`✅ After fallback: ${uniqueResults.length} results`);
+    }
+    
+    console.log('========================================\n');
     
     if (uniqueResults.length > 0) {
       // **מצאנו דפים סטטיים רלוונטיים!**
