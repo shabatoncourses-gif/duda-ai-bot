@@ -495,14 +495,17 @@ function searchPagesStrict(query, region, studyField) {
 // 🔍 חיפוש דפים באינדקסים (חיפוש מאוזן!)
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
-  const pages = loadAllPages();
-  const lowerQuery = query.toLowerCase();
-  
   console.log(`\n========== [searchPages] START ==========`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
+  console.log(`Region object:`, region ? JSON.stringify(region) : 'null');
   console.log(`Study Field: ${studyField?.name || 'none'}`);
+  console.log(`REGIONS available:`, REGIONS ? `yes (${REGIONS.length})` : 'no');
+  
+  const pages = loadAllPages();
   console.log(`Total pages loaded: ${pages?.length || 0}`);
+  
+  const lowerQuery = query.toLowerCase();
   
   // ניקוי השאילתה לחיפוש
   let cleanQuery = lowerQuery.replace(/\sב([א-ת])/g, ' $1');
@@ -799,30 +802,37 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         let firstCityInRegion = false;
         
         // עבור על כל הערים בכל האזורים
-        for (const r of REGIONS) {
-          for (const city of r.cities) {
-            const cityLower = city.toLowerCase().replace(/-/g, ' ');
-            const pos = titleAndDesc.indexOf(cityLower);
-            
-            if (pos !== -1 && pos < firstCityPosition) {
-              firstCityPosition = pos;
-              firstCity = city;
-              firstCityInRegion = (r.name === region.name);
+        if (!REGIONS || !Array.isArray(REGIONS)) {
+          console.error('[searchPages] REGIONS is not available!');
+          // דלג על בדיקה זו
+        } else {
+          for (const r of REGIONS) {
+            for (const city of r.cities) {
+              const cityLower = city.toLowerCase().replace(/-/g, ' ');
+              const pos = titleAndDesc.indexOf(cityLower);
+              
+              if (pos !== -1 && pos < firstCityPosition) {
+                firstCityPosition = pos;
+                firstCity = city;
+                firstCityInRegion = (r.name === region.name);
+              }
             }
           }
         }
         
         // בדוק אם יש עיר כלשהי מוזכרת (מכל אזור)
         let anyCityMentioned = false;
-        for (const r of REGIONS) {
-          for (const city of r.cities) {
-            const cityLower = city.toLowerCase().replace(/-/g, ' ');
-            if (titleAndDesc.includes(cityLower)) {
-              anyCityMentioned = true;
-              break;
+        if (REGIONS && Array.isArray(REGIONS)) {
+          for (const r of REGIONS) {
+            for (const city of r.cities) {
+              const cityLower = city.toLowerCase().replace(/-/g, ' ');
+              if (titleAndDesc.includes(cityLower)) {
+                anyCityMentioned = true;
+                break;
+              }
             }
+            if (anyCityMentioned) break;
           }
-          if (anyCityMentioned) break;
         }
         
         // אם אין שום עיר מוזכרת - בדוק אם האזור מוזכר במפורש
@@ -1227,7 +1237,10 @@ function generateSmartResponse(userMessage) {
           allResults = allResults.concat(searchResults);
         }
       } catch (error) {
-        console.error(`[generateSmartResponse] Error searching in region ${region.name}:`, error.message);
+        console.error(`[generateSmartResponse] Error searching in region ${region.name}:`);
+        console.error(`  Error message: ${error.message}`);
+        console.error(`  Error name: ${error.name}`);
+        console.error(`  Error stack: ${error.stack}`);
         // המשך עם האזור הבא
       }
     }
