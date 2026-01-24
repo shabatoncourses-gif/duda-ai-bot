@@ -1130,23 +1130,32 @@ function detectStudyField(message) {
 // 🤖 יצירת תשובה חכמה (לוגיקה פשוטה!)
 // ========================================
 function generateSmartResponse(userMessage) {
-  // ✅ ראשית - בדוק אם זו שאלה על ביטוח לאומי
-  if (detectInsuranceQuestion(userMessage)) {
-    const answer = findInsuranceAnswer(userMessage);
-    
-    if (answer) {
-      // מצאנו תשובה ספציפית!
-      return formatInsuranceAnswer(answer);
-    } else {
-      // שאלה על ביטוח לאומי, אבל לא מצאנו תשובה ספציפית
-      return formatGeneralInsuranceInfo();
+  console.log('[generateSmartResponse] START:', userMessage);
+  
+  try {
+    // ✅ ראשית - בדוק אם זו שאלה על ביטוח לאומי
+    if (detectInsuranceQuestion(userMessage)) {
+      const answer = findInsuranceAnswer(userMessage);
+      
+      if (answer) {
+        // מצאנו תשובה ספציפית!
+        console.log('[generateSmartResponse] Insurance answer found');
+        return formatInsuranceAnswer(answer);
+      } else {
+        // שאלה על ביטוח לאומי, אבל לא מצאנו תשובה ספציפית
+        console.log('[generateSmartResponse] General insurance info');
+        return formatGeneralInsuranceInfo();
+      }
     }
-  }
-  
-  const regions = detectRegions(userMessage); // מערך של אזורים!
-  const studyFields = detectStudyField(userMessage);
-  
-  let response = '';
+    
+    console.log('[generateSmartResponse] Detecting regions and fields...');
+    const regions = detectRegions(userMessage); // מערך של אזורים!
+    const studyFields = detectStudyField(userMessage);
+    
+    console.log('[generateSmartResponse] Regions:', regions?.length || 0);
+    console.log('[generateSmartResponse] Study fields:', studyFields?.length || 0);
+    
+    let response = '';
   
   // **זיהוי סוג השאלה**
   const isInfoQuestion = userMessage.toLowerCase().includes('שבתון') || 
@@ -1156,22 +1165,27 @@ function generateSmartResponse(userMessage) {
   
   // **שאלות מידע על שבתון**
   if (isInfoQuestion) {
-    const infoResults = searchPages(userMessage, null, 'info');
-    
-    if (infoResults && infoResults.length > 0) {
-      response = formatSearchResults(infoResults);
-      return response;
-    } else {
-      response = `שנת שבתון - מידע כללי 📘\n\n`;
-      response += `מה תרצה לדעת?\n`;
-      response += `• מענק בשבתון\n`;
-      response += `• ביטוח לאומי\n`;
-      response += `• לידה בשבתון\n`;
-      response += `• תוכנית הלימודים\n\n`;
-      response += `אם לא מצאתי תשובה, אפשר לשאול בקבוצת WhatsApp:\n`;
-      response += `https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME`;
-      return response;
+    try {
+      const infoResults = searchPages(userMessage, null, 'info');
+      
+      if (infoResults && infoResults.length > 0) {
+        response = formatSearchResults(infoResults);
+        return response;
+      }
+    } catch (error) {
+      console.error('[generateSmartResponse] Error in info search:', error.message);
     }
+    
+    // אם אין תוצאות או היתה שגיאה, הצג מידע כללי
+    response = `שנת שבתון - מידע כללי 📘\n\n`;
+    response += `מה תרצה לדעת?\n`;
+    response += `• מענק בשבתון\n`;
+    response += `• ביטוח לאומי\n`;
+    response += `• לידה בשבתון\n`;
+    response += `• תוכנית הלימודים\n\n`;
+    response += `אם לא מצאתי תשובה, אפשר לשאול בקבוצת WhatsApp:\n`;
+    response += `https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME`;
+    return response;
   }
   
   // **אם יש תחום מזוהה ואזורים - חיפוש מחמיר!**
@@ -1183,10 +1197,15 @@ function generateSmartResponse(userMessage) {
     const regionNames = [];
     
     for (const region of regions) {
-      regionNames.push(region.name);
-      const searchResults = searchPages(userMessage, region, 'static', field);
-      if (searchResults && searchResults.length > 0) {
-        allResults = allResults.concat(searchResults);
+      try {
+        regionNames.push(region.name);
+        const searchResults = searchPages(userMessage, region, 'static', field);
+        if (searchResults && searchResults.length > 0) {
+          allResults = allResults.concat(searchResults);
+        }
+      } catch (error) {
+        console.error(`[generateSmartResponse] Error searching in region ${region.name}:`, error.message);
+        // המשך עם האזור הבא
       }
     }
     
@@ -1279,6 +1298,14 @@ function generateSmartResponse(userMessage) {
   response += `https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME`;
   
   return response;
+  
+  } catch (error) {
+    console.error('[generateSmartResponse] ERROR:', error.message);
+    console.error('[generateSmartResponse] Stack:', error.stack);
+    
+    // במקרה של שגיאה, החזר הודעה כללית
+    return `אשמח לעזור! 🎯\n\nספר לי:\n📍 באיזה אזור?\n📚 איזה תחום?\n\nאם אין לי תשובה מתאימה, אפשר לשאול בקבוצת WhatsApp:\nhttps://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME`;
+  }
 }
 
 // ========================================
