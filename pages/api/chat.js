@@ -543,7 +543,17 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     }
   }
   
+  console.log(`[DEBUG] Total pages loaded: ${pages?.length || 0}`);
+  console.log(`[DEBUG] Detected phrase: "${detectedPhrase || 'none'}"`);
+  if (phraseVariations.length > 0) {
+    console.log(`[DEBUG] Phrase variations: ${phraseVariations.join(', ')}`);
+  }
+  
   let results = [];
+  let passedPhraseCheck = 0;
+  let failedPhraseCheck = 0;
+  let passedTotalMatches = 0;
+  let failedTotalMatches = 0;
   
   for (const page of pages) {
     if (shouldFilterUrl(page.url, page.title || page.h1)) {
@@ -646,25 +656,29 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     
     // **בדיקת ביטוי מהמילון - חדש!**
     // אם זוהה ביטוי במילון, דרוש שאחת מהוריאציות שלו תופיע ברצף בדף
+    let foundPhraseVariation = false; // דגל חדש!
+    
     if (detectedPhrase && phraseVariations.length > 0) {
       const pageText = (title + ' ' + description).toLowerCase();
       
       // בדוק אם אחת מהוריאציות מופיעה בדף
-      let foundVariation = false;
       let exactVariation = null;
       
       for (const variation of phraseVariations) {
         if (pageText.includes(variation)) {
-          foundVariation = true;
+          foundPhraseVariation = true; // דף עבר את בדיקת הביטוי!
           exactVariation = variation;
           break;
         }
       }
       
       // אם אף וריאציה לא נמצאה - דלג על הדף!
-      if (!foundVariation) {
+      if (!foundPhraseVariation) {
+        failedPhraseCheck++;
         continue;
       }
+      
+      passedPhraseCheck++;
       
       // בונוס אם הביטוי המדויק (לא וריאציה) נמצא
       if (exactVariation === detectedPhrase) {
@@ -675,9 +689,14 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     }
     
     // **דרישה: לפחות מילה אחת מהשאילתה חייבת להימצא!**
-    // זה חשוב כדי לסנן דפים לא רלוונטיים
-    if (studyField && totalMatches === 0) {
+    // אבל: אם הדף עבר את בדיקת הביטוי מהמילון - אין צורך בדרישה הזו
+    if (studyField && totalMatches === 0 && !foundPhraseVariation) {
+      failedTotalMatches++;
       continue;
+    }
+    
+    if (totalMatches > 0 || foundPhraseVariation) {
+      passedTotalMatches++;
     }
     
     // **בונוס אם רוב המילים נמצאו**
@@ -814,6 +833,12 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       });
     }
   }
+  
+  console.log(`[DEBUG] Pages that passed phrase check: ${passedPhraseCheck}`);
+  console.log(`[DEBUG] Pages that failed phrase check: ${failedPhraseCheck}`);
+  console.log(`[DEBUG] Pages that passed totalMatches: ${passedTotalMatches}`);
+  console.log(`[DEBUG] Pages that failed totalMatches: ${failedTotalMatches}`);
+  console.log(`[DEBUG] Results before filtering: ${results.length}`);
   
   // מיון משופר
   results.sort((a, b) => {
