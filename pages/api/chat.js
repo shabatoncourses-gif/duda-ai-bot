@@ -1018,36 +1018,44 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     
     // **בדיקת ביטוי מהמילון - דרישה חובה!**
     // הביטוי מ-required-phrases.json חייב להופיע בדף!
-    // 🎯 חמור יותר: הביטוי חייב להיות ב-title או ב-100 התווים הראשונים של description
+    // 🎯 לוגיקה חכמה:
+    // 1. אם הביטוי ב-title → עובר ✅
+    // 2. אם הביטוי ב-courses (רשימת קורסים מפורשת) → עובר ✅
+    // 3. אם הביטוי ב-description → רק ב-300 תווים ראשונים
     let foundPhraseVariation = false;
     
     if (detectedPhrase && phraseVariations.length > 0) {
-      // בדוק רק ב-title ובתחילת description (100 תווים)
-      const titleText = title;
-      const descText = description.substring(0, 150); // רק 150 תווים ראשונים!
-      const pageText = (titleText + ' ' + descText).toLowerCase();
+      // בדוק בכל מקום בנפרד
+      const titleText = title.toLowerCase();
+      const coursesText = (page.courses && Array.isArray(page.courses)) ? page.courses.join(' ').toLowerCase() : '';
+      const descText = description.substring(0, 300).toLowerCase(); // רק 300 תווים ראשונים!
       
-      // 🔍 Debug לדף gishot
       if (isGishotPage) {
-        console.log(`  [DEBUG-GISHOT] Phrase check (STRICT):`);
+        console.log(`  [DEBUG-GISHOT] Phrase check (SMART):`);
         console.log(`    Detected phrase: "${detectedPhrase}"`);
         console.log(`    Phrase variations:`, phraseVariations);
-        console.log(`    Checking in: title + first 150 chars of description`);
-        console.log(`    Page text: "${pageText}"`);
       }
       
-      // בדוק אם אחת מהוריאציות מופיעה בדף
-      let exactVariation = null;
-      
+      // בדוק אם אחת מהוריאציות מופיעה
       for (const variation of phraseVariations) {
-        if (pageText.includes(variation)) {
+        // 1. בדוק ב-title (עדיפות ראשונה!)
+        if (titleText.includes(variation)) {
           foundPhraseVariation = true;
-          exactVariation = variation;
-          
-          if (isGishotPage) {
-            console.log(`    ✅ Found variation: "${variation}"`);
-          }
-          
+          if (isGishotPage) console.log(`    ✅ Found in TITLE: "${variation}"`);
+          break;
+        }
+        
+        // 2. בדוק ב-courses (עדיפות שנייה!)
+        if (coursesText.includes(variation)) {
+          foundPhraseVariation = true;
+          if (isGishotPage) console.log(`    ✅ Found in COURSES: "${variation}"`);
+          break;
+        }
+        
+        // 3. בדוק ב-description (רק תחילת הטקסט!)
+        if (descText.includes(variation)) {
+          foundPhraseVariation = true;
+          if (isGishotPage) console.log(`    ✅ Found in DESCRIPTION (first 300 chars): "${variation}"`);
           break;
         }
       }
