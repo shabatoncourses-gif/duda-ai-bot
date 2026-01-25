@@ -659,19 +659,33 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     
     // **בונוס studyField - אם יש התאמה לתחום הלימוד**
     if (studyField && studyField.keywords) {
+      let studyFieldMatch = false;
+      let studyFieldLocation = '';
+      
       for (const kw of studyField.keywords) {
         const kwLower = kw.toLowerCase();
         
         if (title.includes(kwLower)) {
           matchScore += 50; // בונוס גבוה לתואם studyField בכותרת!
+          studyFieldMatch = true;
+          studyFieldLocation = `title (keyword: "${kw}")`;
           break;
         } else if (description.includes(kwLower)) {
           matchScore += 40; // בונוס גבוה לתואם studyField בתיאור
+          studyFieldMatch = true;
+          studyFieldLocation = `description (keyword: "${kw}")`;
           break;
         } else if (keywords.some(k => k.toLowerCase().includes(kwLower))) {
           matchScore += 30; // בונוס לתואם studyField ב-keywords
+          studyFieldMatch = true;
+          studyFieldLocation = `keywords (keyword: "${kw}")`;
           break;
         }
+      }
+      
+      // Debug: לוג דפים עם studyField match
+      if (studyFieldMatch && totalPagesChecked <= 10) {
+        console.log(`[Page ${totalPagesChecked}] studyField match in ${studyFieldLocation}, isStatic: ${isStaticPage}`);
       }
     }
     
@@ -735,8 +749,9 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     const matchRatio = totalMatches / queryWordsWithoutCities.length;
     
     // **בדיקת ביטוי מהמילון - דרישה חובה!**
-    // אם זוהה ביטוי במילון, הוא חייב להופיע בדף!
-    let foundPhraseVariation = false; // דגל חדש!
+    // הביטוי מ-required-phrases.json חייב להופיע בדף!
+    // זה בדיוק למה יש required-phrases.json
+    let foundPhraseVariation = false;
     
     if (detectedPhrase && phraseVariations.length > 0) {
       const pageText = (title + ' ' + description).toLowerCase();
@@ -754,7 +769,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       
       for (const variation of phraseVariations) {
         if (pageText.includes(variation)) {
-          foundPhraseVariation = true; // דף עבר את בדיקת הביטוי!
+          foundPhraseVariation = true;
           exactVariation = variation;
           
           if (isGishotPage) {
@@ -765,7 +780,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         }
       }
       
-      // ⭐ אם זוהה ביטוי אבל הוא לא נמצא בדף - דחה את הדף!
+      // ⭐ הביטוי חובה - אם לא נמצא, דחה את הדף!
       if (!foundPhraseVariation) {
         failedPhraseCheck++;
         
@@ -1101,8 +1116,21 @@ function formatSearchResults(pages, region = null) {
   // ========================================
   // 2. הצגת דפי חיפוש (דפים דינמיים)
   // ========================================
-  const dynamicPages = pages.filter(p => !p.isStatic && !p.isInfo);
+  let dynamicPages = pages.filter(p => !p.isStatic && !p.isInfo);
   
+  // סנן דפים דינמיים לפי אזור (אם יש region)
+  if (region && dynamicPages.length > 0) {
+    dynamicPages = dynamicPages.filter(page => {
+      const url = (page.url || '').toLowerCase();
+      const regionSlug = region.slug || '';
+      
+      // בדוק אם ה-URL מכיל את slug האזור
+      // לדוגמה: /results-merkaz/ או /search-results-merkaz/
+      return url.includes(regionSlug.toLowerCase());
+    });
+  }
+  
+  // הצג את כל דפי החיפוש (ללא הגבלה)
   if (dynamicPages.length > 0) {
     // אם יש דפים סטטיים, הוסף מפריד
     if (staticPages.length > 0) {
