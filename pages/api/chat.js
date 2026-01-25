@@ -647,6 +647,11 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
                        title.includes('לוח זמנים') ||  // לוח זמנים בכותרת
                        title.includes('לוח הזמנים');  // לוח הזמנים בכותרת
     
+    // Debug: לוג את ה-5 דפים הראשונים שעוברים את הפילטרים
+    if (totalPagesChecked <= 5 && !shouldFilterUrl(page.url, page.title || page.h1)) {
+      console.log(`[Page ${totalPagesChecked}] isStatic: ${isStaticPage}, URL: ${url.substring(0, 60)}...`);
+    }
+    
     if (pageType === 'static' && !isStaticPage) continue;
     if (pageType === 'info' && !isInfoPage) continue;
     
@@ -1018,10 +1023,25 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
 // 📝 פורמט תוצאות חיפוש (עיצוב אלגנטי!)
 // ========================================
 function formatSearchResults(pages, region = null) {
+  console.log(`\n🎨 [formatSearchResults] START`);
+  console.log(`📊 Total pages received: ${pages.length}`);
+  
   if (pages.length === 0) return null;
   
   let response = '';
   const staticPages = pages.filter(p => p.isStatic);
+  
+  console.log(`📊 Static pages: ${staticPages.length}`);
+  console.log(`📊 Non-static pages: ${pages.length - staticPages.length}`);
+  
+  if (staticPages.length === 0) {
+    console.log(`⚠️ No static pages to display!`);
+    console.log(`First 3 pages:`, pages.slice(0, 3).map(p => ({
+      title: p.title || p.h1,
+      isStatic: p.isStatic,
+      url: p.url
+    })));
+  }
   
   // הצגת מוסדות (דפים סטטיים בלבד)
   if (staticPages.length > 0) {
@@ -1408,7 +1428,16 @@ function generateSmartResponse(userMessage) {
       // **מצאנו דפים סטטיים רלוונטיים!**
       const regionsText = regionNames.length > 1 ? regionNames.join(' ו') : regionNames[0];
       response = `מצאתי ${uniqueResults.length} ${uniqueResults.length === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
-      response += formatSearchResults(uniqueResults);
+      
+      console.log(`\n📝 [generateSmartResponse] Calling formatSearchResults with ${uniqueResults.length} results`);
+      const formatted = formatSearchResults(uniqueResults);
+      console.log(`📝 [generateSmartResponse] formatSearchResults returned: ${formatted ? formatted.length + ' chars' : 'NULL'}`);
+      
+      if (formatted) {
+        response += formatted;
+      } else {
+        console.error(`⚠️ formatSearchResults returned NULL even though we have ${uniqueResults.length} results!`);
+      }
       
       // הוסף גם קישור לדף כללי
       response += `\n\n💡 לכל הקורסים ב${field.name}:\n`;
