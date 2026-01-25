@@ -1034,16 +1034,13 @@ function formatSearchResults(pages, region = null) {
   console.log(`📊 Static pages: ${staticPages.length}`);
   console.log(`📊 Non-static pages: ${pages.length - staticPages.length}`);
   
-  if (staticPages.length === 0) {
-    console.log(`⚠️ No static pages to display!`);
-    console.log(`First 3 pages:`, pages.slice(0, 3).map(p => ({
-      title: p.title || p.h1,
-      isStatic: p.isStatic,
-      url: p.url
-    })));
-  }
+  // **תצוגה בסדר:**
+  // 1. דפים סטטיים (מוסדות)
+  // 2. דפים דינמיים (חיפוש)
   
-  // הצגת מוסדות (דפים סטטיים בלבד)
+  // ========================================
+  // 1. הצגת מוסדות (דפים סטטיים)
+  // ========================================
   if (staticPages.length > 0) {
     staticPages.forEach((page, index) => {
       const title = page.title || page.h1 || 'מוסד לימודים';
@@ -1087,19 +1084,43 @@ function formatSearchResults(pages, region = null) {
       }
       
       // קישור עם חץ כתום
-      // ווד שה-URL לא מתחיל כפול
       let cleanUrl = page.url;
       if (cleanUrl && cleanUrl.includes('://') && cleanUrl.indexOf('://') !== cleanUrl.lastIndexOf('://')) {
-        // יש שני :// - כנראה URL כפול!
         const parts = cleanUrl.split('://');
         cleanUrl = parts[0] + '://' + parts[parts.length - 1];
       }
       response += `[→ פנו למוסד הלימודים](${cleanUrl})\n`;
       
-      // מפריד דק בין מוסדות (לא אחרי האחרון)
+      // מפריד דק בין מוסדות
       if (index < staticPages.length - 1) {
         response += `\n`;
       }
+    });
+  }
+  
+  // ========================================
+  // 2. הצגת דפי חיפוש (דפים דינמיים)
+  // ========================================
+  const dynamicPages = pages.filter(p => !p.isStatic && !p.isInfo);
+  
+  if (dynamicPages.length > 0) {
+    // אם יש דפים סטטיים, הוסף מפריד
+    if (staticPages.length > 0) {
+      response += `\n---\n\n**דפי חיפוש נוספים:**\n\n`;
+    }
+    
+    dynamicPages.forEach((page, index) => {
+      const title = page.title || page.h1 || 'קורסים';
+      const cleanTitle = title.replace(/\n/g, ' ').replace(/close carousel/g, '').trim();
+      
+      // קישור לדף הדינמי
+      let cleanUrl = page.url;
+      if (cleanUrl && cleanUrl.includes('://') && cleanUrl.indexOf('://') !== cleanUrl.lastIndexOf('://')) {
+        const parts = cleanUrl.split('://');
+        cleanUrl = parts[0] + '://' + parts[parts.length - 1];
+      }
+      
+      response += `[${cleanTitle}](${cleanUrl})\n`;
     });
   }
   
@@ -1425,11 +1446,23 @@ function generateSmartResponse(userMessage) {
     console.log('========================================\n');
     
     if (uniqueResults.length > 0) {
-      // **מצאנו דפים סטטיים רלוונטיים!**
+      // **מצאנו דפים רלוונטיים!**
       const regionsText = regionNames.length > 1 ? regionNames.join(' ו') : regionNames[0];
-      response = `מצאתי ${uniqueResults.length} ${uniqueResults.length === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
       
-      console.log(`\n📝 [generateSmartResponse] Calling formatSearchResults with ${uniqueResults.length} results`);
+      // ספור דפים סטטיים ודינמיים
+      const staticCount = uniqueResults.filter(r => r.isStatic).length;
+      const dynamicCount = uniqueResults.filter(r => !r.isStatic && !r.isInfo).length;
+      
+      // בנה הודעה מתאימה
+      if (staticCount > 0 && dynamicCount > 0) {
+        response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
+      } else if (staticCount > 0) {
+        response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
+      } else {
+        response = `🎯 מצאתי קורסים ב${field.name} ב${regionsText}:\n\n`;
+      }
+      
+      console.log(`\n📝 [generateSmartResponse] Calling formatSearchResults with ${uniqueResults.length} results (${staticCount} static, ${dynamicCount} dynamic)`);
       const formatted = formatSearchResults(uniqueResults);
       console.log(`📝 [generateSmartResponse] formatSearchResults returned: ${formatted ? formatted.length + ' chars' : 'NULL'}`);
       
