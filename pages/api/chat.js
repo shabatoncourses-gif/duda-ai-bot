@@ -754,7 +754,12 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     let foundPhraseVariation = false;
     
     if (detectedPhrase && phraseVariations.length > 0) {
-      const pageText = (title + ' ' + description).toLowerCase();
+      // בדוק בכל המקומות: title, description, keywords, courses
+      const titleText = title;
+      const descText = description;
+      const keywordsText = keywords.join(' ');
+      const coursesText = (page.courses && Array.isArray(page.courses)) ? page.courses.join(' ') : '';
+      const pageText = (titleText + ' ' + descText + ' ' + keywordsText + ' ' + coursesText).toLowerCase();
       
       // 🔍 Debug לדף gishot
       if (isGishotPage) {
@@ -801,6 +806,11 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       
       if (isGishotPage) {
         console.log(`    ✅ Phrase bonus added`);
+      }
+      
+      // 🔍 לוג דפים סטטיים עם ביטוי
+      if (isStaticPage && passedPhraseCheck <= 10) {
+        console.log(`[searchPages] ✅ STATIC PAGE with phrase: "${page.title || page.h1}" - variation: "${exactVariation}"`);
       }
       
       // לוג את ה-5 הדפים הראשונים שעברו
@@ -983,6 +993,18 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   console.log(`\n[searchPages] ========== SUMMARY ==========`);
   console.log(`[searchPages] Total pages checked: ${totalPagesChecked}`);
   console.log(`[searchPages] Phrase check: ${passedPhraseCheck} passed, ${failedPhraseCheck} failed`);
+  
+  // ספירת דפים סטטיים
+  const staticPagesInInput = pages.filter(p => {
+    const url = (p.url || '').toLowerCase();
+    return !url.includes('/results-') && !url.includes('/search-results-') && !url.includes('/courses-per-month');
+  }).length;
+  const staticPagesInResults = results.filter(r => r.isStatic).length;
+  const dynamicPagesInResults = results.filter(r => !r.isStatic).length;
+  
+  console.log(`[searchPages] Static pages in input: ${staticPagesInInput}`);
+  console.log(`[searchPages] Static pages in results: ${staticPagesInResults}`);
+  console.log(`[searchPages] Dynamic pages in results: ${dynamicPagesInResults}`);
   console.log(`[searchPages] Results before filtering: ${results.length}`);
   console.log(`[searchPages] Min score required: ${minScore}`);
   
