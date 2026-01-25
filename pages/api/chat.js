@@ -729,8 +729,8 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     const totalMatches = wordMatchesInTitle + wordMatchesInDesc + wordMatchesInKeywords;
     const matchRatio = totalMatches / queryWordsWithoutCities.length;
     
-    // **בדיקת ביטוי מהמילון - בונוס בלבד!**
-    // אם זוהה ביטוי במילון ונמצא בדף - תן בונוס גבוה
+    // **בדיקת ביטוי מהמילון - דרישה חובה!**
+    // אם זוהה ביטוי במילון, הוא חייב להופיע בדף!
     let foundPhraseVariation = false; // דגל חדש!
     
     if (detectedPhrase && phraseVariations.length > 0) {
@@ -760,37 +760,39 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         }
       }
       
-      // אם נמצא הביטוי - תן בונוס גבוה!
-      if (foundPhraseVariation) {
-        passedPhraseCheck++;
-        
-        if (isGishotPage) {
-          console.log(`    ✅ Phrase bonus added`);
-        }
-        
-        // לוג את ה-5 הדפים הראשונים שעברו
-        if (passedPhraseCheck <= 5) {
-          console.log(`[searchPages] Page PASSED (has phrase): "${page.title || page.h1}" - found: "${exactVariation}"`);
-        }
-        
-        // בונוס אם הביטוי המדויק (לא וריאציה) נמצא
-        if (exactVariation === detectedPhrase) {
-          matchScore += 100; // בונוס ענק לביטוי מדויק!
-        } else {
-          matchScore += 50; // בונוס לוריאציה
-        }
-      } else {
-        // אם אין ביטוי - לא נורא, פשוט לא תן בונוס
+      // ⭐ אם זוהה ביטוי אבל הוא לא נמצא בדף - דחה את הדף!
+      if (!foundPhraseVariation) {
         failedPhraseCheck++;
         
         if (isGishotPage) {
-          console.log(`    ⚠️ No phrase variation found - no bonus`);
+          console.log(`    ❌ Phrase required but not found - PAGE REJECTED`);
         }
         
-        // לוג את ה-5 הדפים הראשונים שלא מצאו ביטוי
+        // לוג דחייה
         if (failedPhraseCheck <= 5) {
-          console.log(`[searchPages] Page without phrase (OK): "${page.title || page.h1}"`);
+          console.log(`[searchPages] Page REJECTED (phrase required): "${page.title || page.h1}"`);
         }
+        
+        continue; // ⭐ דלג על הדף!
+      }
+      
+      // אם נמצא הביטוי - תן בונוס גבוה!
+      passedPhraseCheck++;
+      
+      if (isGishotPage) {
+        console.log(`    ✅ Phrase bonus added`);
+      }
+      
+      // לוג את ה-5 הדפים הראשונים שעברו
+      if (passedPhraseCheck <= 5) {
+        console.log(`[searchPages] Page PASSED (has phrase): "${page.title || page.h1}" - found: "${exactVariation}"`);
+      }
+      
+      // בונוס אם הביטוי המדויק (לא וריאציה) נמצא
+      if (exactVariation === detectedPhrase) {
+        matchScore += 100; // בונוס ענק לביטוי מדויק!
+      } else {
+        matchScore += 50; // בונוס לוריאציה
       }
     }
     
