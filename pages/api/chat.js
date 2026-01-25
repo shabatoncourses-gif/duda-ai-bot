@@ -1142,6 +1142,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     // 2. אם הביטוי ב-courses (רשימת קורסים מפורשת) → עובר ✅
     // 3. אם הביטוי ב-description → רק ב-300 תווים ראשונים
     let foundPhraseVariation = false;
+    let exactVariation = null;  // 🆕 הוגדר כאן, מחוץ לבלוק!
     
     if (detectedPhrase && phraseVariations.length > 0) {
       // בדוק בכל מקום בנפרד
@@ -1167,6 +1168,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         // 1. בדוק ב-title (עדיפות ראשונה!)
         if (titleText.includes(variation)) {
           foundPhraseVariation = true;
+          exactVariation = variation;  // 🆕 שמור!
           if (isGishotPage) console.log(`    ✅ Found in TITLE: "${variation}"`);
           break;
         }
@@ -1174,18 +1176,21 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         // 1b. בדוק ב-h1, h2, h3
         if (h1Text.includes(variation)) {
           foundPhraseVariation = true;
+          exactVariation = variation;  // 🆕 שמור!
           if (isGishotPage) console.log(`    ✅ Found in H1: "${variation}"`);
           break;
         }
         
         if (h2Text.includes(variation)) {
           foundPhraseVariation = true;
+          exactVariation = variation;  // 🆕 שמור!
           if (isGishotPage) console.log(`    ✅ Found in H2: "${variation}"`);
           break;
         }
         
         if (h3Text.includes(variation)) {
           foundPhraseVariation = true;
+          exactVariation = variation;  // 🆕 שמור!
           if (isGishotPage) console.log(`    ✅ Found in H3: "${variation}"`);
           break;
         }
@@ -1193,6 +1198,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         // 2. בדוק ב-courses (עדיפות שנייה!)
         if (coursesText.includes(variation)) {
           foundPhraseVariation = true;
+          exactVariation = variation;  // 🆕 שמור!
           if (isGishotPage) console.log(`    ✅ Found in COURSES: "${variation}"`);
           break;
         }
@@ -1200,6 +1206,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         // 3. בדוק ב-description (רק תחילת הטקסט!)
         if (descText.includes(variation)) {
           foundPhraseVariation = true;
+          exactVariation = variation;  // 🆕 שמור!
           if (isGishotPage) console.log(`    ✅ Found in DESCRIPTION (first 300 chars): "${variation}"`);
           break;
         }
