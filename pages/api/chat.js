@@ -49,6 +49,34 @@ function loadConfigs() {
   }
 }
 
+// ========================================
+// 🌐 זיהוי בקשה ללמידה מרחוק
+// ========================================
+function detectRemoteLearning(message) {
+  const remoteLearningKeywords = [
+    'למידה מרחוק',
+    'מרחוק',
+    'אונליין',
+    'online',
+    'zoom',
+    'זום',
+    'מקוון',
+    'דיגיטלי',
+    'מקוונת'
+  ];
+  
+  const messageLower = message.toLowerCase();
+  
+  for (const keyword of remoteLearningKeywords) {
+    if (messageLower.includes(keyword)) {
+      console.log(`✅ [detectRemoteLearning] Found: ${keyword}`);
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 function loadInsuranceQA() {
   if (!INSURANCE_QA) {
     try {
@@ -359,6 +387,246 @@ function shouldFilterUrl(url, title = '') {
   }
   
   return false;
+}
+
+// ========================================
+// 🆕 פונקציות לטיפול בדפי תוצאות דינמיים
+// ========================================
+
+/**
+ * סינון מוסדות לפי עיר ספציפית
+ */
+function filterBySpecificCity(institutions, city, includeRemote = false) {
+  console.log(`\n🔍 [filterBySpecificCity] START`);
+  console.log(`🏙️ City: ${city || 'none'}`);
+  console.log(`🌐 Include Remote: ${includeRemote}`);
+  console.log(`📊 Institutions before filter: ${institutions.length}`);
+  
+  if (!city && !includeRemote) {
+    console.log(`✅ No filtering needed - returning all`);
+    return institutions;
+  }
+  
+  const cityLower = city ? city.toLowerCase().replace(/-/g, ' ') : '';
+  
+  const filtered = institutions.filter(inst => {
+    const location = (inst.location || '').toLowerCase();
+    
+    // Check if remote learning
+    const isRemote = location.includes('למידה מרחוק') || 
+                     location.includes('אונליין') || 
+                     location.includes('online') ||
+                     location.includes('zoom') ||
+                     location.includes('זום');
+    
+    // If include remote and this is remote - always keep it
+    if (includeRemote && isRemote) {
+      console.log(`✅ "${inst.name || inst.title}" - remote learning (included)`);
+      return true;
+    }
+    
+    // If no city requested
+    if (!city) {
+      // If not including remote, skip remote-only courses
+      if (isRemote) {
+        return includeRemote;
+      }
+      return true;
+    }
+    
+    // If specific city requested
+    // Skip remote-only if it doesn't mention the city
+    if (isRemote && !location.includes(cityLower)) {
+      return false;
+    }
+    
+    // Check if has the city
+    const hasCity = location.includes(cityLower);
+    
+    if (hasCity) {
+      console.log(`✅ "${inst.name || inst.title}" includes ${city}`);
+    }
+    
+    return hasCity;
+  });
+  
+  console.log(`📊 Institutions after filter: ${filtered.length}`);
+  
+  return filtered;
+}
+
+/**
+ * פרסור תוכן דף תוצאות דינמי למוסדות
+ * מבנה: שם מוסד → קורסים → "מקום הלימודים: ..." → "פנו ל..." → שם מוסד שוב → ·
+ */
+function parseDynamicResults(text) {
+  console.log('\n🔍 [parseDynamicResults] START');
+  console.log(`📝 Text length: ${text.length}`);
+  
+  const institutions = [];
+  
+  // פיצול לפי · (מפריד בין מוסדות)
+  const blocks = text.split('·').filter(b => b.trim().length > 50);
+  
+  console.log(`📦 Found ${blocks.length} blocks`);
+  
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i].trim();
+    
+    if (!block) continue;
+    
+    // חלץ שורות
+    const lines = block.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    
+    if (lines.length < 2) continue;
+    
+    // שורה ראשונה = שם מוסד (בדרך כלל ארוכה)
+    const institutionName = lines[0];
+    
+    // חפש "מקום הלימודים:"
+    let location = '';
+    let courses = [];
+    let linkText = '';
+    let upcomingDate = '';
+    
+    for (let j = 1; j < lines.length; j++) {
+      const line = lines[j];
+      
+      if (line.startsWith('מקום הלימודים') || line.startsWith('מקום לימוד')) {
+        // מצאנו שורת מיקום
+        const colonIdx = line.indexOf(':');
+        if (colonIdx > -1) {
+          location = line.substring(colonIdx + 1).trim();
+        } else {
+          location = line.replace('מקום הלימודים', '').replace('מקום לימוד', '').trim();
+        }
+      } else if (line.startsWith('פנו ל')) {
+        linkText = line;
+      } else if (line.startsWith('מועד פתיחה') || line.includes('נפתח') || line.includes('פתיחה:')) {
+        // Extract upcoming date
+        upcomingDate = line.replace('מועד פתיחה:', '').replace('פתיחה:', '').trim();
+      } else if (line.length > 10 && !line.includes('פנו') && j < Math.ceil(lines.length * 0.6)) {
+        // קורסים = שורות באמצע (לא פנו, לא מקום, לא שם מוסד חוזר)
+        if (!line.includes(institutionName.substring(0, 20))) {
+          courses.push(line);
+        }
+      }
+    }
+    
+    // אם אין מיקום - חפש בתוך הטקסט
+    if (!location && block.includes('מקום')) {
+      const match = block.match(/מקום[^:]*:\s*([^\n]+)/);
+      if (match) {
+        location = match[1].trim();
+      }
+    }
+    
+    // חפש תאריך פתיחה בטקסט אם לא נמצא
+    if (!upcomingDate) {
+      const dateMatch = block.match(/(?:נפתח|פתיחה|מתחיל)[:\s]*([^\n]+)/);
+      if (dateMatch) {
+        upcomingDate = dateMatch[1].trim();
+      }
+    }
+    
+    // בנה אובייקט מוסד
+    const institution = {
+      name: institutionName,
+      courses: courses,
+      location: location || 'לא צוין',
+      linkText: linkText,
+      upcomingDate: upcomingDate,
+      rawText: block.substring(0, 500), // שמור טקסט גולמי
+      isStatic: true // מוסד = סטטי
+    };
+    
+    institutions.push(institution);
+    
+    if (i < 3) {
+      console.log(`\n✅ Institution ${i + 1}:`);
+      console.log(`   Name: ${institution.name.substring(0, 60)}...`);
+      console.log(`   Courses: ${institution.courses.length}`);
+      console.log(`   Location: ${institution.location}`);
+      if (upcomingDate) {
+        console.log(`   Upcoming: ${upcomingDate}`);
+      }
+    }
+  }
+  
+  console.log(`\n📊 Total institutions parsed: ${institutions.length}`);
+  
+  return institutions;
+}
+
+/**
+ * סינון לפי נושא משני (לדוגמה: "פסיכודרמה" ב"הנחיית קבוצות")
+ */
+function filterInstitutionsBySubject(institutions, subject) {
+  console.log(`\n🎯 [filterInstitutionsBySubject] Subject: ${subject || 'none'}`);
+  
+  if (!subject) return institutions;
+  
+  const subjectLower = subject.toLowerCase();
+  
+  const filtered = institutions.filter(inst => {
+    // בדוק בשם מוסד
+    if (inst.name.toLowerCase().includes(subjectLower)) {
+      return true;
+    }
+    
+    // בדוק בקורסים
+    if (inst.courses && inst.courses.some(c => c.toLowerCase().includes(subjectLower))) {
+      return true;
+    }
+    
+    // בדוק בטקסט גולמי
+    if (inst.rawText && inst.rawText.toLowerCase().includes(subjectLower)) {
+      return true;
+    }
+    
+    return false;
+  });
+  
+  console.log(`✅ Filtered: ${filtered.length}/${institutions.length}`);
+  
+  return filtered;
+}
+
+/**
+ * 🌐 חיפוש מוסדות דרך דפי תוצאות דינמיים
+ * משתמש ב-web_search למציאת דף תוצאות ופרסור שלו
+ */
+async function searchDynamicResults(studyField, region, specificCity = null, secondarySubject = null) {
+  console.log('\n🌐 [searchDynamicResults] START');
+  console.log(`📚 Field: ${studyField ? studyField.name : 'none'}`);
+  console.log(`📍 Region: ${region ? region.name : 'all'}`);
+  console.log(`🏙️ Specific city: ${specificCity || 'none'}`);
+  console.log(`🎯 Secondary subject: ${secondarySubject || 'none'}`);
+  
+  if (!studyField) {
+    console.log(`❌ No study field - cannot search`);
+    return [];
+  }
+  
+  try {
+    // בנה query ל-web_search
+    const regionSlug = region ? region.slug : 'results-all';
+    const fieldName = studyField.name;
+    const searchQuery = `site:shabaton.online ${regionSlug} ${fieldName}`;
+    
+    console.log(`🔍 Search query: ${searchQuery}`);
+    
+    // עשה web_search (זה async!)
+    // TODO: implement web_search call
+    console.log(`⚠️ web_search not available in this context`);
+    console.log(`💡 Using alternative approach...`);
+    
+    return [];
+    
+  } catch (error) {
+    console.error(`❌ [searchDynamicResults] Error:`, error);
+    return [];
+  }
 }
 
 // ========================================
@@ -1057,9 +1325,26 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
 }
 
 // ========================================
+// 🔗 בניית URL לדף תוצאות
+// ========================================
+function buildResultsPageUrl(field, region) {
+  const baseUrl = 'https://www.shabaton.online';
+  
+  if (!field) return null;
+  
+  if (region && region.slug) {
+    // אזור ספציפי
+    return `${baseUrl}/${region.slug}/${encodeURIComponent('קורסי ' + field.name)}`;
+  } else {
+    // כל האזורים
+    return `${baseUrl}/results-all/${encodeURIComponent(field.name)}`;
+  }
+}
+
+// ========================================
 // 📝 פורמט תוצאות חיפוש (עיצוב אלגנטי!)
 // ========================================
-function formatSearchResults(pages, region = null) {
+function formatSearchResults(pages, field = null, region = null) {
   console.log(`\n🎨 [formatSearchResults] START`);
   console.log(`📊 Total pages received: ${pages.length}`);
   
@@ -1118,6 +1403,9 @@ function formatSearchResults(pages, region = null) {
       if (page.startDate && isWithinThreeMonths(page.startDate)) {
         const date = new Date(page.startDate).toLocaleDateString('he-IL');
         response += `📅 ${date}\n`;
+      } else if (page.upcomingDate) {
+        // הצג upcomingDate אם יש
+        response += `📅 ${page.upcomingDate}\n`;
       }
       
       // קישור עם חץ כתום
@@ -1172,6 +1460,17 @@ function formatSearchResults(pages, region = null) {
       
       response += `[${cleanTitle}](${cleanUrl})\n`;
     });
+  }
+  
+  // ========================================
+  // 3. קישור לדף תוצאות כללי
+  // ========================================
+  if (field && region) {
+    const resultsUrl = buildResultsPageUrl(field, region);
+    if (resultsUrl) {
+      response += `\n💡 לכל הקורסים ב${field.name}: ${region.name}\n`;
+      response += `➤ ${resultsUrl}\n`;
+    }
   }
   
   return response;
@@ -1465,9 +1764,30 @@ function generateSmartResponse(userMessage) {
     console.log('\n📊 ========== RESULTS SUMMARY ==========');
     console.log(`🎯 All results: ${allResults.length}`);
     console.log(`✅ Unique results: ${uniqueResults.length}`);
+    console.log('========================================');
+    
+    // 🌐 בדוק אם יש בקשה ללמידה מרחוק
+    const includeRemote = detectRemoteLearning(userMessage);
+    console.log(`🌐 Include Remote Learning: ${includeRemote}`);
+    
+    // 🏙️ בדוק אם יש עיר ספציפית בשאילתה
+    let filteredResults = uniqueResults;
+    if (regions.length > 0) {
+      const specificCity = detectSpecificCity(userMessage, regions[0]);
+      
+      if (specificCity || includeRemote) {
+        console.log(`\n🏙️ Detected specific city: ${specificCity || 'none'}`);
+        console.log(`🌐 Include Remote: ${includeRemote}`);
+        console.log(`📊 Filtering ${filteredResults.length} results...`);
+        
+        filteredResults = filterBySpecificCity(filteredResults, specificCity, includeRemote);
+        
+        console.log(`✅ After filter: ${filteredResults.length} results`);
+      }
+    }
     
     // 🔄 אם אין תוצאות - נסה חיפוש רחב יותר ללא studyField
-    if (uniqueResults.length === 0) {
+    if (filteredResults.length === 0 && uniqueResults.length === 0) {
       console.log('\n⚠️ No results with studyField - trying without...\n');
       
       for (const region of regions) {
@@ -1491,17 +1811,29 @@ function generateSmartResponse(userMessage) {
       }
       
       console.log(`✅ After fallback: ${uniqueResults.length} results`);
+      
+      // עדכן גם את filteredResults אם היה סינון לפי עיר
+      if (regions.length > 0) {
+        const specificCity = detectSpecificCity(userMessage, regions[0]);
+        if (specificCity) {
+          filteredResults = filterBySpecificCity(uniqueResults, specificCity);
+        } else {
+          filteredResults = uniqueResults;
+        }
+      } else {
+        filteredResults = uniqueResults;
+      }
     }
     
     console.log('========================================\n');
     
-    if (uniqueResults.length > 0) {
+    if (filteredResults.length > 0) {
       // **מצאנו דפים רלוונטיים!**
       const regionsText = regionNames.length > 1 ? regionNames.join(' ו') : regionNames[0];
       
       // ספור דפים סטטיים ודינמיים
-      const staticCount = uniqueResults.filter(r => r.isStatic).length;
-      const dynamicCount = uniqueResults.filter(r => !r.isStatic && !r.isInfo).length;
+      const staticCount = filteredResults.filter(r => r.isStatic).length;
+      const dynamicCount = filteredResults.filter(r => !r.isStatic && !r.isInfo).length;
       
       // בנה הודעה מתאימה
       if (staticCount > 0 && dynamicCount > 0) {
@@ -1512,23 +1844,14 @@ function generateSmartResponse(userMessage) {
         response = `🎯 מצאתי קורסים ב${field.name} ב${regionsText}:\n\n`;
       }
       
-      console.log(`\n📝 [generateSmartResponse] Calling formatSearchResults with ${uniqueResults.length} results (${staticCount} static, ${dynamicCount} dynamic)`);
-      const formatted = formatSearchResults(uniqueResults);
+      console.log(`\n📝 [generateSmartResponse] Calling formatSearchResults with ${filteredResults.length} results (${staticCount} static, ${dynamicCount} dynamic)`);
+      const formatted = formatSearchResults(filteredResults, field, regions[0]);
       console.log(`📝 [generateSmartResponse] formatSearchResults returned: ${formatted ? formatted.length + ' chars' : 'NULL'}`);
       
       if (formatted) {
         response += formatted;
       } else {
         console.error(`⚠️ formatSearchResults returned NULL even though we have ${uniqueResults.length} results!`);
-      }
-      
-      // הוסף גם קישור לדף כללי
-      response += `\n\n💡 לכל הקורסים ב${field.name}:\n`;
-      for (const region of regions) {
-        const regionSlug = region.slug;
-        const encodedSlug = field.slug.replace(/ /g, '%20');
-        const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
-        response += `[${region.name}](${url})\n`;
       }
       
       return response;
