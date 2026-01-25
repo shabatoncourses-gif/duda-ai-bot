@@ -1164,11 +1164,14 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       }
       
       // בדוק אם אחת מהוריאציות מופיעה
+      let foundInHeader = false;  // 🆕 מצאנו בכותרת/קורסים
+      
       for (const variation of phraseVariations) {
         // 1. בדוק ב-title (עדיפות ראשונה!)
         if (titleText.includes(variation)) {
           foundPhraseVariation = true;
-          exactVariation = variation;  // 🆕 שמור!
+          foundInHeader = true;  // 🆕
+          exactVariation = variation;
           if (isGishotPage) console.log(`    ✅ Found in TITLE: "${variation}"`);
           break;
         }
@@ -1176,21 +1179,24 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         // 1b. בדוק ב-h1, h2, h3
         if (h1Text.includes(variation)) {
           foundPhraseVariation = true;
-          exactVariation = variation;  // 🆕 שמור!
+          foundInHeader = true;  // 🆕
+          exactVariation = variation;
           if (isGishotPage) console.log(`    ✅ Found in H1: "${variation}"`);
           break;
         }
         
         if (h2Text.includes(variation)) {
           foundPhraseVariation = true;
-          exactVariation = variation;  // 🆕 שמור!
+          foundInHeader = true;  // 🆕
+          exactVariation = variation;
           if (isGishotPage) console.log(`    ✅ Found in H2: "${variation}"`);
           break;
         }
         
         if (h3Text.includes(variation)) {
           foundPhraseVariation = true;
-          exactVariation = variation;  // 🆕 שמור!
+          foundInHeader = true;  // 🆕
+          exactVariation = variation;
           if (isGishotPage) console.log(`    ✅ Found in H3: "${variation}"`);
           break;
         }
@@ -1198,15 +1204,18 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         // 2. בדוק ב-courses (עדיפות שנייה!)
         if (coursesText.includes(variation)) {
           foundPhraseVariation = true;
-          exactVariation = variation;  // 🆕 שמור!
+          foundInHeader = true;  // 🆕 courses זה כמו header
+          exactVariation = variation;
           if (isGishotPage) console.log(`    ✅ Found in COURSES: "${variation}"`);
           break;
         }
         
         // 3. בדוק ב-description (רק תחילת הטקסט!)
+        // 🆕 אבל אם יש studyField - זה לא מספיק!
         if (descText.includes(variation)) {
           foundPhraseVariation = true;
-          exactVariation = variation;  // 🆕 שמור!
+          // foundInHeader נשאר false!
+          exactVariation = variation;
           if (isGishotPage) console.log(`    ✅ Found in DESCRIPTION (first 300 chars): "${variation}"`);
           break;
         }
@@ -1223,6 +1232,21 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         // לוג דחייה
         if (failedPhraseCheck <= 5) {
           console.log(`[searchPages] Page REJECTED (phrase required): "${page.title || page.h1}"`);
+        }
+        
+        continue; // ⭐ דלג על הדף!
+      }
+      
+      // 🆕 אם יש studyField, הביטוי חייב להיות ב-header/courses, לא רק ב-description!
+      if (studyField && !foundInHeader) {
+        failedPhraseCheck++;
+        
+        if (isGishotPage) {
+          console.log(`    ❌ Phrase found only in description but studyField requires header/courses - PAGE REJECTED`);
+        }
+        
+        if (failedPhraseCheck <= 5) {
+          console.log(`[searchPages] Page REJECTED (phrase only in description): "${page.title || page.h1}"`);
         }
         
         continue; // ⭐ דלג על הדף!
@@ -1504,8 +1528,8 @@ function buildResultsPageUrl(field, region) {
   if (!field) return null;
   
   if (region && region.slug) {
-    // אזור ספציפי
-    return `${baseUrl}/${region.slug}/${encodeURIComponent('קורסי ' + field.name)}`;
+    // אזור ספציפי - השתמש בשם התחום בלבד!
+    return `${baseUrl}/${region.slug}/${encodeURIComponent(field.name)}`;
   } else {
     // כל האזורים
     return `${baseUrl}/results-all/${encodeURIComponent(field.name)}`;
@@ -1550,6 +1574,11 @@ function formatSearchResults(pages, field = null, region = null) {
       } else if (page.description) {
         // תיאור חכם - עד 250 תווים, חיתוך במילה שלמה
         let desc = page.description.trim();
+        
+        // 🆕 הסר שורות "פנו ל..." מהתיאור (הן יופיעו בקישור)
+        desc = desc.split('\n')
+          .filter(line => !line.trim().startsWith('פנו ל'))
+          .join('\n');
         
         if (desc.length > 250) {
           // חתוך ב-250 תווים
@@ -1653,8 +1682,7 @@ function formatSearchResults(pages, field = null, region = null) {
   if (field && region) {
     const resultsUrl = buildResultsPageUrl(field, region);
     if (resultsUrl) {
-      response += `\n💡 לכל הקורסים ב${field.name}: ${region.name}\n`;
-      response += `➤ ${resultsUrl}\n`;
+      response += `\n💡 [לכל הקורסים ב${field.name}: ${region.name}](${resultsUrl})\n`;
     }
   }
   
