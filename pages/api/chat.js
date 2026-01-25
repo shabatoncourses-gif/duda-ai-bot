@@ -1018,23 +1018,22 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     
     // **בדיקת ביטוי מהמילון - דרישה חובה!**
     // הביטוי מ-required-phrases.json חייב להופיע בדף!
-    // זה בדיוק למה יש required-phrases.json
+    // 🎯 חמור יותר: הביטוי חייב להיות ב-title או ב-100 התווים הראשונים של description
     let foundPhraseVariation = false;
     
     if (detectedPhrase && phraseVariations.length > 0) {
-      // בדוק בכל המקומות: title, description, keywords, courses
+      // בדוק רק ב-title ובתחילת description (100 תווים)
       const titleText = title;
-      const descText = description;
-      const keywordsText = keywords.join(' ');
-      const coursesText = (page.courses && Array.isArray(page.courses)) ? page.courses.join(' ') : '';
-      const pageText = (titleText + ' ' + descText + ' ' + keywordsText + ' ' + coursesText).toLowerCase();
+      const descText = description.substring(0, 150); // רק 150 תווים ראשונים!
+      const pageText = (titleText + ' ' + descText).toLowerCase();
       
       // 🔍 Debug לדף gishot
       if (isGishotPage) {
-        console.log(`  [DEBUG-GISHOT] Phrase check:`);
+        console.log(`  [DEBUG-GISHOT] Phrase check (STRICT):`);
         console.log(`    Detected phrase: "${detectedPhrase}"`);
         console.log(`    Phrase variations:`, phraseVariations);
-        console.log(`    Page text: "${pageText.substring(0, 200)}..."`);
+        console.log(`    Checking in: title + first 150 chars of description`);
+        console.log(`    Page text: "${pageText}"`);
       }
       
       // בדוק אם אחת מהוריאציות מופיעה בדף
@@ -1408,13 +1407,27 @@ function formatSearchResults(pages, field = null, region = null) {
         response += `📅 ${page.upcomingDate}\n`;
       }
       
-      // קישור עם חץ כתום
-      let cleanUrl = page.url;
-      if (cleanUrl && cleanUrl.includes('://') && cleanUrl.indexOf('://') !== cleanUrl.lastIndexOf('://')) {
-        const parts = cleanUrl.split('://');
-        cleanUrl = parts[0] + '://' + parts[parts.length - 1];
+      // מיקום (אם יש)
+      if (page.location && page.location !== 'לא צוין') {
+        response += `📍 ${page.location}\n`;
       }
-      response += `[→ פנו למוסד הלימודים](${cleanUrl})\n`;
+      
+      // קישור עם חץ כתום - תמיד מוסתר!
+      if (page.url && page.url.trim() !== '') {
+        let cleanUrl = page.url.trim();
+        
+        // תיקון double protocol
+        if (cleanUrl.includes('://') && cleanUrl.indexOf('://') !== cleanUrl.lastIndexOf('://')) {
+          const parts = cleanUrl.split('://');
+          cleanUrl = parts[0] + '://' + parts[parts.length - 1];
+        }
+        
+        // תמיד הצג כקישור מוסתר
+        response += `[→ פנו למוסד הלימודים](${cleanUrl})\n`;
+      } else {
+        // אם אין URL - הצג טקסט רגיל
+        response += `→ פנו למוסד הלימודים\n`;
+      }
       
       // מפריד דק בין מוסדות
       if (index < staticPages.length - 1) {
