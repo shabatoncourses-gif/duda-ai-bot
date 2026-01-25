@@ -333,7 +333,7 @@ function isWithinThreeMonths(dateStr) {
 // ========================================
 // 🚫 בדיקה אם URL או כותרת צריכים להיות מסוננים
 // ========================================
-function shouldFilterUrl(url, title = '') {
+function shouldFilterUrl(url, title = '', hasSpecificPhrase = false) {
   if (!url) return true;
   
   const urlLower = url.toLowerCase();
@@ -368,6 +368,12 @@ function shouldFilterUrl(url, title = '') {
     return true;
   }
   
+  // 🆕 אם יש ביטוי ספציפי בכותרת - אל תסנן!
+  // (אפילו אם יש מילה כללית כמו "השתלמויות מורים")
+  if (hasSpecificPhrase) {
+    return false;
+  }
+  
   // בדיקת כותרת - דפים כלליים
   const blockedTitles = [
     'קורסי העשרה',
@@ -387,6 +393,101 @@ function shouldFilterUrl(url, title = '') {
   }
   
   return false;
+}
+
+/**
+ * בדיקה אם תאריך קרוב (בחודשיים הקרובים)
+ */
+function isUpcomingDate(dateStr) {
+  if (!dateStr) return false;
+  
+  try {
+    // נסה לחלץ תאריך מהמחרוזת
+    // דוגמאות: "15/02/2026", "15.2.26", "פברואר 2026"
+    
+    const now = new Date();
+    const twoMonthsFromNow = new Date(now.getTime() + (60 * 24 * 60 * 60 * 1000)); // 60 ימים
+    
+    // נסה פורמטים שונים
+    let date = null;
+    
+    // פורמט 1: DD/MM/YYYY
+    const match1 = dateStr.match(/(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})/);
+    if (match1) {
+      const day = parseInt(match1[1]);
+      const month = parseInt(match1[2]) - 1; // חודשים מתחילים מ-0
+      let year = parseInt(match1[3]);
+      if (year < 100) year += 2000; // המר שנה דו-ספרתית
+      
+      date = new Date(year, month, day);
+    }
+    
+    // פורמט 2: "חודש שנה" (למשל "פברואר 2026")
+    if (!date) {
+      const hebrewMonths = {
+        'ינואר': 0, 'פברואר': 1, 'מרץ': 2, 'אפריל': 3,
+        'מאי': 4, 'יוני': 5, 'יולי': 6, 'אוגוסט': 7,
+        'ספטמבר': 8, 'אוקטובר': 9, 'נובמבר': 10, 'דצמבר': 11
+      };
+      
+      for (const [monthName, monthNum] of Object.entries(hebrewMonths)) {
+        if (dateStr.includes(monthName)) {
+          const yearMatch = dateStr.match(/20\d{2}/);
+          if (yearMatch) {
+            date = new Date(parseInt(yearMatch[0]), monthNum, 1);
+            break;
+          }
+        }
+      }
+    }
+    
+    // בדוק אם התאריך בטווח
+    if (date && date >= now && date <= twoMonthsFromNow) {
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * חיפוש תאריך קרוב בטבלת מועדים
+ */
+function findUpcomingDateInSchedule(page, fieldName = null) {
+  // בדוק אם יש שדה dates או schedule
+  const schedule = page.dates || page.schedule || page.upcomingDates || [];
+  
+  if (!schedule || !Array.isArray(schedule) || schedule.length === 0) {
+    return null;
+  }
+  
+  // חפש תאריך קרוב
+  for (const entry of schedule) {
+    // entry יכול להיות מחרוזת או אובייקט
+    let dateStr = '';
+    let courseName = '';
+    
+    if (typeof entry === 'string') {
+      dateStr = entry;
+    } else if (typeof entry === 'object') {
+      dateStr = entry.date || entry.startDate || entry.openingDate || '';
+      courseName = entry.course || entry.name || '';
+    }
+    
+    // אם יש שם קורס - בדוק שזה הקורס הנכון
+    if (fieldName && courseName && !courseName.toLowerCase().includes(fieldName.toLowerCase())) {
+      continue;
+    }
+    
+    // בדוק אם התאריך קרוב
+    if (isUpcomingDate(dateStr)) {
+      return dateStr;
+    }
+  }
+  
+  return null;
 }
 
 // ========================================
@@ -641,12 +742,17 @@ function searchPagesStrict(query, region, studyField) {
     // שלב 1: בדיקות בסיסיות
     // ==============================
     
+    const title = (page.title || page.h1 || '').toLowerCase();
+    
+    // 🆕 בדוק אם יש ביטוי ספציפי בכותרת
+    const hasSpecificPhrase = studyField && studyField.keywords && 
+                              studyField.keywords.some(k => title.includes(k.toLowerCase()));
+    
     // חסום URLs לא רלוונטיים
-    if (shouldFilterUrl(page.url, page.title || page.h1)) {
+    if (shouldFilterUrl(page.url, page.title || page.h1, hasSpecificPhrase)) {
       continue;
     }
     
-    const title = (page.title || page.h1 || '').toLowerCase();
     const description = (page.description || '').toLowerCase();
     const url = (page.url || '').toLowerCase();
     const location = (page.location || '').toLowerCase();
@@ -874,7 +980,17 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       console.log(`[searchPages] Page ${totalPagesChecked}: "${page.title || page.h1}"`);
     }
     
-    if (shouldFilterUrl(page.url, page.title || page.h1)) {
+    // 🆕 בדוק אם יש ביטוי ספציפי בכותרת (title, h1, h2, h3)
+    const titleText = (page.title || '').toLowerCase();
+    const h1Text = (page.h1 || '').toLowerCase();
+    const h2Text = (page.h2 || '').toLowerCase();
+    const h3Text = (page.h3 || '').toLowerCase();
+    const allHeadersText = titleText + ' ' + h1Text + ' ' + h2Text + ' ' + h3Text;
+    
+    const hasSpecificPhrase = detectedPhrase && 
+                              phraseVariations.some(v => allHeadersText.includes(v));
+    
+    if (shouldFilterUrl(page.url, page.title || page.h1, hasSpecificPhrase)) {
       if (isGishotPage) {
         console.log(`  ❌ FILTERED by shouldFilterUrl`);
       }
@@ -916,7 +1032,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
                        title.includes('לוח הזמנים');  // לוח הזמנים בכותרת
     
     // Debug: לוג את ה-5 דפים הראשונים שעוברים את הפילטרים
-    if (totalPagesChecked <= 5 && !shouldFilterUrl(page.url, page.title || page.h1)) {
+    if (totalPagesChecked <= 5 && !shouldFilterUrl(page.url, page.title || page.h1, hasSpecificPhrase)) {
       console.log(`[Page ${totalPagesChecked}] isStatic: ${isStaticPage}, URL: ${url.substring(0, 60)}...`);
     }
     
@@ -1019,7 +1135,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     // **בדיקת ביטוי מהמילון - דרישה חובה!**
     // הביטוי מ-required-phrases.json חייב להופיע בדף!
     // 🎯 לוגיקה חכמה:
-    // 1. אם הביטוי ב-title → עובר ✅
+    // 1. אם הביטוי ב-title / h1 / h2 / h3 → עובר ✅
     // 2. אם הביטוי ב-courses (רשימת קורסים מפורשת) → עובר ✅
     // 3. אם הביטוי ב-description → רק ב-300 תווים ראשונים
     let foundPhraseVariation = false;
@@ -1027,6 +1143,9 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     if (detectedPhrase && phraseVariations.length > 0) {
       // בדוק בכל מקום בנפרד
       const titleText = title.toLowerCase();
+      const h1Text = (page.h1 || '').toLowerCase();
+      const h2Text = (page.h2 || '').toLowerCase();
+      const h3Text = (page.h3 || '').toLowerCase();
       const coursesText = (page.courses && Array.isArray(page.courses)) ? page.courses.join(' ').toLowerCase() : '';
       const descText = description.substring(0, 300).toLowerCase(); // רק 300 תווים ראשונים!
       
@@ -1034,6 +1153,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         console.log(`  [DEBUG-GISHOT] Phrase check (SMART):`);
         console.log(`    Detected phrase: "${detectedPhrase}"`);
         console.log(`    Phrase variations:`, phraseVariations);
+        console.log(`    Checking in: title, h1, h2, h3, courses, description(300)`);
       }
       
       // בדוק אם אחת מהוריאציות מופיעה
@@ -1042,6 +1162,25 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         if (titleText.includes(variation)) {
           foundPhraseVariation = true;
           if (isGishotPage) console.log(`    ✅ Found in TITLE: "${variation}"`);
+          break;
+        }
+        
+        // 1b. בדוק ב-h1, h2, h3
+        if (h1Text.includes(variation)) {
+          foundPhraseVariation = true;
+          if (isGishotPage) console.log(`    ✅ Found in H1: "${variation}"`);
+          break;
+        }
+        
+        if (h2Text.includes(variation)) {
+          foundPhraseVariation = true;
+          if (isGishotPage) console.log(`    ✅ Found in H2: "${variation}"`);
+          break;
+        }
+        
+        if (h3Text.includes(variation)) {
+          foundPhraseVariation = true;
+          if (isGishotPage) console.log(`    ✅ Found in H3: "${variation}"`);
           break;
         }
         
@@ -1254,12 +1393,24 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         console.log(`  ✅ [DEBUG-GISHOT] ADDED TO RESULTS`);
       }
       
+      // 🆕 בדוק אם יש תאריך קרוב בטבלת מועדים
+      let upcomingDate = page.upcomingDate || null;
+      
+      if (!upcomingDate && studyField) {
+        const foundDate = findUpcomingDateInSchedule(page, studyField.name);
+        if (foundDate) {
+          upcomingDate = foundDate;
+          console.log(`  📅 Found upcoming date in schedule: ${foundDate}`);
+        }
+      }
+      
       results.push({
         ...page,
         isStatic: isStaticPage,
         isInfo: isInfoPage,
         isInSpecificCity: isInSpecificCity,  // ⭐ חדש!
         specificCity: isInSpecificCity ? specificCity : null,  // ⭐ חדש!
+        upcomingDate: upcomingDate,  // 🆕 תאריך קרוב!
         score: matchScore
       });
     }
