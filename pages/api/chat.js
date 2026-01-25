@@ -1241,6 +1241,8 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       if (studyField && !foundInHeader) {
         failedPhraseCheck++;
         
+        console.log(`[searchPages] ⚠️ Page "${page.title || page.h1}" has phrase ONLY in description (not in header/courses) - REJECTED`);
+        
         if (isGishotPage) {
           console.log(`    ❌ Phrase found only in description but studyField requires header/courses - PAGE REJECTED`);
         }
@@ -1264,8 +1266,8 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         console.log(`[searchPages] ✅ STATIC PAGE with phrase: "${page.title || page.h1}" - variation: "${exactVariation}"`);
       }
       
-      // לוג את ה-5 הדפים הראשונים שעברו
-      if (passedPhraseCheck <= 5) {
+      // לוג את ה-10 הדפים הראשונים שעברו (הגדלתי מ-5 ל-10)
+      if (passedPhraseCheck <= 10) {
         console.log(`[searchPages] Page PASSED (has phrase): "${page.title || page.h1}" - found: "${exactVariation}"`);
       }
       
@@ -1393,9 +1395,16 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
             matchesRegion = true;
             regionBonus = 10; // בונוס קטן לדפים כלליים של האזור
           } else {
-            // אין עיר ואין אזור - דלג!
-            // (כאשר מחפשים באזור ספציפי, רק דפים מהאזור צריכים לעבור)
-            continue;
+            // 🆕 אין עיר ואין אזור - אבל אל תדחה אם הדף עבר את בדיקת הביטוי!
+            // אם הדף הגיע עד לכאן, זה אומר שיש בו את הביטוי הנכון (כמו "הנחיית קבוצות")
+            // ואם לא הזכיר אזור, אולי הוא פועל בכל הארץ או שהמידע חסר
+            // במקום לדחות - פשוט אל תתן בונוס אזור
+            matchesRegion = false;
+            regionBonus = 0;
+            
+            if (isGishotPage) {
+              console.log(`  [DEBUG-GISHOT] No city/region mentioned - continuing without region bonus`);
+            }
           }
         } else if (firstCity === null) {
           // יש עיר מוזכרת אבל לא מצאנו אותה - שגיאה?
@@ -1421,6 +1430,10 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     
     // 🔍 Debug לדף gishot - final score
     if (isGishotPage) {
+      console.log(`  [DEBUG-GISHOT] Score breakdown:`);
+      console.log(`    - Base matchScore: ${matchScore}`);
+      console.log(`    - Region bonus: ${regionBonus}`);
+      console.log(`    - Total: ${matchScore + regionBonus}`);
       console.log(`  [DEBUG-GISHOT] Final matchScore: ${matchScore}`);
       console.log(`  [DEBUG-GISHOT] Will be added to results: ${matchScore > 0 ? 'YES' : 'NO'}`);
     }
