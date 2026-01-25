@@ -1467,6 +1467,15 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   
   console.log(`[searchPages] Static pages in input: ${staticPagesInInput}`);
   console.log(`[searchPages] Static pages in results: ${staticPagesInResults}`);
+  
+  // 🆕 לוג דפים סטטיים שחזרו
+  if (staticPagesInResults > 0) {
+    console.log(`\n[searchPages] Static pages that passed:`);
+    results.filter(r => r.isStatic).forEach((page, index) => {
+      console.log(`  ${index + 1}. "${page.title || page.h1}" (score: ${page.score}, url: ${page.url})`);
+    });
+  }
+  
   console.log(`[searchPages] Dynamic pages in results: ${dynamicPagesInResults}`);
   console.log(`[searchPages] Results before filtering: ${results.length}`);
   console.log(`[searchPages] Min score required: ${minScore}`);
@@ -1559,8 +1568,16 @@ function formatSearchResults(pages, field = null, region = null) {
   // 1. הצגת מוסדות (דפים סטטיים)
   // ========================================
   if (staticPages.length > 0) {
+    console.log(`\n📝 [formatSearchResults] Processing ${staticPages.length} static pages:`);
+    
     staticPages.forEach((page, index) => {
       const title = page.title || page.h1 || 'מוסד לימודים';
+      
+      console.log(`\n  [Static Page ${index + 1}]:`);
+      console.log(`    Title: "${title}"`);
+      console.log(`    URL: ${page.url || 'none'}`);
+      console.log(`    Courses: ${page.courses ? page.courses.length : 0}`);
+      console.log(`    Description length: ${page.description ? page.description.length : 0}`);
       
       // כותרת מוסד (ללא אייקון, גופן רגיל)
       response += `**${title}**\n`;
@@ -1681,10 +1698,19 @@ function formatSearchResults(pages, field = null, region = null) {
   // ========================================
   if (field && region) {
     const resultsUrl = buildResultsPageUrl(field, region);
+    console.log(`\n📝 [formatSearchResults] Building results URL:`);
+    console.log(`    Field: ${field.name}`);
+    console.log(`    Region: ${region.name}`);
+    console.log(`    URL: ${resultsUrl}`);
+    
     if (resultsUrl) {
-      response += `\n💡 [לכל הקורסים ב${field.name}: ${region.name}](${resultsUrl})\n`;
+      const linkText = `💡 [לכל הקורסים ב${field.name}: ${region.name}](${resultsUrl})`;
+      console.log(`    Link text: "${linkText}"`);
+      response += `\n${linkText}\n`;
     }
   }
+  
+  console.log(`\n📝 [formatSearchResults] Final response length: ${response.length} chars`);
   
   return response;
 }
