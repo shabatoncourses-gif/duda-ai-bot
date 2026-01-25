@@ -981,10 +981,13 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     }
     
     // 🆕 בדוק אם יש ביטוי ספציפי בכותרת (title, h1, h2, h3)
+    // h2 ו-h3 יכולים להיות arrays!
     const titleText = (page.title || '').toLowerCase();
     const h1Text = (page.h1 || '').toLowerCase();
-    const h2Text = (page.h2 || '').toLowerCase();
-    const h3Text = (page.h3 || '').toLowerCase();
+    const h2Text = Array.isArray(page.h2) ? page.h2.join(' ').toLowerCase() : 
+                   (page.h2 || '').toLowerCase();
+    const h3Text = Array.isArray(page.h3) ? page.h3.join(' ').toLowerCase() : 
+                   (page.h3 || '').toLowerCase();
     const allHeadersText = titleText + ' ' + h1Text + ' ' + h2Text + ' ' + h3Text;
     
     const hasSpecificPhrase = detectedPhrase && 
@@ -1144,8 +1147,11 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       // בדוק בכל מקום בנפרד
       const titleText = title.toLowerCase();
       const h1Text = (page.h1 || '').toLowerCase();
-      const h2Text = (page.h2 || '').toLowerCase();
-      const h3Text = (page.h3 || '').toLowerCase();
+      // h2 ו-h3 יכולים להיות arrays!
+      const h2Text = Array.isArray(page.h2) ? page.h2.join(' ').toLowerCase() : 
+                     (page.h2 || '').toLowerCase();
+      const h3Text = Array.isArray(page.h3) ? page.h3.join(' ').toLowerCase() : 
+                     (page.h3 || '').toLowerCase();
       const coursesText = (page.courses && Array.isArray(page.courses)) ? page.courses.join(' ').toLowerCase() : '';
       const descText = description.substring(0, 300).toLowerCase(); // רק 300 תווים ראשונים!
       
