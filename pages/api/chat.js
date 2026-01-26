@@ -1849,6 +1849,7 @@ function detectStudyField(message) {
   console.log('\n🔍 [detectStudyField] START');
   console.log(`📝 Message: "${message}"`);
   console.log(`📚 STUDY_FIELDS available: ${STUDY_FIELDS ? STUDY_FIELDS.length : 0}`);
+  console.log(`📜 REQUIRED_PHRASES available: ${REQUIRED_PHRASES ? REQUIRED_PHRASES.length : 0}`);
   
   // וודא ש-STUDY_FIELDS הוא מערך (במקרה ש-loadConfigs נכשל)
   if (!STUDY_FIELDS || !Array.isArray(STUDY_FIELDS)) {
@@ -1868,7 +1869,43 @@ function detectStudyField(message) {
     }
   }
   
-  // **שלב 2: חיפוש במילות מפתח - חיפוש פשוט**
+  // **שלב 2: בדוק REQUIRED_PHRASES - ביטויים ספציפיים עם variations**
+  // 🆕 אם מוצאים ביטוי ב-REQUIRED_PHRASES, חפש את ה-study field המתאים
+  if (REQUIRED_PHRASES && Array.isArray(REQUIRED_PHRASES)) {
+    for (const phraseEntry of REQUIRED_PHRASES) {
+      const mainPhrase = phraseEntry.phrase.toLowerCase();
+      
+      // בדוק אם אחד מה-variations מופיע בהודעה
+      for (const variation of phraseEntry.variations) {
+        const variationLower = variation.toLowerCase();
+        
+        if (lowerMessage.includes(variationLower)) {
+          // מצאנו! עכשיו צריך למצוא את ה-study field המתאים
+          // נחפש study field שיש לו את mainPhrase ב-keywords או בשם
+          console.log(`✅ Found phrase variation: "${variation}" (main phrase: "${mainPhrase}")`);
+          
+          // חפש study field עם mainPhrase
+          for (const field of STUDY_FIELDS) {
+            // בדוק בשם
+            if (field.name.toLowerCase().includes(mainPhrase)) {
+              console.log(`✅ Mapped to study field via name: "${field.name}"`);
+              return [{ ...field, specificKeyword: variation }];
+            }
+            
+            // בדוק ב-keywords
+            if (field.keywords && field.keywords.some(kw => kw.toLowerCase() === mainPhrase)) {
+              console.log(`✅ Mapped to study field via keyword: "${field.name}"`);
+              return [{ ...field, specificKeyword: variation }];
+            }
+          }
+          
+          console.log(`⚠️ Found phrase "${variation}" but couldn't map to study field`);
+        }
+      }
+    }
+  }
+  
+  // **שלב 3: חיפוש במילות מפתח - חיפוש פשוט**
   const matches = [];
   
   for (const field of STUDY_FIELDS) {
@@ -2221,11 +2258,15 @@ export default async function handler(req, res) {
     // **קודם - ננסה לזהות מההודעה הנוכחית בלבד**
     let response = generateSmartResponse(message);
     
-    // **אם ההודעה הנוכחית לא הצליחה (חסר תחום או אזור) - נשתמש בהיסטוריה**
+    // **אם ההודעה הנוכחית לא הצליחה (חסר אזור בלבד!) - נשתמש בהיסטוריה**
     // זה מתאים למקרים כמו: "תל אביב" אחרי "הנחיית קבוצות"
-    const needsContext = response.includes('באיזה אזור') || 
-                         response.includes('באיזה תחום') ||
-                         response.includes('אשמח לעזור');
+    // אבל לא למקרים של תחום חסר - אז פשוט נשאל את המשתמש
+    const missingRegion = response.includes('באיזה אזור');
+    const missingField = response.includes('באיזה תחום');
+    const genericResponse = response.includes('אשמח לעזור');
+    
+    // 🆕 רק אם חסר אזור (ולא תחום!) - נשתמש בהיסטוריה
+    const needsContext = missingRegion && !missingField && !genericResponse;
     
     if (needsContext && history && Array.isArray(history) && history.length > 0) {
       // לקיחת רק 3 הודעות אחרונות של המשתמש
@@ -2237,6 +2278,8 @@ export default async function handler(req, res) {
       
       // איחוד עם ההודעה הנוכחית
       const fullContext = recentUserMessages + ' ' + message;
+      
+      console.log(`[handler] Using history context: "${fullContext.substring(0, 100)}..."`);
       response = generateSmartResponse(fullContext);
     }
     
