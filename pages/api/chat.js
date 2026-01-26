@@ -2122,8 +2122,10 @@ function generateSmartResponse(userMessage) {
       try {
         // חפש ללא אזור ספציפי - רק תחום (ללא specificKeyword!)
         // 🎯 חשוב: נעביר field ללא specificKeyword כדי לחפש בכל התחום
+        // 🎯 חשוב: נעביר רק את שם התחום (ללא "במרכז" וכו')
         const fieldWithoutKeyword = { ...field, specificKeyword: null };
-        remoteResults = searchPages(userMessage, null, 'all', fieldWithoutKeyword);
+        const queryWithoutRegion = field.name; // רק שם התחום, בלי אזור!
+        remoteResults = searchPages(queryWithoutRegion, null, 'all', fieldWithoutKeyword);
         
         // סנן רק דפים עם למידה מרחוק
         remoteResults = remoteResults.filter(page => {
@@ -2207,8 +2209,10 @@ function generateSmartResponse(userMessage) {
     try {
       // חפש ללא אזור ספציפי - רק תחום (ללא specificKeyword!)
       // 🎯 חשוב: נעביר field ללא specificKeyword כדי לחפש בכל התחום
+      // 🎯 חשוב: נעביר רק את שם התחום (ללא "במרכז" וכו')
       const fieldWithoutKeyword = { ...field, specificKeyword: null };
-      remoteResults = searchPages(userMessage, null, 'all', fieldWithoutKeyword);
+      const queryWithoutRegion = field.name; // רק שם התחום, בלי אזור!
+      remoteResults = searchPages(queryWithoutRegion, null, 'all', fieldWithoutKeyword);
       
       // סנן רק דפים עם למידה מרחוק
       remoteResults = remoteResults.filter(page => {
