@@ -1670,41 +1670,8 @@ function formatSearchResults(pages, field = null, region = null) {
   // ========================================
   // 2. הצגת דפי חיפוש (דפים דינמיים)
   // ========================================
-  let dynamicPages = pages.filter(p => !p.isStatic && !p.isInfo);
-  
-  // סנן דפים דינמיים לפי אזור (אם יש region)
-  if (region && dynamicPages.length > 0) {
-    dynamicPages = dynamicPages.filter(page => {
-      const url = (page.url || '').toLowerCase();
-      const regionSlug = region.slug || '';
-      
-      // בדוק אם ה-URL מכיל את slug האזור
-      // לדוגמה: /results-merkaz/ או /search-results-merkaz/
-      return url.includes(regionSlug.toLowerCase());
-    });
-  }
-  
-  // הצג את כל דפי החיפוש (ללא הגבלה)
-  if (dynamicPages.length > 0) {
-    // אם יש דפים סטטיים, הוסף מפריד
-    if (staticPages.length > 0) {
-      response += `\n---\n\n**דפי חיפוש נוספים:**\n\n`;
-    }
-    
-    dynamicPages.forEach((page, index) => {
-      const title = page.title || page.h1 || 'קורסים';
-      const cleanTitle = title.replace(/\n/g, ' ').replace(/close carousel/g, '').trim();
-      
-      // קישור לדף הדינמי
-      let cleanUrl = page.url;
-      if (cleanUrl && cleanUrl.includes('://') && cleanUrl.indexOf('://') !== cleanUrl.lastIndexOf('://')) {
-        const parts = cleanUrl.split('://');
-        cleanUrl = parts[0] + '://' + parts[parts.length - 1];
-      }
-      
-      response += `[${cleanTitle}](${cleanUrl})\n`;
-    });
-  }
+  // 🆕 אל תציג דפים דינמיים בנפרד - רק הקישור הכללי בסוף!
+  // המשתמש רוצה לראות רק את הקישור 💡 "לכל הקורסים..."
   
   // ========================================
   // 3. קישור לדף תוצאות כללי
