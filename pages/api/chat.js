@@ -880,6 +880,9 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   console.log(`Region object:`, region ? JSON.stringify(region) : 'null');
   console.log(`Study Field: ${studyField?.name || 'none'}`);
   console.log(`Study Field keywords:`, studyField?.keywords || 'none');
+  if (studyField && studyField.specificKeyword) {
+    console.log(`🎯 Specific Keyword: "${studyField.specificKeyword}" (will filter pages by this keyword!)`);
+  }
   console.log(`REGIONS available:`, REGIONS ? `yes (${REGIONS.length})` : 'no');
   console.log(`REQUIRED_PHRASES available:`, REQUIRED_PHRASES ? `yes (${REQUIRED_PHRASES.length})` : 'no');
   
@@ -1008,6 +1011,25 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     const description = (page.description || '').toLowerCase();
     const url = (page.url || '').toLowerCase();
     const keywords = (page.keywords || []).map(k => k.toLowerCase());
+    
+    // 🆕 אם יש keyword ספציפי (כמו "עיסת נייר"), דרוש שהוא יופיע בדף!
+    if (studyField && studyField.specificKeyword) {
+      const specificKeywordLower = studyField.specificKeyword.toLowerCase();
+      const pageContent = title + ' ' + description + ' ' + allHeadersText + ' ' + keywords.join(' ');
+      
+      // בדוק אם ה-keyword הספציפי מופיע בדף
+      if (!pageContent.includes(specificKeywordLower)) {
+        // ה-keyword הספציפי לא מופיע - דלג על הדף!
+        if (totalPagesChecked <= 10) {
+          console.log(`[searchPages] Page REJECTED (missing specific keyword "${studyField.specificKeyword}"): "${page.title || page.h1}"`);
+        }
+        continue;
+      }
+      
+      if (totalPagesChecked <= 10) {
+        console.log(`[searchPages] ✅ Page has specific keyword "${studyField.specificKeyword}": "${page.title || page.h1}"`);
+      }
+    }
     
     // זיהוי סוג הדף
     const isStaticPage = !url.includes('/results-') && !url.includes('/search-results-') && !url.includes('/courses-per-month');
@@ -1842,7 +1864,7 @@ function detectStudyField(message) {
     const fieldNameLower = field.name.toLowerCase();
     if (lowerMessage.includes(fieldNameLower)) {
       console.log(`✅ Found exact match: "${field.name}"`);
-      return [field]; // מצאנו התאמה מדויקת - נחזיר מיד!
+      return [{ ...field, specificKeyword: field.name }]; // מצאנו התאמה מדויקת - נחזיר מיד!
     }
   }
   
@@ -1857,6 +1879,7 @@ function detectStudyField(message) {
       
       // בדיקה פשוטה - includes (לא word boundary!)
       if (lowerMessage.includes(keywordLower)) {
+        // 🆕 שמור את ה-keyword הספציפי שנמצא!
         matches.push({ field, keyword, length: keywordLower.length });
         break;
       }
@@ -1865,10 +1888,12 @@ function detectStudyField(message) {
   
   // מיון לפי אורך מילת המפתח (ארוכה יותר = ספציפית יותר)
   matches.sort((a, b) => b.length - a.length);
-  detectedFields.push(...matches.map(m => m.field));
+  
+  // 🆕 הוסף את ה-keyword הספציפי לכל field
+  detectedFields.push(...matches.map(m => ({ ...m.field, specificKeyword: m.keyword })));
   
   if (detectedFields.length > 0) {
-    console.log(`✅ Found ${detectedFields.length} fields via keywords: ${detectedFields.map(f => f.name).join(', ')}`);
+    console.log(`✅ Found ${detectedFields.length} fields via keywords: ${detectedFields.map(f => f.name + (f.specificKeyword ? ` (keyword: "${f.specificKeyword}")` : '')).join(', ')}`);
   } else {
     console.log(`⚠️ No study fields detected`);
   }
