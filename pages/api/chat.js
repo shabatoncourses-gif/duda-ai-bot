@@ -2120,8 +2120,10 @@ function generateSmartResponse(userMessage) {
       
       let remoteResults = [];
       try {
-        // חפש ללא אזור ספציפי - רק תחום + למידה מרחוק
-        remoteResults = searchPages(userMessage, null, 'all', field);
+        // חפש ללא אזור ספציפי - רק תחום (ללא specificKeyword!)
+        // 🎯 חשוב: נעביר field ללא specificKeyword כדי לחפש בכל התחום
+        const fieldWithoutKeyword = { ...field, specificKeyword: null };
+        remoteResults = searchPages(userMessage, null, 'all', fieldWithoutKeyword);
         
         // סנן רק דפים עם למידה מרחוק
         remoteResults = remoteResults.filter(page => {
@@ -2149,7 +2151,6 @@ function generateSmartResponse(userMessage) {
         const formatted = formatSearchResults(remoteResults.slice(0, 5), field, null);
         if (formatted) {
           response += formatted;
-          response += '\n\n---\n\n';
         }
       }
       
@@ -2204,8 +2205,10 @@ function generateSmartResponse(userMessage) {
     
     let remoteResults = [];
     try {
-      // חפש ללא אזור ספציפי - רק תחום + למידה מרחוק
-      remoteResults = searchPages(userMessage, null, 'all', field);
+      // חפש ללא אזור ספציפי - רק תחום (ללא specificKeyword!)
+      // 🎯 חשוב: נעביר field ללא specificKeyword כדי לחפש בכל התחום
+      const fieldWithoutKeyword = { ...field, specificKeyword: null };
+      remoteResults = searchPages(userMessage, null, 'all', fieldWithoutKeyword);
       
       // סנן רק דפים עם למידה מרחוק
       remoteResults = remoteResults.filter(page => {
@@ -2232,7 +2235,6 @@ function generateSmartResponse(userMessage) {
       const formatted = formatSearchResults(remoteResults.slice(0, 5), field, null);
       if (formatted) {
         response += formatted;
-        response += '\n\n---\n\n';
       }
       
       response += `💡 **רוצה לראות את כל הקורסים ב${field.name}?**\n\n`;
