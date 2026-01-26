@@ -1017,7 +1017,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       const specificKeywordLower = studyField.specificKeyword.toLowerCase();
       const pageContent = title + ' ' + description + ' ' + allHeadersText + ' ' + keywords.join(' ');
       
-      // בדוק אם ה-keyword הספציפי מופיע בדף
+      // בדוק אם ה-keyword הספציפי המלא מופיע בדף
       if (!pageContent.includes(specificKeywordLower)) {
         // ה-keyword הספציפי לא מופיע - דלג על הדף!
         if (totalPagesChecked <= 10) {
@@ -2031,7 +2031,10 @@ function generateSmartResponse(userMessage) {
     }
     
     // 🔄 אם אין תוצאות - נסה חיפוש רחב יותר ללא studyField
-    if (filteredResults.length === 0 && uniqueResults.length === 0) {
+    // אבל לא אם יש specificKeyword - אז הסינון היה מדויק והתוצאות באמת לא רלוונטיות
+    const hasSpecificKeyword = field && field.specificKeyword;
+    
+    if (filteredResults.length === 0 && uniqueResults.length === 0 && !hasSpecificKeyword) {
       console.log('\n⚠️ No results with studyField - trying without...\n');
       
       for (const region of regions) {
@@ -2070,6 +2073,25 @@ function generateSmartResponse(userMessage) {
     }
     
     console.log('========================================\n');
+    
+    // 🆕 אם אין תוצאות והיה specificKeyword - הסבר למשתמש
+    if (filteredResults.length === 0 && hasSpecificKeyword) {
+      console.log(`⚠️ No results found for specific keyword: "${field.specificKeyword}"`);
+      
+      response = `לא מצאתי קורסים ספציפיים ל"${field.specificKeyword}" ב${regionNames.join(' ו')}.\n\n`;
+      response += `💡 **הצעות:**\n`;
+      response += `• נסה חיפוש רחב יותר: "קורסי ${field.name}"\n`;
+      response += `• חפש באזור אחר\n`;
+      response += `• או עיין בכל הקורסים ב${field.name}:\n\n`;
+      
+      // הוסף קישור לדף כללי
+      const resultsUrl = buildResultsPageUrl(field, regions[0]);
+      if (resultsUrl) {
+        response += `[לכל הקורסים ב${field.name}: ${regions[0].name}](${resultsUrl})\n`;
+      }
+      
+      return response;
+    }
     
     if (filteredResults.length > 0) {
       // **מצאנו דפים רלוונטיים!**
