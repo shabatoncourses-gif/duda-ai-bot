@@ -2115,8 +2115,45 @@ function generateSmartResponse(userMessage) {
     if (filteredResults.length === 0 && hasSpecificKeyword) {
       console.log(`⚠️ No results found for specific keyword: "${field.specificKeyword}"`);
       
+      // 🆕 חפש קורסים בלמידה מרחוק באותו תחום
+      console.log(`🔍 Searching for remote learning courses in ${field.name}...`);
+      
+      let remoteResults = [];
+      try {
+        // חפש ללא אזור ספציפי - רק תחום + למידה מרחוק
+        remoteResults = searchPages(userMessage, null, 'all', field);
+        
+        // סנן רק דפים עם למידה מרחוק
+        remoteResults = remoteResults.filter(page => {
+          const pageContent = (page.title + ' ' + page.description + ' ' + (page.location || '')).toLowerCase();
+          return pageContent.includes('למידה מרחוק') || 
+                 pageContent.includes('אונליין') || 
+                 pageContent.includes('online') ||
+                 pageContent.includes('מקוון') ||
+                 pageContent.includes('זום') ||
+                 pageContent.includes('zoom');
+        });
+        
+        console.log(`✅ Found ${remoteResults.length} remote learning courses`);
+      } catch (error) {
+        console.error(`Error searching for remote courses: ${error.message}`);
+      }
+      
       response = `לא מצאתי קורסים ספציפיים ל"${field.specificKeyword}" ב${regionNames.join(' ו')}.\n\n`;
-      response += `💡 **הצעות:**\n`;
+      
+      // 🆕 אם יש קורסים בלמידה מרחוק - הצע אותם!
+      if (remoteResults.length > 0) {
+        response += `💡 **מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} בלמידה מרחוק ב${field.name}:**\n\n`;
+        
+        // הצג עד 5 קורסים
+        const formatted = formatSearchResults(remoteResults.slice(0, 5), field, null);
+        if (formatted) {
+          response += formatted;
+          response += '\n\n---\n\n';
+        }
+      }
+      
+      response += `💡 **הצעות נוספות:**\n`;
       response += `• נסה חיפוש רחב יותר: "קורסי ${field.name}"\n`;
       response += `• חפש באזור אחר\n`;
       response += `• או עיין בכל הקורסים ב${field.name}:\n\n`;
@@ -2160,8 +2197,48 @@ function generateSmartResponse(userMessage) {
       return response;
     }
     
-    // **לא מצאנו תוצאות ספציפיות - נציע דפים דינמיים**
-    response = `🎯 מצאתי קורסים ב${field.name} ב${regionNames.join(' ו')}:\n\n`;
+    // **לא מצאנו תוצאות ספציפיות - נחפש למידה מרחוק ונציע דפים דינמיים**
+    
+    // 🆕 חפש קורסים בלמידה מרחוק באותו תחום
+    console.log(`🔍 No results in region - searching for remote learning courses in ${field.name}...`);
+    
+    let remoteResults = [];
+    try {
+      // חפש ללא אזור ספציפי - רק תחום + למידה מרחוק
+      remoteResults = searchPages(userMessage, null, 'all', field);
+      
+      // סנן רק דפים עם למידה מרחוק
+      remoteResults = remoteResults.filter(page => {
+        const pageContent = (page.title + ' ' + page.description + ' ' + (page.location || '')).toLowerCase();
+        return pageContent.includes('למידה מרחוק') || 
+               pageContent.includes('אונליין') || 
+               pageContent.includes('online') ||
+               pageContent.includes('מקוון') ||
+               pageContent.includes('זום') ||
+               pageContent.includes('zoom');
+      });
+      
+      console.log(`✅ Found ${remoteResults.length} remote learning courses`);
+    } catch (error) {
+      console.error(`Error searching for remote courses: ${error.message}`);
+    }
+    
+    // 🆕 אם יש קורסים בלמידה מרחוק - הצג אותם תחילה!
+    if (remoteResults.length > 0) {
+      response = `לא מצאתי קורסים ב${field.name} ב${regionNames.join(' ו')}.\n\n`;
+      response += `💡 **מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} בלמידה מרחוק ב${field.name}:**\n\n`;
+      
+      // הצג עד 5 קורסים
+      const formatted = formatSearchResults(remoteResults.slice(0, 5), field, null);
+      if (formatted) {
+        response += formatted;
+        response += '\n\n---\n\n';
+      }
+      
+      response += `💡 **רוצה לראות את כל הקורסים ב${field.name}?**\n\n`;
+    } else {
+      response = `🎯 מצאתי קורסים ב${field.name} ב${regionNames.join(' ו')}:\n\n`;
+    }
     
     // הוסף קישורים לדפים דינמיים של כל אזור
     for (const region of regions) {
