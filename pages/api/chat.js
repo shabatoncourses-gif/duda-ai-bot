@@ -2136,8 +2136,23 @@ function generateSmartResponse(userMessage) {
               if (title.toLowerCase().includes('אדלר') || title.toLowerCase().includes('adler')) {
                 console.log(`     ✅ ADLER FOUND IN BROADER SEARCH!`);
               }
+              
+              // בדיקה לשכל
+              if (title.toLowerCase().includes('השכל') || title.toLowerCase().includes('sekhel') || title.toLowerCase().includes('hasechel')) {
+                console.log(`     ✅ HASECHEL FOUND IN BROADER SEARCH!`);
+              }
+              
+              // בדיקה לניצן
+              if (title.toLowerCase().includes('ניצן') || title.toLowerCase().includes('nitzan')) {
+                console.log(`     ✅ NITZAN FOUND IN BROADER SEARCH!`);
+              }
             }
           });
+          
+          // אם יש יותר מ-10 - לוג כמה יש
+          if (broaderRegionResults.length > 10) {
+            console.log(`  ... and ${broaderRegionResults.length - 10} more courses (total: ${broaderRegionResults.length})`);
+          }
         }
       } catch (error) {
         console.error(`Error in broader region search: ${error.message}`);
@@ -2147,22 +2162,24 @@ function generateSmartResponse(userMessage) {
       if (broaderRegionResults.length > 0) {
         console.log(`✅ Found courses in region - showing them instead of remote learning`);
         
-        response = `לא מצאתי קורסים ספציפיים ל"${field.specificKeyword}" ב${regionNames.join(' ו')}, אבל מצאתי קורסים ב${field.name} באזור:\n\n`;
+        // 🆕 הודעה חיובית!
+        response = `מצאתי ${broaderRegionResults.length} ${broaderRegionResults.length === 1 ? 'קורס' : 'קורסים'} ב${field.name} ב${regionNames.join(' ו')}:\n\n`;
         
-        const formatted = formatSearchResults(broaderRegionResults.slice(0, 5), field, regions);
+        // 🆕 הצג עד 15 קורסים (יותר!) כדי לכלול את השכל וניצן
+        const formatted = formatSearchResults(broaderRegionResults.slice(0, 15), field, null);
+        //                                                                                  ↑
+        //                                                                     null = לא להוסיף קישור בסוף!
         if (formatted) {
           response += formatted;
         }
         
-        response += `\n\n💡 **רוצה לראות עוד אפשרויות?**\n`;
-        response += `• נסה חיפוש ספציפי יותר\n`;
-        response += `• או עיין בכל הקורסים ב${field.name}: `;
+        // הוסף קישור נכון לדף דינמי
+        response += `\n💡 **רוצה לראות עוד קורסים?**\n`;
+        const regionSlugs = regions.map(r => r.slug).filter(s => s).join('-');
+        const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
         
-        // הוסף קישורים לדפים דינמיים
-        for (const region of regions) {
-          const regionSlug = region.slug;
-          const fieldSlug = field.slug;
-          response += `[${region.name}](https://www.shabaton.online/${fieldSlug}/${regionSlug}) `;
+        if (regionSlugs && fieldSlug) {
+          response += `• [לכל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${fieldSlug}/${regionSlugs})\n`;
         }
         
         return response;
@@ -2240,29 +2257,29 @@ function generateSmartResponse(userMessage) {
         console.error(`Error searching for remote courses: ${error.message}`);
       }
       
-      response = `לא מצאתי קורסים ספציפיים ל"${field.specificKeyword}" ב${regionNames.join(' ו')}.\n\n`;
-      
       // 🆕 אם יש קורסים בלמידה מרחוק - הצע אותם!
       if (remoteResults.length > 0) {
-        // הצג הודעה מתאימה - אם הוספנו קורסים כ-fallback, הודעה כללית יותר
-        response += `💡 **מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} ב${field.name}:**\n\n`;
+        // 🆕 הודעה חיובית!
+        response = `מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} ב${field.name}:\n\n`;
         
-        // הצג עד 5 קורסים
-        const formatted = formatSearchResults(remoteResults.slice(0, 5), field, null);
+        // 🆕 הצג עד 10 קורסים (לא 5!)
+        const formatted = formatSearchResults(remoteResults.slice(0, 10), field, null);
         if (formatted) {
           response += formatted;
         }
+      } else {
+        // אם אין תוצאות בכלל
+        response = `לא מצאתי קורסים ב${field.name} ב${regionNames.join(' ו')}.\n\n`;
       }
       
-      response += `💡 **הצעות נוספות:**\n`;
-      response += `• נסה חיפוש רחב יותר: "קורסי ${field.name}"\n`;
-      response += `• חפש באזור אחר\n`;
-      response += `• או עיין בכל הקורסים ב${field.name}:\n\n`;
+      response += `\n💡 **רוצה לראות עוד קורסים?**\n`;
       
-      // הוסף קישור לדף כללי
-      const resultsUrl = buildResultsPageUrl(field, regions[0]);
-      if (resultsUrl) {
-        response += `[לכל הקורסים ב${field.name}: ${regions[0].name}](${resultsUrl})\n`;
+      // 🆕 קישור לדף דינמי - בנוי נכון ובטוח
+      const regionSlugs = regions.map(r => r.slug).filter(s => s).join('-');
+      const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
+      
+      if (regionSlugs && fieldSlug) {
+        response += `• [לכל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${fieldSlug}/${regionSlugs})\n`;
       }
       
       return response;
@@ -2374,26 +2391,26 @@ function generateSmartResponse(userMessage) {
     
     // 🆕 אם יש קורסים בלמידה מרחוק - הצג אותם תחילה!
     if (remoteResults.length > 0) {
-      response = `לא מצאתי קורסים ב${field.name} ב${regionNames.join(' ו')}.\n\n`;
-      response += `💡 **מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} ב${field.name}:**\n\n`;
+      // 🆕 הודעה חיובית!
+      response = `מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} ב${field.name}:\n\n`;
       
-      // הצג עד 5 קורסים
-      const formatted = formatSearchResults(remoteResults.slice(0, 5), field, null);
+      // 🆕 הצג עד 10 קורסים (לא 5!)
+      const formatted = formatSearchResults(remoteResults.slice(0, 10), field, null);
       if (formatted) {
         response += formatted;
       }
       
-      response += `💡 **רוצה לראות את כל הקורסים ב${field.name}?**\n\n`;
+      response += `\n💡 **רוצה לראות עוד קורסים?**\n\n`;
     } else {
-      response = `🎯 מצאתי קורסים ב${field.name} ב${regionNames.join(' ו')}:\n\n`;
+      response = `מצאתי קורסים ב${field.name} ב${regionNames.join(' ו')}:\n\n`;
     }
     
     // הוסף קישורים לדפים דינמיים של כל אזור
     for (const region of regions) {
       const regionSlug = region.slug;
-      const encodedSlug = field.slug.replace(/ /g, '%20');
-      const url = `https://www.shabaton.online/${regionSlug}/${encodedSlug}`;
-      response += `[${region.name}](${url})\n`;
+      const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
+      const url = `https://www.shabaton.online/${fieldSlug}/${regionSlug}`;
+      response += `• [${region.name}](${url})\n`;
     }
     
     response += `\n💡 כאן תמצא/י את כל הקורסים הזמינים באזור!`;
