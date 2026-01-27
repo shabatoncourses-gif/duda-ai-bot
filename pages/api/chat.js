@@ -848,9 +848,27 @@ function searchPagesStrict(query, region, studyField) {
         }
       }
       
-      // אם אין location ואין עיר - תן בונוס קטן
+      // 🔧 תיקון: אם אין location ואין עיר - לא להוסיף את הדף!
+      // רק דפים שבאמת באזור או מוגדרים כארציים/למידה מרחוק
       if (!inRegion) {
-        regionScore = 10; // בונוס קטן לדפים כלליים
+        // בדוק אם הדף הוא ארצי או למידה מרחוק
+        const titleAndDesc = title + ' ' + description;
+        const isNationalOrRemote = titleAndDesc.includes('ארצי') || 
+                                    titleAndDesc.includes('כל הארץ') ||
+                                    titleAndDesc.includes('למידה מרחוק') ||
+                                    titleAndDesc.includes('אונליין') ||
+                                    titleAndDesc.includes('online') ||
+                                    titleAndDesc.includes('zoom');
+        
+        if (isNationalOrRemote) {
+          regionScore = 5; // בונוס קטן לארציים/למידה מרחוק
+        } else {
+          // לא באזור ולא ארצי/למידה מרחוק - דלג!
+          if (totalPagesChecked <= 10) {
+            console.log(`[searchPages] Page REJECTED (not in region and not national): "${page.title || page.h1}"`);
+          }
+          continue;
+        }
       }
     }
     
@@ -2358,8 +2376,12 @@ function generateSmartResponse(userMessage) {
         
         try {
           const fieldWithoutKeyword = { ...field, specificKeyword: null };
-          const queryWithoutRegion = field.name;
-          let remoteResults = searchPages(queryWithoutRegion, null, 'all', fieldWithoutKeyword);
+          
+          // 🎯 חשוב: השתמש ב-query המקורי (כולל ציור/אימון וכו') לא רק בשם התחום!
+          // כך נקבל תוצאות רלוונטיות יותר
+          let remoteResults = searchPages(userMessage, null, 'all', field);
+          //                               ↑
+          //                    השתמש ב-query המקורי! (כולל "ציור")
           
           // סנן רק דפים עם למידה מרחוק
           remoteResults = remoteResults.filter(page => {
