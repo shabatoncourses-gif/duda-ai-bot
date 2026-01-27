@@ -2162,8 +2162,35 @@ function generateSmartResponse(userMessage) {
       if (broaderRegionResults.length > 0) {
         console.log(`✅ Found courses in region - showing them instead of remote learning`);
         
-        // 🆕 הודעה חיובית!
-        response = `מצאתי ${broaderRegionResults.length} ${broaderRegionResults.length === 1 ? 'קורס' : 'קורסים'} ב${field.name} ב${regionNames.join(' ו')}:\n\n`;
+        // ספור כמה קורסים יש במרכז וכמה בלמידה מרחוק
+        let remoteCount = 0;
+        let regionalCount = 0;
+        
+        broaderRegionResults.slice(0, 15).forEach(page => {
+          const pageContent = ((page.title || '') + ' ' + (page.description || '') + ' ' + (page.location || '')).toLowerCase();
+          const hasRemote = pageContent.includes('למידה מרחוק') || 
+                           pageContent.includes('אונליין') || 
+                           pageContent.includes('online') ||
+                           pageContent.includes('zoom');
+          
+          if (hasRemote) {
+            remoteCount++;
+          } else {
+            regionalCount++;
+          }
+        });
+        
+        // 🆕 הודעה מדויקת לפי התוצאות!
+        let locationText = '';
+        if (remoteCount > 0 && regionalCount > 0) {
+          locationText = `ב${regionNames.join(' ו')} ובלמידה מרחוק`;
+        } else if (remoteCount > 0) {
+          locationText = `בלמידה מרחוק`;
+        } else {
+          locationText = `ב${regionNames.join(' ו')}`;
+        }
+        
+        response = `מצאתי ${broaderRegionResults.length} ${broaderRegionResults.length === 1 ? 'קורס' : 'קורסים'} ב${field.name} ${locationText}:\n\n`;
         
         // 🆕 הצג עד 15 קורסים (יותר!) כדי לכלול את השכל וניצן
         const formatted = formatSearchResults(broaderRegionResults.slice(0, 15), field, null);
@@ -2173,13 +2200,13 @@ function generateSmartResponse(userMessage) {
           response += formatted;
         }
         
-        // הוסף קישור נכון לדף דינמי
-        response += `\n💡 **רוצה לראות עוד קורסים?**\n`;
+        // הוסף קישור נכון לדף דינמי - רק אם יש קישור תקין!
         const regionSlugs = regions.map(r => r.slug).filter(s => s).join('-');
         const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
         
         if (regionSlugs && fieldSlug) {
-          response += `• [לכל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${fieldSlug}/${regionSlugs})\n`;
+          response += `\n💡 **רוצה לראות עוד קורסים?**\n\n`;
+          response += `[לכל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${fieldSlug}/${regionSlugs})\n`;
         }
         
         return response;
