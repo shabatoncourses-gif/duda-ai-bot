@@ -2320,6 +2320,15 @@ function generateSmartResponse(userMessage) {
       // **מצאנו דפים רלוונטיים!**
       const regionsText = regionNames.length > 1 ? regionNames.join(' ו') : regionNames[0];
       
+      // 🔍 Log location של כל תוצאה לדיבוג
+      console.log(`\n📍 [Location Debug] Found ${filteredResults.length} results:`);
+      filteredResults.forEach((page, idx) => {
+        const location = page.location || 'לא מוגדר';
+        const title = page.title || page.h1 || 'No title';
+        console.log(`  [${idx + 1}] ${title}`);
+        console.log(`      Location: ${location}`);
+      });
+      
       // ספור דפים סטטיים ודינמיים
       const staticCount = filteredResults.filter(r => r.isStatic).length;
       const dynamicCount = filteredResults.filter(r => !r.isStatic && !r.isInfo).length;
@@ -2341,6 +2350,52 @@ function generateSmartResponse(userMessage) {
         response += formatted;
       } else {
         console.error(`⚠️ formatSearchResults returned NULL even though we have ${uniqueResults.length} results!`);
+      }
+      
+      // 🆕 אם יש מעט תוצאות (פחות מ-5) - הצע גם למידה מרחוק!
+      if (staticCount < 5 && field) {
+        console.log(`\n💡 Only ${staticCount} results found - suggesting remote learning as well`);
+        
+        try {
+          const fieldWithoutKeyword = { ...field, specificKeyword: null };
+          const queryWithoutRegion = field.name;
+          let remoteResults = searchPages(queryWithoutRegion, null, 'all', fieldWithoutKeyword);
+          
+          // סנן רק דפים עם למידה מרחוק
+          remoteResults = remoteResults.filter(page => {
+            const title = (page.title || '').toLowerCase();
+            const description = (page.description || '').toLowerCase();
+            const location = (page.location || '').toLowerCase();
+            const keywords = (page.keywords || []).map(k => k.toLowerCase()).join(' ');
+            const h2Text = Array.isArray(page.h2) ? page.h2.join(' ').toLowerCase() : (page.h2 || '').toLowerCase();
+            const h3Text = Array.isArray(page.h3) ? page.h3.join(' ').toLowerCase() : (page.h3 || '').toLowerCase();
+            
+            const pageContent = title + ' ' + description + ' ' + location + ' ' + keywords + ' ' + h2Text + ' ' + h3Text;
+            
+            return pageContent.includes('למידה מרחוק') || 
+                   pageContent.includes('אונליין') || 
+                   pageContent.includes('online') ||
+                   pageContent.includes('מקוון') ||
+                   pageContent.includes('זום') ||
+                   pageContent.includes('zoom');
+          });
+          
+          // הסר דפים שכבר הוצגו
+          const shownUrls = new Set(filteredResults.map(r => r.url));
+          remoteResults = remoteResults.filter(page => !shownUrls.has(page.url));
+          
+          console.log(`📊 Found ${remoteResults.length} additional remote learning courses`);
+          
+          if (remoteResults.length > 0) {
+            response += `\n\n💡 **מצאתי גם ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} בלמידה מרחוק:**\n\n`;
+            const remoteFormatted = formatSearchResults(remoteResults.slice(0, 5), field, null);
+            if (remoteFormatted) {
+              response += remoteFormatted;
+            }
+          }
+        } catch (error) {
+          console.error(`Error adding remote learning suggestions: ${error.message}`);
+        }
       }
       
       return response;
