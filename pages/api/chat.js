@@ -2206,7 +2206,9 @@ function generateSmartResponse(userMessage) {
         
         if (regionSlugs && fieldSlug) {
           response += `\n💡 **רוצה לראות עוד קורסים?**\n\n`;
-          response += `[לכל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${fieldSlug}/${regionSlugs})\n`;
+          response += `[לכל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
+          //                                                                                                    ↑            ↑
+          //                                                                                            region קודם   field אחרי
         }
         
         return response;
@@ -2306,7 +2308,9 @@ function generateSmartResponse(userMessage) {
       const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
       
       if (regionSlugs && fieldSlug) {
-        response += `• [לכל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${fieldSlug}/${regionSlugs})\n`;
+        response += `• [לכל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
+        //                                                                                                    ↑            ↑
+        //                                                                                            region קודם   field אחרי
       }
       
       return response;
@@ -2436,7 +2440,9 @@ function generateSmartResponse(userMessage) {
     for (const region of regions) {
       const regionSlug = region.slug;
       const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
-      const url = `https://www.shabaton.online/${fieldSlug}/${regionSlug}`;
+      const url = `https://www.shabaton.online/${regionSlug}/${fieldSlug}`;
+      //                                          ↑            ↑
+      //                                   region קודם   field אחרי
       response += `• [${region.name}](${url})\n`;
     }
     
