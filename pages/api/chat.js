@@ -2115,8 +2115,61 @@ function generateSmartResponse(userMessage) {
     if (filteredResults.length === 0 && hasSpecificKeyword) {
       console.log(`⚠️ No results found for specific keyword: "${field.specificKeyword}"`);
       
-      // 🆕 חפש קורסים בלמידה מרחוק באותו תחום
-      console.log(`🔍 Searching for remote learning courses in ${field.name}...`);
+      // 🆕 לפני קפיצה ללמידה מרחוק - נסה חיפוש רחב באזור!
+      console.log(`🔍 Step 1: Trying broader search in region for entire field "${field.name}"...`);
+      
+      let broaderRegionResults = [];
+      try {
+        // חפש את כל התחום באזור (ללא specificKeyword!)
+        const fieldWithoutKeyword = { ...field, specificKeyword: null };
+        broaderRegionResults = searchPages(field.name, regions, 'best', fieldWithoutKeyword);
+        
+        console.log(`📊 Found ${broaderRegionResults.length} courses in ${field.name} in the region`);
+        
+        if (broaderRegionResults.length > 0) {
+          broaderRegionResults.forEach((page, idx) => {
+            if (idx < 10) {
+              const title = page.title || page.h1 || 'No title';
+              console.log(`  [${idx + 1}] ${title}`);
+              
+              // בדיקה מיוחדת לאדלר
+              if (title.toLowerCase().includes('אדלר') || title.toLowerCase().includes('adler')) {
+                console.log(`     ✅ ADLER FOUND IN BROADER SEARCH!`);
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error(`Error in broader region search: ${error.message}`);
+      }
+      
+      // אם מצאנו תוצאות באזור - הצג אותן!
+      if (broaderRegionResults.length > 0) {
+        console.log(`✅ Found courses in region - showing them instead of remote learning`);
+        
+        response = `לא מצאתי קורסים ספציפיים ל"${field.specificKeyword}" ב${regionNames.join(' ו')}, אבל מצאתי קורסים ב${field.name} באזור:\n\n`;
+        
+        const formatted = formatSearchResults(broaderRegionResults.slice(0, 5), field, regions);
+        if (formatted) {
+          response += formatted;
+        }
+        
+        response += `\n\n💡 **רוצה לראות עוד אפשרויות?**\n`;
+        response += `• נסה חיפוש ספציפי יותר\n`;
+        response += `• או עיין בכל הקורסים ב${field.name}: `;
+        
+        // הוסף קישורים לדפים דינמיים
+        for (const region of regions) {
+          const regionSlug = region.slug;
+          const fieldSlug = field.slug;
+          response += `[${region.name}](https://www.shabaton.online/${fieldSlug}/${regionSlug}) `;
+        }
+        
+        return response;
+      }
+      
+      // אם אין תוצאות באזור - חפש קורסים בלמידה מרחוק
+      console.log(`🔍 Step 2: No results in region - searching for remote learning courses in ${field.name}...`);
       
       let remoteResults = [];
       try {
@@ -2127,18 +2180,62 @@ function generateSmartResponse(userMessage) {
         const queryWithoutRegion = field.name; // רק שם התחום, בלי אזור!
         remoteResults = searchPages(queryWithoutRegion, null, 'all', fieldWithoutKeyword);
         
+        console.log(`📊 [DEBUG] Before filter: ${remoteResults.length} pages from searchPages`);
+        if (remoteResults.length <= 10) {
+          remoteResults.forEach((page, idx) => {
+            console.log(`  [${idx + 1}] ${page.title || page.h1}`);
+          });
+        }
+        
         // סנן רק דפים עם למידה מרחוק
         remoteResults = remoteResults.filter(page => {
-          const pageContent = (page.title + ' ' + page.description + ' ' + (page.location || '')).toLowerCase();
-          return pageContent.includes('למידה מרחוק') || 
+          // 🎯 חפש גם ב-keywords, h2, h3 (לא רק title + description)
+          const title = (page.title || '').toLowerCase();
+          const description = (page.description || '').toLowerCase();
+          const location = (page.location || '').toLowerCase();
+          const keywords = (page.keywords || []).map(k => k.toLowerCase()).join(' ');
+          const h2Text = Array.isArray(page.h2) ? page.h2.join(' ').toLowerCase() : (page.h2 || '').toLowerCase();
+          const h3Text = Array.isArray(page.h3) ? page.h3.join(' ').toLowerCase() : (page.h3 || '').toLowerCase();
+          
+          const pageContent = title + ' ' + description + ' ' + location + ' ' + keywords + ' ' + h2Text + ' ' + h3Text;
+          
+          const hasRemoteLearning = pageContent.includes('למידה מרחוק') || 
                  pageContent.includes('אונליין') || 
                  pageContent.includes('online') ||
                  pageContent.includes('מקוון') ||
                  pageContent.includes('זום') ||
                  pageContent.includes('zoom');
+          
+          // Log דפים שנדחים
+          if (!hasRemoteLearning && (title.includes('אדלר') || title.includes('adler'))) {
+            console.log(`❌ [DEBUG] Adler filtered out - no remote learning keywords found`);
+            console.log(`   Title: ${title}`);
+            console.log(`   Description: ${description.substring(0, 100)}...`);
+          }
+          
+          return hasRemoteLearning;
         });
         
-        console.log(`✅ Found ${remoteResults.length} remote learning courses`);
+        console.log(`✅ Found ${remoteResults.length} remote learning courses after filter`);
+        
+        // 🆕 אם מצאנו פחות מ-3 תוצאות - הוסף גם דפים ללא סינון!
+        if (remoteResults.length < 3) {
+          console.log(`⚠️ Only ${remoteResults.length} courses with explicit remote keywords`);
+          console.log(`🔍 Adding all courses from field without remote filter as backup...`);
+          
+          // חפש שוב אבל בלי סינון למידה מרחוק
+          const allCoursesInField = searchPages(queryWithoutRegion, null, 'all', fieldWithoutKeyword);
+          
+          // הוסף דפים שלא כבר ברשימה
+          for (const page of allCoursesInField) {
+            const alreadyExists = remoteResults.some(r => r.url === page.url);
+            if (!alreadyExists && remoteResults.length < 10) {
+              remoteResults.push(page);
+            }
+          }
+          
+          console.log(`✅ After adding backup courses: ${remoteResults.length} total courses`);
+        }
       } catch (error) {
         console.error(`Error searching for remote courses: ${error.message}`);
       }
@@ -2147,7 +2244,8 @@ function generateSmartResponse(userMessage) {
       
       // 🆕 אם יש קורסים בלמידה מרחוק - הצע אותם!
       if (remoteResults.length > 0) {
-        response += `💡 **מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} בלמידה מרחוק ב${field.name}:**\n\n`;
+        // הצג הודעה מתאימה - אם הוספנו קורסים כ-fallback, הודעה כללית יותר
+        response += `💡 **מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} ב${field.name}:**\n\n`;
         
         // הצג עד 5 קורסים
         const formatted = formatSearchResults(remoteResults.slice(0, 5), field, null);
@@ -2214,18 +2312,62 @@ function generateSmartResponse(userMessage) {
       const queryWithoutRegion = field.name; // רק שם התחום, בלי אזור!
       remoteResults = searchPages(queryWithoutRegion, null, 'all', fieldWithoutKeyword);
       
+      console.log(`📊 [DEBUG] Before filter: ${remoteResults.length} pages from searchPages`);
+      if (remoteResults.length <= 10) {
+        remoteResults.forEach((page, idx) => {
+          console.log(`  [${idx + 1}] ${page.title || page.h1}`);
+        });
+      }
+      
       // סנן רק דפים עם למידה מרחוק
       remoteResults = remoteResults.filter(page => {
-        const pageContent = (page.title + ' ' + page.description + ' ' + (page.location || '')).toLowerCase();
-        return pageContent.includes('למידה מרחוק') || 
+        // 🎯 חפש גם ב-keywords, h2, h3 (לא רק title + description)
+        const title = (page.title || '').toLowerCase();
+        const description = (page.description || '').toLowerCase();
+        const location = (page.location || '').toLowerCase();
+        const keywords = (page.keywords || []).map(k => k.toLowerCase()).join(' ');
+        const h2Text = Array.isArray(page.h2) ? page.h2.join(' ').toLowerCase() : (page.h2 || '').toLowerCase();
+        const h3Text = Array.isArray(page.h3) ? page.h3.join(' ').toLowerCase() : (page.h3 || '').toLowerCase();
+        
+        const pageContent = title + ' ' + description + ' ' + location + ' ' + keywords + ' ' + h2Text + ' ' + h3Text;
+        
+        const hasRemoteLearning = pageContent.includes('למידה מרחוק') || 
                pageContent.includes('אונליין') || 
                pageContent.includes('online') ||
                pageContent.includes('מקוון') ||
                pageContent.includes('זום') ||
                pageContent.includes('zoom');
+        
+        // Log דפים שנדחים
+        if (!hasRemoteLearning && (title.includes('אדלר') || title.includes('adler'))) {
+          console.log(`❌ [DEBUG] Adler filtered out - no remote learning keywords found`);
+          console.log(`   Title: ${title}`);
+          console.log(`   Description: ${description.substring(0, 100)}...`);
+        }
+        
+        return hasRemoteLearning;
       });
       
-      console.log(`✅ Found ${remoteResults.length} remote learning courses`);
+      console.log(`✅ Found ${remoteResults.length} remote learning courses after filter`);
+      
+      // 🆕 אם מצאנו פחות מ-3 תוצאות - הוסף גם דפים ללא סינון!
+      if (remoteResults.length < 3) {
+        console.log(`⚠️ Only ${remoteResults.length} courses with explicit remote keywords`);
+        console.log(`🔍 Adding all courses from field without remote filter as backup...`);
+        
+        // חפש שוב אבל בלי סינון למידה מרחוק
+        const allCoursesInField = searchPages(queryWithoutRegion, null, 'all', fieldWithoutKeyword);
+        
+        // הוסף דפים שלא כבר ברשימה
+        for (const page of allCoursesInField) {
+          const alreadyExists = remoteResults.some(r => r.url === page.url);
+          if (!alreadyExists && remoteResults.length < 10) {
+            remoteResults.push(page);
+          }
+        }
+        
+        console.log(`✅ After adding backup courses: ${remoteResults.length} total courses`);
+      }
     } catch (error) {
       console.error(`Error searching for remote courses: ${error.message}`);
     }
@@ -2233,7 +2375,7 @@ function generateSmartResponse(userMessage) {
     // 🆕 אם יש קורסים בלמידה מרחוק - הצג אותם תחילה!
     if (remoteResults.length > 0) {
       response = `לא מצאתי קורסים ב${field.name} ב${regionNames.join(' ו')}.\n\n`;
-      response += `💡 **מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} בלמידה מרחוק ב${field.name}:**\n\n`;
+      response += `💡 **מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} ב${field.name}:**\n\n`;
       
       // הצג עד 5 קורסים
       const formatted = formatSearchResults(remoteResults.slice(0, 5), field, null);
