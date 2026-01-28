@@ -2334,8 +2334,18 @@ function generateSmartResponse(userMessage) {
         
         const hasRemoteLearning = pageContent.includes('למידה מרחוק') || 
                pageContent.includes('אונליין') || 
+               pageContent.includes('בלמידה מרחוק') || 
+               pageContent.includes('מתוקשב') || 
+               pageContent.includes('מתוקשבים') || 
+               pageContent.includes('סינכרוניים') || 
+               pageContent.includes('אסינכרוניים') || 
+               pageContent.includes('א-סינכרוניים') || 
                pageContent.includes('online') ||
+               pageContent.includes('on-line') ||
+               pageContent.includes('ONLINE') ||
+               pageContent.includes('ON-LINE') ||
                pageContent.includes('מקוון') ||
+               pageContent.includes('מקוונים') ||
                pageContent.includes('זום') ||
                pageContent.includes('zoom');
         
@@ -2404,10 +2414,50 @@ function generateSmartResponse(userMessage) {
     return response;
   }
   
-  // **אם יש תחום אבל אין אזור - שאל איפה!**
+ // **אם יש תחום אבל אין אזור - שאל איפה (אלא אם כן למידה מרחוק!)**
   if (studyFields.length > 0 && (!regions || regions.length === 0)) {
     const field = studyFields[0];
     
+    // 🌐 אם זו למידה מרחוק - חפש ישירות!
+    const isRemoteLearning = detectRemoteLearning(userMessage);
+    if (isRemoteLearning) {
+      console.log('🌐 Remote learning + field detected - searching directly');
+      
+      // חפש קורסים בלמידה מרחוק בתחום
+      try {
+        const fieldWithoutKeyword = { ...field, specificKeyword: null };
+        let remoteResults = searchPages(userMessage, null, 'all', field);
+        
+        // סנן למידה מרחוק
+        remoteResults = remoteResults.filter(page => {
+          const pageContent = ((page.title || '') + ' ' + (page.description || '') + ' ' + (page.location || '')).toLowerCase();
+          return pageContent.includes('למידה מרחוק') || 
+                 pageContent.includes('אונליין') || 
+                 pageContent.includes('online') ||
+                 pageContent.includes('zoom');
+        });
+        
+        if (remoteResults.length > 0) {
+          response = `מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${field.name}:\n\n`;
+          const formatted = formatSearchResults(remoteResults.slice(0, 10), field, null);
+          if (formatted) {
+            response += formatted;
+          }
+          return response;
+        } else {
+          response = `לא מצאתי קורסים ב${field.name} בלמידה מרחוק כרגע.\n\n`;
+          response += `💡 אפשר לנסות:\n`;
+          response += `• חיפוש באזור ספציפי\n`;
+          response += `• תחום דומה\n\n`;
+          response += `[שאל בקבוצת WhatsApp](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)`;
+          return response;
+        }
+      } catch (error) {
+        console.error(`Error in remote learning search: ${error.message}`);
+      }
+    }
+    
+    // אם לא למידה מרחוק - שאל על אזור
     response = `באיזה אזור תרצה ללמוד ${field.name}?\n\n`;
     response += `📍 תל אביב והמרכז\n`;
     response += `📍 חיפה והצפון\n`;
