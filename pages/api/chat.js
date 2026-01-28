@@ -1740,25 +1740,18 @@ function detectStudyField(message) {
   const detectedFields = [];
   
 // **שלב 1: חיפוש התאמה מדויקת לשם התחום (עדיפות גבוהה)**
-  const exactMatches = [];
+  // ⚠️ דלג על "למידה מרחוק" - זו צורת לימוד, לא תחום!
   for (const field of STUDY_FIELDS) {
+    // 🚫 דלג על "למידה מרחוק"
+    if (field.name === 'למידה מרחוק') {
+      continue;
+    }
+    
     const fieldNameLower = field.name.toLowerCase();
     if (lowerMessage.includes(fieldNameLower)) {
       console.log(`✅ Found exact match: "${field.name}"`);
-      exactMatches.push({ ...field, specificKeyword: field.name });
+      return [{ ...field, specificKeyword: field.name }]; // מצאנו התאמה מדויקת - נחזיר מיד!
     }
-  }
-  
-  // 🔧 אם יש "למידה מרחוק" + תחום אחר - העדיפו את התחום האחר!
-  if (exactMatches.length > 0) {
-    const nonRemoteMatches = exactMatches.filter(f => f.name !== 'למידה מרחוק');
-    if (nonRemoteMatches.length > 0) {
-      // יש תחום ספציפי - החזר אותו!
-      console.log(`✅ Prioritizing specific field over remote learning: "${nonRemoteMatches[0].name}"`);
-      return [nonRemoteMatches[0]];
-    }
-    // אין תחום ספציפי - החזר "למידה מרחוק"
-    return [exactMatches[0]];
   }
   
   // **שלב 2: בדוק REQUIRED_PHRASES - ביטויים ספציפיים עם variations**
