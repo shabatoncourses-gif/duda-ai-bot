@@ -2086,6 +2086,18 @@ function generateSmartResponse(userMessage) {
           const hasRemote = pageContent.includes('למידה מרחוק') || 
                            pageContent.includes('אונליין') || 
                            pageContent.includes('online') ||
+                           pageContent.includes('ONLINE') ||
+                           pageContent.includes('ON-LINE') ||
+                           pageContent.includes('מתוקשבים') ||
+                           pageContent.includes('מתוקשב') ||
+                           pageContent.includes('מתוקשבת') ||
+                           pageContent.includes('מקוון') ||
+                           pageContent.includes('מקוונים') ||
+                           pageContent.includes('מקוונת') ||
+                           pageContent.includes('אסינכרוניים') ||
+                           pageContent.includes('סינכרוניים') ||
+                           pageContent.includes('זום') ||
+                           pageContent.includes('בזום') ||
                            pageContent.includes('zoom');
           
           if (hasRemote) {
