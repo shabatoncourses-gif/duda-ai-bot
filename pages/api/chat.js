@@ -1834,7 +1834,7 @@ function generateSmartResponse(userMessage) {
     }
     
     console.log('[generateSmartResponse] Detecting regions and fields...');
-    const regions = detectRegions(userMessage); // מערך של אזורים!
+    let regions = detectRegions(userMessage); // מערך של אזורים!
     const studyFields = detectStudyField(userMessage);
     
     console.log('[generateSmartResponse] Regions:', regions?.length || 0);
@@ -1872,7 +1872,15 @@ function generateSmartResponse(userMessage) {
     response += `https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME`;
     return response;
   }
+
+  // 🌐 אם יש למידה מרחוק - מחק את ה-region!
+  const isRemoteLearning = detectRemoteLearning(userMessage);
+  if (isRemoteLearning) {
+    console.log('🌐 Remote learning detected - removing region filter');
+    regions = null; // ❌ לא לחפש לפי אזור!
+  }
   
+
   // **אם יש תחום מזוהה ואזורים - חיפוש מחמיר!**
   if (studyFields.length > 0 && regions && regions.length > 0) {
     const field = studyFields[0];
@@ -2186,12 +2194,14 @@ function generateSmartResponse(userMessage) {
       return response;
     }
     
-    if (filteredResults.length > 0) {
+      if (filteredResults.length > 0) {
       // **מצאנו דפים רלוונטיים!**
-      const regionsText = regionNames.length > 1 ? regionNames.join(' ו') : regionNames[0];
+      
+      // 🆕 בדוק אם זה למידה מרחוק
+      const isRemoteLearning = detectRemoteLearning(userMessage);
       
       // 🔍 Log location של כל תוצאה לדיבוג
-      console.log(`\n📍 [Location Debug] Found ${filteredResults.length} results:`);
+      console.log(`\n📍 [Location Debug] Found ${filteredResults.length} results (remote: ${isRemoteLearning}):`);
       filteredResults.forEach((page, idx) => {
         const location = page.location || 'לא מוגדר';
         const title = page.title || page.h1 || 'No title';
@@ -2203,13 +2213,27 @@ function generateSmartResponse(userMessage) {
       const staticCount = filteredResults.filter(r => r.isStatic).length;
       const dynamicCount = filteredResults.filter(r => !r.isStatic && !r.isInfo).length;
       
-      // בנה הודעה מתאימה
-      if (staticCount > 0 && dynamicCount > 0) {
-        response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
-      } else if (staticCount > 0) {
-        response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
+      // 🆕 בנה הודעה מתאימה - למידה מרחוק או אזור
+      if (isRemoteLearning) {
+        // למידה מרחוק - אל תציין אזור!
+        if (staticCount > 0 && dynamicCount > 0) {
+          response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${field.name}:\n\n`;
+        } else if (staticCount > 0) {
+          response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${field.name}:\n\n`;
+        } else {
+          response = `🎯 מצאתי קורסים ב${field.name} בלמידה מרחוק:\n\n`;
+        }
       } else {
-        response = `🎯 מצאתי קורסים ב${field.name} ב${regionsText}:\n\n`;
+        // אזור רגיל
+        const regionsText = regionNames.length > 1 ? regionNames.join(' ו') : regionNames[0];
+        
+        if (staticCount > 0 && dynamicCount > 0) {
+          response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
+        } else if (staticCount > 0) {
+          response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
+        } else {
+          response = `🎯 מצאתי קורסים ב${field.name} ב${regionsText}:\n\n`;
+        }
       }
       
       console.log(`\n📝 [generateSmartResponse] Calling formatSearchResults with ${filteredResults.length} results (${staticCount} static, ${dynamicCount} dynamic)`);
