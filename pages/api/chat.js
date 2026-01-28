@@ -1794,10 +1794,15 @@ function detectStudyField(message) {
       }
     }
   }
-  // **שלב 3: חיפוש במילות מפתח - חיפוש פשוט**
+// **שלב 3: חיפוש במילות מפתח - חיפוש פשוט**
   const matches = [];
   
   for (const field of STUDY_FIELDS) {
+    // 🚫 דלג על "למידה מרחוק" - זו צורת לימוד, לא תחום!
+    if (field.name === 'למידה מרחוק') {
+      continue;
+    }
+    
     for (const keyword of field.keywords) {
       if (!keyword) continue; // בטיחות
       
