@@ -1797,6 +1797,9 @@ function detectStudyField(message) {
 // **שלב 3: חיפוש במילות מפתח - חיפוש פשוט**
   const matches = [];
   
+  // 🚫 רשימת מילות keyword כלליות מדי שצריך לדלג עליהן
+  const tooGenericKeywords = ['למידה', 'לימוד', 'קורס', 'קורסים', 'השתלמות'];
+  
   for (const field of STUDY_FIELDS) {
     // 🚫 דלג על "למידה מרחוק" - זו צורת לימוד, לא תחום!
     if (field.name === 'למידה מרחוק') {
@@ -1807,6 +1810,11 @@ function detectStudyField(message) {
       if (!keyword) continue; // בטיחות
       
       const keywordLower = keyword.toLowerCase();
+      
+      // 🚫 דלג על keywords כלליים מדי
+      if (tooGenericKeywords.includes(keywordLower)) {
+        continue;
+      }
       
       // בדיקה פשוטה - includes (לא word boundary!)
       if (lowerMessage.includes(keywordLower)) {
