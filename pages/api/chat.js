@@ -1754,11 +1754,16 @@ function detectStudyField(message) {
     }
   }
   
-  // **שלב 2: בדוק REQUIRED_PHRASES - ביטויים ספציפיים עם variations**
+ // **שלב 2: בדוק REQUIRED_PHRASES - ביטויים ספציפיים עם variations**
   // 🆕 אם מוצאים ביטוי ב-REQUIRED_PHRASES, חפש את ה-study field המתאים
   if (REQUIRED_PHRASES && Array.isArray(REQUIRED_PHRASES)) {
     for (const phraseEntry of REQUIRED_PHRASES) {
       const mainPhrase = phraseEntry.phrase.toLowerCase();
+      
+      // 🚫 דלג על "למידה מרחוק" - זו צורת לימוד, לא תחום!
+      if (mainPhrase === 'למידה מרחוק') {
+        continue;
+      }
       
       // בדוק אם אחד מה-variations מופיע בהודעה
       for (const variation of phraseEntry.variations) {
@@ -1789,7 +1794,6 @@ function detectStudyField(message) {
       }
     }
   }
-  
   // **שלב 3: חיפוש במילות מפתח - חיפוש פשוט**
   const matches = [];
   
