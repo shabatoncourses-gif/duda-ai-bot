@@ -2026,13 +2026,18 @@ function generateSmartResponse(userMessage) {
       console.log(`⚠️ No results found for specific keyword: "${field.specificKeyword}"`);
       
       // 🆕 לפני קפיצה ללמידה מרחוק - נסה חיפוש רחב באזור!
-      console.log(`🔍 Step 1: Trying broader search in region for entire field "${field.name}"...`);
+   console.log(`🔍 Step 1: Trying broader search in region for entire field "${field.name}"...`);
       
       let broaderRegionResults = [];
       try {
         // חפש את כל התחום באזור (ללא specificKeyword!)
         const fieldWithoutKeyword = { ...field, specificKeyword: null };
-        broaderRegionResults = searchPages(field.name, regions, 'best', fieldWithoutKeyword);
+        
+        // 🔧 חפש בכל אזור בנפרד (regions זה array!)
+        for (const region of regions) {
+          const resultsInRegion = searchPages(field.name, region, 'all', fieldWithoutKeyword);
+          broaderRegionResults = broaderRegionResults.concat(resultsInRegion);
+        }
         
         console.log(`📊 Found ${broaderRegionResults.length} courses in ${field.name} in the region`);
         
