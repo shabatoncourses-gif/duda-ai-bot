@@ -2417,18 +2417,17 @@ function generateSmartResponse(userMessage) {
  // **אם יש תחום אבל אין אזור - שאל איפה (אלא אם כן למידה מרחוק!)**
   if (studyFields.length > 0 && (!regions || regions.length === 0)) {
     const field = studyFields[0];
-    
-    // 🌐 אם זו למידה מרחוק - חפש ישירות!
+// 🌐 אם זו למידה מרחוק - חפש ישירות!
     const isRemoteLearning = detectRemoteLearning(userMessage);
     if (isRemoteLearning) {
       console.log('🌐 Remote learning + field detected - searching directly');
       
       // חפש קורסים בלמידה מרחוק בתחום
       try {
-        const fieldWithoutKeyword = { ...field, specificKeyword: null };
+        // ⭐ השאר את specificKeyword - חשוב לסינון!
         let remoteResults = searchPages(userMessage, null, 'all', field);
         
-        // סנן למידה מרחוק
+        // סנן למידה מרחוק (בנוסף לסינון ה-specificKeyword שכבר קיים)
         remoteResults = remoteResults.filter(page => {
           const pageContent = ((page.title || '') + ' ' + (page.description || '') + ' ' + (page.location || '')).toLowerCase();
           return pageContent.includes('למידה מרחוק') || 
@@ -2438,7 +2437,9 @@ function generateSmartResponse(userMessage) {
         });
         
         if (remoteResults.length > 0) {
-          response = `מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${field.name}:\n\n`;
+          // ⭐ טקסט נכון - לא כפול!
+          const staticCount = remoteResults.filter(r => r.isStatic).length;
+          response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${field.name}:\n\n`;
           const formatted = formatSearchResults(remoteResults.slice(0, 10), field, null);
           if (formatted) {
             response += formatted;
