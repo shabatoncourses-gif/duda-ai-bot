@@ -731,162 +731,6 @@ async function searchDynamicResults(studyField, region, specificCity = null, sec
 }
 
 // ========================================
-// 🔍 חיפוש מחמיר - רק התאמות חזקות!
-// ========================================
-function searchPagesStrict(query, region, studyField) {
-  const results = [];
-  const pages = loadAllPages(); // טען את כל הדפים!
-  
-  for (const page of pages) {
-    // ==============================
-    // שלב 1: בדיקות בסיסיות
-    // ==============================
-    
-    const title = (page.title || page.h1 || '').toLowerCase();
-    
-    // 🆕 בדוק אם יש ביטוי ספציפי בכותרת
-    const hasSpecificPhrase = studyField && studyField.keywords && 
-                              studyField.keywords.some(k => title.includes(k.toLowerCase()));
-    
-    // חסום URLs לא רלוונטיים
-    if (shouldFilterUrl(page.url, page.title || page.h1, hasSpecificPhrase)) {
-      continue;
-    }
-    
-    const description = (page.description || '').toLowerCase();
-    const url = (page.url || '').toLowerCase();
-    const location = (page.location || '').toLowerCase();
-    
-    // רק דפים סטטיים
-    const isStaticPage = !url.includes('/results-') && 
-                         !url.includes('/search-results-') && 
-                         !url.includes('/courses-per-month');
-    
-    if (!isStaticPage) continue;
-    
-    // לא דפי מידע!
-    const isInfoPage = url.includes('/luz_shabaton') ||
-                       url.includes('/shabaton-video') ||
-                       url.includes('/end_shabaton') ||
-                       url.includes('/halforfull_shabaton') ||
-                       url.includes('/phones_shabaton') ||
-                       url.includes('/forms_shabaton') ||
-                       url.includes('/time') ||
-                       url.includes('/schedule') ||
-                       url.includes('/timetable') ||
-                       title.includes('לוח זמנים') ||
-                       title.includes('לוח הזמנים');
-    
-    if (isInfoPage) continue;
-    
-    // ==============================
-    // שלב 2: בדיקת keywords (חובה!)
-    // ==============================
-    
-    let hasKeyword = false;
-    
-    if (studyField && studyField.keywords) {
-      for (const kw of studyField.keywords) {
-        const kwLower = kw.toLowerCase();
-        
-        // בדוק אם המילה מופיעה (includes פשוט)
-        if (title.includes(kwLower) || description.includes(kwLower)) {
-          hasKeyword = true;
-          break;
-        }
-      }
-    }
-    
-    // אם אין keyword - דלג!
-    if (!hasKeyword) continue;
-    
-    // ==============================
-    // שלב 3: בדיקת אזור (בונוס!)
-    // ==============================
-    
-    let inRegion = false;
-    let regionScore = 0;
-    
-    // בדוק שיש region לפני שניגש ל-cities
-    if (!region || !region.cities) {
-      continue; // אין region - דלג על הדף
-    }
-    
-    // אופציה 1: יש location field
-    if (location && location.trim() !== '') {
-      inRegion = region.cities.some(city => {
-        const cityLower = city.toLowerCase().replace(/-/g, ' ');
-        return location.includes(cityLower);
-      });
-      
-      if (inRegion) {
-        regionScore = 50; // בונוס גבוה למוסד מהאזור
-      } else {
-        // בדוק אם ה-location הוא ארצי/כללי
-        const isNationalLocation = location.includes('ארצי') || 
-                                    location.includes('כל הארץ') ||
-                                    location.includes('למידה מרחוק') ||
-                                    location.includes('אונליין') ||
-                                    location.includes('online');
-        
-        if (isNationalLocation) {
-          regionScore = 5; // בונוס קטן מאוד לקורסים ארציים
-        } else {
-          continue; // location ספציפי לא מהאזור - דלג
-        }
-      }
-    } else {
-      // אופציה 2: יש עיר בכותרת או תיאור
-      const titleAndDesc = title + ' ' + description;
-      
-      for (const city of region.cities) {
-        const cityLower = city.toLowerCase().replace(/-/g, ' ');
-        if (titleAndDesc.includes(cityLower)) {
-          inRegion = true;
-          regionScore = 30; // בונוס בינוני לעיר בכותרת
-          break;
-        }
-      }
-      
-    }
-      
-      // 🔧 תיקון: אם אין location ואין עיר - לא להוסיף את הדף!
-      // רק דפים שבאמת באזור או מוגדרים כארציים/למידה מרחוק
-      if (!inRegion) {
-        // בדוק אם הדף הוא ארצי או למידה מרחוק
-        const titleAndDesc = title + ' ' + description;
-        const isNationalOrRemote = titleAndDesc.includes('ארצי') || 
-                                    titleAndDesc.includes('כל הארץ') ||
-                                    titleAndDesc.includes('למידה מרחוק') ||
-                                    titleAndDesc.includes('אונליין') ||
-                                    titleAndDesc.includes('online') ||
-                                    titleAndDesc.includes('zoom');
-        
-        if (isNationalOrRemote) {
-          regionScore = 5; // בונוס קטן לארציים/למידה מרחוק
-        } else {
-          // לא באזור ולא ארצי/למידה מרחוק - דלג!
-          continue; // ⭐ דלג על הדף!
-        }
-      }
-    }
-    // ==============================
-    // שלב 4: הדף עבר את כל הבדיקות!
-    // ==============================
-    
-    results.push({
-      ...page,
-      matchScore: 100 + regionScore // ציון בסיס + בונוס אזור
-    });
-  }
-  
-  // החזר את התוצאות ממוינות לפי ציון
-  return results
-    .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
-    .slice(0, 20); // מקסימום 20 תוצאות
-}
-
-// ========================================
 // 🔍 חיפוש דפים באינדקסים (חיפוש מאוזן!)
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
@@ -1423,25 +1267,35 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
           }
         }
         
-        // אם אין שום עיר מוזכרת - בדוק אם האזור מוזכר במפורש
+        // ⭐⭐⭐ תיקון קריטי: סינון אזור חכם ⭐⭐⭐
         if (!anyCityMentioned) {
-          // בדוק אם שם האזור או מילות מפתח של האזור מופיעים בדף
           const regionMentioned = titleAndDesc.includes(region.name.toLowerCase()) ||
                                   (region.keywords && region.keywords.some(k => titleAndDesc.includes(k.toLowerCase())));
           
           if (regionMentioned) {
             matchesRegion = true;
-            regionBonus = 10; // בונוס קטן לדפים כלליים של האזור
+            regionBonus = 10;
           } else {
-            // 🆕 אין עיר ואין אזור - אבל אל תדחה אם הדף עבר את בדיקת הביטוי!
-            // אם הדף הגיע עד לכאן, זה אומר שיש בו את הביטוי הנכון (כמו "הנחיית קבוצות")
-            // ואם לא הזכיר אזור, אולי הוא פועל בכל הארץ או שהמידע חסר
-            // במקום לדחות - פשוט אל תתן בונוס אזור
-            matchesRegion = false;
-            regionBonus = 0;
+            // 🔧 בדוק אם הדף ארצי/למידה מרחוק
+            const isNationalOrRemote = titleAndDesc.includes('ארצי') || 
+                                        titleAndDesc.includes('כל הארץ') ||
+                                        titleAndDesc.includes('למידה מרחוק') ||
+                                        titleAndDesc.includes('אונליין') ||
+                                        titleAndDesc.includes('online') ||
+                                        titleAndDesc.includes('zoom');
             
-            if (isGishotPage) {
-              console.log(`  [DEBUG-GISHOT] No city/region mentioned - continuing without region bonus`);
+            if (isNationalOrRemote) {
+              matchesRegion = false;
+              regionBonus = 0;
+              if (isGishotPage) {
+                console.log(`  [DEBUG-GISHOT] National/remote - continuing without region bonus`);
+              }
+            } else {
+              // ⭐ לא באזור, לא ארצי/למידה מרחוק - דלג!
+              if (totalPagesChecked <= 10) {
+                console.log(`[searchPages] Page REJECTED (not in region and not national): "${page.title || page.h1}"`);
+              }
+              continue; // ⭐ דלג על הדף!
             }
           }
         } else if (firstCity === null) {
