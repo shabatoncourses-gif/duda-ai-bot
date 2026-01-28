@@ -55,11 +55,16 @@ function loadConfigs() {
 function detectRemoteLearning(message) {
   const remoteLearningKeywords = [
     'למידה מרחוק',
+    'בלמידה מרחוק',
     'מרחוק',
     'אונליין',
     'online',
+    'ON-LINE',
+    'ONLINE,
     'zoom',
+    'ZOOM',
     'זום',
+    'בזום',
     'מקוון',
     'דיגיטלי',
     'דיגיטלים',
@@ -69,6 +74,7 @@ function detectRemoteLearning(message) {
     'אסינכרוני',
     'אסינכרונים',
     'מתוקשב',
+    'מתוקשבת',
     'מתוקשבים',
     'מקוונים',
     'מקוונת'
