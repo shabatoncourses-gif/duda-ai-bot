@@ -848,6 +848,8 @@ function searchPagesStrict(query, region, studyField) {
         }
       }
       
+    }
+      
       // 🔧 תיקון: אם אין location ואין עיר - לא להוסיף את הדף!
       // רק דפים שבאמת באזור או מוגדרים כארציים/למידה מרחוק
       if (!inRegion) {
@@ -864,14 +866,10 @@ function searchPagesStrict(query, region, studyField) {
           regionScore = 5; // בונוס קטן לארציים/למידה מרחוק
         } else {
           // לא באזור ולא ארצי/למידה מרחוק - דלג!
-          if (totalPagesChecked <= 10) {
-            console.log(`[searchPages] Page REJECTED (not in region and not national): "${page.title || page.h1}"`);
-          }
-          continue;
+          continue; // ⭐ דלג על הדף!
         }
       }
     }
-    
     // ==============================
     // שלב 4: הדף עבר את כל הבדיקות!
     // ==============================
