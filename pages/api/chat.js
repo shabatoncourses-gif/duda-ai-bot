@@ -355,19 +355,58 @@ function detectCoursesQuestion(message) {
     return false;
   }
   
-  // 🎯 מילות מפתח ספציפיות לתכנון לימודים והכרה
+  // 🎯 מילות מפתח ספציפיות לתכנון לימודים והכרה - מורחבות!
   const planningKeywords = [
+    // הכרה בסיסית
     'הכרה',
     'מוכר',
     'מאושר',
+    'אישור',
     'פורטל',
+    'מאגר',
+    
+    // מוסדות וגורמים
     'קרן השתלמות',
-    'המוסד התחייב',
+    'המוסד',
+    'מכללה',
+    'התחייב',
+    'הבטיח',
+    'הבטחה',
+    
+    // זיהוי קורס
     'לא מופיע',
+    'אין במאגר',
+    'לא נמצא',
+    'חסר',
+    
+    // היסטוריה
     'היה מוכר',
+    'בעבר',
+    'בשנה קודמת',
     'חברה שלי',
+    'מורה אחרת',
+    
+    // הרשמה ותשלום - חשוב!
+    'נרשמתי',
+    'הרשמה',
+    'שילמתי',
+    'מקדמה',
+    'תשלום',
+    'בדיעבד',
+    'לפני ההרשמה',
+    
+    // ריבוי קורסים
+    'כמה קורסים',
+    'שני קורסים',
+    'מספר קורסים',
+    'קורס אחד',
+    'מסלולים',
+    
+    // בדיקה
     'בדיקה',
-    'אישור'
+    'לבדוק',
+    'איך בודקים',
+    'מה עושים'
   ];
   
   // בדיקה מהירה
@@ -427,11 +466,23 @@ function findCoursesAnswer(message) {
     for (const qa of category.questions) {
       let score = 0;
       
-      // התאמה למילות מפתח
+      // התאמה למילות מפתח - משופרת!
       if (qa.keywords && Array.isArray(qa.keywords)) {
         for (const keyword of qa.keywords) {
-          if (cleanMessage.includes(keyword.toLowerCase())) {
-            score += 10;
+          const keywordLower = keyword.toLowerCase();
+          
+          // התאמה מדויקת
+          if (cleanMessage.includes(keywordLower)) {
+            score += 15;
+            continue;
+          }
+          
+          // התאמה לשורש המילה (למשל: הרשמה -> נרשמתי)
+          if (keywordLower.length >= 3) {
+            const keywordStem = keywordLower.substring(0, Math.max(3, keywordLower.length - 2));
+            if (cleanMessage.includes(keywordStem)) {
+              score += 10;
+            }
           }
         }
       }
@@ -468,7 +519,7 @@ function findCoursesAnswer(message) {
   
   console.log(`🔍 ציון התאמה מירבי: ${bestScore}`);
   
-  if (bestMatch && bestScore >= 10) {
+  if (bestMatch && bestScore >= 8) {
     console.log(`✅ נמצאה תשובה בקטגוריה: ${bestCategory.name}`);
     return { qa: bestMatch, category: bestCategory };
   }
@@ -1367,6 +1418,9 @@ function generateSmartResponse(userMessage) {
     const isInfoQuery = userMessage.toLowerCase().includes('שבתון') || 
                         userMessage.toLowerCase().includes('מענק') ||
                         userMessage.toLowerCase().includes('ביטוח לאומי') ||
+                        userMessage.toLowerCase().includes('פנסיה') ||
+                        userMessage.toLowerCase().includes('קרן השתלמות') ||
+                        userMessage.toLowerCase().includes('קרן פנסיה') ||
                         userMessage.toLowerCase().includes('לידה');
     
     if (isInfoQuery) {
@@ -1387,6 +1441,7 @@ function generateSmartResponse(userMessage) {
       response += `• ביטוח לאומי\n`;
       response += `• לידה בשבתון\n`;
       response += `• תוכנית הלימודים\n\n`;
+      response += `• תשלומים בשבתון\n\n`;
       response += `[שאל בקבוצת WhatsApp](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)`;
       return response;
     }
