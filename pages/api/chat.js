@@ -1520,7 +1520,6 @@ function generateSmartResponse(userMessage) {
       response += `• מענק בשבתון\n`;
       response += `• ביטוח לאומי\n`;
       response += `• לידה בשבתון\n`;
-      response += `• קרן פנסיה בשבתון\n`;
       response += `• תוכנית הלימודים\n\n`;
       response += `[שאל בקבוצת WhatsApp](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)`;
       return response;
