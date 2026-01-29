@@ -10,6 +10,7 @@ let REGIONS = null;
 let STUDY_FIELDS = null;
 let INSURANCE_QA = null;
 let REQUIRED_PHRASES = null;
+let COURSES_QA = null;
 
 function loadConfigs() {
   try {
@@ -186,6 +187,9 @@ function identifyPageType(page) {
   return 'static'; // 🏛️ דף מוסד
 }
 
+// ========================================
+// 💼 ביטוח לאומי - טעינה
+// ========================================
 function loadInsuranceQA() {
   if (!INSURANCE_QA) {
     try {
@@ -314,6 +318,207 @@ function formatGeneralInsuranceInfo() {
   response += `**📘 למידע מפורט:**\n`;
   response += `[ביטוח לאומי בשבתון - מדריך מלא](https://www.shabaton.online/btl_shabaton)\n\n`;
   response += `💡 אפשר גם לשאול שאלות ספציפיות`;
+  
+  return response;
+}
+
+// ========================================
+// 📚 הכרת קורסים - טעינה
+// ========================================
+function loadCoursesQA() {
+  if (!COURSES_QA) {
+    try {
+      const coursesQAPath = path.join(process.cwd(), 'data', 'courses-qa.json');
+      const fileContent = fs.readFileSync(coursesQAPath, 'utf8');
+      COURSES_QA = JSON.parse(fileContent);
+      
+      const totalQuestions = COURSES_QA.categories.reduce((sum, cat) => sum + cat.questions.length, 0);
+      console.log(`✅ נטען courses-qa.json: ${totalQuestions} שאלות ב-${COURSES_QA.categories.length} קטגוריות`);
+      
+      if (!COURSES_QA.keywords || COURSES_QA.keywords.length === 0) {
+        console.error('⚠️ courses-qa.json לא מכיל keywords!');
+      }
+    } catch (error) {
+      console.error('❌ שגיאה בטעינת courses-qa.json:', error.message);
+      console.log('⚠️ מערכת הכרת קורסים לא תעבוד עד שהקובץ יועלה');
+      COURSES_QA = { categories: [], keywords: [], generalInfo: {}, fallbackMessage: '' };
+    }
+  }
+  return COURSES_QA;
+}
+
+function detectCoursesQuestion(message) {
+  loadCoursesQA();
+  const lowerMessage = message.toLowerCase();
+  
+  if (!COURSES_QA || !COURSES_QA.keywords || COURSES_QA.keywords.length === 0) {
+    return false;
+  }
+  
+  // 🎯 מילות מפתח ספציפיות לתכנון לימודים והכרה
+  const planningKeywords = [
+    'הכרה',
+    'מוכר',
+    'מאושר',
+    'פורטל',
+    'קרן השתלמות',
+    'המוסד התחייב',
+    'לא מופיע',
+    'היה מוכר',
+    'חברה שלי',
+    'בדיקה',
+    'אישור'
+  ];
+  
+  // בדיקה מהירה
+  const isPlanningQuestion = planningKeywords.some(keyword => 
+    lowerMessage.includes(keyword)
+  );
+  
+  if (!isPlanningQuestion) {
+    return false;
+  }
+  
+  // בדיקה מדויקת יותר עם keywords מהקובץ
+  const hasCoursesKeyword = COURSES_QA.keywords.some(keyword => {
+    const keywordLower = keyword.toLowerCase();
+    return lowerMessage.includes(keywordLower);
+  });
+  
+  if (hasCoursesKeyword) {
+    console.log('✅ זוהתה שאלה על הכרת קורסים');
+  }
+  
+  return hasCoursesKeyword;
+}
+
+function findCoursesAnswer(message) {
+  loadCoursesQA();
+  
+  if (!COURSES_QA || !COURSES_QA.categories || COURSES_QA.categories.length === 0) {
+    console.log('⚠️ courses-qa.json לא נטען נכון');
+    return null;
+  }
+  
+  const lowerMessage = message.toLowerCase();
+  
+  // 🎯 זיהוי סוג השאלה
+  const questionWords = ['מה', 'איך', 'למה', 'מתי', 'האם', 'מדוע', 'איפה', 'כמה', 'מי'];
+  const isSpecificQuestion = questionWords.some(word => lowerMessage.includes(word));
+  
+  if (!isSpecificQuestion) {
+    console.log('⚠️ לא שאלה ספציפית');
+    return null;
+  }
+  
+  console.log('✅ שאלה ספציפית על הכרת קורסים - מחפש תשובה');
+  
+  const cleanMessage = lowerMessage
+    .replace(/\?/g, '')
+    .replace(/\./g, '')
+    .trim();
+  
+  let bestMatch = null;
+  let bestScore = 0;
+  let bestCategory = null;
+  
+  // חיפוש בכל הקטגוריות
+  for (const category of COURSES_QA.categories) {
+    for (const qa of category.questions) {
+      let score = 0;
+      
+      // התאמה למילות מפתח
+      if (qa.keywords && Array.isArray(qa.keywords)) {
+        for (const keyword of qa.keywords) {
+          if (cleanMessage.includes(keyword.toLowerCase())) {
+            score += 10;
+          }
+        }
+      }
+      
+      // התאמה לשאלה עצמה
+      const questionWords = qa.question.toLowerCase().split(/\s+/);
+      const messageWords = cleanMessage.split(/\s+/);
+      
+      for (const word of messageWords) {
+        if (word.length > 2 && questionWords.some(qw => qw.includes(word) || word.includes(qw))) {
+          score += 5;
+        }
+      }
+      
+      // התאמה לווריאציות של השאלה
+      if (qa.variations && Array.isArray(qa.variations)) {
+        for (const variation of qa.variations) {
+          const variationWords = variation.toLowerCase().split(/\s+/);
+          for (const word of messageWords) {
+            if (word.length > 2 && variationWords.some(vw => vw.includes(word) || word.includes(vw))) {
+              score += 3;
+            }
+          }
+        }
+      }
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = qa;
+        bestCategory = category;
+      }
+    }
+  }
+  
+  console.log(`🔍 ציון התאמה מירבי: ${bestScore}`);
+  
+  if (bestMatch && bestScore >= 10) {
+    console.log(`✅ נמצאה תשובה בקטגוריה: ${bestCategory.name}`);
+    return { qa: bestMatch, category: bestCategory };
+  }
+  
+  console.log('⚠️ לא נמצאה תשובה טובה מספיק');
+  return null;
+}
+
+function formatCoursesAnswer(match) {
+  const { qa, category } = match;
+  
+  let response = `${category.icon} **${category.name}**\n\n`;
+  response += `**שאלה:** ${qa.question}\n\n`;
+  response += `**תשובה:**\n${qa.answer}\n`;
+  
+  if (qa.relatedLinks && qa.relatedLinks.length > 0) {
+    response += `\n`;
+    qa.relatedLinks.forEach(link => {
+      response += `[${link.text}](${link.url})\n`;
+    });
+  }
+  
+  return response;
+}
+
+function formatGeneralCoursesInfo() {
+  loadCoursesQA();
+  
+  if (!COURSES_QA || !COURSES_QA.generalInfo) {
+    return `📚 **הכרת קורסים בשבתון**\n\nלמידע מפורט:\n[תוכניות לימוד בשבתון](https://www.shabaton.online/learning_programs_shabaton)`;
+  }
+  
+  let response = `📚 **הכרת קורסים בשבתון**\n\n`;
+  
+  if (COURSES_QA.generalInfo.content) {
+    response += `${COURSES_QA.generalInfo.content}\n\n`;
+  }
+  
+  response += `**💡 שאלות נפוצות:**\n`;
+  
+  // הצג את 3 הקטגוריות הראשונות
+  const topCategories = COURSES_QA.categories.slice(0, 3);
+  topCategories.forEach(cat => {
+    if (cat.questions && cat.questions.length > 0) {
+      response += `\n${cat.icon} **${cat.name}**\n`;
+      response += `• ${cat.questions[0].question}\n`;
+    }
+  });
+  
+  response += `\n📘 [למידע מפורט על הכרת קורסים](https://www.shabaton.online/learning_programs_shabaton)`;
   
   return response;
 }
@@ -486,7 +691,7 @@ function filterBySpecificCity(institutions, city, includeRemote = false) {
 }
 
 // ========================================
-// 🔍 חיפוש דפים באינדקסים - גרסה מתוקנת!
+// 🔍 חיפוש דפים באינדקסים
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
@@ -497,7 +702,6 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   const pages = loadAllPages();
   const lowerQuery = query.toLowerCase();
   
-  // 🎯 זיהוי: האם זו שאילת מידע על שבתון?
   const isInfoQuery = lowerQuery.includes('שבתון') || 
                       lowerQuery.includes('מענק') ||
                       lowerQuery.includes('ביטוח לאומי') ||
@@ -556,20 +760,16 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   let results = [];
   
   for (const page of pages) {
-    // 🚫 סינון ראשוני: זיהוי סוג הדף
     const pageTypeIdentified = identifyPageType(page);
     
-    // ❌ דפים כלליים - תמיד לחסום!
     if (pageTypeIdentified === 'general') {
       continue;
     }
     
-    // 📘 אם שאילת מידע - רק דפי מידע
     if (isInfoQuery && pageTypeIdentified !== 'info') {
       continue;
     }
     
-    // 🎓 אם שאילת קורסים - לא דפי מידע
     if (!isInfoQuery && pageTypeIdentified === 'info') {
       continue;
     }
@@ -721,9 +921,6 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       }
     }
     
-    // ========================================
-    // ⭐ בדיקת אזור - גרסה מתוקנת!
-    // ========================================
     let matchesRegion = true;
     let regionBonus = 0;
     
@@ -731,36 +928,26 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       const location = (page.location || '').toLowerCase();
       const titleAndDesc = (title + ' ' + description).toLowerCase();
       
-      // 🎯 בדוק אם יש עיר מהאזור ב-location
       const hasRegionCityInLocation = region.cities.some(city => {
         const cityLower = city.toLowerCase().replace(/-/g, ' ');
         return location.includes(cityLower);
       });
       
-      // 📍 אם יש location מפורש
       if (location && location.trim() !== '') {
-        // 🚫 אם ה-location לא מכיל עיר מהאזור - בדוק אם ארצי
         if (!hasRegionCityInLocation) {
-          // בדוק אם זה ארצי/למידה מרחוק
           const isNationalOrRemote = isRemoteLearningPage(page, true);
           
           if (isNationalOrRemote) {
-            // ✅ ארצי/למידה מרחוק - עובר, אבל ללא בונוס אזור
             console.log(`  ℹ️ "${page.title || page.h1}" - national/remote, passing without region bonus`);
             regionBonus = 0;
           } else {
-            // ❌ לא באזור ולא ארצי - דחה!
             console.log(`  ❌ "${page.title || page.h1}" - location "${location}" not in region, rejected`);
             continue;
           }
         } else {
-          // ✅ יש עיר מהאזור - תן בונוס!
           regionBonus = 50;
         }
       } else {
-        // אין location מפורש - בדוק ב-title/description
-        
-        // בדוק אם יש עיר כלשהי מוזכרת
         let cityMentioned = null;
         let cityRegion = null;
         
@@ -779,33 +966,25 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         }
         
         if (cityMentioned) {
-          // יש עיר מוזכרת - בדוק אם היא מהאזור הנכון
           if (cityRegion === region.name) {
-            // ✅ עיר מהאזור הנכון
             regionBonus = 30;
           } else {
-            // ❌ עיר מאזור אחר - דחה!
             console.log(`  ❌ "${page.title || page.h1}" - mentions city "${cityMentioned}" from different region "${cityRegion}", rejected`);
             continue;
           }
         } else {
-          // אין עיר מוזכרת - בדוק אם מוזכר שם האזור
           const regionMentioned = titleAndDesc.includes(region.name.toLowerCase()) ||
                                   (region.keywords && region.keywords.some(k => titleAndDesc.includes(k.toLowerCase())));
           
           if (regionMentioned) {
-            // ✅ האזור מוזכר
             regionBonus = 20;
           } else {
-            // אין אזור - בדוק אם ארצי/למידה מרחוק
             const isNationalOrRemote = isRemoteLearningPage(page, true);
             
             if (isNationalOrRemote) {
-              // ✅ ארצי/למידה מרחוק - עובר ללא בונוס
               console.log(`  ℹ️ "${page.title || page.h1}" - national/remote (no location), passing without bonus`);
               regionBonus = 0;
             } else {
-              // ❌ לא באזור, לא ארצי - דחה!
               console.log(`  ❌ "${page.title || page.h1}" - no region mention and not national, rejected`);
               continue;
             }
@@ -826,7 +1005,6 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         }
       }
       
-      // 🆕 בונוס ענק לקורסים שנפתחים ב-3 חודשים הקרובים!
       if (upcomingDate && isUpcomingDate(upcomingDate)) {
         matchScore += 200;
       }
@@ -843,7 +1021,6 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     }
   }
   
-  // מיון: קורסים עם תאריך קרוב ראשונים!
   results.sort((a, b) => {
     const aHasUpcoming = a.upcomingDate && isUpcomingDate(a.upcomingDate);
     const bHasUpcoming = b.upcomingDate && isUpcomingDate(b.upcomingDate);
@@ -1063,9 +1240,6 @@ function detectSpecificCity(message, region = null) {
   return null;
 }
 
-// ========================================
-// 🎓 זיהוי תחום לימוד - עם דילוג על "למידה מרחוק"!
-// ========================================
 function detectStudyField(message) {
   loadConfigs();
   
@@ -1079,9 +1253,7 @@ function detectStudyField(message) {
   const lowerMessage = message.toLowerCase();
   const detectedFields = [];
   
-  // שלב 1: התאמה מדויקת לשם התחום
   for (const field of STUDY_FIELDS) {
-    // 🚫 דלג על "למידה מרחוק"
     if (field.name === 'למידה מרחוק') {
       continue;
     }
@@ -1093,12 +1265,10 @@ function detectStudyField(message) {
     }
   }
   
-  // שלב 2: בדוק REQUIRED_PHRASES
   if (REQUIRED_PHRASES && Array.isArray(REQUIRED_PHRASES)) {
     for (const phraseEntry of REQUIRED_PHRASES) {
       const mainPhrase = phraseEntry.phrase.toLowerCase();
       
-      // 🚫 דלג על "למידה מרחוק"
       if (mainPhrase === 'למידה מרחוק') {
         continue;
       }
@@ -1123,12 +1293,10 @@ function detectStudyField(message) {
     }
   }
   
-  // שלב 3: חיפוש במילות מפתח
   const matches = [];
   const tooGenericKeywords = ['למידה', 'לימוד', 'קורס', 'קורסים', 'השתלמות'];
   
   for (const field of STUDY_FIELDS) {
-    // 🚫 דלג על "למידה מרחוק"
     if (field.name === 'למידה מרחוק') {
       continue;
     }
@@ -1169,7 +1337,7 @@ function generateSmartResponse(userMessage) {
   console.log('========================================\n');
   
   try {
-    // בדוק ביטוח לאומי
+    // ✅ בדוק ביטוח לאומי
     if (detectInsuranceQuestion(userMessage)) {
       const answer = findInsuranceAnswer(userMessage);
       
@@ -1180,12 +1348,22 @@ function generateSmartResponse(userMessage) {
       }
     }
     
+    // 🆕 בדוק הכרת קורסים
+    if (detectCoursesQuestion(userMessage)) {
+      const answer = findCoursesAnswer(userMessage);
+      
+      if (answer) {
+        return formatCoursesAnswer(answer);
+      } else {
+        return formatGeneralCoursesInfo();
+      }
+    }
+    
     let regions = detectRegions(userMessage);
     const studyFields = detectStudyField(userMessage);
     
     let response = '';
     
-    // שאלות מידע על שבתון
     const isInfoQuery = userMessage.toLowerCase().includes('שבתון') || 
                         userMessage.toLowerCase().includes('מענק') ||
                         userMessage.toLowerCase().includes('ביטוח לאומי') ||
@@ -1213,14 +1391,12 @@ function generateSmartResponse(userMessage) {
       return response;
     }
     
-    // אם יש למידה מרחוק - מחק את האזור
     const isRemoteLearning = detectRemoteLearning(userMessage);
     if (isRemoteLearning) {
       console.log('🌐 Remote learning detected - removing region filter');
       regions = null;
     }
     
-    // אם יש תחום ואזור
     if (studyFields.length > 0 && regions && regions.length > 0) {
       const field = studyFields[0];
       
@@ -1398,7 +1574,6 @@ function generateSmartResponse(userMessage) {
       }
     }
     
-    // אם יש תחום אבל אין אזור
     if (studyFields.length > 0 && (!regions || regions.length === 0)) {
       const field = studyFields[0];
       
@@ -1434,7 +1609,6 @@ function generateSmartResponse(userMessage) {
       return response;
     }
     
-    // אם יש אזור אבל אין תחום
     if (regions && regions.length > 0) {
       const regionNames = regions.map(r => r.name).join(' ו');
       response = `מעולה! ${regionNames} 🗺️\n\n`;
@@ -1444,7 +1618,6 @@ function generateSmartResponse(userMessage) {
       return response;
     }
     
-    // חיפוש כללי
     const searchResults = searchPages(userMessage, null, 'static');
     
     if (searchResults && searchResults.length > 0) {
@@ -1453,7 +1626,6 @@ function generateSmartResponse(userMessage) {
       return response;
     }
     
-    // לא זיהיתי כלום
     response = `אשמח לעזור! 🎯\n\n`;
     response += `ספר לי:\n`;
     response += `📍 באיזה אזור?\n`;
@@ -1469,7 +1641,7 @@ function generateSmartResponse(userMessage) {
 }
 
 // ========================================
-// 🚀 API Handler - גרסה מתוקנת עם ניהול הקשר חכם!
+// 🚀 API Handler
 // ========================================
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -1493,17 +1665,14 @@ export default async function handler(req, res) {
     
     console.log(`\n📨 [handler] New message: "${message}"`);
     
-    // **קודם - ננסה לזהות מההודעה הנוכחית בלבד**
     let response = generateSmartResponse(message);
     
-    // **בדוק אם זו תשובה לשאלת המערכת**
     const missingRegion = response.includes('באיזה אזור');
     const missingField = response.includes('באיזה תחום');
     const genericResponse = response.includes('אשמח לעזור');
     
     const needsContext = missingRegion && !missingField && !genericResponse;
     
-    // 🆕 בדוק אם ההודעה קצרה (תשובה לשאלה)
     const isShortAnswer = message.trim().split(/\s+/).length <= 5;
     
     console.log(`🔍 [handler] Analysis:`);
@@ -1512,10 +1681,8 @@ export default async function handler(req, res) {
     console.log(`   - Missing region: ${missingRegion}`);
     console.log(`   - Missing field: ${missingField}`);
     
-    // 🆕 בדוק אם ההודעה האחרונה של הבוט היא שאלה
     let lastBotMessage = null;
     if (history && Array.isArray(history) && history.length > 0) {
-      // מצא את ההודעה האחרונה של הבוט
       for (let i = history.length - 1; i >= 0; i--) {
         if (history[i].role === 'assistant') {
           lastBotMessage = history[i].content;
@@ -1534,16 +1701,12 @@ export default async function handler(req, res) {
       console.log(`   - Last bot message preview: "${lastBotMessage.substring(0, 100)}..."`);
     }
     
-    // 🎯 אם זו תשובה קצרה לשאלת המערכת - השתמש רק בהודעה האחרונה!
     if (needsContext && isShortAnswer && lastBotMessageWasQuestion && lastBotMessage) {
       console.log('🔄 [handler] Short answer to bot question - using only last exchange');
       
-      // חלץ את ההקשר מההודעה האחרונה של הבוט
       let context = '';
       
-      // אם הבוט שאל "באיזה תחום?" - ההודעה הנוכחית היא התחום
       if (lastBotMessage.includes('באיזה תחום')) {
-        // חפש אזור בהודעה האחרונה של הבוט
         const regionMatch = lastBotMessage.match(/מעולה!\s+([^🗺️]+)/);
         if (regionMatch) {
           context = regionMatch[1].trim();
@@ -1551,9 +1714,7 @@ export default async function handler(req, res) {
         }
       }
       
-      // אם הבוט שאל "באיזה אזור?" - ההודעה הנוכחית היא האזור
       if (lastBotMessage.includes('באיזה אזור')) {
-        // חפש תחום בהודעה האחרונה של הבוט
         const fieldMatch = lastBotMessage.match(/באיזה אזור תרצה ללמוד\s+([^?]+)/);
         if (fieldMatch) {
           context = fieldMatch[1].trim();
@@ -1561,19 +1722,16 @@ export default async function handler(req, res) {
         }
       }
       
-      // בנה שאילתה חדשה עם הקשר
       const fullContext = context ? `${context} ${message}` : message;
       console.log(`📝 [handler] Reconstructed query: "${fullContext}"`);
       response = generateSmartResponse(fullContext);
     }
-    // 🔄 אם צריך הקשר אבל זו לא תשובה לשאלה - השתמש בהיסטוריה
     else if (needsContext && history && Array.isArray(history) && history.length > 0) {
       console.log('🔄 [handler] Using history for context');
       
-      // לקיחת רק ההודעה האחרונה של המשתמש (לא 3!)
       const recentUserMessages = history
         .filter(msg => msg.role === 'user')
-        .slice(-1)  // ⭐ רק אחת!
+        .slice(-1)
         .map(msg => msg.content)
         .join(' ');
       
