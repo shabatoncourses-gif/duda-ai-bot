@@ -557,20 +557,20 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   
   for (const page of pages) {
     // 🚫 סינון ראשוני: זיהוי סוג הדף
-    const pageType = identifyPageType(page);
+    const pageTypeIdentified = identifyPageType(page);
     
     // ❌ דפים כלליים - תמיד לחסום!
-    if (pageType === 'general') {
+    if (pageTypeIdentified === 'general') {
       continue;
     }
     
     // 📘 אם שאילת מידע - רק דפי מידע
-    if (isInfoQuery && pageType !== 'info') {
+    if (isInfoQuery && pageTypeIdentified !== 'info') {
       continue;
     }
     
     // 🎓 אם שאילת קורסים - לא דפי מידע
-    if (!isInfoQuery && pageType === 'info') {
+    if (!isInfoQuery && pageTypeIdentified === 'info') {
       continue;
     }
     
@@ -596,8 +596,8 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       }
     }
     
-    const isStaticPage = pageType === 'static';
-    const isInfoPage = pageType === 'info';
+    const isStaticPage = pageTypeIdentified === 'static';
+    const isInfoPage = pageTypeIdentified === 'info';
     
     let matchScore = 0;
     
@@ -1469,7 +1469,7 @@ function generateSmartResponse(userMessage) {
 }
 
 // ========================================
-// 🚀 API Handler
+// 🚀 API Handler - גרסה מתוקנת עם ניהול הקשר חכם!
 // ========================================
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -1491,24 +1491,98 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'חסרה הודעה' });
     }
     
+    console.log(`\n📨 [handler] New message: "${message}"`);
+    
+    // **קודם - ננסה לזהות מההודעה הנוכחית בלבד**
     let response = generateSmartResponse(message);
     
+    // **בדוק אם זו תשובה לשאלת המערכת**
     const missingRegion = response.includes('באיזה אזור');
     const missingField = response.includes('באיזה תחום');
     const genericResponse = response.includes('אשמח לעזור');
     
     const needsContext = missingRegion && !missingField && !genericResponse;
     
-    if (needsContext && history && Array.isArray(history) && history.length > 0) {
+    // 🆕 בדוק אם ההודעה קצרה (תשובה לשאלה)
+    const isShortAnswer = message.trim().split(/\s+/).length <= 5;
+    
+    console.log(`🔍 [handler] Analysis:`);
+    console.log(`   - Needs context: ${needsContext}`);
+    console.log(`   - Is short answer: ${isShortAnswer}`);
+    console.log(`   - Missing region: ${missingRegion}`);
+    console.log(`   - Missing field: ${missingField}`);
+    
+    // 🆕 בדוק אם ההודעה האחרונה של הבוט היא שאלה
+    let lastBotMessage = null;
+    if (history && Array.isArray(history) && history.length > 0) {
+      // מצא את ההודעה האחרונה של הבוט
+      for (let i = history.length - 1; i >= 0; i--) {
+        if (history[i].role === 'assistant') {
+          lastBotMessage = history[i].content;
+          break;
+        }
+      }
+    }
+    
+    const lastBotMessageWasQuestion = lastBotMessage && 
+      (lastBotMessage.includes('באיזה אזור') || 
+       lastBotMessage.includes('באיזה תחום') ||
+       lastBotMessage.includes('מה תרצה'));
+    
+    console.log(`   - Last bot message was question: ${lastBotMessageWasQuestion}`);
+    if (lastBotMessage) {
+      console.log(`   - Last bot message preview: "${lastBotMessage.substring(0, 100)}..."`);
+    }
+    
+    // 🎯 אם זו תשובה קצרה לשאלת המערכת - השתמש רק בהודעה האחרונה!
+    if (needsContext && isShortAnswer && lastBotMessageWasQuestion && lastBotMessage) {
+      console.log('🔄 [handler] Short answer to bot question - using only last exchange');
+      
+      // חלץ את ההקשר מההודעה האחרונה של הבוט
+      let context = '';
+      
+      // אם הבוט שאל "באיזה תחום?" - ההודעה הנוכחית היא התחום
+      if (lastBotMessage.includes('באיזה תחום')) {
+        // חפש אזור בהודעה האחרונה של הבוט
+        const regionMatch = lastBotMessage.match(/מעולה!\s+([^🗺️]+)/);
+        if (regionMatch) {
+          context = regionMatch[1].trim();
+          console.log(`   📍 Extracted region context: "${context}"`);
+        }
+      }
+      
+      // אם הבוט שאל "באיזה אזור?" - ההודעה הנוכחית היא האזור
+      if (lastBotMessage.includes('באיזה אזור')) {
+        // חפש תחום בהודעה האחרונה של הבוט
+        const fieldMatch = lastBotMessage.match(/באיזה אזור תרצה ללמוד\s+([^?]+)/);
+        if (fieldMatch) {
+          context = fieldMatch[1].trim();
+          console.log(`   📚 Extracted field context: "${context}"`);
+        }
+      }
+      
+      // בנה שאילתה חדשה עם הקשר
+      const fullContext = context ? `${context} ${message}` : message;
+      console.log(`📝 [handler] Reconstructed query: "${fullContext}"`);
+      response = generateSmartResponse(fullContext);
+    }
+    // 🔄 אם צריך הקשר אבל זו לא תשובה לשאלה - השתמש בהיסטוריה
+    else if (needsContext && history && Array.isArray(history) && history.length > 0) {
+      console.log('🔄 [handler] Using history for context');
+      
+      // לקיחת רק ההודעה האחרונה של המשתמש (לא 3!)
       const recentUserMessages = history
         .filter(msg => msg.role === 'user')
-        .slice(-3)
+        .slice(-1)  // ⭐ רק אחת!
         .map(msg => msg.content)
         .join(' ');
       
       const fullContext = recentUserMessages + ' ' + message;
+      console.log(`📝 [handler] Context from history: "${fullContext}"`);
       response = generateSmartResponse(fullContext);
     }
+    
+    console.log(`✅ [handler] Returning response (${response.length} chars)\n`);
     
     return res.status(200).json({
       response: response,
@@ -1516,7 +1590,7 @@ export default async function handler(req, res) {
     });
     
   } catch (error) {
-    console.error('שגיאה:', error);
+    console.error('❌ [handler] Error:', error);
     
     return res.status(500).json({
       response: 'מצטער, הייתה בעיה טכנית.',
