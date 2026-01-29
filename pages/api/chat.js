@@ -9,7 +9,7 @@ let ALL_PAGES = null;
 let REGIONS = null;
 let STUDY_FIELDS = null;
 let INSURANCE_QA = null;
-let REQUIRED_PHRASES = null; // חדש! מילון ביטויים שחייבים להופיע ברצף
+let REQUIRED_PHRASES = null;
 
 function loadConfigs() {
   try {
@@ -34,7 +34,6 @@ function loadConfigs() {
     STUDY_FIELDS = [];
   }
   
-  // טען מילון ביטויים - חדש!
   if (!REQUIRED_PHRASES) {
     try {
       const phrasesPath = path.join(process.cwd(), 'data', 'required-phrases.json');
@@ -42,54 +41,85 @@ function loadConfigs() {
       REQUIRED_PHRASES = phrasesData.requiredPhrases || [];
       console.log(`[loadConfigs] Loaded ${REQUIRED_PHRASES.length} required phrases`);
     } catch (error) {
-      // אם הקובץ לא קיים - לא נורא
-      console.log('[loadConfigs] Required phrases not loaded (optional) - continuing without phrase detection');
+      console.log('[loadConfigs] Required phrases not loaded (optional)');
       REQUIRED_PHRASES = [];
     }
   }
 }
 
 // ========================================
-// 🌐 זיהוי בקשה ללמידה מרחוק
+// 🌐 מילות מפתח למידה מרחוק (רשימה אחת!)
+// ========================================
+const REMOTE_LEARNING_KEYWORDS = [
+  'למידה מרחוק',
+  'בלמידה מרחוק',
+  'מרחוק',
+  'אונליין',
+  'online',
+  'on-line',
+  'ON-LINE',
+  'ONLINE',
+  'zoom',
+  'ZOOM',
+  'זום',
+  'בזום',
+  'מקוון',
+  'מקוונים',
+  'מקוונת',
+  'דיגיטלי',
+  'דיגיטלים',
+  'דיגיטלית',
+  'סינכרוני',
+  'סינכרונים',
+  'סינכרוניים',
+  'אסינכרוני',
+  'אסינכרונים',
+  'אסינכרוניים',
+  'א-סינכרוניים',
+  'מתוקשב',
+  'מתוקשבת',
+  'מתוקשבים'
+];
+
+// ========================================
+// 🌐 זיהוי בקשה ללמידה מרחוק (מהודעה)
 // ========================================
 function detectRemoteLearning(message) {
-  const remoteLearningKeywords = [
-    'למידה מרחוק',
-    'בלמידה מרחוק',
-    'מרחוק',
-    'אונליין',
-    'online',
-    'ON-LINE',
-    'ONLINE,
-    'zoom',
-    'ZOOM',
-    'זום',
-    'בזום',
-    'מקוון',
-    'דיגיטלי',
-    'דיגיטלים',
-    'דיגיטלית',
-    'סינכרוני',
-    'סינכרונים',
-    'אסינכרוני',
-    'אסינכרונים',
-    'מתוקשב',
-    'מתוקשבת',
-    'מתוקשבים',
-    'מקוונים',
-    'מקוונת'
-  ];
-  
   const messageLower = message.toLowerCase();
   
-  for (const keyword of remoteLearningKeywords) {
-    if (messageLower.includes(keyword)) {
+  for (const keyword of REMOTE_LEARNING_KEYWORDS) {
+    if (messageLower.includes(keyword.toLowerCase())) {
       console.log(`✅ [detectRemoteLearning] Found: ${keyword}`);
       return true;
     }
   }
   
   return false;
+}
+
+// ========================================
+// 🌐 בדיקה אם דף הוא למידה מרחוק / ארצי
+// ========================================
+function isRemoteLearningPage(page, includeNational = false) {
+  const keywords = [...REMOTE_LEARNING_KEYWORDS];
+  
+  // אם רוצים לבדוק גם ארצי
+  if (includeNational) {
+    keywords.push('ארצי', 'ברחבי הארץ', 'הדרכה ארצית', 'בכל הארץ', 'כל הארץ');
+  }
+  
+  // בנה תוכן מלא של הדף
+  const title = (page.title || '').toLowerCase();
+  const description = (page.description || '').toLowerCase();
+  const location = (page.location || '').toLowerCase();
+  const pageKeywords = (page.keywords || []).map(k => k.toLowerCase()).join(' ');
+  const h2Text = Array.isArray(page.h2) ? page.h2.join(' ').toLowerCase() : (page.h2 || '').toLowerCase();
+  const h3Text = Array.isArray(page.h3) ? page.h3.join(' ').toLowerCase() : (page.h3 || '').toLowerCase();
+  
+  const pageContent = title + ' ' + description + ' ' + location + ' ' + pageKeywords + ' ' + h2Text + ' ' + h3Text;
+  
+  // בדוק אם יש מילת מפתח
+  return keywords.some(keyword => pageContent.includes(keyword.toLowerCase()));
 }
 
 function loadInsuranceQA() {
@@ -99,15 +129,13 @@ function loadInsuranceQA() {
       const fileContent = fs.readFileSync(insurancePath, 'utf8');
       INSURANCE_QA = JSON.parse(fileContent);
       
-      console.log(`✅ נטען insurance-qa.json: ${INSURANCE_QA.questions.length} שאלות, ${INSURANCE_QA.keywords.length} keywords`);
+      console.log(`✅ נטען insurance-qa.json: ${INSURANCE_QA.questions.length} שאלות`);
       
-      // בדיקת תקינות
       if (!INSURANCE_QA.keywords || INSURANCE_QA.keywords.length === 0) {
         console.error('❌ שגיאה: insurance-qa.json לא מכיל keywords!');
       }
     } catch (error) {
       console.error('❌ שגיאה בטעינת insurance-qa.json:', error.message);
-      console.log('⚠️ מערכת ביטוח לאומי לא תעבוד עד שהקובץ יועלה');
       INSURANCE_QA = { questions: [], keywords: [], generalInfo: {}, fallbackMessage: '' };
     }
   }
@@ -121,20 +149,14 @@ function detectInsuranceQuestion(message) {
   loadInsuranceQA();
   const lowerMessage = message.toLowerCase();
   
-  // ✅ בדיקת תקינות: וודא ש-keywords קיים ולא ריק
   if (!INSURANCE_QA || !INSURANCE_QA.keywords || INSURANCE_QA.keywords.length === 0) {
-    console.log('⚠️ insurance-qa.json לא נטען נכון - דולג על בדיקת ביטוח לאומי');
     return false;
   }
   
-  // 🛡️ הגנה כפולה: השאילתה חייבת להכיל את המילה "ביטוח"
-  // (למניעת false positives!)
   if (!lowerMessage.includes('ביטוח')) {
     return false;
   }
   
-  // בדיקה פשוטה - האם יש מילת מפתח של ביטוח לאומי?
-  // (ללא word boundaries שיכולים לגרום לבעיות עם עברית)
   const hasInsuranceKeyword = INSURANCE_QA.keywords.some(keyword => {
     const keywordLower = keyword.toLowerCase();
     return lowerMessage.includes(keywordLower);
@@ -147,56 +169,37 @@ function detectInsuranceQuestion(message) {
   return hasInsuranceKeyword;
 }
 
-// ========================================
-// 🎯 חיפוש התשובה הטובה ביותר
-// ========================================
 function findInsuranceAnswer(message) {
   loadInsuranceQA();
   
-  // ✅ בדיקת תקינות
   if (!INSURANCE_QA || !INSURANCE_QA.questions || INSURANCE_QA.questions.length === 0) {
-    console.log('⚠️ insurance-qa.json לא נטען נכון - אין שאלות');
     return null;
   }
   
   const lowerMessage = message.toLowerCase();
-  
-  // 🎯 בדיקה: האם זו שאלה ספציפית?
-  // שאלה ספציפית = מכילה מילת שאלה
-  const questionWords = ['מתי', 'איך', 'מה', 'למה', 'האם', 'מדוע', 'איפה', 'כמה', 'האם'];
+  const questionWords = ['מתי', 'איך', 'מה', 'למה', 'האם', 'מדוע', 'איפה', 'כמה'];
   const isSpecificQuestion = questionWords.some(word => lowerMessage.includes(word));
   
-  // אם זו לא שאלה ספציפית - הפנה לדף כללי
   if (!isSpecificQuestion) {
-    console.log('⚠️ שאלה כללית (אין מילת שאלה) - מציג מידע כללי');
     return null;
   }
   
-  console.log('✅ שאלה ספציפית - מחפש תשובה');
+  const cleanMessage = lowerMessage.replace(/[?.]/g, '').trim();
   
-  // ניקוי השאילתה
-  const cleanMessage = lowerMessage
-    .replace(/\?/g, '')
-    .replace(/\./g, '')
-    .trim();
-  
-  // חישוב ציון התאמה לכל שאלה
   const scoredQuestions = INSURANCE_QA.questions.map(qa => {
     let score = 0;
     
-    // התאמה למילות מפתח של השאלה
     for (const keyword of qa.keywords) {
       if (cleanMessage.includes(keyword.toLowerCase())) {
         score += 10;
       }
     }
     
-    // התאמה לטקסט השאלה עצמה
-    const questionWords = qa.question.toLowerCase().split(/\s+/);
-    const messageWords = cleanMessage.split(/\s+/);
+    const qaWords = qa.question.toLowerCase().split(/\s+/);
+    const msgWords = cleanMessage.split(/\s+/);
     
-    for (const word of messageWords) {
-      if (word.length > 2 && questionWords.some(qw => qw.includes(word) || word.includes(qw))) {
+    for (const word of msgWords) {
+      if (word.length > 2 && qaWords.some(qw => qw.includes(word) || word.includes(qw))) {
         score += 5;
       }
     }
@@ -204,37 +207,23 @@ function findInsuranceAnswer(message) {
     return { qa, score };
   });
   
-  // מיון לפי ציון
   scoredQuestions.sort((a, b) => b.score - a.score);
   
   const bestMatch = scoredQuestions[0];
   const bestScore = bestMatch ? bestMatch.score : 0;
   
-  console.log(`🔍 ציון התאמה מירבי: ${bestScore}`);
-  
-  // לשאלה ספציפית - החזר את התשובה הכי טובה
   if (bestMatch && bestScore >= 10) {
-    console.log(`✅ נמצאה תשובה: "${bestMatch.qa.question.substring(0, 50)}..."`);
     return bestMatch.qa;
   }
   
-  console.log('⚠️ לא נמצאה תשובה טובה מספיק');
   return null;
 }
 
-// ========================================
-// 📝 עיצוב תשובה על ביטוח לאומי
-// ========================================
 function formatInsuranceAnswer(qa) {
   let response = `💼 **ביטוח לאומי בשבתון**\n\n`;
-  
-  // השאלה
   response += `**שאלה:**\n${qa.question}\n\n`;
-  
-  // התשובה
   response += `**תשובה:**\n${qa.answer}\n`;
   
-  // קישורים נוספים (אם יש)
   if (qa.relatedLinks && qa.relatedLinks.length > 0) {
     response += `\n`;
     qa.relatedLinks.forEach(link => {
@@ -242,8 +231,6 @@ function formatInsuranceAnswer(qa) {
     });
   }
   
-  // ✨ תמיד הוסף את הקישור המרכזי לביטוח לאומי
-  // (רק אם הוא לא כבר מוצג)
   const btlLink = 'https://www.shabaton.online/btl_shabaton';
   const alreadyHasLink = qa.relatedLinks && qa.relatedLinks.some(link => link.url === btlLink);
   
@@ -254,29 +241,18 @@ function formatInsuranceAnswer(qa) {
   return response;
 }
 
-// ========================================
-// 📋 עיצוב תשובה כללית על ביטוח לאומי
-// ========================================
 function formatGeneralInsuranceInfo() {
   loadInsuranceQA();
   
-  // ✅ בדיקת תקינות
   if (!INSURANCE_QA || !INSURANCE_QA.generalInfo || !INSURANCE_QA.questions) {
-    console.log('⚠️ insurance-qa.json לא נטען נכון - מחזיר הודעת fallback');
-    return `💼 **ביטוח לאומי בשבתון**\n\nלמידע מפורט על ביטוח לאומי בשבתון:\n[ביטוח לאומי בשבתון - מדריך מלא](https://www.shabaton.online/btl_shabaton)\n\nאו לשאול בקבוצת WhatsApp:\n[פנו למידע נוסף](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)`;
+    return `💼 **ביטוח לאומי בשבתון**\n\nלמידע מפורט:\n[ביטוח לאומי בשבתון](https://www.shabaton.online/btl_shabaton)`;
   }
   
   let response = `💼 **ביטוח לאומי בשבתון**\n\n`;
   response += `${INSURANCE_QA.generalInfo.content}\n\n`;
-  
-  // 🎯 הקישור המרכזי - זה מה שהמשתמש צריך!
-  response += `**📘 למידע מפורט ולוח זמנים:**\n`;
+  response += `**📘 למידע מפורט:**\n`;
   response += `[ביטוח לאומי בשבתון - מדריך מלא](https://www.shabaton.online/btl_shabaton)\n\n`;
-  
-  response += `💡 אפשר גם לשאול אותי שאלות ספציפיות, למשל:\n`;
-  response += `• "מתי להירשם לביטוח לאומי?"\n`;
-  response += `• "אם אעבוד בשבתון צריך לשלם?"\n`;
-  response += `• "מה ההבדל בין שבתון מלא לחצי?"`;
+  response += `💡 אפשר גם לשאול שאלות ספציפיות`;
   
   return response;
 }
@@ -286,7 +262,6 @@ function loadAllPages() {
     try {
       ALL_PAGES = [];
       
-      // טעינת כל קבצי האינדקס
       const indexFiles = [
         'shabaton_index_part1.json',
         'shabaton_index_part2.json',
@@ -299,14 +274,11 @@ function loadAllPages() {
           const filepath = path.join(process.cwd(), 'data', filename);
           const data = JSON.parse(fs.readFileSync(filepath, 'utf8'));
           
-          // אם זה מערך - הוסף ישירות
           if (Array.isArray(data)) {
             ALL_PAGES = ALL_PAGES.concat(data);
           } else if (data.pages) {
-            // אם יש שדה pages
             ALL_PAGES = ALL_PAGES.concat(data.pages);
           } else {
-            // אחרת הוסף את האובייקט עצמו
             ALL_PAGES.push(data);
           }
         } catch (err) {
@@ -314,10 +286,10 @@ function loadAllPages() {
         }
       }
       
-      console.log(`Loaded ${ALL_PAGES.length} total pages from all indexes`);
+      console.log(`Loaded ${ALL_PAGES.length} total pages`);
       
       if (ALL_PAGES.length === 0) {
-        console.error('⚠️⚠️⚠️ WARNING: ALL_PAGES is EMPTY! No index files loaded! ⚠️⚠️⚠️');
+        console.error('⚠️ WARNING: ALL_PAGES is EMPTY!');
       }
     } catch (error) {
       console.error('Error loading indexes:', error);
@@ -327,9 +299,6 @@ function loadAllPages() {
   return ALL_PAGES;
 }
 
-// ========================================
-// 📅 בדיקה אם תאריך פתיחה בתוך 3 חודשים
-// ========================================
 function isWithinThreeMonths(dateStr) {
   if (!dateStr) return false;
   
@@ -345,9 +314,6 @@ function isWithinThreeMonths(dateStr) {
   }
 }
 
-// ========================================
-// 🚫 בדיקה אם URL או כותרת צריכים להיות מסוננים
-// ========================================
 function shouldFilterUrl(url, title = '', hasSpecificPhrase = false) {
   if (!url) return true;
   
@@ -361,11 +327,10 @@ function shouldFilterUrl(url, title = '', hasSpecificPhrase = false) {
     '/knassim',
     '/משרות-הוראה',
     '/הוספת-מודעה',
-    'https://www.shabaton.online/$', // דף הבית
-    '/courses-per-month-', // דפי חודשים - לא רלוונטי!
-    '/Ma_Edu_', // דפי תואר שני כלליים
-    'close carousel', // תוכן לא רלוונטי
-    // דפים ספציפיים ב-morim.boutique שלא רלוונטיים
+    'https://www.shabaton.online/$',
+    '/courses-per-month-',
+    '/Ma_Edu_',
+    'close carousel',
     'morim.boutique/art',
     'morim.boutique/mosaic',
     'morim.boutique/courses-jewelry',
@@ -374,33 +339,25 @@ function shouldFilterUrl(url, title = '', hasSpecificPhrase = false) {
     'morim.boutique/trips',
     'morim.boutique/health',
     'morim.boutique/fashion',
-    'morim.boutique/$', // דף הבית של morim
+    'morim.boutique/$',
     'קורסי-נגרות-וחידוש-רהיטים'
   ];
   
-  // בדיקת URL
   if (blockedPatterns.some(pattern => urlLower.includes(pattern))) {
     return true;
   }
   
-  // 🆕 אם יש ביטוי ספציפי בכותרת - אל תסנן!
-  // (אפילו אם יש מילה כללית כמו "השתלמויות מורים")
   if (hasSpecificPhrase) {
     return false;
   }
   
-  // בדיקת כותרת - דפים כלליים
   const blockedTitles = [
     'קורסי העשרה',
     'העשרה ופנאי',
     'קורסים כלליים',
     'לוח זמנים',
     'לוח הזמנים',
-    'סמינר הקיבוצים',
-    'המכללה האקדמית',
-    'השתלמויות מורים',
-    'מרכז י.נ.ר',
-    'נישואין ומשפחה'
+    'השתלמויות מורים'
   ];
   
   if (blockedTitles.some(pattern => titleLower.includes(pattern))) {
@@ -410,34 +367,25 @@ function shouldFilterUrl(url, title = '', hasSpecificPhrase = false) {
   return false;
 }
 
-/**
- * בדיקה אם תאריך קרוב (בחודשיים הקרובים)
- */
 function isUpcomingDate(dateStr) {
   if (!dateStr) return false;
   
   try {
-    // נסה לחלץ תאריך מהמחרוזת
-    // דוגמאות: "15/02/2026", "15.2.26", "פברואר 2026"
-    
     const now = new Date();
-    const twoMonthsFromNow = new Date(now.getTime() + (60 * 24 * 60 * 60 * 1000)); // 60 ימים
+    const twoMonthsFromNow = new Date(now.getTime() + (60 * 24 * 60 * 60 * 1000));
     
-    // נסה פורמטים שונים
     let date = null;
     
-    // פורמט 1: DD/MM/YYYY
     const match1 = dateStr.match(/(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})/);
     if (match1) {
       const day = parseInt(match1[1]);
-      const month = parseInt(match1[2]) - 1; // חודשים מתחילים מ-0
+      const month = parseInt(match1[2]) - 1;
       let year = parseInt(match1[3]);
-      if (year < 100) year += 2000; // המר שנה דו-ספרתית
+      if (year < 100) year += 2000;
       
       date = new Date(year, month, day);
     }
     
-    // פורמט 2: "חודש שנה" (למשל "פברואר 2026")
     if (!date) {
       const hebrewMonths = {
         'ינואר': 0, 'פברואר': 1, 'מרץ': 2, 'אפריל': 3,
@@ -456,7 +404,6 @@ function isUpcomingDate(dateStr) {
       }
     }
     
-    // בדוק אם התאריך בטווח
     if (date && date >= now && date <= twoMonthsFromNow) {
       return true;
     }
@@ -467,20 +414,14 @@ function isUpcomingDate(dateStr) {
   }
 }
 
-/**
- * חיפוש תאריך קרוב בטבלת מועדים
- */
 function findUpcomingDateInSchedule(page, fieldName = null) {
-  // בדוק אם יש שדה dates או schedule
   const schedule = page.dates || page.schedule || page.upcomingDates || [];
   
   if (!schedule || !Array.isArray(schedule) || schedule.length === 0) {
     return null;
   }
   
-  // חפש תאריך קרוב
   for (const entry of schedule) {
-    // entry יכול להיות מחרוזת או אובייקט
     let dateStr = '';
     let courseName = '';
     
@@ -491,12 +432,10 @@ function findUpcomingDateInSchedule(page, fieldName = null) {
       courseName = entry.course || entry.name || '';
     }
     
-    // אם יש שם קורס - בדוק שזה הקורס הנכון
     if (fieldName && courseName && !courseName.toLowerCase().includes(fieldName.toLowerCase())) {
       continue;
     }
     
-    // בדוק אם התאריך קרוב
     if (isUpcomingDate(dateStr)) {
       return dateStr;
     }
@@ -505,21 +444,8 @@ function findUpcomingDateInSchedule(page, fieldName = null) {
   return null;
 }
 
-// ========================================
-// 🆕 פונקציות לטיפול בדפי תוצאות דינמיים
-// ========================================
-
-/**
- * סינון מוסדות לפי עיר ספציפית
- */
 function filterBySpecificCity(institutions, city, includeRemote = false) {
-  console.log(`\n🔍 [filterBySpecificCity] START`);
-  console.log(`🏙️ City: ${city || 'none'}`);
-  console.log(`🌐 Include Remote: ${includeRemote}`);
-  console.log(`📊 Institutions before filter: ${institutions.length}`);
-  
   if (!city && !includeRemote) {
-    console.log(`✅ No filtering needed - returning all`);
     return institutions;
   }
   
@@ -527,259 +453,48 @@ function filterBySpecificCity(institutions, city, includeRemote = false) {
   
   const filtered = institutions.filter(inst => {
     const location = (inst.location || '').toLowerCase();
+    const isRemote = isRemoteLearningPage(inst);
     
-    // Check if remote learning
-    const isRemote = location.includes('למידה מרחוק') || 
-                     location.includes('אונליין') || 
-                     location.includes('online') ||
-                     location.includes('zoom') ||
-                     location.includes('זום');
-    
-    // If include remote and this is remote - always keep it
     if (includeRemote && isRemote) {
-      console.log(`✅ "${inst.name || inst.title}" - remote learning (included)`);
       return true;
     }
     
-    // If no city requested
     if (!city) {
-      // If not including remote, skip remote-only courses
       if (isRemote) {
         return includeRemote;
       }
       return true;
     }
     
-    // If specific city requested
-    // Skip remote-only if it doesn't mention the city
     if (isRemote && !location.includes(cityLower)) {
       return false;
     }
     
-    // Check if has the city
     const hasCity = location.includes(cityLower);
-    
-    if (hasCity) {
-      console.log(`✅ "${inst.name || inst.title}" includes ${city}`);
-    }
-    
     return hasCity;
   });
   
-  console.log(`📊 Institutions after filter: ${filtered.length}`);
-  
   return filtered;
-}
-
-/**
- * פרסור תוכן דף תוצאות דינמי למוסדות
- * מבנה: שם מוסד → קורסים → "מקום הלימודים: ..." → "פנו ל..." → שם מוסד שוב → ·
- */
-function parseDynamicResults(text) {
-  console.log('\n🔍 [parseDynamicResults] START');
-  console.log(`📝 Text length: ${text.length}`);
-  
-  const institutions = [];
-  
-  // פיצול לפי · (מפריד בין מוסדות)
-  const blocks = text.split('·').filter(b => b.trim().length > 50);
-  
-  console.log(`📦 Found ${blocks.length} blocks`);
-  
-  for (let i = 0; i < blocks.length; i++) {
-    const block = blocks[i].trim();
-    
-    if (!block) continue;
-    
-    // חלץ שורות
-    const lines = block.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    
-    if (lines.length < 2) continue;
-    
-    // שורה ראשונה = שם מוסד (בדרך כלל ארוכה)
-    const institutionName = lines[0];
-    
-    // חפש "מקום הלימודים:"
-    let location = '';
-    let courses = [];
-    let linkText = '';
-    let upcomingDate = '';
-    
-    for (let j = 1; j < lines.length; j++) {
-      const line = lines[j];
-      
-      if (line.startsWith('מקום הלימודים') || line.startsWith('מקום לימוד')) {
-        // מצאנו שורת מיקום
-        const colonIdx = line.indexOf(':');
-        if (colonIdx > -1) {
-          location = line.substring(colonIdx + 1).trim();
-        } else {
-          location = line.replace('מקום הלימודים', '').replace('מקום לימוד', '').trim();
-        }
-      } else if (line.startsWith('פנו ל')) {
-        linkText = line;
-      } else if (line.startsWith('מועד פתיחה') || line.includes('נפתח') || line.includes('פתיחה:')) {
-        // Extract upcoming date
-        upcomingDate = line.replace('מועד פתיחה:', '').replace('פתיחה:', '').trim();
-      } else if (line.length > 10 && !line.includes('פנו') && j < Math.ceil(lines.length * 0.6)) {
-        // קורסים = שורות באמצע (לא פנו, לא מקום, לא שם מוסד חוזר)
-        if (!line.includes(institutionName.substring(0, 20))) {
-          courses.push(line);
-        }
-      }
-    }
-    
-    // אם אין מיקום - חפש בתוך הטקסט
-    if (!location && block.includes('מקום')) {
-      const match = block.match(/מקום[^:]*:\s*([^\n]+)/);
-      if (match) {
-        location = match[1].trim();
-      }
-    }
-    
-    // חפש תאריך פתיחה בטקסט אם לא נמצא
-    if (!upcomingDate) {
-      const dateMatch = block.match(/(?:נפתח|פתיחה|מתחיל)[:\s]*([^\n]+)/);
-      if (dateMatch) {
-        upcomingDate = dateMatch[1].trim();
-      }
-    }
-    
-    // בנה אובייקט מוסד
-    const institution = {
-      name: institutionName,
-      courses: courses,
-      location: location || 'לא צוין',
-      linkText: linkText,
-      upcomingDate: upcomingDate,
-      rawText: block.substring(0, 500), // שמור טקסט גולמי
-      isStatic: true // מוסד = סטטי
-    };
-    
-    institutions.push(institution);
-    
-    if (i < 3) {
-      console.log(`\n✅ Institution ${i + 1}:`);
-      console.log(`   Name: ${institution.name.substring(0, 60)}...`);
-      console.log(`   Courses: ${institution.courses.length}`);
-      console.log(`   Location: ${institution.location}`);
-      if (upcomingDate) {
-        console.log(`   Upcoming: ${upcomingDate}`);
-      }
-    }
-  }
-  
-  console.log(`\n📊 Total institutions parsed: ${institutions.length}`);
-  
-  return institutions;
-}
-
-/**
- * סינון לפי נושא משני (לדוגמה: "פסיכודרמה" ב"הנחיית קבוצות")
- */
-function filterInstitutionsBySubject(institutions, subject) {
-  console.log(`\n🎯 [filterInstitutionsBySubject] Subject: ${subject || 'none'}`);
-  
-  if (!subject) return institutions;
-  
-  const subjectLower = subject.toLowerCase();
-  
-  const filtered = institutions.filter(inst => {
-    // בדוק בשם מוסד
-    if (inst.name.toLowerCase().includes(subjectLower)) {
-      return true;
-    }
-    
-    // בדוק בקורסים
-    if (inst.courses && inst.courses.some(c => c.toLowerCase().includes(subjectLower))) {
-      return true;
-    }
-    
-    // בדוק בטקסט גולמי
-    if (inst.rawText && inst.rawText.toLowerCase().includes(subjectLower)) {
-      return true;
-    }
-    
-    return false;
-  });
-  
-  console.log(`✅ Filtered: ${filtered.length}/${institutions.length}`);
-  
-  return filtered;
-}
-
-/**
- * 🌐 חיפוש מוסדות דרך דפי תוצאות דינמיים
- * משתמש ב-web_search למציאת דף תוצאות ופרסור שלו
- */
-async function searchDynamicResults(studyField, region, specificCity = null, secondarySubject = null) {
-  console.log('\n🌐 [searchDynamicResults] START');
-  console.log(`📚 Field: ${studyField ? studyField.name : 'none'}`);
-  console.log(`📍 Region: ${region ? region.name : 'all'}`);
-  console.log(`🏙️ Specific city: ${specificCity || 'none'}`);
-  console.log(`🎯 Secondary subject: ${secondarySubject || 'none'}`);
-  
-  if (!studyField) {
-    console.log(`❌ No study field - cannot search`);
-    return [];
-  }
-  
-  try {
-    // בנה query ל-web_search
-    const regionSlug = region ? region.slug : 'results-all';
-    const fieldName = studyField.name;
-    const searchQuery = `site:shabaton.online ${regionSlug} ${fieldName}`;
-    
-    console.log(`🔍 Search query: ${searchQuery}`);
-    
-    // עשה web_search (זה async!)
-    // TODO: implement web_search call
-    console.log(`⚠️ web_search not available in this context`);
-    console.log(`💡 Using alternative approach...`);
-    
-    return [];
-    
-  } catch (error) {
-    console.error(`❌ [searchDynamicResults] Error:`, error);
-    return [];
-  }
 }
 
 // ========================================
-// 🔍 חיפוש דפים באינדקסים (חיפוש מאוזן!)
+// 🔍 חיפוש דפים באינדקסים
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
-  console.log(`Region object:`, region ? JSON.stringify(region) : 'null');
   console.log(`Study Field: ${studyField?.name || 'none'}`);
-  console.log(`Study Field keywords:`, studyField?.keywords || 'none');
-  if (studyField && studyField.specificKeyword) {
-    console.log(`🎯 Specific Keyword: "${studyField.specificKeyword}" (will filter pages by this keyword!)`);
-  }
-  console.log(`REGIONS available:`, REGIONS ? `yes (${REGIONS.length})` : 'no');
-  console.log(`REQUIRED_PHRASES available:`, REQUIRED_PHRASES ? `yes (${REQUIRED_PHRASES.length})` : 'no');
   
   const pages = loadAllPages();
-  console.log(`Total pages loaded: ${pages?.length || 0}`);
-  
   const lowerQuery = query.toLowerCase();
   
-  // ניקוי השאילתה לחיפוש
   let cleanQuery = lowerQuery.replace(/\sב([א-ת])/g, ' $1');
   cleanQuery = cleanQuery.replace(/-/g, ' ');
   cleanQuery = cleanQuery.replace(/קורס(י)?/g, '').trim();
   
-  // חלץ מילות מפתח לפני הסרת ערים
   const stopWords = ['מרכז', 'הארץ', 'במרכז', 'בארץ', 'ב', 'ה', 'של', 'את', 'עם', 'על', 'אל', 'כל', 'צפון', 'בצפון', 'הצפון', 'דרום', 'בדרום', 'שרון', 'בשרון'];
-  let queryWords = cleanQuery.split(/\s+/)
-    .filter(w => w.length > 2 && !stopWords.includes(w));
   
-  // זיהוי: שאילתה ספציפית? (2+ מילות מפתח כולל עיר)
-  const isSpecificQuery = queryWords.length >= 2;
-  
-  // עכשיו הסר שמות ערים מה-cleanQuery (אבל לא מ-queryWords!)
   let cleanQueryForSearch = cleanQuery;
   if (region && region.cities) {
     for (const city of region.cities) {
@@ -788,7 +503,6 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     }
   }
   
-  // עדכן queryWords ללא שמות ערים
   const queryWordsWithoutCities = cleanQueryForSearch.split(/\s+/)
     .filter(w => w.length > 2 && !stopWords.includes(w));
   
@@ -796,20 +510,12 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     return [];
   }
   
-  // **סף נמוך - מאפשר תוצאות גם עם התאמה חלקית**
-  const minScore = 5; // סף נמוך לגמישות מקסימלית
-  
-  // **זיהוי מילת הנושא העיקרית (לא כולל מילות רעש)**
-  // מילות רעש: קורס, קורסי, לימודי, השתלמות, וכו'
+  const minScore = 5;
   const noiseWords = ['קורס', 'קורסי', 'קורסים', 'לימודי', 'לימוד', 'השתלמות', 'השתלמויות', 'סדנה', 'סדנת', 'סדנאות', 'הכשרה', 'הכשרת'];
   const topicWords = queryWordsWithoutCities.filter(w => !noiseWords.includes(w));
-  
-  // המילה העיקרית היא הראשונה שאינה מילת רעש
   const mainTopicWord = topicWords.length > 0 ? topicWords[0] : queryWordsWithoutCities[0];
   
-  // **זיהוי ביטוי מהמילון - חדש!**
-  // בדוק אם השאילתה מכילה ביטוי מהמילון של ביטויים שחייבים להופיע ברצף
-  loadConfigs(); // וודא שהמילון נטען
+  loadConfigs();
   
   let detectedPhrase = null;
   let phraseVariations = [];
@@ -818,68 +524,27 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     for (const phraseEntry of REQUIRED_PHRASES) {
       const mainPhrase = phraseEntry.phrase.toLowerCase();
       
-      // בדוק אם השאילתה מכילה את הביטוי הזה
       if (lowerQuery.includes(mainPhrase)) {
         detectedPhrase = mainPhrase;
         phraseVariations = phraseEntry.variations.map(v => v.toLowerCase());
-        break; // מצאנו ביטוי - נעצור
+        break;
       }
     }
   }
-  
-  console.log(`[searchPages] Detected phrase: "${detectedPhrase || 'none'}"`);
-  if (phraseVariations.length > 0) {
-    console.log(`[searchPages] Phrase variations: ${phraseVariations.join(', ')}`);
-  }
-  console.log(`[searchPages] Starting page loop...`);
   
   let results = [];
-  let passedPhraseCheck = 0;
-  let failedPhraseCheck = 0;
-  let totalPagesChecked = 0;
-  let passedTotalMatches = 0;
-  let failedTotalMatches = 0;
   
   for (const page of pages) {
-    totalPagesChecked++;
-    
-    // 🔍 Debug ספציפי לדף gishot
-    const isGishotPage = page.url && page.url.includes('gishot');
-    if (isGishotPage) {
-      console.log(`\n🎯 [DEBUG-GISHOT] Found gishot page!`);
-      console.log(`  URL: ${page.url}`);
-      console.log(`  Title: ${page.title || page.h1}`);
-      console.log(`  Description: ${page.description || 'none'}`);
-      console.log(`  Location: ${page.location || 'none'}`);
-    }
-    
-    // לוג את ה-10 הדפים הראשונים
-    if (totalPagesChecked <= 10) {
-      console.log(`[searchPages] Page ${totalPagesChecked}: "${page.title || page.h1}"`);
-    }
-    
-    // 🆕 בדוק אם יש ביטוי ספציפי בכותרת (title, h1, h2, h3)
-    // h2 ו-h3 יכולים להיות arrays!
     const titleText = (page.title || '').toLowerCase();
     const h1Text = (page.h1 || '').toLowerCase();
-    const h2Text = Array.isArray(page.h2) ? page.h2.join(' ').toLowerCase() : 
-                   (page.h2 || '').toLowerCase();
-    const h3Text = Array.isArray(page.h3) ? page.h3.join(' ').toLowerCase() : 
-                   (page.h3 || '').toLowerCase();
+    const h2Text = Array.isArray(page.h2) ? page.h2.join(' ').toLowerCase() : (page.h2 || '').toLowerCase();
+    const h3Text = Array.isArray(page.h3) ? page.h3.join(' ').toLowerCase() : (page.h3 || '').toLowerCase();
     const allHeadersText = titleText + ' ' + h1Text + ' ' + h2Text + ' ' + h3Text;
     
-    const hasSpecificPhrase = detectedPhrase && 
-                              phraseVariations.some(v => allHeadersText.includes(v));
+    const hasSpecificPhrase = detectedPhrase && phraseVariations.some(v => allHeadersText.includes(v));
     
     if (shouldFilterUrl(page.url, page.title || page.h1, hasSpecificPhrase)) {
-      if (isGishotPage) {
-        console.log(`  ❌ FILTERED by shouldFilterUrl`);
-      }
       continue;
-    }
-    
-    if (isGishotPage) {
-      console.log(`  ✅ Passed shouldFilterUrl`);
     }
     
     const title = (page.title || page.h1 || '').toLowerCase();
@@ -887,26 +552,15 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     const url = (page.url || '').toLowerCase();
     const keywords = (page.keywords || []).map(k => k.toLowerCase());
     
-    // 🆕 אם יש keyword ספציפי (כמו "עיסת נייר"), דרוש שהוא יופיע בדף!
     if (studyField && studyField.specificKeyword) {
       const specificKeywordLower = studyField.specificKeyword.toLowerCase();
       const pageContent = title + ' ' + description + ' ' + allHeadersText + ' ' + keywords.join(' ');
       
-      // בדוק אם ה-keyword הספציפי המלא מופיע בדף
       if (!pageContent.includes(specificKeywordLower)) {
-        // ה-keyword הספציפי לא מופיע - דלג על הדף!
-        if (totalPagesChecked <= 10) {
-          console.log(`[searchPages] Page REJECTED (missing specific keyword "${studyField.specificKeyword}"): "${page.title || page.h1}"`);
-        }
         continue;
-      }
-      
-      if (totalPagesChecked <= 10) {
-        console.log(`[searchPages] ✅ Page has specific keyword "${studyField.specificKeyword}": "${page.title || page.h1}"`);
       }
     }
     
-    // זיהוי סוג הדף
     const isStaticPage = !url.includes('/results-') && !url.includes('/search-results-') && !url.includes('/courses-per-month');
     const isInfoPage = url.includes('/luz_shabaton') ||
                        url.includes('/shabaton-video') ||
@@ -925,76 +579,47 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
                        url.includes('/keren_makor_mishor') ||
                        url.includes('/tofes_101') ||
                        url.includes('/learning_programs_shabaton') ||
-                       url.includes('/time') ||  // לוח זמנים
-                       url.includes('/schedule') ||  // לוח זמנים
-                       url.includes('/timetable') ||  // לוח זמנים
-                       title.includes('לוח זמנים') ||  // לוח זמנים בכותרת
-                       title.includes('לוח הזמנים');  // לוח הזמנים בכותרת
-    
-    // Debug: לוג את ה-5 דפים הראשונים שעוברים את הפילטרים
-    if (totalPagesChecked <= 5 && !shouldFilterUrl(page.url, page.title || page.h1, hasSpecificPhrase)) {
-      console.log(`[Page ${totalPagesChecked}] isStatic: ${isStaticPage}, URL: ${url.substring(0, 60)}...`);
-    }
+                       url.includes('/time') ||
+                       url.includes('/schedule') ||
+                       url.includes('/timetable') ||
+                       title.includes('לוח זמנים') ||
+                       title.includes('לוח הזמנים');
     
     if (pageType === 'static' && !isStaticPage) continue;
     if (pageType === 'info' && !isInfoPage) continue;
     
     let matchScore = 0;
     
-    // **בונוס studyField - אם יש התאמה לתחום הלימוד**
     if (studyField && studyField.keywords) {
-      let studyFieldMatch = false;
-      let studyFieldLocation = '';
-      
       for (const kw of studyField.keywords) {
         const kwLower = kw.toLowerCase();
         
         if (title.includes(kwLower)) {
-          matchScore += 50; // בונוס גבוה לתואם studyField בכותרת!
-          studyFieldMatch = true;
-          studyFieldLocation = `title (keyword: "${kw}")`;
+          matchScore += 50;
           break;
         } else if (description.includes(kwLower)) {
-          matchScore += 40; // בונוס גבוה לתואם studyField בתיאור
-          studyFieldMatch = true;
-          studyFieldLocation = `description (keyword: "${kw}")`;
+          matchScore += 40;
           break;
         } else if (keywords.some(k => k.toLowerCase().includes(kwLower))) {
-          matchScore += 30; // בונוס לתואם studyField ב-keywords
-          studyFieldMatch = true;
-          studyFieldLocation = `keywords (keyword: "${kw}")`;
+          matchScore += 30;
           break;
         }
       }
-      
-      // Debug: לוג דפים עם studyField match
-      if (studyFieldMatch && totalPagesChecked <= 10) {
-        console.log(`[Page ${totalPagesChecked}] studyField match in ${studyFieldLocation}, isStatic: ${isStaticPage}`);
-      }
     }
     
-    // **עדיפות עליונה: ביטוי מלא מופיע!**
     if (cleanQueryForSearch.length > 5) {
       if (title.includes(cleanQueryForSearch)) {
-        matchScore += 100; // ביטוי מלא בכותרת!
+        matchScore += 100;
       }
       if (description.includes(cleanQueryForSearch)) {
         matchScore += 70;
       }
     }
     
-    // **בדיקת מילות מפתח**
-    let wordMatchesInTitle = 0;
-    let wordMatchesInDesc = 0;
-    let wordMatchesInKeywords = 0;
-    let hasMainTopic = false;
-    
-    // **פונקציה עזרה: התאמה גמישה של מילים (שורש)**
     function flexibleMatch(text, word) {
       if (text.includes(word)) return true;
       if (word.includes(text)) return true;
       
-      // בדיקת שורש משותף (4+ תווים)
       if (word.length >= 4) {
         const stem = word.substring(0, Math.min(word.length - 1, 5));
         if (text.includes(stem)) return true;
@@ -1003,202 +628,72 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       return false;
     }
     
+    let wordMatchesInTitle = 0;
+    
     for (const word of queryWordsWithoutCities) {
       let foundInTitle = flexibleMatch(title, word);
       let foundInDesc = flexibleMatch(description, word);
       let foundInKeywords = keywords.some(k => flexibleMatch(k, word));
       
-      // זיהוי אם זו מילת הנושא העיקרית
       const isMainTopic = (word === mainTopicWord);
       
       if (foundInTitle) {
-        matchScore += isMainTopic ? 30 : 20; // ציון גבוה יותר לנושא העיקרי
+        matchScore += isMainTopic ? 30 : 20;
         wordMatchesInTitle++;
-        if (isMainTopic) hasMainTopic = true;
       }
       if (foundInDesc) {
         matchScore += isMainTopic ? 15 : 10;
-        wordMatchesInDesc++;
-        if (isMainTopic) hasMainTopic = true;
       }
       if (foundInKeywords) {
         matchScore += isMainTopic ? 12 : 8;
-        wordMatchesInKeywords++;
-        if (isMainTopic) hasMainTopic = true;
       }
     }
     
-    // **חשב סך המילים שנמצאו**
-    const totalMatches = wordMatchesInTitle + wordMatchesInDesc + wordMatchesInKeywords;
-    const matchRatio = totalMatches / queryWordsWithoutCities.length;
-    
-    // **בדיקת ביטוי מהמילון - דרישה חובה!**
-    // הביטוי מ-required-phrases.json חייב להופיע בדף!
-    // 🎯 לוגיקה חכמה:
-    // 1. אם הביטוי ב-title / h1 / h2 / h3 → עובר ✅
-    // 2. אם הביטוי ב-courses (רשימת קורסים מפורשת) → עובר ✅
-    // 3. אם הביטוי ב-description → רק ב-300 תווים ראשונים
-    let foundPhraseVariation = false;
-    let exactVariation = null;  // 🆕 הוגדר כאן, מחוץ לבלוק!
+    let exactVariation = null;
     
     if (detectedPhrase && phraseVariations.length > 0) {
-      // בדוק בכל מקום בנפרד
-      const titleText = title.toLowerCase();
-      const h1Text = (page.h1 || '').toLowerCase();
-      // h2 ו-h3 יכולים להיות arrays!
-      const h2Text = Array.isArray(page.h2) ? page.h2.join(' ').toLowerCase() : 
-                     (page.h2 || '').toLowerCase();
-      const h3Text = Array.isArray(page.h3) ? page.h3.join(' ').toLowerCase() : 
-                     (page.h3 || '').toLowerCase();
       const coursesText = (page.courses && Array.isArray(page.courses)) ? page.courses.join(' ').toLowerCase() : '';
-      const descText = description.substring(0, 300).toLowerCase(); // רק 300 תווים ראשונים!
+      const descText = description.substring(0, 300).toLowerCase();
       
-      if (isGishotPage) {
-        console.log(`  [DEBUG-GISHOT] Phrase check (SMART):`);
-        console.log(`    Detected phrase: "${detectedPhrase}"`);
-        console.log(`    Phrase variations:`, phraseVariations);
-        console.log(`    Checking in: title, h1, h2, h3, courses, description(300)`);
-      }
-      
-      // בדוק אם אחת מהוריאציות מופיעה
-      let foundInHeader = false;  // 🆕 מצאנו בכותרת/קורסים
+      let foundPhraseVariation = false;
+      let foundInHeader = false;
       
       for (const variation of phraseVariations) {
-        // 1. בדוק ב-title (עדיפות ראשונה!)
-        if (titleText.includes(variation)) {
+        if (titleText.includes(variation) || h1Text.includes(variation) || h2Text.includes(variation) || h3Text.includes(variation) || coursesText.includes(variation)) {
           foundPhraseVariation = true;
-          foundInHeader = true;  // 🆕
+          foundInHeader = true;
           exactVariation = variation;
-          if (isGishotPage) console.log(`    ✅ Found in TITLE: "${variation}"`);
           break;
         }
         
-        // 1b. בדוק ב-h1, h2, h3
-        if (h1Text.includes(variation)) {
-          foundPhraseVariation = true;
-          foundInHeader = true;  // 🆕
-          exactVariation = variation;
-          if (isGishotPage) console.log(`    ✅ Found in H1: "${variation}"`);
-          break;
-        }
-        
-        if (h2Text.includes(variation)) {
-          foundPhraseVariation = true;
-          foundInHeader = true;  // 🆕
-          exactVariation = variation;
-          if (isGishotPage) console.log(`    ✅ Found in H2: "${variation}"`);
-          break;
-        }
-        
-        if (h3Text.includes(variation)) {
-          foundPhraseVariation = true;
-          foundInHeader = true;  // 🆕
-          exactVariation = variation;
-          if (isGishotPage) console.log(`    ✅ Found in H3: "${variation}"`);
-          break;
-        }
-        
-        // 2. בדוק ב-courses (עדיפות שנייה!)
-        if (coursesText.includes(variation)) {
-          foundPhraseVariation = true;
-          foundInHeader = true;  // 🆕 courses זה כמו header
-          exactVariation = variation;
-          if (isGishotPage) console.log(`    ✅ Found in COURSES: "${variation}"`);
-          break;
-        }
-        
-        // 3. בדוק ב-description (רק תחילת הטקסט!)
-        // 🆕 אבל אם יש studyField - זה לא מספיק!
         if (descText.includes(variation)) {
           foundPhraseVariation = true;
-          // foundInHeader נשאר false!
           exactVariation = variation;
-          if (isGishotPage) console.log(`    ✅ Found in DESCRIPTION (first 300 chars): "${variation}"`);
           break;
         }
       }
       
-      // ⭐ הביטוי חובה - אם לא נמצא, דחה את הדף!
       if (!foundPhraseVariation) {
-        failedPhraseCheck++;
-        
-        if (isGishotPage) {
-          console.log(`    ❌ Phrase required but not found - PAGE REJECTED`);
-        }
-        
-        // לוג דחייה
-        if (failedPhraseCheck <= 5) {
-          console.log(`[searchPages] Page REJECTED (phrase required): "${page.title || page.h1}"`);
-        }
-        
-        continue; // ⭐ דלג על הדף!
+        continue;
       }
       
-      // 🆕 אם יש studyField, הביטוי חייב להיות ב-header/courses, לא רק ב-description!
       if (studyField && !foundInHeader) {
-        failedPhraseCheck++;
-        
-        console.log(`[searchPages] ⚠️ Page "${page.title || page.h1}" has phrase ONLY in description (not in header/courses) - REJECTED`);
-        
-        if (isGishotPage) {
-          console.log(`    ❌ Phrase found only in description but studyField requires header/courses - PAGE REJECTED`);
-        }
-        
-        if (failedPhraseCheck <= 5) {
-          console.log(`[searchPages] Page REJECTED (phrase only in description): "${page.title || page.h1}"`);
-        }
-        
-        continue; // ⭐ דלג על הדף!
+        continue;
       }
       
-      // אם נמצא הביטוי - תן בונוס גבוה!
-      passedPhraseCheck++;
-      
-      if (isGishotPage) {
-        console.log(`    ✅ Phrase bonus added`);
-      }
-      
-      // 🔍 לוג דפים סטטיים עם ביטוי
-      if (isStaticPage && passedPhraseCheck <= 10) {
-        console.log(`[searchPages] ✅ STATIC PAGE with phrase: "${page.title || page.h1}" - variation: "${exactVariation}"`);
-      }
-      
-      // לוג את ה-10 הדפים הראשונים שעברו (הגדלתי מ-5 ל-10)
-      if (passedPhraseCheck <= 10) {
-        console.log(`[searchPages] Page PASSED (has phrase): "${page.title || page.h1}" - found: "${exactVariation}"`);
-      }
-      
-      // בונוס אם הביטוי המדויק (לא וריאציה) נמצא
       if (exactVariation === detectedPhrase) {
-        matchScore += 100; // בונוס ענק לביטוי מדויק!
+        matchScore += 100;
       } else {
-        matchScore += 50; // בונוס לוריאציה
+        matchScore += 50;
       }
     }
     
-    // **הערה: totalMatches היא רק בונוס, לא דרישה**
-    // דפים יכולים לעבור גם עם totalMatches=0 אם יש להם matchScore מספיק גבוה
-    // (למשל מהתאמת אזור, studyField, וכו')
-    
-    if (totalMatches > 0 || foundPhraseVariation) {
-      passedTotalMatches++;
-    }
-    
-    // **בונוס אם רוב המילים נמצאו**
-    if (matchRatio >= 0.7) {
-      matchScore += 25; // 70% מהמילים נמצאו
-    }
-    
-    // **בונוס נוסף אם כל המילים בכותרת**
     if (wordMatchesInTitle >= queryWordsWithoutCities.length) {
-      matchScore += 30; // כל המילים בכותרת!
+      matchScore += 30;
     }
     
-    // ⭐ זיהוי עיר ספציפית (קודם!)
     const specificCity = detectSpecificCity(query, region);
     
-    // בדיקת עיר ספציפית - בונוס ענק!
-    let cityBonus = 0;
     let isInSpecificCity = false;
     
     if (specificCity && isStaticPage) {
@@ -1206,18 +701,15 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       const titleAndDesc = (title + ' ' + description + ' ' + url).toLowerCase();
       const cityLower = specificCity.toLowerCase().replace(/-/g, ' ');
       
-      // בדיקה אם הדף מהעיר הספציפית
       const inLocation = location.includes(cityLower);
       const inTitleOrDesc = titleAndDesc.includes(cityLower);
       
       if (inLocation || inTitleOrDesc) {
         isInSpecificCity = true;
-        cityBonus = 100; // ⭐ בונוס ענק לעיר ספציפית!
-        matchScore += cityBonus;
+        matchScore += 100;
       }
     }
     
-    // בדיקת אזור (רק אם לא מצאנו עיר ספציפית)
     let matchesRegion = true;
     let regionBonus = 0;
     
@@ -1225,49 +717,20 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       const location = (page.location || '').toLowerCase();
       const titleAndDesc = (title + ' ' + description).toLowerCase();
       
-      // בדוק גם ב-location וגם בכותרת/תיאור
       const inLocation = region.cities.some(city => {
         const cityLower = city.toLowerCase().replace(/-/g, ' ');
         return location.includes(cityLower);
       });
       
-      // ✅ אם יש location מדויק - תסתמך עליו!
       if (location && location.trim() !== '') {
         matchesRegion = inLocation;
         
         if (matchesRegion) {
-          regionBonus = 50; // בונוס גבוה לדף מהאזור
+          regionBonus = 50;
         } else {
-          // במקום לדחות - פשוט אל תתן בונוס
-          // הדף עדיין יכול לעבור אם יש לו ציון מספיק מתחומים אחרים
           regionBonus = 0;
         }
       } else {
-        // אם אין location - בדוק מה העיר הראשונה שמופיעה בכותרת/תיאור
-        let firstCityPosition = Infinity;
-        let firstCity = null;
-        let firstCityInRegion = false;
-        
-        // עבור על כל הערים בכל האזורים
-        if (!REGIONS || !Array.isArray(REGIONS)) {
-          console.error('[searchPages] REGIONS is not available!');
-          // דלג על בדיקה זו
-        } else {
-          for (const r of REGIONS) {
-            for (const city of r.cities) {
-              const cityLower = city.toLowerCase().replace(/-/g, ' ');
-              const pos = titleAndDesc.indexOf(cityLower);
-              
-              if (pos !== -1 && pos < firstCityPosition) {
-                firstCityPosition = pos;
-                firstCity = city;
-                firstCityInRegion = (r.name === region.name);
-              }
-            }
-          }
-        }
-        
-        // בדוק אם יש עיר כלשהי מוזכרת (מכל אזור)
         let anyCityMentioned = false;
         if (REGIONS && Array.isArray(REGIONS)) {
           for (const r of REGIONS) {
@@ -1282,7 +745,6 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
           }
         }
         
-        // ⭐⭐⭐ תיקון קריטי: סינון אזור חכם ⭐⭐⭐
         if (!anyCityMentioned) {
           const regionMentioned = titleAndDesc.includes(region.name.toLowerCase()) ||
                                   (region.keywords && region.keywords.some(k => titleAndDesc.includes(k.toLowerCase())));
@@ -1291,244 +753,127 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
             matchesRegion = true;
             regionBonus = 10;
           } else {
-            // 🔧 בדוק אם הדף ארצי/למידה מרחוק
-            const isNationalOrRemote = titleAndDesc.includes('ארצי') || 
-                                        titleAndDesc.includes('כל הארץ') ||
-                                        titleAndDesc.includes('למידה מרחוק') ||
-                                        titleAndDesc.includes('אונליין') ||
-                                        titleAndDesc.includes('online') ||
-                                        titleAndDesc.includes('zoom');
+            const isNationalOrRemote = isRemoteLearningPage(page, true);
             
             if (isNationalOrRemote) {
               matchesRegion = false;
               regionBonus = 0;
-              if (isGishotPage) {
-                console.log(`  [DEBUG-GISHOT] National/remote - continuing without region bonus`);
-              }
             } else {
-              // ⭐ לא באזור, לא ארצי/למידה מרחוק - דלג!
-              if (totalPagesChecked <= 10) {
-                console.log(`[searchPages] Page REJECTED (not in region and not national): "${page.title || page.h1}"`);
-              }
-              continue; // ⭐ דלג על הדף!
+              continue;
             }
           }
-        } else if (firstCity === null) {
-          // יש עיר מוזכרת אבל לא מצאנו אותה - שגיאה?
-          continue;
         } else {
-          // יש עיר - בדוק אם היא מהאזור הנכון
-          if (!firstCityInRegion) {
-            continue;
-          }
           matchesRegion = true;
         }
       }
       
-      // בונוס אם מוזכר באזור הנכון
       if (inLocation) {
-        regionBonus = 20; // בונוס גבוה למיקום מדויק
+        regionBonus = 20;
       } else if (matchesRegion) {
-        regionBonus = 15; // בונוס נמוך יותר אם רק בתיאור
+        regionBonus = 15;
       }
       
       matchScore += regionBonus;
     }
     
-    // 🔍 Debug לדף gishot - final score
-    if (isGishotPage) {
-      console.log(`  [DEBUG-GISHOT] Score breakdown:`);
-      console.log(`    - Base matchScore: ${matchScore}`);
-      console.log(`    - Region bonus: ${regionBonus}`);
-      console.log(`    - Total: ${matchScore + regionBonus}`);
-      console.log(`  [DEBUG-GISHOT] Final matchScore: ${matchScore}`);
-      console.log(`  [DEBUG-GISHOT] Will be added to results: ${matchScore > 0 ? 'YES' : 'NO'}`);
-    }
-    
     if (matchScore > 0) {
-      if (isGishotPage) {
-        console.log(`  ✅ [DEBUG-GISHOT] ADDED TO RESULTS`);
-      }
-      
-      // 🆕 בדוק אם יש תאריך קרוב בטבלת מועדים
       let upcomingDate = page.upcomingDate || null;
       
       if (!upcomingDate && studyField) {
         const foundDate = findUpcomingDateInSchedule(page, studyField.name);
         if (foundDate) {
           upcomingDate = foundDate;
-          console.log(`  📅 Found upcoming date in schedule: ${foundDate}`);
         }
+      }
+      
+      // 🆕 בונוס ענק לקורסים שנפתחים ב-3 חודשים הקרובים!
+      if (upcomingDate && isUpcomingDate(upcomingDate)) {
+        matchScore += 200; // ⭐ בונוס ענק!
       }
       
       results.push({
         ...page,
         isStatic: isStaticPage,
         isInfo: isInfoPage,
-        isInSpecificCity: isInSpecificCity,  // ⭐ חדש!
-        specificCity: isInSpecificCity ? specificCity : null,  // ⭐ חדש!
-        upcomingDate: upcomingDate,  // 🆕 תאריך קרוב!
+        isInSpecificCity: isInSpecificCity,
+        specificCity: isInSpecificCity ? specificCity : null,
+        upcomingDate: upcomingDate,
         score: matchScore
       });
     }
   }
   
-  console.log(`\n[searchPages] ========== SUMMARY ==========`);
-  console.log(`[searchPages] Total pages checked: ${totalPagesChecked}`);
-  console.log(`[searchPages] Phrase check: ${passedPhraseCheck} passed, ${failedPhraseCheck} failed`);
-  
-  // ספירת דפים סטטיים
-  const staticPagesInInput = pages.filter(p => {
-    const url = (p.url || '').toLowerCase();
-    return !url.includes('/results-') && !url.includes('/search-results-') && !url.includes('/courses-per-month');
-  }).length;
-  const staticPagesInResults = results.filter(r => r.isStatic).length;
-  const dynamicPagesInResults = results.filter(r => !r.isStatic).length;
-  
-  console.log(`[searchPages] Static pages in input: ${staticPagesInInput}`);
-  console.log(`[searchPages] Static pages in results: ${staticPagesInResults}`);
-  
-  // 🆕 לוג דפים סטטיים שחזרו
-  if (staticPagesInResults > 0) {
-    console.log(`\n[searchPages] Static pages that passed:`);
-    results.filter(r => r.isStatic).forEach((page, index) => {
-      console.log(`  ${index + 1}. "${page.title || page.h1}" (score: ${page.score}, url: ${page.url})`);
-    });
-  }
-  
-  console.log(`[searchPages] Dynamic pages in results: ${dynamicPagesInResults}`);
-  console.log(`[searchPages] Results before filtering: ${results.length}`);
-  console.log(`[searchPages] Min score required: ${minScore}`);
-  
-  if (results.length > 0) {
-    console.log(`[searchPages] Top 3 scores: ${results.slice(0, 3).map(r => `${r.score} (${r.title || r.h1})`).join(', ')}`);
-    console.log(`[searchPages] Score range: ${Math.min(...results.map(r => r.score))} - ${Math.max(...results.map(r => r.score))}`);
-  } else {
-    console.log(`[searchPages] ⚠️ NO RESULTS before filtering!`);
-  }
-  
-  // מיון משופר
+  // מיון: עדיפות ראשונה לקורסים עם תאריך קרוב!
   results.sort((a, b) => {
-    // ⭐ עדיפות ראשונה: עיר ספציפית!
+    // ⭐ קורסים שנפתחים בקרוב - ראשונים!
+    const aHasUpcoming = a.upcomingDate && isUpcomingDate(a.upcomingDate);
+    const bHasUpcoming = b.upcomingDate && isUpcomingDate(b.upcomingDate);
+    
+    if (aHasUpcoming && !bHasUpcoming) return -1;
+    if (!aHasUpcoming && bHasUpcoming) return 1;
+    
+    // עדיפות שנייה: עיר ספציפית
     if (a.isInSpecificCity && !b.isInSpecificCity) return -1;
     if (!a.isInSpecificCity && b.isInSpecificCity) return 1;
     
-    // עדיפות שנייה: דפים סטטיים
+    // עדיפות שלישית: דפים סטטיים
     if (a.isStatic && !b.isStatic) return -1;
     if (!a.isStatic && b.isStatic) return 1;
     
-    // עדיפות שלישית: ציון
+    // עדיפות רביעית: ציון
     return b.score - a.score;
   });
   
-  // **סינון לפי סף**
-  const beforeFilterResults = [...results]; // שמור עותק לפני filter
-  const beforeFilter = results.length;
   results = results.filter(r => r.score >= minScore);
-  const afterFilter = results.length;
   
-  console.log(`[searchPages] After score filter (>=${minScore}): ${afterFilter} results (removed ${beforeFilter - afterFilter})`);
-  
-  // בדוק אם gishot היה בתוצאות לפני/אחרי הfilter
-  const gishotBefore = beforeFilterResults.find(r => r.url && r.url.includes('gishot'));
-  const gishotAfter = results.find(r => r.url && r.url.includes('gishot'));
-  
-  if (gishotBefore) {
-    if (gishotAfter) {
-      console.log(`🎯 [DEBUG-GISHOT] Still in results after filter! Score: ${gishotAfter.score}`);
-    } else {
-      console.log(`❌ [DEBUG-GISHOT] Was in results (score: ${gishotBefore.score}) but REMOVED by filter (minScore: ${minScore})`);
-    }
-  }
-  
-  console.log(`[searchPages] After score filter (>=${minScore}): ${results.length} results`);
   console.log(`[searchPages] Returning: ${Math.min(results.length, 10)} results`);
   console.log(`[searchPages] ========== END ==========\n`);
   
   return results.slice(0, 10);
 }
 
-// ========================================
-// 🔗 בניית URL לדף תוצאות
-// ========================================
 function buildResultsPageUrl(field, region) {
   const baseUrl = 'https://www.shabaton.online';
   
   if (!field) return null;
   
   if (region && region.slug) {
-    // אזור ספציפי - השתמש בשם התחום בלבד!
     return `${baseUrl}/${region.slug}/${encodeURIComponent(field.name)}`;
   } else {
-    // כל האזורים
     return `${baseUrl}/results-all/${encodeURIComponent(field.name)}`;
   }
 }
 
-// ========================================
-// 📝 פורמט תוצאות חיפוש (עיצוב אלגנטי!)
-// ========================================
 function formatSearchResults(pages, field = null, region = null) {
-  console.log(`\n🎨 [formatSearchResults] START`);
-  console.log(`📊 Total pages received: ${pages.length}`);
-  
   if (pages.length === 0) return null;
   
   let response = '';
   const staticPages = pages.filter(p => p.isStatic);
   
-  console.log(`📊 Static pages: ${staticPages.length}`);
-  console.log(`📊 Non-static pages: ${pages.length - staticPages.length}`);
-  
-  // **תצוגה בסדר:**
-  // 1. דפים סטטיים (מוסדות)
-  // 2. דפים דינמיים (חיפוש)
-  
-  // ========================================
-  // 1. הצגת מוסדות (דפים סטטיים)
-  // ========================================
   if (staticPages.length > 0) {
-    console.log(`\n📝 [formatSearchResults] Processing ${staticPages.length} static pages:`);
-    
     staticPages.forEach((page, index) => {
       const title = page.title || page.h1 || 'מוסד לימודים';
       
-      console.log(`\n  [Static Page ${index + 1}]:`);
-      console.log(`    Title: "${title}"`);
-      console.log(`    URL: ${page.url || 'none'}`);
-      console.log(`    Courses: ${page.courses ? page.courses.length : 0}`);
-      console.log(`    Description length: ${page.description ? page.description.length : 0}`);
-      
-      // כותרת מוסד (ללא אייקון, גופן רגיל)
       response += `**${title}**\n`;
       
-      // רשימת קורסים או תיאור
       if (page.courses && Array.isArray(page.courses) && page.courses.length > 0) {
-        // הצג עד 2 קורסים
         page.courses.slice(0, 2).forEach(course => {
           response += `${course}\n`;
         });
       } else if (page.description) {
-        // תיאור חכם - עד 250 תווים, חיתוך במילה שלמה
         let desc = page.description.trim();
         
-        // 🆕 הסר שורות "פנו ל..." מהתיאור (הן יופיעו בקישור)
         desc = desc.split('\n')
           .filter(line => !line.trim().startsWith('פנו ל'))
           .join('\n');
         
         if (desc.length > 250) {
-          // חתוך ב-250 תווים
           desc = desc.substring(0, 250);
-          
-          // מצא את הרווח האחרון (גבול מילה)
           const lastSpace = desc.lastIndexOf(' ');
           
           if (lastSpace > 200) {
-            // אם יש רווח סביר, חתוך שם
             desc = desc.substring(0, lastSpace) + '...';
           } else {
-            // אם אין רווח, פשוט חתוך ב-250
             desc = desc + '...';
           }
         }
@@ -1536,96 +881,67 @@ function formatSearchResults(pages, field = null, region = null) {
         if (desc) response += `${desc}\n`;
       }
       
-      // תאריך פתיחה (אם ב-3 חודשים הקרובים)
-      if (page.startDate && isWithinThreeMonths(page.startDate)) {
+      // 🆕 הצג תאריך קרוב!
+      if (page.upcomingDate && isUpcomingDate(page.upcomingDate)) {
+        response += `📅 נפתח בקרוב: ${page.upcomingDate}\n`;
+      } else if (page.startDate && isWithinThreeMonths(page.startDate)) {
         const date = new Date(page.startDate).toLocaleDateString('he-IL');
         response += `📅 ${date}\n`;
-      } else if (page.upcomingDate) {
-        // הצג upcomingDate אם יש
-        response += `📅 ${page.upcomingDate}\n`;
       }
       
-      // מיקום (אם יש)
       if (page.location && page.location !== 'לא צוין') {
         response += `📍 ${page.location}\n`;
       }
       
-      // קישור עם חץ כתום - תמיד מוסתר!
       if (page.url && page.url.trim() !== '') {
         let cleanUrl = page.url.trim();
         
-        // תיקון double protocol
         if (cleanUrl.includes('://') && cleanUrl.indexOf('://') !== cleanUrl.lastIndexOf('://')) {
           const parts = cleanUrl.split('://');
           cleanUrl = parts[0] + '://' + parts[parts.length - 1];
         }
         
-        // תמיד הצג כקישור מוסתר
         response += `[→ פנו למוסד הלימודים](${cleanUrl})\n`;
       } else {
-        // אם אין URL - הצג טקסט רגיל
         response += `→ פנו למוסד הלימודים\n`;
       }
       
-      // מפריד דק בין מוסדות
       if (index < staticPages.length - 1) {
         response += `\n`;
       }
     });
   }
   
-  // ========================================
-  // 2. הצגת דפי חיפוש (דפים דינמיים)
-  // ========================================
-  // 🆕 אל תציג דפים דינמיים בנפרד - רק הקישור הכללי בסוף!
-  // המשתמש רוצה לראות רק את הקישור 💡 "לכל הקורסים..."
-  
-  // ========================================
-  // 3. קישור לדף תוצאות כללי
-  // ========================================
   if (field && region) {
     const resultsUrl = buildResultsPageUrl(field, region);
-    console.log(`\n📝 [formatSearchResults] Building results URL:`);
-    console.log(`    Field: ${field.name}`);
-    console.log(`    Region: ${region.name}`);
-    console.log(`    URL: ${resultsUrl}`);
     
     if (resultsUrl) {
       const linkText = `💡 [לכל הקורסים ב${field.name}: ${region.name}](${resultsUrl})`;
-      console.log(`    Link text: "${linkText}"`);
       response += `\n${linkText}\n`;
     }
   }
   
-  console.log(`\n📝 [formatSearchResults] Final response length: ${response.length} chars`);
-  
   return response;
 }
 
-// ========================================
-// 🔍 זיהוי אזור מהשאלה
-// ========================================
 function detectRegions(message) {
   loadConfigs();
   
-  // וודא ש-REGIONS הוא מערך (במקרה ש-loadConfigs נכשל)
   if (!REGIONS || !Array.isArray(REGIONS)) {
-    console.error('REGIONS is not an array, returning empty array');
+    console.error('REGIONS is not an array');
     return [];
   }
   
   let lowerMessage = message.toLowerCase();
   
-  // ניקוי: הסרת "ב" בהתחלת מילים והחלפת מקפים ברווחים
-  lowerMessage = lowerMessage.replace(/\sב([א-ת])/g, ' $1'); // "ברמת גן" → "רמת גן"
-  lowerMessage = lowerMessage.replace(/-/g, ' '); // "רמת-גן" → "רמת גן"
+  lowerMessage = lowerMessage.replace(/\sב([א-ת])/g, ' $1');
+  lowerMessage = lowerMessage.replace(/-/g, ' ');
   
-  const foundRegions = []; // מערך של אזורים שנמצאו
+  const foundRegions = [];
   
   for (const region of REGIONS) {
     let matched = false;
     
-    // בדיקת מילות מפתח (אם קיימות)
     if (region.keywords) {
       for (const keyword of region.keywords) {
         if (lowerMessage.includes(keyword.toLowerCase())) {
@@ -1635,17 +951,14 @@ function detectRegions(message) {
       }
     }
     
-    // בדיקה אם נזכר שם האזור המלא
     if (!matched && lowerMessage.includes(region.name.toLowerCase())) {
       matched = true;
     }
     
-    // ✨ בדיקת קיצורים של ערים
     if (!matched && region.abbreviations) {
       for (const [cityName, abbrevs] of Object.entries(region.abbreviations)) {
         for (const abbrev of abbrevs) {
           const abbrevLower = abbrev.toLowerCase();
-          // בדיקה עם word boundaries לקיצורים
           const regex = new RegExp('\\b' + abbrevLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
           if (regex.test(lowerMessage)) {
             matched = true;
@@ -1656,7 +969,6 @@ function detectRegions(message) {
       }
     }
     
-    // בדיקה אם נזכרה עיר מהאזור
     if (!matched && region.cities) {
       for (const city of region.cities) {
         const normalizedCity = city.toLowerCase().replace(/-/g, ' ');
@@ -1667,7 +979,6 @@ function detectRegions(message) {
       }
     }
     
-    // אם נמצא התאמה - הוסף את האזור למערך
     if (matched) {
       foundRegions.push({
         name: region.name,
@@ -1682,23 +993,17 @@ function detectRegions(message) {
   return foundRegions.length > 0 ? foundRegions : null;
 }
 
-// ========================================
-// 🏙️ זיהוי עיר ספציפית מהשאלה
-// ========================================
 function detectSpecificCity(message, region = null) {
   loadConfigs();
   let lowerMessage = message.toLowerCase();
   
-  // ניקוי
   lowerMessage = lowerMessage.replace(/\sב([א-ת])/g, ' $1');
   lowerMessage = lowerMessage.replace(/-/g, ' ');
   
-  // אם יש אזור מזוהה - בדוק קיצורים תחילה
   if (region && region.abbreviations) {
     for (const [cityName, abbrevs] of Object.entries(region.abbreviations)) {
       for (const abbrev of abbrevs) {
         const abbrevLower = abbrev.toLowerCase();
-        // בדיקה עם word boundaries
         const regex = new RegExp('\\b' + abbrevLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
         if (regex.test(lowerMessage)) {
           return cityName;
@@ -1707,14 +1012,11 @@ function detectSpecificCity(message, region = null) {
     }
   }
   
-  // אם יש אזור מזוהה - חפש רק ערים מהאזור הזה
   const citiesToCheck = region && region.cities ? region.cities : 
                         REGIONS.flatMap(r => r.cities);
   
   for (const city of citiesToCheck) {
     const normalizedCity = city.toLowerCase().replace(/-/g, ' ');
-    
-    // בדיקה עם word boundaries
     const regex = new RegExp('\\b' + normalizedCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
     
     if (regex.test(lowerMessage)) {
@@ -1726,27 +1028,22 @@ function detectSpecificCity(message, region = null) {
 }
 
 // ========================================
-// 🎓 זיהוי תחום לימוד מהשאלה
+// 🎓 זיהוי תחום לימוד - עם דילוג על "למידה מרחוק"!
 // ========================================
 function detectStudyField(message) {
   loadConfigs();
   
   console.log('\n🔍 [detectStudyField] START');
-  console.log(`📝 Message: "${message}"`);
-  console.log(`📚 STUDY_FIELDS available: ${STUDY_FIELDS ? STUDY_FIELDS.length : 0}`);
-  console.log(`📜 REQUIRED_PHRASES available: ${REQUIRED_PHRASES ? REQUIRED_PHRASES.length : 0}`);
   
-  // וודא ש-STUDY_FIELDS הוא מערך (במקרה ש-loadConfigs נכשל)
   if (!STUDY_FIELDS || !Array.isArray(STUDY_FIELDS)) {
-    console.error('❌ STUDY_FIELDS is not an array, returning empty array');
+    console.error('❌ STUDY_FIELDS is not an array');
     return [];
   }
   
   const lowerMessage = message.toLowerCase();
   const detectedFields = [];
   
-// **שלב 1: חיפוש התאמה מדויקת לשם התחום (עדיפות גבוהה)**
-  // ⚠️ דלג על "למידה מרחוק" - זו צורת לימוד, לא תחום!
+  // **שלב 1: התאמה מדויקת לשם התחום**
   for (const field of STUDY_FIELDS) {
     // 🚫 דלג על "למידה מרחוק"
     if (field.name === 'למידה מרחוק') {
@@ -1756,820 +1053,394 @@ function detectStudyField(message) {
     const fieldNameLower = field.name.toLowerCase();
     if (lowerMessage.includes(fieldNameLower)) {
       console.log(`✅ Found exact match: "${field.name}"`);
-      return [{ ...field, specificKeyword: field.name }]; // מצאנו התאמה מדויקת - נחזיר מיד!
+      return [{ ...field, specificKeyword: field.name }];
     }
   }
   
- // **שלב 2: בדוק REQUIRED_PHRASES - ביטויים ספציפיים עם variations**
-  // 🆕 אם מוצאים ביטוי ב-REQUIRED_PHRASES, חפש את ה-study field המתאים
+  // **שלב 2: בדוק REQUIRED_PHRASES**
   if (REQUIRED_PHRASES && Array.isArray(REQUIRED_PHRASES)) {
     for (const phraseEntry of REQUIRED_PHRASES) {
       const mainPhrase = phraseEntry.phrase.toLowerCase();
       
-      // 🚫 דלג על "למידה מרחוק" - זו צורת לימוד, לא תחום!
+      // 🚫 דלג על "למידה מרחוק"
       if (mainPhrase === 'למידה מרחוק') {
         continue;
       }
       
-      // בדוק אם אחד מה-variations מופיע בהודעה
       for (const variation of phraseEntry.variations) {
         const variationLower = variation.toLowerCase();
         
         if (lowerMessage.includes(variationLower)) {
-          // מצאנו! עכשיו צריך למצוא את ה-study field המתאים
-          // נחפש study field שיש לו את mainPhrase ב-keywords או בשם
-          console.log(`✅ Found phrase variation: "${variation}" (main phrase: "${mainPhrase}")`);
+          console.log(`✅ Found phrase variation: "${variation}"`);
           
-          // חפש study field עם mainPhrase
           for (const field of STUDY_FIELDS) {
-            // בדוק בשם
             if (field.name.toLowerCase().includes(mainPhrase)) {
-              console.log(`✅ Mapped to study field via name: "${field.name}"`);
               return [{ ...field, specificKeyword: variation }];
             }
             
-            // בדוק ב-keywords
             if (field.keywords && field.keywords.some(kw => kw.toLowerCase() === mainPhrase)) {
-              console.log(`✅ Mapped to study field via keyword: "${field.name}"`);
               return [{ ...field, specificKeyword: variation }];
             }
           }
-          
-          console.log(`⚠️ Found phrase "${variation}" but couldn't map to study field`);
         }
       }
     }
   }
-// **שלב 3: חיפוש במילות מפתח - חיפוש פשוט**
-  const matches = [];
   
-  // 🚫 רשימת מילות keyword כלליות מדי שצריך לדלג עליהן
+  // **שלב 3: חיפוש במילות מפתח**
+  const matches = [];
   const tooGenericKeywords = ['למידה', 'לימוד', 'קורס', 'קורסים', 'השתלמות'];
   
   for (const field of STUDY_FIELDS) {
-    // 🚫 דלג על "למידה מרחוק" - זו צורת לימוד, לא תחום!
+    // 🚫 דלג על "למידה מרחוק"
     if (field.name === 'למידה מרחוק') {
       continue;
     }
     
     for (const keyword of field.keywords) {
-      if (!keyword) continue; // בטיחות
+      if (!keyword) continue;
       
       const keywordLower = keyword.toLowerCase();
       
-      // 🚫 דלג על keywords כלליים מדי
+      // 🚫 דלג על keywords כלליים
       if (tooGenericKeywords.includes(keywordLower)) {
         continue;
       }
       
-      // בדיקה פשוטה - includes (לא word boundary!)
       if (lowerMessage.includes(keywordLower)) {
-        // 🆕 שמור את ה-keyword הספציפי שנמצא!
         matches.push({ field, keyword, length: keywordLower.length });
         break;
       }
     }
   }
   
-  // מיון לפי אורך מילת המפתח (ארוכה יותר = ספציפית יותר)
   matches.sort((a, b) => b.length - a.length);
   
-  // 🆕 הוסף את ה-keyword הספציפי לכל field
   detectedFields.push(...matches.map(m => ({ ...m.field, specificKeyword: m.keyword })));
   
   if (detectedFields.length > 0) {
-    console.log(`✅ Found ${detectedFields.length} fields via keywords: ${detectedFields.map(f => f.name + (f.specificKeyword ? ` (keyword: "${f.specificKeyword}")` : '')).join(', ')}`);
-  } else {
-    console.log(`⚠️ No study fields detected`);
+    console.log(`✅ Found ${detectedFields.length} fields`);
   }
   
   return detectedFields;
 }
 
 // ========================================
-// 🤖 יצירת תשובה חכמה (לוגיקה פשוטה!)
+// 🤖 יצירת תשובה חכמה
 // ========================================
 function generateSmartResponse(userMessage) {
-  console.log('\n\n========================================');
+  console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('📝 Message:', userMessage);
   console.log('========================================\n');
   
   try {
-    // ✅ ראשית - בדוק אם זו שאלה על ביטוח לאומי
+    // בדוק ביטוח לאומי
     if (detectInsuranceQuestion(userMessage)) {
       const answer = findInsuranceAnswer(userMessage);
       
       if (answer) {
-        // מצאנו תשובה ספציפית!
-        console.log('[generateSmartResponse] Insurance answer found');
         return formatInsuranceAnswer(answer);
       } else {
-        // שאלה על ביטוח לאומי, אבל לא מצאנו תשובה ספציפית
-        console.log('[generateSmartResponse] General insurance info');
         return formatGeneralInsuranceInfo();
       }
     }
     
-    console.log('[generateSmartResponse] Detecting regions and fields...');
-    let regions = detectRegions(userMessage); // מערך של אזורים!
+    let regions = detectRegions(userMessage);
     const studyFields = detectStudyField(userMessage);
     
-    console.log('[generateSmartResponse] Regions:', regions?.length || 0);
-    console.log('[generateSmartResponse] Study fields:', studyFields?.length || 0);
-    
     let response = '';
-  
-  // **זיהוי סוג השאלה**
-  const isInfoQuestion = userMessage.toLowerCase().includes('שבתון') || 
-                         userMessage.toLowerCase().includes('מענק') ||
-                         userMessage.toLowerCase().includes('ביטוח לאומי') ||
-                         userMessage.toLowerCase().includes('לידה');
-  
-  // **שאלות מידע על שבתון**
-  if (isInfoQuestion) {
-    try {
-      const infoResults = searchPages(userMessage, null, 'info');
-      
-      if (infoResults && infoResults.length > 0) {
-        response = formatSearchResults(infoResults);
-        return response;
-      }
-    } catch (error) {
-      console.error('[generateSmartResponse] Error in info search:', error.message);
-    }
     
-    // אם אין תוצאות או היתה שגיאה, הצג מידע כללי
-    response = `שנת שבתון - מידע כללי 📘\n\n`;
-    response += `מה תרצה לדעת?\n`;
-    response += `• מענק בשבתון\n`;
-    response += `• ביטוח לאומי\n`;
-    response += `• לידה בשבתון\n`;
-    response += `• תוכנית הלימודים\n\n`;
-    response += `אם לא מצאתי תשובה, אפשר לשאול בקבוצת WhatsApp:\n`;
-    response += `https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME`;
-    return response;
-  }
-
-  // 🌐 אם יש למידה מרחוק - מחק את ה-region!
-  const isRemoteLearning = detectRemoteLearning(userMessage);
-  if (isRemoteLearning) {
-    console.log('🌐 Remote learning detected - removing region filter');
-    regions = null; // ❌ לא לחפש לפי אזור!
-  }
-  
-
-  // **אם יש תחום מזוהה ואזורים - חיפוש מחמיר!**
-  if (studyFields.length > 0 && regions && regions.length > 0) {
-    const field = studyFields[0];
+    // שאלות מידע על שבתון
+    const isInfoQuestion = userMessage.toLowerCase().includes('שבתון') || 
+                           userMessage.toLowerCase().includes('מענק') ||
+                           userMessage.toLowerCase().includes('ביטוח לאומי') ||
+                           userMessage.toLowerCase().includes('לידה');
     
-    console.log('\n🔍 ========== SEARCHING PAGES ==========');
-    console.log(`📚 Field: ${field.name}`);
-    console.log(`📍 Regions: ${regions.map(r => r.name).join(', ')}`);
-    console.log('========================================\n');
-    
-    // חפש בכל האזורים ואחד את התוצאות
-    let allResults = [];
-    const regionNames = [];
-    
-    for (const region of regions) {
+    if (isInfoQuestion) {
       try {
-        regionNames.push(region.name);
-        const searchResults = searchPages(userMessage, region, 'all', field);
-        if (searchResults && searchResults.length > 0) {
-          allResults = allResults.concat(searchResults);
+        const infoResults = searchPages(userMessage, null, 'info');
+        
+        if (infoResults && infoResults.length > 0) {
+          response = formatSearchResults(infoResults);
+          return response;
         }
       } catch (error) {
-        console.error(`[generateSmartResponse] Error searching in region ${region.name}:`);
-        console.error(`  Error message: ${error.message}`);
-        console.error(`  Error name: ${error.name}`);
-        console.error(`  Error stack: ${error.stack}`);
-        // המשך עם האזור הבא
+        console.error('[generateSmartResponse] Error in info search:', error.message);
       }
-    }
-    
-    // הסר כפילויות (דפים שמופיעים ביותר מאזור אחד)
-    const uniqueResults = [];
-    const seenUrls = new Set();
-    for (const result of allResults) {
-      if (!seenUrls.has(result.url)) {
-        seenUrls.add(result.url);
-        uniqueResults.push(result);
-      }
-    }
-    
-    console.log('\n📊 ========== RESULTS SUMMARY ==========');
-    console.log(`🎯 All results: ${allResults.length}`);
-    console.log(`✅ Unique results: ${uniqueResults.length}`);
-    console.log('========================================');
-    
-    // 🌐 בדוק אם יש בקשה ללמידה מרחוק
-    const includeRemote = detectRemoteLearning(userMessage);
-    console.log(`🌐 Include Remote Learning: ${includeRemote}`);
-    
-    // 🏙️ בדוק אם יש עיר ספציפית בשאילתה
-    let filteredResults = uniqueResults;
-    if (regions.length > 0) {
-      const specificCity = detectSpecificCity(userMessage, regions[0]);
       
-      if (specificCity || includeRemote) {
-        console.log(`\n🏙️ Detected specific city: ${specificCity || 'none'}`);
-        console.log(`🌐 Include Remote: ${includeRemote}`);
-        console.log(`📊 Filtering ${filteredResults.length} results...`);
-        
-        filteredResults = filterBySpecificCity(filteredResults, specificCity, includeRemote);
-        
-        console.log(`✅ After filter: ${filteredResults.length} results`);
-      }
+      response = `שנת שבתון - מידע כללי 📘\n\n`;
+      response += `מה תרצה לדעת?\n`;
+      response += `• מענק בשבתון\n`;
+      response += `• ביטוח לאומי\n`;
+      response += `• לידה בשבתון\n`;
+      response += `• תוכנית הלימודים\n\n`;
+      response += `[שאל בקבוצת WhatsApp](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)`;
+      return response;
     }
     
-    // 🔄 אם אין תוצאות - נסה חיפוש רחב יותר ללא studyField
-    // אבל לא אם יש specificKeyword - אז הסינון היה מדויק והתוצאות באמת לא רלוונטיות
-    const hasSpecificKeyword = field && field.specificKeyword;
+    // אם יש למידה מרחוק - מחק את האזור
+    const isRemoteLearning = detectRemoteLearning(userMessage);
+    if (isRemoteLearning) {
+      console.log('🌐 Remote learning detected - removing region filter');
+      regions = null;
+    }
     
-    if (filteredResults.length === 0 && uniqueResults.length === 0 && !hasSpecificKeyword) {
-      console.log('\n⚠️ No results with studyField - trying without...\n');
+    // אם יש תחום ואזור
+    if (studyFields.length > 0 && regions && regions.length > 0) {
+      const field = studyFields[0];
+      
+      console.log(`📚 Field: ${field.name}`);
+      console.log(`📍 Regions: ${regions.map(r => r.name).join(', ')}`);
+      
+      let allResults = [];
+      const regionNames = [];
       
       for (const region of regions) {
         try {
-          const searchResults = searchPages(userMessage, region, 'all', null);
+          regionNames.push(region.name);
+          const searchResults = searchPages(userMessage, region, 'all', field);
           if (searchResults && searchResults.length > 0) {
             allResults = allResults.concat(searchResults);
           }
         } catch (error) {
-          console.error(`Error in fallback search: ${error.message}`);
+          console.error(`Error searching in region ${region.name}:`, error.message);
         }
       }
       
-      // הסר כפילויות שוב
-      const seenUrls2 = new Set();
+      const uniqueResults = [];
+      const seenUrls = new Set();
       for (const result of allResults) {
-        if (!seenUrls2.has(result.url)) {
-          seenUrls2.add(result.url);
+        if (!seenUrls.has(result.url)) {
+          seenUrls.add(result.url);
           uniqueResults.push(result);
         }
       }
       
-      console.log(`✅ After fallback: ${uniqueResults.length} results`);
+      const includeRemote = detectRemoteLearning(userMessage);
       
-      // עדכן גם את filteredResults אם היה סינון לפי עיר
+      let filteredResults = uniqueResults;
       if (regions.length > 0) {
         const specificCity = detectSpecificCity(userMessage, regions[0]);
-        if (specificCity) {
-          filteredResults = filterBySpecificCity(uniqueResults, specificCity);
-        } else {
-          filteredResults = uniqueResults;
+        
+        if (specificCity || includeRemote) {
+          filteredResults = filterBySpecificCity(filteredResults, specificCity, includeRemote);
         }
-      } else {
-        filteredResults = uniqueResults;
       }
-    }
-    
-    console.log('========================================\n');
-    
-    // 🆕 אם אין תוצאות והיה specificKeyword - הסבר למשתמש
-    if (filteredResults.length === 0 && hasSpecificKeyword) {
-      console.log(`⚠️ No results found for specific keyword: "${field.specificKeyword}"`);
       
-      // 🆕 לפני קפיצה ללמידה מרחוק - נסה חיפוש רחב באזור!
-   console.log(`🔍 Step 1: Trying broader search in region for entire field "${field.name}"...`);
+      const hasSpecificKeyword = field && field.specificKeyword;
       
-      let broaderRegionResults = [];
-      try {
-        // חפש את כל התחום באזור (ללא specificKeyword!)
-        const fieldWithoutKeyword = { ...field, specificKeyword: null };
+      // אם אין תוצאות - נסה broader search באזור
+      if (filteredResults.length === 0 && uniqueResults.length === 0 && hasSpecificKeyword) {
+        console.log(`🔍 Trying broader search in region...`);
         
-        // 🔧 חפש בכל אזור בנפרד (regions זה array!)
-        for (const region of regions) {
-          const resultsInRegion = searchPages(field.name, region, 'all', fieldWithoutKeyword);
-          broaderRegionResults = broaderRegionResults.concat(resultsInRegion);
+        let broaderRegionResults = [];
+        try {
+          const fieldWithoutKeyword = { ...field, specificKeyword: null };
+          
+          for (const region of regions) {
+            const resultsInRegion = searchPages(field.name, region, 'all', fieldWithoutKeyword);
+            broaderRegionResults = broaderRegionResults.concat(resultsInRegion);
+          }
+          
+          console.log(`📊 Found ${broaderRegionResults.length} courses in region`);
+        } catch (error) {
+          console.error(`Error in broader region search:`, error.message);
         }
         
-        console.log(`📊 Found ${broaderRegionResults.length} courses in ${field.name} in the region`);
-        
+        // אם מצאנו תוצאות באזור - הצג אותן!
         if (broaderRegionResults.length > 0) {
-          broaderRegionResults.forEach((page, idx) => {
-            if (idx < 10) {
-              const title = page.title || page.h1 || 'No title';
-              console.log(`  [${idx + 1}] ${title}`);
-              
-              // בדיקה מיוחדת לאדלר
-              if (title.toLowerCase().includes('אדלר') || title.toLowerCase().includes('adler')) {
-                console.log(`     ✅ ADLER FOUND IN BROADER SEARCH!`);
-              }
-              
-              // בדיקה לשכל
-              if (title.toLowerCase().includes('השכל') || title.toLowerCase().includes('sekhel') || title.toLowerCase().includes('hasechel')) {
-                console.log(`     ✅ HASECHEL FOUND IN BROADER SEARCH!`);
-              }
-              
-              // בדיקה לניצן
-              if (title.toLowerCase().includes('ניצן') || title.toLowerCase().includes('nitzan')) {
-                console.log(`     ✅ NITZAN FOUND IN BROADER SEARCH!`);
-              }
+          let remoteCount = 0;
+          let regionalCount = 0;
+          
+          broaderRegionResults.slice(0, 15).forEach(page => {
+            const hasRemote = isRemoteLearningPage(page);
+            
+            if (hasRemote) {
+              remoteCount++;
+            } else {
+              regionalCount++;
             }
           });
           
-          // אם יש יותר מ-10 - לוג כמה יש
-          if (broaderRegionResults.length > 10) {
-            console.log(`  ... and ${broaderRegionResults.length - 10} more courses (total: ${broaderRegionResults.length})`);
-          }
-        }
-      } catch (error) {
-        console.error(`Error in broader region search: ${error.message}`);
-      }
-      
-      // אם מצאנו תוצאות באזור - הצג אותן!
-      if (broaderRegionResults.length > 0) {
-        console.log(`✅ Found courses in region - showing them instead of remote learning`);
-        
-        // ספור כמה קורסים יש במרכז וכמה בלמידה מרחוק
-        let remoteCount = 0;
-        let regionalCount = 0;
-        
-        broaderRegionResults.slice(0, 15).forEach(page => {
-          const pageContent = ((page.title || '') + ' ' + (page.description || '') + ' ' + (page.location || '')).toLowerCase();
-          const hasRemote = pageContent.includes('למידה מרחוק') || 
-                           pageContent.includes('אונליין') || 
-                           pageContent.includes('online') ||
-                           pageContent.includes('ONLINE') ||
-                           pageContent.includes('ON-LINE') ||
-                           pageContent.includes('מתוקשבים') ||
-                           pageContent.includes('מתוקשב') ||
-                           pageContent.includes('מתוקשבת') ||
-                           pageContent.includes('מקוון') ||
-                           pageContent.includes('מקוונים') ||
-                           pageContent.includes('מקוונת') ||
-                           pageContent.includes('אסינכרוניים') ||
-                           pageContent.includes('סינכרוניים') ||
-                           pageContent.includes('זום') ||
-                           pageContent.includes('בזום') ||
-                           pageContent.includes('zoom');
-          
-          if (hasRemote) {
-            remoteCount++;
+          let locationText = '';
+          if (remoteCount > 0 && regionalCount > 0) {
+            locationText = `ב${regionNames.join(' ו')} ובלמידה מרחוק`;
+          } else if (remoteCount > 0) {
+            locationText = `בלמידה מרחוק`;
           } else {
-            regionalCount++;
+            locationText = `ב${regionNames.join(' ו')}`;
           }
-        });
+          
+          response = `מצאתי ${broaderRegionResults.length} ${broaderRegionResults.length === 1 ? 'קורס' : 'קורסים'} ב${field.name} ${locationText}:\n\n`;
+          
+          const formatted = formatSearchResults(broaderRegionResults.slice(0, 15), field, null);
+          if (formatted) {
+            response += formatted;
+          }
+          
+          const regionSlugs = regions.map(r => r.slug).filter(s => s).join('-');
+          const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
+          
+          if (regionSlugs && fieldSlug) {
+            response += `\n💡 **רוצה לראות עוד?**\n`;
+            response += `[לכל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
+          }
+          
+          return response;
+        }
         
-        // 🆕 הודעה מדויקת לפי התוצאות!
-        let locationText = '';
-        if (remoteCount > 0 && regionalCount > 0) {
-          locationText = `ב${regionNames.join(' ו')} ובלמידה מרחוק`;
-        } else if (remoteCount > 0) {
-          locationText = `בלמידה מרחוק`;
+        // אם אין באזור - חפש למידה מרחוק
+        console.log(`🔍 No results in region - searching for remote learning...`);
+        
+        let remoteResults = [];
+        try {
+          const fieldWithoutKeyword = { ...field, specificKeyword: null };
+          remoteResults = searchPages(field.name, null, 'all', fieldWithoutKeyword);
+          
+          remoteResults = remoteResults.filter(page => isRemoteLearningPage(page));
+          
+          console.log(`✅ Found ${remoteResults.length} remote courses`);
+        } catch (error) {
+          console.error(`Error searching for remote courses:`, error.message);
+        }
+        
+        if (remoteResults.length > 0) {
+          response = `מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} ב${field.name} בלמידה מרחוק:\n\n`;
+          
+          const formatted = formatSearchResults(remoteResults.slice(0, 10), field, null);
+          if (formatted) {
+            response += formatted;
+          }
         } else {
-          locationText = `ב${regionNames.join(' ו')}`;
+          response = `לא מצאתי קורסים ב${field.name} ב${regionNames.join(' ו')}.\n\n`;
         }
         
-        response = `מצאתי ${broaderRegionResults.length} ${broaderRegionResults.length === 1 ? 'קורס' : 'קורסים'} ב${field.name} ${locationText}:\n\n`;
+        response += `\n💡 **רוצה לראות עוד?**\n`;
         
-        // 🆕 הצג עד 15 קורסים (יותר!) כדי לכלול את השכל וניצן
-        const formatted = formatSearchResults(broaderRegionResults.slice(0, 15), field, null);
-        //                                                                                  ↑
-        //                                                                     null = לא להוסיף קישור בסוף!
-        if (formatted) {
-          response += formatted;
-        }
-        
-        // הוסף קישור נכון לדף דינמי - רק אם יש קישור תקין!
         const regionSlugs = regions.map(r => r.slug).filter(s => s).join('-');
         const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
         
         if (regionSlugs && fieldSlug) {
-          response += `\n💡 **רוצה לראות עוד קורסים?**\n\n`;
           response += `[לכל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
-          //                                                                                                    ↑            ↑
-          //                                                                                            region קודם   field אחרי
         }
         
         return response;
       }
       
-      // אם אין תוצאות באזור - חפש קורסים בלמידה מרחוק
-      console.log(`🔍 Step 2: No results in region - searching for remote learning courses in ${field.name}...`);
-      
-      let remoteResults = [];
-      try {
-        // חפש ללא אזור ספציפי - רק תחום (ללא specificKeyword!)
-        // 🎯 חשוב: נעביר field ללא specificKeyword כדי לחפש בכל התחום
-        // 🎯 חשוב: נעביר רק את שם התחום (ללא "במרכז" וכו')
-        const fieldWithoutKeyword = { ...field, specificKeyword: null };
-        const queryWithoutRegion = field.name; // רק שם התחום, בלי אזור!
-        remoteResults = searchPages(queryWithoutRegion, null, 'all', fieldWithoutKeyword);
+      if (filteredResults.length > 0) {
+        const staticCount = filteredResults.filter(r => r.isStatic).length;
         
-        console.log(`📊 [DEBUG] Before filter: ${remoteResults.length} pages from searchPages`);
-        if (remoteResults.length <= 10) {
-          remoteResults.forEach((page, idx) => {
-            console.log(`  [${idx + 1}] ${page.title || page.h1}`);
-          });
+        if (isRemoteLearning) {
+          response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${field.name}:\n\n`;
+        } else {
+          const regionsText = regionNames.join(' ו');
+          response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
         }
         
-        // סנן רק דפים עם למידה מרחוק
-        remoteResults = remoteResults.filter(page => {
-          // 🎯 חפש גם ב-keywords, h2, h3 (לא רק title + description)
-          const title = (page.title || '').toLowerCase();
-          const description = (page.description || '').toLowerCase();
-          const location = (page.location || '').toLowerCase();
-          const keywords = (page.keywords || []).map(k => k.toLowerCase()).join(' ');
-          const h2Text = Array.isArray(page.h2) ? page.h2.join(' ').toLowerCase() : (page.h2 || '').toLowerCase();
-          const h3Text = Array.isArray(page.h3) ? page.h3.join(' ').toLowerCase() : (page.h3 || '').toLowerCase();
-          
-          const pageContent = title + ' ' + description + ' ' + location + ' ' + keywords + ' ' + h2Text + ' ' + h3Text;
-          
-          const hasRemoteLearning = pageContent.includes('למידה מרחוק') || 
-                 pageContent.includes('אונליין') || 
-                 pageContent.includes('online') ||
-                 pageContent.includes('מקוון') ||
-                 pageContent.includes('זום') ||
-                 pageContent.includes('zoom');
-          
-          // Log דפים שנדחים
-          if (!hasRemoteLearning && (title.includes('אדלר') || title.includes('adler'))) {
-            console.log(`❌ [DEBUG] Adler filtered out - no remote learning keywords found`);
-            console.log(`   Title: ${title}`);
-            console.log(`   Description: ${description.substring(0, 100)}...`);
-          }
-          
-          return hasRemoteLearning;
-        });
-        
-        console.log(`✅ Found ${remoteResults.length} remote learning courses after filter`);
-        
-        // 🆕 אם מצאנו פחות מ-3 תוצאות - הוסף גם דפים ללא סינון!
-        if (remoteResults.length < 3) {
-          console.log(`⚠️ Only ${remoteResults.length} courses with explicit remote keywords`);
-          console.log(`🔍 Adding all courses from field without remote filter as backup...`);
-          
-          // חפש שוב אבל בלי סינון למידה מרחוק
-          const allCoursesInField = searchPages(queryWithoutRegion, null, 'all', fieldWithoutKeyword);
-          
-          // הוסף דפים שלא כבר ברשימה
-          for (const page of allCoursesInField) {
-            const alreadyExists = remoteResults.some(r => r.url === page.url);
-            if (!alreadyExists && remoteResults.length < 10) {
-              remoteResults.push(page);
-            }
-          }
-          
-          console.log(`✅ After adding backup courses: ${remoteResults.length} total courses`);
-        }
-      } catch (error) {
-        console.error(`Error searching for remote courses: ${error.message}`);
-      }
-      
-      // 🆕 אם יש קורסים בלמידה מרחוק - הצע אותם!
-      if (remoteResults.length > 0) {
-        // 🆕 הודעה חיובית!
-        response = `מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} ב${field.name}:\n\n`;
-        
-        // 🆕 הצג עד 10 קורסים (לא 5!)
-        const formatted = formatSearchResults(remoteResults.slice(0, 10), field, null);
+        const formatted = formatSearchResults(filteredResults, field, regions[0]);
         if (formatted) {
           response += formatted;
         }
-      } else {
-        // אם אין תוצאות בכלל
-        response = `לא מצאתי קורסים ב${field.name} ב${regionNames.join(' ו')}.\n\n`;
+        
+        // הצע למידה מרחוק אם יש מעט תוצאות
+        if (staticCount < 5 && field) {
+          try {
+            let remoteResults = searchPages(userMessage, null, 'all', field);
+            remoteResults = remoteResults.filter(page => isRemoteLearningPage(page));
+            
+            const shownUrls = new Set(filteredResults.map(r => r.url));
+            remoteResults = remoteResults.filter(page => !shownUrls.has(page.url));
+            
+            if (remoteResults.length > 0) {
+              response += `\n\n💡 **מצאתי גם ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} בלמידה מרחוק**\n\n`;
+              const remoteFormatted = formatSearchResults(remoteResults.slice(0, 5), field, null);
+              if (remoteFormatted) {
+                response += remoteFormatted;
+              }
+            }
+          } catch (error) {
+            console.error(`Error adding remote suggestions:`, error.message);
+          }
+        }
+        
+        return response;
       }
-      
-      response += `\n💡 **רוצה לראות עוד קורסים?**\n`;
-      
-      // 🆕 קישור לדף דינמי - בנוי נכון ובטוח
-      const regionSlugs = regions.map(r => r.slug).filter(s => s).join('-');
-      const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
-      
-      if (regionSlugs && fieldSlug) {
-        response += `• [לכל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
-        //                                                                                                    ↑            ↑
-        //                                                                                            region קודם   field אחרי
-      }
-      
-      return response;
     }
     
-      if (filteredResults.length > 0) {
-      // **מצאנו דפים רלוונטיים!**
+    // אם יש תחום אבל אין אזור
+    if (studyFields.length > 0 && (!regions || regions.length === 0)) {
+      const field = studyFields[0];
       
-      // 🆕 בדוק אם זה למידה מרחוק
       const isRemoteLearning = detectRemoteLearning(userMessage);
-      
-      // 🔍 Log location של כל תוצאה לדיבוג
-      console.log(`\n📍 [Location Debug] Found ${filteredResults.length} results (remote: ${isRemoteLearning}):`);
-      filteredResults.forEach((page, idx) => {
-        const location = page.location || 'לא מוגדר';
-        const title = page.title || page.h1 || 'No title';
-        console.log(`  [${idx + 1}] ${title}`);
-        console.log(`      Location: ${location}`);
-      });
-      
-      // ספור דפים סטטיים ודינמיים
-      const staticCount = filteredResults.filter(r => r.isStatic).length;
-      const dynamicCount = filteredResults.filter(r => !r.isStatic && !r.isInfo).length;
-      
-      // 🆕 בנה הודעה מתאימה - למידה מרחוק או אזור
       if (isRemoteLearning) {
-        // למידה מרחוק - אל תציין אזור!
-        if (staticCount > 0 && dynamicCount > 0) {
-          response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${field.name}:\n\n`;
-        } else if (staticCount > 0) {
-          response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${field.name}:\n\n`;
-        } else {
-          response = `🎯 מצאתי קורסים ב${field.name} בלמידה מרחוק:\n\n`;
-        }
-      } else {
-        // אזור רגיל
-        const regionsText = regionNames.length > 1 ? regionNames.join(' ו') : regionNames[0];
-        
-        if (staticCount > 0 && dynamicCount > 0) {
-          response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
-        } else if (staticCount > 0) {
-          response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
-        } else {
-          response = `🎯 מצאתי קורסים ב${field.name} ב${regionsText}:\n\n`;
-        }
-      }
-      
-      console.log(`\n📝 [generateSmartResponse] Calling formatSearchResults with ${filteredResults.length} results (${staticCount} static, ${dynamicCount} dynamic)`);
-      const formatted = formatSearchResults(filteredResults, field, regions[0]);
-      console.log(`📝 [generateSmartResponse] formatSearchResults returned: ${formatted ? formatted.length + ' chars' : 'NULL'}`);
-      
-      if (formatted) {
-        response += formatted;
-      } else {
-        console.error(`⚠️ formatSearchResults returned NULL even though we have ${uniqueResults.length} results!`);
-      }
-      
-      // 🆕 אם יש מעט תוצאות (פחות מ-5) - הצע גם למידה מרחוק!
-      if (staticCount < 5 && field) {
-        console.log(`\n💡 Only ${staticCount} results found - suggesting remote learning as well`);
-        
         try {
-          const fieldWithoutKeyword = { ...field, specificKeyword: null };
-          
-          // 🎯 חשוב: השתמש ב-query המקורי (כולל ציור/אימון וכו') לא רק בשם התחום!
-          // כך נקבל תוצאות רלוונטיות יותר
           let remoteResults = searchPages(userMessage, null, 'all', field);
-          //                               ↑
-          //                    השתמש ב-query המקורי! (כולל "ציור")
-          
-          // סנן רק דפים עם למידה מרחוק
-          remoteResults = remoteResults.filter(page => {
-            const title = (page.title || '').toLowerCase();
-            const description = (page.description || '').toLowerCase();
-            const location = (page.location || '').toLowerCase();
-            const keywords = (page.keywords || []).map(k => k.toLowerCase()).join(' ');
-            const h2Text = Array.isArray(page.h2) ? page.h2.join(' ').toLowerCase() : (page.h2 || '').toLowerCase();
-            const h3Text = Array.isArray(page.h3) ? page.h3.join(' ').toLowerCase() : (page.h3 || '').toLowerCase();
-            
-            const pageContent = title + ' ' + description + ' ' + location + ' ' + keywords + ' ' + h2Text + ' ' + h3Text;
-            
-            return pageContent.includes('למידה מרחוק') || 
-                   pageContent.includes('אונליין') || 
-                   pageContent.includes('online') ||
-                   pageContent.includes('מקוון') ||
-                   pageContent.includes('זום') ||
-                   pageContent.includes('zoom');
-          });
-          
-          // הסר דפים שכבר הוצגו
-          const shownUrls = new Set(filteredResults.map(r => r.url));
-          remoteResults = remoteResults.filter(page => !shownUrls.has(page.url));
-          
-          console.log(`📊 Found ${remoteResults.length} additional remote learning courses`);
+          remoteResults = remoteResults.filter(page => isRemoteLearningPage(page));
           
           if (remoteResults.length > 0) {
-            response += `\n\n💡 **מצאתי גם ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} בלמידה מרחוק:**\n\n`;
-            const remoteFormatted = formatSearchResults(remoteResults.slice(0, 5), field, null);
-            if (remoteFormatted) {
-              response += remoteFormatted;
+            const staticCount = remoteResults.filter(r => r.isStatic).length;
+            response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${field.name}:\n\n`;
+            const formatted = formatSearchResults(remoteResults.slice(0, 10), field, null);
+            if (formatted) {
+              response += formatted;
             }
+            return response;
           }
         } catch (error) {
-          console.error(`Error adding remote learning suggestions: ${error.message}`);
+          console.error(`Error in remote learning search:`, error.message);
         }
       }
+      
+      response = `באיזה אזור תרצה ללמוד ${field.name}?\n\n`;
+      response += `📍 תל אביב והמרכז\n`;
+      response += `📍 חיפה והצפון\n`;
+      response += `📍 השרון\n`;
+      response += `📍 ירושלים והסביבה\n`;
+      response += `📍 השפלה והדרום\n`;
+      response += `💻 למידה מרחוק\n`;
+      response += `🌍 כל הארץ`;
       
       return response;
     }
     
-    // **לא מצאנו תוצאות ספציפיות - נחפש למידה מרחוק ונציע דפים דינמיים**
-    
-    // 🆕 חפש קורסים בלמידה מרחוק באותו תחום
-    console.log(`🔍 No results in region - searching for remote learning courses in ${field.name}...`);
-    
-    let remoteResults = [];
-    try {
-      // חפש ללא אזור ספציפי - רק תחום (ללא specificKeyword!)
-      // 🎯 חשוב: נעביר field ללא specificKeyword כדי לחפש בכל התחום
-      // 🎯 חשוב: נעביר רק את שם התחום (ללא "במרכז" וכו')
-      const fieldWithoutKeyword = { ...field, specificKeyword: null };
-      const queryWithoutRegion = field.name; // רק שם התחום, בלי אזור!
-      remoteResults = searchPages(queryWithoutRegion, null, 'all', fieldWithoutKeyword);
+    // אם יש אזור אבל אין תחום
+    if (regions && regions.length > 0) {
+      const regionNames = regions.map(r => r.name).join(' ו');
+      response = `מעולה! ${regionNames} 🗺️\n\n`;
+      response += `באיזה תחום תרצה להתמחות?\n`;
+      response += `ספר לי במילים שלך - למשל: "גישור", "צילום", "NLP"...`;
       
-      console.log(`📊 [DEBUG] Before filter: ${remoteResults.length} pages from searchPages`);
-      if (remoteResults.length <= 10) {
-        remoteResults.forEach((page, idx) => {
-          console.log(`  [${idx + 1}] ${page.title || page.h1}`);
-        });
-      }
-      
-      // סנן רק דפים עם למידה מרחוק
-      remoteResults = remoteResults.filter(page => {
-        // 🎯 חפש גם ב-keywords, h2, h3 (לא רק title + description)
-        const title = (page.title || '').toLowerCase();
-        const description = (page.description || '').toLowerCase();
-        const location = (page.location || '').toLowerCase();
-        const keywords = (page.keywords || []).map(k => k.toLowerCase()).join(' ');
-        const h2Text = Array.isArray(page.h2) ? page.h2.join(' ').toLowerCase() : (page.h2 || '').toLowerCase();
-        const h3Text = Array.isArray(page.h3) ? page.h3.join(' ').toLowerCase() : (page.h3 || '').toLowerCase();
-        
-        const pageContent = title + ' ' + description + ' ' + location + ' ' + keywords + ' ' + h2Text + ' ' + h3Text;
-        
-        const hasRemoteLearning = pageContent.includes('למידה מרחוק') || 
-               pageContent.includes('אונליין') || 
-               pageContent.includes('בלמידה מרחוק') || 
-               pageContent.includes('מתוקשב') || 
-               pageContent.includes('מתוקשבים') || 
-               pageContent.includes('סינכרוניים') || 
-               pageContent.includes('אסינכרוניים') || 
-               pageContent.includes('א-סינכרוניים') || 
-               pageContent.includes('online') ||
-               pageContent.includes('on-line') ||
-               pageContent.includes('ONLINE') ||
-               pageContent.includes('ON-LINE') ||
-               pageContent.includes('מקוון') ||
-               pageContent.includes('מקוונים') ||
-               pageContent.includes('זום') ||
-               pageContent.includes('zoom');
-        
-        // Log דפים שנדחים
-        if (!hasRemoteLearning && (title.includes('אדלר') || title.includes('adler'))) {
-          console.log(`❌ [DEBUG] Adler filtered out - no remote learning keywords found`);
-          console.log(`   Title: ${title}`);
-          console.log(`   Description: ${description.substring(0, 100)}...`);
-        }
-        
-        return hasRemoteLearning;
-      });
-      
-      console.log(`✅ Found ${remoteResults.length} remote learning courses after filter`);
-      
-      // 🆕 אם מצאנו פחות מ-3 תוצאות - הוסף גם דפים ללא סינון!
-      if (remoteResults.length < 3) {
-        console.log(`⚠️ Only ${remoteResults.length} courses with explicit remote keywords`);
-        console.log(`🔍 Adding all courses from field without remote filter as backup...`);
-        
-        // חפש שוב אבל בלי סינון למידה מרחוק
-        const allCoursesInField = searchPages(queryWithoutRegion, null, 'all', fieldWithoutKeyword);
-        
-        // הוסף דפים שלא כבר ברשימה
-        for (const page of allCoursesInField) {
-          const alreadyExists = remoteResults.some(r => r.url === page.url);
-          if (!alreadyExists && remoteResults.length < 10) {
-            remoteResults.push(page);
-          }
-        }
-        
-        console.log(`✅ After adding backup courses: ${remoteResults.length} total courses`);
-      }
-    } catch (error) {
-      console.error(`Error searching for remote courses: ${error.message}`);
+      return response;
     }
     
-    // 🆕 אם יש קורסים בלמידה מרחוק - הצג אותם תחילה!
-    if (remoteResults.length > 0) {
-      // 🆕 הודעה חיובית!
-      response = `מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} ב${field.name}:\n\n`;
-      
-      // 🆕 הצג עד 10 קורסים (לא 5!)
-      const formatted = formatSearchResults(remoteResults.slice(0, 10), field, null);
-      if (formatted) {
-        response += formatted;
-      }
-      
-      response += `\n💡 **רוצה לראות עוד קורסים?**\n\n`;
-    } else {
-      response = `מצאתי קורסים ב${field.name} ב${regionNames.join(' ו')}:\n\n`;
+    // חיפוש כללי
+    const searchResults = searchPages(userMessage, null, 'static');
+    
+    if (searchResults && searchResults.length > 0) {
+      response = `מצאתי ${searchResults.length} תוצאות:\n\n`;
+      response += formatSearchResults(searchResults);
+      return response;
     }
     
-    // הוסף קישורים לדפים דינמיים של כל אזור
-    for (const region of regions) {
-      const regionSlug = region.slug;
-      const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
-      const url = `https://www.shabaton.online/${regionSlug}/${fieldSlug}`;
-      //                                          ↑            ↑
-      //                                   region קודם   field אחרי
-      response += `• [${region.name}](${url})\n`;
-    }
-    
-    response += `\n💡 כאן תמצא/י את כל הקורסים הזמינים באזור!`;
+    // לא זיהיתי כלום
+    response = `אשמח לעזור! 🎯\n\n`;
+    response += `ספר לי:\n`;
+    response += `📍 באיזה אזור?\n`;
+    response += `📚 איזה תחום?\n\n`;
+    response += `דוגמה: "הנחיית קבוצות בחיפה"`;
     
     return response;
-  }
-  
- // **אם יש תחום אבל אין אזור - שאל איפה (אלא אם כן למידה מרחוק!)**
-  if (studyFields.length > 0 && (!regions || regions.length === 0)) {
-    const field = studyFields[0];
-// 🌐 אם זו למידה מרחוק - חפש ישירות!
-    const isRemoteLearning = detectRemoteLearning(userMessage);
-    if (isRemoteLearning) {
-      console.log('🌐 Remote learning + field detected - searching directly');
-      
-      // חפש קורסים בלמידה מרחוק בתחום
-      try {
-        // ⭐ השאר את specificKeyword - חשוב לסינון!
-        let remoteResults = searchPages(userMessage, null, 'all', field);
-        
-        // סנן למידה מרחוק (בנוסף לסינון ה-specificKeyword שכבר קיים)
-        remoteResults = remoteResults.filter(page => {
-          const pageContent = ((page.title || '') + ' ' + (page.description || '') + ' ' + (page.location || '')).toLowerCase();
-          return pageContent.includes('למידה מרחוק') || 
-                 pageContent.includes('אונליין') || 
-                 pageContent.includes('online') ||
-                 pageContent.includes('zoom');
-        });
-        
-        if (remoteResults.length > 0) {
-          // ⭐ טקסט נכון - לא כפול!
-          const staticCount = remoteResults.filter(r => r.isStatic).length;
-          response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${field.name}:\n\n`;
-          const formatted = formatSearchResults(remoteResults.slice(0, 10), field, null);
-          if (formatted) {
-            response += formatted;
-          }
-          return response;
-        } else {
-          response = `לא מצאתי קורסים ב${field.name} בלמידה מרחוק כרגע.\n\n`;
-          response += `💡 אפשר לנסות:\n`;
-          response += `• חיפוש באזור ספציפי\n`;
-          response += `• תחום דומה\n\n`;
-          response += `[שאל בקבוצת WhatsApp](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)`;
-          return response;
-        }
-      } catch (error) {
-        console.error(`Error in remote learning search: ${error.message}`);
-      }
-    }
     
-    // אם לא למידה מרחוק - שאל על אזור
-    response = `באיזה אזור תרצה ללמוד ${field.name}?\n\n`;
-    response += `📍 תל אביב והמרכז\n`;
-    response += `📍 חיפה והצפון\n`;
-    response += `📍 השרון\n`;
-    response += `📍 ירושלים והסביבה\n`;
-    response += `📍 השפלה והדרום\n`;
-    response += `💻 למידה מרחוק\n`;
-    response += `🌍 כל הארץ`;
-    
-    return response;
-  }
-  
-  // **אם יש אזור אבל אין תחום**
-  if (regions && regions.length > 0) {
-    const regionNames = regions.map(r => r.name).join(' ו');
-    response = `מעולה! ${regionNames} 🗺️\n\n`;
-    response += `באיזה תחום תרצה להתמחות?\n`;
-    response += `ספר לי במילים שלך - למשל: "גישור", "צילום", "NLP", "בישול", "תכשיטים"...`;
-    
-    return response;
-  }
-  
-  // **אם אין תחום ואין אזור - חיפוש כללי באינדקס**
-  const searchResults = searchPages(userMessage, null, 'static');
-  
-  if (searchResults && searchResults.length > 0) {
-    response = `מצאתי ${searchResults.length} תוצאות:\n\n`;
-    response += formatSearchResults(searchResults);
-    return response;
-  }
-  
-  // **לא זיהיתי כלום**
-  response = `אשמח לעזור! 🎯\n\n`;
-  response += `ספר לי:\n`;
-  response += `📍 באיזה אזור?\n`;
-  response += `📚 איזה תחום?\n\n`;
-  response += `דוגמה: "הנחיית קבוצות בחיפה"\n\n`;
-  response += `אם אין לי תשובה מתאימה, אפשר לשאול בקבוצת WhatsApp:\n`;
-  response += `https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME`;
-  
-  return response;
-  
   } catch (error) {
     console.error('[generateSmartResponse] ERROR:', error.message);
-    console.error('[generateSmartResponse] Stack:', error.stack);
-    
-    // במקרה של שגיאה, החזר הודעה כללית
-    return `אשמח לעזור! 🎯\n\nספר לי:\n📍 באיזה אזור?\n📚 איזה תחום?\n\nאם אין לי תשובה מתאימה, אפשר לשאול בקבוצת WhatsApp:\nhttps://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME`;
+    return `אשמח לעזור! 🎯\n\nספר לי:\n📍 באיזה אזור?\n📚 איזה תחום?`;
   }
 }
 
 // ========================================
-// 🚀 API Handler (Vercel Format)
+// 🚀 API Handler
 // ========================================
 export default async function handler(req, res) {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -2589,31 +1460,22 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'חסרה הודעה' });
     }
     
-    // **קודם - ננסה לזהות מההודעה הנוכחית בלבד**
     let response = generateSmartResponse(message);
     
-    // **אם ההודעה הנוכחית לא הצליחה (חסר אזור בלבד!) - נשתמש בהיסטוריה**
-    // זה מתאים למקרים כמו: "תל אביב" אחרי "הנחיית קבוצות"
-    // אבל לא למקרים של תחום חסר - אז פשוט נשאל את המשתמש
     const missingRegion = response.includes('באיזה אזור');
     const missingField = response.includes('באיזה תחום');
     const genericResponse = response.includes('אשמח לעזור');
     
-    // 🆕 רק אם חסר אזור (ולא תחום!) - נשתמש בהיסטוריה
     const needsContext = missingRegion && !missingField && !genericResponse;
     
     if (needsContext && history && Array.isArray(history) && history.length > 0) {
-      // לקיחת רק 3 הודעות אחרונות של המשתמש
       const recentUserMessages = history
         .filter(msg => msg.role === 'user')
         .slice(-3)
         .map(msg => msg.content)
         .join(' ');
       
-      // איחוד עם ההודעה הנוכחית
       const fullContext = recentUserMessages + ' ' + message;
-      
-      console.log(`[handler] Using history context: "${fullContext.substring(0, 100)}..."`);
       response = generateSmartResponse(fullContext);
     }
     
@@ -2626,7 +1488,7 @@ export default async function handler(req, res) {
     console.error('שגיאה:', error);
     
     return res.status(500).json({
-      response: 'מצטער, הייתה בעיה טכנית. בינתיים, אתה מוזמן לפנות לקבוצת WhatsApp שלנו:\n\nhttps://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME',
+      response: 'מצטער, הייתה בעיה טכנית.',
       error: error.message
     });
   }
