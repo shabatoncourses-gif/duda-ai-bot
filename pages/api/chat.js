@@ -104,7 +104,7 @@ function isRemoteLearningPage(page, includeNational = false) {
   const keywords = [...REMOTE_LEARNING_KEYWORDS];
   
   if (includeNational) {
-    keywords.push('ארצי', 'ברחבי הארץ', 'הדרכה ארצית', 'בכל הארץ', 'כל הארץ');
+    keywords.push('ארצי', 'ברחבי הארץ', 'הדרכה ארצית', 'בכל הארץ', 'כל הארץ', 'פריסה ארצית');
   }
   
   const title = (page.title || '').toLowerCase();
@@ -486,7 +486,7 @@ function filterBySpecificCity(institutions, city, includeRemote = false) {
 }
 
 // ========================================
-// 🔍 חיפוש דפים באינדקסים - גרסה משופרת!
+// 🔍 חיפוש דפים באינדקסים - גרסה מתוקנת!
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
@@ -721,6 +721,9 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       }
     }
     
+    // ========================================
+    // ⭐ בדיקת אזור - גרסה מתוקנת!
+    // ========================================
     let matchesRegion = true;
     let regionBonus = 0;
     
@@ -728,60 +731,86 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       const location = (page.location || '').toLowerCase();
       const titleAndDesc = (title + ' ' + description).toLowerCase();
       
-      const inLocation = region.cities.some(city => {
+      // 🎯 בדוק אם יש עיר מהאזור ב-location
+      const hasRegionCityInLocation = region.cities.some(city => {
         const cityLower = city.toLowerCase().replace(/-/g, ' ');
         return location.includes(cityLower);
       });
       
+      // 📍 אם יש location מפורש
       if (location && location.trim() !== '') {
-        matchesRegion = inLocation;
-        
-        if (matchesRegion) {
-          regionBonus = 50;
+        // 🚫 אם ה-location לא מכיל עיר מהאזור - בדוק אם ארצי
+        if (!hasRegionCityInLocation) {
+          // בדוק אם זה ארצי/למידה מרחוק
+          const isNationalOrRemote = isRemoteLearningPage(page, true);
+          
+          if (isNationalOrRemote) {
+            // ✅ ארצי/למידה מרחוק - עובר, אבל ללא בונוס אזור
+            console.log(`  ℹ️ "${page.title || page.h1}" - national/remote, passing without region bonus`);
+            regionBonus = 0;
+          } else {
+            // ❌ לא באזור ולא ארצי - דחה!
+            console.log(`  ❌ "${page.title || page.h1}" - location "${location}" not in region, rejected`);
+            continue;
+          }
         } else {
-          regionBonus = 0;
+          // ✅ יש עיר מהאזור - תן בונוס!
+          regionBonus = 50;
         }
       } else {
-        let anyCityMentioned = false;
+        // אין location מפורש - בדוק ב-title/description
+        
+        // בדוק אם יש עיר כלשהי מוזכרת
+        let cityMentioned = null;
+        let cityRegion = null;
+        
         if (REGIONS && Array.isArray(REGIONS)) {
           for (const r of REGIONS) {
             for (const city of r.cities) {
               const cityLower = city.toLowerCase().replace(/-/g, ' ');
               if (titleAndDesc.includes(cityLower)) {
-                anyCityMentioned = true;
+                cityMentioned = city;
+                cityRegion = r.name;
                 break;
               }
             }
-            if (anyCityMentioned) break;
+            if (cityMentioned) break;
           }
         }
         
-        if (!anyCityMentioned) {
+        if (cityMentioned) {
+          // יש עיר מוזכרת - בדוק אם היא מהאזור הנכון
+          if (cityRegion === region.name) {
+            // ✅ עיר מהאזור הנכון
+            regionBonus = 30;
+          } else {
+            // ❌ עיר מאזור אחר - דחה!
+            console.log(`  ❌ "${page.title || page.h1}" - mentions city "${cityMentioned}" from different region "${cityRegion}", rejected`);
+            continue;
+          }
+        } else {
+          // אין עיר מוזכרת - בדוק אם מוזכר שם האזור
           const regionMentioned = titleAndDesc.includes(region.name.toLowerCase()) ||
                                   (region.keywords && region.keywords.some(k => titleAndDesc.includes(k.toLowerCase())));
           
           if (regionMentioned) {
-            matchesRegion = true;
-            regionBonus = 10;
+            // ✅ האזור מוזכר
+            regionBonus = 20;
           } else {
+            // אין אזור - בדוק אם ארצי/למידה מרחוק
             const isNationalOrRemote = isRemoteLearningPage(page, true);
             
             if (isNationalOrRemote) {
-              matchesRegion = false;
+              // ✅ ארצי/למידה מרחוק - עובר ללא בונוס
+              console.log(`  ℹ️ "${page.title || page.h1}" - national/remote (no location), passing without bonus`);
               regionBonus = 0;
             } else {
+              // ❌ לא באזור, לא ארצי - דחה!
+              console.log(`  ❌ "${page.title || page.h1}" - no region mention and not national, rejected`);
               continue;
             }
           }
-        } else {
-          matchesRegion = true;
         }
-      }
-      
-      if (inLocation) {
-        regionBonus = 20;
-      } else if (matchesRegion) {
-        regionBonus = 15;
       }
       
       matchScore += regionBonus;
