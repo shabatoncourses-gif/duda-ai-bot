@@ -8,7 +8,7 @@ import path from 'path';
 let ALL_PAGES = null;
 let REGIONS = null;
 let STUDY_FIELDS = null;
-let INSURANCE_QA = null;
+let PAYMENTS_QA = null;
 let REQUIRED_PHRASES = null;
 let COURSES_QA = null;
 
@@ -190,104 +190,182 @@ function identifyPageType(page) {
 // ========================================
 // 💼 ביטוח לאומי - טעינה
 // ========================================
-function loadInsuranceQA() {
-  if (!INSURANCE_QA) {
+function loadPaymentsQA() {
+  if (!PAYMENTS_QA) {
     try {
-      const insurancePath = path.join(process.cwd(), 'data', 'insurance-qa.json');
-      const fileContent = fs.readFileSync(insurancePath, 'utf8');
-      INSURANCE_QA = JSON.parse(fileContent);
+      const paymentsPath = path.join(process.cwd(), 'data', 'payments-qa.json');
+      const fileContent = fs.readFileSync(paymentsPath, 'utf8');
+      PAYMENTS_QA = JSON.parse(fileContent);
       
-      console.log(`✅ נטען insurance-qa.json: ${INSURANCE_QA.questions.length} שאלות`);
+      const totalQuestions = PAYMENTS_QA.categories.reduce((sum, cat) => sum + cat.questions.length, 0);
+      console.log(`✅ נטען payments-qa.json: ${totalQuestions} שאלות ב-${PAYMENTS_QA.categories.length} קטגוריות`);
       
-      if (!INSURANCE_QA.keywords || INSURANCE_QA.keywords.length === 0) {
-        console.error('❌ שגיאה: insurance-qa.json לא מכיל keywords!');
+      if (!PAYMENTS_QA.keywords || PAYMENTS_QA.keywords.length === 0) {
+        console.error('⚠️ payments-qa.json לא מכיל keywords!');
       }
     } catch (error) {
-      console.error('❌ שגיאה בטעינת insurance-qa.json:', error.message);
-      INSURANCE_QA = { questions: [], keywords: [], generalInfo: {}, fallbackMessage: '' };
+      console.error('❌ שגיאה בטעינת payments-qa.json:', error.message);
+      PAYMENTS_QA = { categories: [], keywords: [], generalInfo: {}, fallbackMessage: '' };
     }
   }
-  return INSURANCE_QA;
+  return PAYMENTS_QA;
 }
 
-function detectInsuranceQuestion(message) {
-  loadInsuranceQA();
+function detectPaymentsQuestion(message) {
+  loadPaymentsQA();
   const lowerMessage = message.toLowerCase();
   
-  if (!INSURANCE_QA || !INSURANCE_QA.keywords || INSURANCE_QA.keywords.length === 0) {
+  if (!PAYMENTS_QA || !PAYMENTS_QA.keywords || PAYMENTS_QA.keywords.length === 0) {
     return false;
   }
   
-  if (!lowerMessage.includes('ביטוח')) {
-    return false;
-  }
-  
-  const hasInsuranceKeyword = INSURANCE_QA.keywords.some(keyword => {
+  // בדיקה מהירה - האם יש מילת מפתח תשלומים
+  const hasPaymentsKeyword = PAYMENTS_QA.keywords.some(keyword => {
     const keywordLower = keyword.toLowerCase();
     return lowerMessage.includes(keywordLower);
   });
   
-  if (hasInsuranceKeyword) {
-    console.log('✅ זוהתה שאלה על ביטוח לאומי');
+  if (hasPaymentsKeyword) {
+    console.log('✅ זוהתה שאלה על תשלומים/מענקים');
   }
   
-  return hasInsuranceKeyword;
+  return hasPaymentsKeyword;
 }
 
-function findInsuranceAnswer(message) {
-  loadInsuranceQA();
+function findPaymentsAnswer(message) {
+  loadPaymentsQA();
   
-  if (!INSURANCE_QA || !INSURANCE_QA.questions || INSURANCE_QA.questions.length === 0) {
+  if (!PAYMENTS_QA || !PAYMENTS_QA.categories || PAYMENTS_QA.categories.length === 0) {
+    console.log('⚠️ payments-qa.json לא נטען נכון');
     return null;
   }
   
   const lowerMessage = message.toLowerCase();
-  const questionWords = ['מתי', 'איך', 'מה', 'למה', 'האם', 'מדוע', 'איפה', 'כמה'];
+  
+  const questionWords = ['מה', 'איך', 'למה', 'מתי', 'האם', 'מדוע', 'איפה', 'כמה', 'מי'];
   const isSpecificQuestion = questionWords.some(word => lowerMessage.includes(word));
   
   if (!isSpecificQuestion) {
+    console.log('⚠️ לא שאלה ספציפית');
     return null;
   }
   
-  const cleanMessage = lowerMessage.replace(/[?.]/g, '').trim();
+  console.log('✅ שאלה ספציפית על תשלומים/מענקים - מחפש תשובה');
   
-  const scoredQuestions = INSURANCE_QA.questions.map(qa => {
-    let score = 0;
-    
-    for (const keyword of qa.keywords) {
-      if (cleanMessage.includes(keyword.toLowerCase())) {
-        score += 10;
+  const cleanMessage = lowerMessage
+    .replace(/\?/g, '')
+    .replace(/\./g, '')
+    .trim();
+  
+  let bestMatch = null;
+  let bestScore = 0;
+  let bestCategory = null;
+  
+  for (const category of PAYMENTS_QA.categories) {
+    for (const qa of category.questions) {
+      let score = 0;
+      
+      if (qa.keywords && Array.isArray(qa.keywords)) {
+        for (const keyword of qa.keywords) {
+          const keywordLower = keyword.toLowerCase();
+          
+          if (cleanMessage.includes(keywordLower)) {
+            score += 15;
+            continue;
+          }
+          
+          if (keywordLower.length >= 3) {
+            const keywordStem = keywordLower.substring(0, Math.max(3, keywordLower.length - 2));
+            if (cleanMessage.includes(keywordStem)) {
+              score += 10;
+            }
+          }
+        }
+      }
+      
+      const questionWords = qa.question.toLowerCase().split(/\s+/);
+      const messageWords = cleanMessage.split(/\s+/);
+      
+      for (const word of messageWords) {
+        if (word.length > 2 && questionWords.some(qw => qw.includes(word) || word.includes(qw))) {
+          score += 5;
+        }
+      }
+      
+      if (qa.variations && Array.isArray(qa.variations)) {
+        for (const variation of qa.variations) {
+          const variationWords = variation.toLowerCase().split(/\s+/);
+          for (const word of messageWords) {
+            if (word.length > 2 && variationWords.some(vw => vw.includes(word) || word.includes(vw))) {
+              score += 3;
+            }
+          }
+        }
+      }
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = qa;
+        bestCategory = category;
       }
     }
-    
-    const qaWords = qa.question.toLowerCase().split(/\s+/);
-    const msgWords = cleanMessage.split(/\s+/);
-    
-    for (const word of msgWords) {
-      if (word.length > 2 && qaWords.some(qw => qw.includes(word) || word.includes(qw))) {
-        score += 5;
-      }
-    }
-    
-    return { qa, score };
-  });
-  
-  scoredQuestions.sort((a, b) => b.score - a.score);
-  
-  const bestMatch = scoredQuestions[0];
-  const bestScore = bestMatch ? bestMatch.score : 0;
-  
-  if (bestMatch && bestScore >= 10) {
-    return bestMatch.qa;
   }
   
+  console.log(`🔍 ציון התאמה מירבי: ${bestScore}`);
+  
+  if (bestMatch && bestScore >= 8) {
+    console.log(`✅ נמצאה תשובה בקטגוריה: ${bestCategory.name}`);
+    return { qa: bestMatch, category: bestCategory };
+  }
+  
+  console.log('⚠️ לא נמצאה תשובה טובה מספיק');
   return null;
 }
 
-function formatInsuranceAnswer(qa) {
-  let response = `💼 **ביטוח לאומי בשבתון**\n\n`;
-  response += `**שאלה:**\n${qa.question}\n\n`;
+function formatPaymentsAnswer(match) {
+  const { qa, category } = match;
+  
+  let response = `${category.icon} **${category.name}**\n\n`;
+  response += `**שאלה:** ${qa.question}\n\n`;
   response += `**תשובה:**\n${qa.answer}\n`;
+  
+  if (qa.relatedLinks && qa.relatedLinks.length > 0) {
+    response += `\n`;
+    qa.relatedLinks.forEach(link => {
+      response += `[${link.text}](${link.url})\n`;
+    });
+  }
+  
+  return response;
+}
+
+function formatGeneralPaymentsInfo() {
+  loadPaymentsQA();
+  
+  if (!PAYMENTS_QA || !PAYMENTS_QA.generalInfo) {
+    return `💰 **תשלומים ומענקים בשבתון**\n\nלמידע מפורט:\n[תשלומים בשבתון](https://www.shabaton.online/Payments_shabaton)`;
+  }
+  
+  let response = `💰 **תשלומים ומענקים בשבתון**\n\n`;
+  
+  if (PAYMENTS_QA.generalInfo.content) {
+    response += `${PAYMENTS_QA.generalInfo.content}\n\n`;
+  }
+  
+  response += `**💡 שאלות נפוצות:**\n`;
+  
+  const topCategories = PAYMENTS_QA.categories.slice(0, 3);
+  topCategories.forEach(cat => {
+    if (cat.questions && cat.questions.length > 0) {
+      response += `\n${cat.icon} **${cat.name}**\n`;
+      response += `• ${cat.questions[0].question}\n`;
+    }
+  });
+  
+  response += `\n📘 [למידע מפורט על תשלומים](https://www.shabaton.online/Payments_shabaton)`;
+  
+  return response;
+}
   
   if (qa.relatedLinks && qa.relatedLinks.length > 0) {
     response += `\n`;
@@ -306,21 +384,6 @@ function formatInsuranceAnswer(qa) {
   return response;
 }
 
-function formatGeneralInsuranceInfo() {
-  loadInsuranceQA();
-  
-  if (!INSURANCE_QA || !INSURANCE_QA.generalInfo || !INSURANCE_QA.questions) {
-    return `💼 **ביטוח לאומי בשבתון**\n\nלמידע מפורט:\n[ביטוח לאומי בשבתון](https://www.shabaton.online/btl_shabaton)`;
-  }
-  
-  let response = `💼 **ביטוח לאומי בשבתון**\n\n`;
-  response += `${INSURANCE_QA.generalInfo.content}\n\n`;
-  response += `**📘 למידע מפורט:**\n`;
-  response += `[ביטוח לאומי בשבתון - מדריך מלא](https://www.shabaton.online/btl_shabaton)\n\n`;
-  response += `💡 אפשר גם לשאול שאלות ספציפיות`;
-  
-  return response;
-}
 
 // ========================================
 // 📚 הכרת קורסים - טעינה
@@ -386,7 +449,7 @@ function detectCoursesQuestion(message) {
     'חברה שלי',
     'מורה אחרת',
     
-    // הרשמה ותשלום - חשוב!
+    // הרשמה ותשלום
     'נרשמתי',
     'הרשמה',
     'שילמתי',
@@ -406,29 +469,49 @@ function detectCoursesQuestion(message) {
     'בדיקה',
     'לבדוק',
     'איך בודקים',
-    'מה עושים'
+    'מה עושים',
+    
+    // 🆕 תכנון ומבנה תוכנית
+    'תוכנית לימודים',
+    'תכנית לימודים',
+    'מורכבת',
+    'מבנה',
+    'דרישות',
+    'חובות',
+    'שש',
+    'ש"ש',
+    'מה צריך ללמוד',
+    'כמה צריך ללמוד',
+    'איך בונים',
+    'איך מתכננים',
+    'רכיבים',
+    'מה כולל',
+    'ממה מורכב'
   ];
   
-  // בדיקה מהירה
+  // בדיקה מהירה - אם יש מילת מפתח ספציפית לתכנון
   const isPlanningQuestion = planningKeywords.some(keyword => 
     lowerMessage.includes(keyword)
   );
   
   if (!isPlanningQuestion) {
+    // אין מילת מפתח ספציפית - בדוק את ה-keywords הכלליים מהקובץ
+    const hasCoursesKeyword = COURSES_QA.keywords.some(keyword => {
+      const keywordLower = keyword.toLowerCase();
+      return lowerMessage.includes(keywordLower);
+    });
+    
+    if (hasCoursesKeyword) {
+      console.log('✅ זוהתה שאלה על הכרת קורסים (keywords כלליים)');
+      return true;
+    }
+    
     return false;
   }
   
-  // בדיקה מדויקת יותר עם keywords מהקובץ
-  const hasCoursesKeyword = COURSES_QA.keywords.some(keyword => {
-    const keywordLower = keyword.toLowerCase();
-    return lowerMessage.includes(keywordLower);
-  });
-  
-  if (hasCoursesKeyword) {
-    console.log('✅ זוהתה שאלה על הכרת קורסים');
-  }
-  
-  return hasCoursesKeyword;
+  // ✅ יש מילת מפתח ספציפית - זו בהחלט שאלה על הכרת קורסים!
+  console.log('✅ זוהתה שאלה על הכרת קורסים');
+  return true;
 }
 
 function findCoursesAnswer(message) {
@@ -1388,14 +1471,14 @@ function generateSmartResponse(userMessage) {
   console.log('========================================\n');
   
   try {
-    // ✅ בדוק ביטוח לאומי
-    if (detectInsuranceQuestion(userMessage)) {
-      const answer = findInsuranceAnswer(userMessage);
+    // ✅ בדוק תשלומים ומענקים
+    if (detectPaymentsQuestion(userMessage)) {
+      const answer = findPaymentsAnswer(userMessage);
       
       if (answer) {
-        return formatInsuranceAnswer(answer);
+        return formatPaymentsAnswer(answer);
       } else {
-        return formatGeneralInsuranceInfo();
+        return formatGeneralPaymentsInfo();
       }
     }
     
@@ -1418,9 +1501,6 @@ function generateSmartResponse(userMessage) {
     const isInfoQuery = userMessage.toLowerCase().includes('שבתון') || 
                         userMessage.toLowerCase().includes('מענק') ||
                         userMessage.toLowerCase().includes('ביטוח לאומי') ||
-                        userMessage.toLowerCase().includes('פנסיה') ||
-                        userMessage.toLowerCase().includes('קרן השתלמות') ||
-                        userMessage.toLowerCase().includes('קרן פנסיה') ||
                         userMessage.toLowerCase().includes('לידה');
     
     if (isInfoQuery) {
@@ -1440,8 +1520,8 @@ function generateSmartResponse(userMessage) {
       response += `• מענק בשבתון\n`;
       response += `• ביטוח לאומי\n`;
       response += `• לידה בשבתון\n`;
+      response += `• קרן פנסיה בשבתון\n`;
       response += `• תוכנית הלימודים\n\n`;
-      response += `• תשלומים בשבתון\n\n`;
       response += `[שאל בקבוצת WhatsApp](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)`;
       return response;
     }
