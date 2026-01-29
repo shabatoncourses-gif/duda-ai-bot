@@ -103,12 +103,10 @@ function detectRemoteLearning(message) {
 function isRemoteLearningPage(page, includeNational = false) {
   const keywords = [...REMOTE_LEARNING_KEYWORDS];
   
-  // אם רוצים לבדוק גם ארצי
   if (includeNational) {
-    keywords.push('ארצי', 'ברחבי הארץ', 'פריסה ארצית', 'בכל הארץ', 'כל הארץ');
+    keywords.push('ארצי', 'ברחבי הארץ', 'הדרכה ארצית', 'בכל הארץ', 'כל הארץ');
   }
   
-  // בנה תוכן מלא של הדף
   const title = (page.title || '').toLowerCase();
   const description = (page.description || '').toLowerCase();
   const location = (page.location || '').toLowerCase();
@@ -118,8 +116,74 @@ function isRemoteLearningPage(page, includeNational = false) {
   
   const pageContent = title + ' ' + description + ' ' + location + ' ' + pageKeywords + ' ' + h2Text + ' ' + h3Text;
   
-  // בדוק אם יש מילת מפתח
   return keywords.some(keyword => pageContent.includes(keyword.toLowerCase()));
+}
+
+// ========================================
+// 🏷️ זיהוי סוג דף
+// ========================================
+function identifyPageType(page) {
+  if (!page || !page.url) return 'unknown';
+  
+  const url = page.url.toLowerCase();
+  const title = (page.title || page.h1 || '').toLowerCase();
+  
+  // ❌ דפים כלליים - לעולם לא להציג!
+  const generalPagePatterns = [
+    '/$',                          // דף הבית
+    '/about',                      // אודות
+    '/contact',                    // צור קשר
+    '/drushim/',                   // דרושים
+    '/משרות-הוראה',                // משרות הוראה
+    '/הוספת-מודעה',                // הוספת מודעה
+    '/knassim',                    // כנסים
+    '/consult'                     // ייעוץ
+  ];
+  
+  for (const pattern of generalPagePatterns) {
+    const regex = new RegExp(pattern);
+    if (regex.test(url)) {
+      return 'general'; // ❌ דף כללי
+    }
+  }
+  
+  // 📘 דפי מידע על שבתון
+  const infoPagePatterns = [
+    '/luz_shabaton',
+    '/shabaton-video',
+    '/end_shabaton',
+    '/halforfull_shabaton',
+    '/phones_shabaton',
+    '/forms_shabaton',
+    '/Payments_shabaton',
+    '/tlush_maanak_shabaton',
+    '/btl-morim-shabaton',
+    '/btl_shabaton',
+    '/birth_shabatgon',
+    '/tuition_reimbursement',
+    '/kabalot_shabaton',
+    '/shabaton-maanak',
+    '/pension_shabaton',
+    '/keren_makor_mishor',
+    '/tofes_101',
+    '/learning_programs_shabaton'
+  ];
+  
+  for (const pattern of infoPagePatterns) {
+    if (url.includes(pattern)) {
+      return 'info'; // 📘 דף מידע
+    }
+  }
+  
+  // 🔍 דפי תוצאות חיפוש דינמיים
+  if (url.includes('/results-') || 
+      url.includes('/search-results-') || 
+      url.includes('/courses-per-month')) {
+    return 'dynamic'; // 🔍 דף תוצאות
+  }
+  
+  // 🏛️ דפי מוסדות עם קורסים
+  return 'static'; // 🏛️ דף מוסד
 }
 
 function loadInsuranceQA() {
@@ -142,9 +206,6 @@ function loadInsuranceQA() {
   return INSURANCE_QA;
 }
 
-// ========================================
-// 🔍 זיהוי שאלה על ביטוח לאומי
-// ========================================
 function detectInsuranceQuestion(message) {
   loadInsuranceQA();
   const lowerMessage = message.toLowerCase();
@@ -314,59 +375,6 @@ function isWithinThreeMonths(dateStr) {
   }
 }
 
-function shouldFilterUrl(url, title = '', hasSpecificPhrase = false) {
-  if (!url) return true;
-  
-  const urlLower = url.toLowerCase();
-  const titleLower = (title || '').toLowerCase();
-  
-  const blockedPatterns = [
-    '/drushim/',
-    '/consult',
-    '/contact',
-    '/knassim',
-    '/משרות-הוראה',
-    '/הוספת-מודעה',
-    'https://www.shabaton.online/$',
-    '/courses-per-month-',
-    '/Ma_Edu_',
-    'close carousel',
-    'morim.boutique/art',
-    'morim.boutique/mosaic',
-    'morim.boutique/courses-jewelry',
-    'morim.boutique/empowering',
-    'morim.boutique/cooking',
-    'morim.boutique/trips',
-    'morim.boutique/health',
-    'morim.boutique/fashion',
-    'morim.boutique/$',
-    'קורסי-נגרות-וחידוש-רהיטים'
-  ];
-  
-  if (blockedPatterns.some(pattern => urlLower.includes(pattern))) {
-    return true;
-  }
-  
-  if (hasSpecificPhrase) {
-    return false;
-  }
-  
-  const blockedTitles = [
-    'קורסי העשרה',
-    'העשרה ופנאי',
-    'קורסים כלליים',
-    'לוח זמנים',
-    'לוח הזמנים',
-    'השתלמויות מורים'
-  ];
-  
-  if (blockedTitles.some(pattern => titleLower.includes(pattern))) {
-    return true;
-  }
-  
-  return false;
-}
-
 function isUpcomingDate(dateStr) {
   if (!dateStr) return false;
   
@@ -478,7 +486,7 @@ function filterBySpecificCity(institutions, city, includeRemote = false) {
 }
 
 // ========================================
-// 🔍 חיפוש דפים באינדקסים
+// 🔍 חיפוש דפים באינדקסים - גרסה משופרת!
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
@@ -488,6 +496,19 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   
   const pages = loadAllPages();
   const lowerQuery = query.toLowerCase();
+  
+  // 🎯 זיהוי: האם זו שאילת מידע על שבתון?
+  const isInfoQuery = lowerQuery.includes('שבתון') || 
+                      lowerQuery.includes('מענק') ||
+                      lowerQuery.includes('ביטוח לאומי') ||
+                      lowerQuery.includes('לידה') ||
+                      lowerQuery.includes('לוז') ||
+                      lowerQuery.includes('תשלום') ||
+                      lowerQuery.includes('קבלות') ||
+                      lowerQuery.includes('פנסיה') ||
+                      lowerQuery.includes('טופס');
+  
+  console.log(`🎯 Query type: ${isInfoQuery ? 'INFO (מידע על שבתון)' : 'COURSES (חיפוש קורסים)'}`);
   
   let cleanQuery = lowerQuery.replace(/\sב([א-ת])/g, ' $1');
   cleanQuery = cleanQuery.replace(/-/g, ' ');
@@ -506,7 +527,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   const queryWordsWithoutCities = cleanQueryForSearch.split(/\s+/)
     .filter(w => w.length > 2 && !stopWords.includes(w));
   
-  if (queryWordsWithoutCities.length === 0) {
+  if (queryWordsWithoutCities.length === 0 && !isInfoQuery) {
     return [];
   }
   
@@ -535,6 +556,24 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   let results = [];
   
   for (const page of pages) {
+    // 🚫 סינון ראשוני: זיהוי סוג הדף
+    const pageType = identifyPageType(page);
+    
+    // ❌ דפים כלליים - תמיד לחסום!
+    if (pageType === 'general') {
+      continue;
+    }
+    
+    // 📘 אם שאילת מידע - רק דפי מידע
+    if (isInfoQuery && pageType !== 'info') {
+      continue;
+    }
+    
+    // 🎓 אם שאילת קורסים - לא דפי מידע
+    if (!isInfoQuery && pageType === 'info') {
+      continue;
+    }
+    
     const titleText = (page.title || '').toLowerCase();
     const h1Text = (page.h1 || '').toLowerCase();
     const h2Text = Array.isArray(page.h2) ? page.h2.join(' ').toLowerCase() : (page.h2 || '').toLowerCase();
@@ -542,10 +581,6 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     const allHeadersText = titleText + ' ' + h1Text + ' ' + h2Text + ' ' + h3Text;
     
     const hasSpecificPhrase = detectedPhrase && phraseVariations.some(v => allHeadersText.includes(v));
-    
-    if (shouldFilterUrl(page.url, page.title || page.h1, hasSpecificPhrase)) {
-      continue;
-    }
     
     const title = (page.title || page.h1 || '').toLowerCase();
     const description = (page.description || '').toLowerCase();
@@ -561,32 +596,8 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       }
     }
     
-    const isStaticPage = !url.includes('/results-') && !url.includes('/search-results-') && !url.includes('/courses-per-month');
-    const isInfoPage = url.includes('/luz_shabaton') ||
-                       url.includes('/shabaton-video') ||
-                       url.includes('/end_shabaton') ||
-                       url.includes('/halforfull_shabaton') ||
-                       url.includes('/phones_shabaton') ||
-                       url.includes('/forms_shabaton') ||
-                       url.includes('/Payments_shabaton') ||
-                       url.includes('/tlush_maanak_shabaton') ||
-                       url.includes('/btl-morim-shabaton') ||
-                       url.includes('/birth_shabatgon') ||
-                       url.includes('/tuition_reimbursement') ||
-                       url.includes('/kabalot_shabaton') ||
-                       url.includes('/shabaton-maanak') ||
-                       url.includes('/pension_shabaton') ||
-                       url.includes('/keren_makor_mishor') ||
-                       url.includes('/tofes_101') ||
-                       url.includes('/learning_programs_shabaton') ||
-                       url.includes('/time') ||
-                       url.includes('/schedule') ||
-                       url.includes('/timetable') ||
-                       title.includes('לוח זמנים') ||
-                       title.includes('לוח הזמנים');
-    
-    if (pageType === 'static' && !isStaticPage) continue;
-    if (pageType === 'info' && !isInfoPage) continue;
+    const isStaticPage = pageType === 'static';
+    const isInfoPage = pageType === 'info';
     
     let matchScore = 0;
     
@@ -776,7 +787,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       matchScore += regionBonus;
     }
     
-    if (matchScore > 0) {
+    if (matchScore > 0 || isInfoPage) {
       let upcomingDate = page.upcomingDate || null;
       
       if (!upcomingDate && studyField) {
@@ -788,7 +799,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       
       // 🆕 בונוס ענק לקורסים שנפתחים ב-3 חודשים הקרובים!
       if (upcomingDate && isUpcomingDate(upcomingDate)) {
-        matchScore += 200; // ⭐ בונוס ענק!
+        matchScore += 200;
       }
       
       results.push({
@@ -803,30 +814,27 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     }
   }
   
-  // מיון: עדיפות ראשונה לקורסים עם תאריך קרוב!
+  // מיון: קורסים עם תאריך קרוב ראשונים!
   results.sort((a, b) => {
-    // ⭐ קורסים שנפתחים בקרוב - ראשונים!
     const aHasUpcoming = a.upcomingDate && isUpcomingDate(a.upcomingDate);
     const bHasUpcoming = b.upcomingDate && isUpcomingDate(b.upcomingDate);
     
     if (aHasUpcoming && !bHasUpcoming) return -1;
     if (!aHasUpcoming && bHasUpcoming) return 1;
     
-    // עדיפות שנייה: עיר ספציפית
     if (a.isInSpecificCity && !b.isInSpecificCity) return -1;
     if (!a.isInSpecificCity && b.isInSpecificCity) return 1;
     
-    // עדיפות שלישית: דפים סטטיים
     if (a.isStatic && !b.isStatic) return -1;
     if (!a.isStatic && b.isStatic) return 1;
     
-    // עדיפות רביעית: ציון
     return b.score - a.score;
   });
   
-  results = results.filter(r => r.score >= minScore);
+  results = results.filter(r => r.score >= minScore || r.isInfo);
   
   console.log(`[searchPages] Returning: ${Math.min(results.length, 10)} results`);
+  console.log(`[searchPages] Types: ${results.filter(r => r.isStatic).length} static, ${results.filter(r => r.isInfo).length} info`);
   console.log(`[searchPages] ========== END ==========\n`);
   
   return results.slice(0, 10);
@@ -881,7 +889,6 @@ function formatSearchResults(pages, field = null, region = null) {
         if (desc) response += `${desc}\n`;
       }
       
-      // 🆕 הצג תאריך קרוב!
       if (page.upcomingDate && isUpcomingDate(page.upcomingDate)) {
         response += `📅 נפתח בקרוב: ${page.upcomingDate}\n`;
       } else if (page.startDate && isWithinThreeMonths(page.startDate)) {
@@ -1043,7 +1050,7 @@ function detectStudyField(message) {
   const lowerMessage = message.toLowerCase();
   const detectedFields = [];
   
-  // **שלב 1: התאמה מדויקת לשם התחום**
+  // שלב 1: התאמה מדויקת לשם התחום
   for (const field of STUDY_FIELDS) {
     // 🚫 דלג על "למידה מרחוק"
     if (field.name === 'למידה מרחוק') {
@@ -1057,7 +1064,7 @@ function detectStudyField(message) {
     }
   }
   
-  // **שלב 2: בדוק REQUIRED_PHRASES**
+  // שלב 2: בדוק REQUIRED_PHRASES
   if (REQUIRED_PHRASES && Array.isArray(REQUIRED_PHRASES)) {
     for (const phraseEntry of REQUIRED_PHRASES) {
       const mainPhrase = phraseEntry.phrase.toLowerCase();
@@ -1087,7 +1094,7 @@ function detectStudyField(message) {
     }
   }
   
-  // **שלב 3: חיפוש במילות מפתח**
+  // שלב 3: חיפוש במילות מפתח
   const matches = [];
   const tooGenericKeywords = ['למידה', 'לימוד', 'קורס', 'קורסים', 'השתלמות'];
   
@@ -1102,7 +1109,6 @@ function detectStudyField(message) {
       
       const keywordLower = keyword.toLowerCase();
       
-      // 🚫 דלג על keywords כלליים
       if (tooGenericKeywords.includes(keywordLower)) {
         continue;
       }
@@ -1151,12 +1157,12 @@ function generateSmartResponse(userMessage) {
     let response = '';
     
     // שאלות מידע על שבתון
-    const isInfoQuestion = userMessage.toLowerCase().includes('שבתון') || 
-                           userMessage.toLowerCase().includes('מענק') ||
-                           userMessage.toLowerCase().includes('ביטוח לאומי') ||
-                           userMessage.toLowerCase().includes('לידה');
+    const isInfoQuery = userMessage.toLowerCase().includes('שבתון') || 
+                        userMessage.toLowerCase().includes('מענק') ||
+                        userMessage.toLowerCase().includes('ביטוח לאומי') ||
+                        userMessage.toLowerCase().includes('לידה');
     
-    if (isInfoQuestion) {
+    if (isInfoQuery) {
       try {
         const infoResults = searchPages(userMessage, null, 'info');
         
@@ -1229,7 +1235,6 @@ function generateSmartResponse(userMessage) {
       
       const hasSpecificKeyword = field && field.specificKeyword;
       
-      // אם אין תוצאות - נסה broader search באזור
       if (filteredResults.length === 0 && uniqueResults.length === 0 && hasSpecificKeyword) {
         console.log(`🔍 Trying broader search in region...`);
         
@@ -1247,7 +1252,6 @@ function generateSmartResponse(userMessage) {
           console.error(`Error in broader region search:`, error.message);
         }
         
-        // אם מצאנו תוצאות באזור - הצג אותן!
         if (broaderRegionResults.length > 0) {
           let remoteCount = 0;
           let regionalCount = 0;
@@ -1289,7 +1293,6 @@ function generateSmartResponse(userMessage) {
           return response;
         }
         
-        // אם אין באזור - חפש למידה מרחוק
         console.log(`🔍 No results in region - searching for remote learning...`);
         
         let remoteResults = [];
@@ -1342,7 +1345,6 @@ function generateSmartResponse(userMessage) {
           response += formatted;
         }
         
-        // הצע למידה מרחוק אם יש מעט תוצאות
         if (staticCount < 5 && field) {
           try {
             let remoteResults = searchPages(userMessage, null, 'all', field);
