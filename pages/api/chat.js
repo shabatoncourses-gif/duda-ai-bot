@@ -105,7 +105,7 @@ function isRemoteLearningPage(page, includeNational = false) {
   
   // אם רוצים לבדוק גם ארצי
   if (includeNational) {
-    keywords.push('ארצי', 'ברחבי הארץ', 'הדרכה ארצית', 'בכל הארץ', 'כל הארץ');
+    keywords.push('ארצי', 'ברחבי הארץ', 'פריסה ארצית', 'בכל הארץ', 'כל הארץ');
   }
   
   // בנה תוכן מלא של הדף
