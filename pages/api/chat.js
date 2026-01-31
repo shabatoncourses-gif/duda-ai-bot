@@ -366,24 +366,6 @@ function formatGeneralPaymentsInfo() {
   
   return response;
 }
-  
-  if (qa.relatedLinks && qa.relatedLinks.length > 0) {
-    response += `\n`;
-    qa.relatedLinks.forEach(link => {
-      response += `[${link.text}](${link.url})\n`;
-    });
-  }
-  
-  const btlLink = 'https://www.shabaton.online/btl_shabaton';
-  const alreadyHasLink = qa.relatedLinks && qa.relatedLinks.some(link => link.url === btlLink);
-  
-  if (!alreadyHasLink) {
-    response += `\n[למידע מפורט על ביטוח לאומי בשבתון](${btlLink})\n`;
-  }
-  
-  return response;
-}
-
 
 // ========================================
 // 📚 הכרת קורסים - טעינה
