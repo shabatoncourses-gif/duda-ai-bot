@@ -453,15 +453,13 @@ function detectCoursesQuestion(message) {
     'איך בודקים',
     'מה עושים',
     
-    // 🆕 תכנון ומבנה תוכנית
+    // תכנון ומבנה תוכנית
     'תוכנית לימודים',
     'תכנית לימודים',
     'מורכבת',
     'מבנה',
     'דרישות',
     'חובות',
-    'שש',
-    'ש"ש',
     'מה צריך ללמוד',
     'כמה צריך ללמוד',
     'איך בונים',
@@ -477,7 +475,17 @@ function detectCoursesQuestion(message) {
   );
   
   if (!isPlanningQuestion) {
-    // אין מילת מפתח ספציפית - בדוק את ה-keywords הכלליים מהקובץ
+    // 🔍 אין planning keyword - בדוק אם יש מילת שאלה
+    // אם אין שאלה → זה חיפוש קורסים, לא שאלה תכנון!
+    const questionWords = ['מה', 'איך', 'למה', 'מתי', 'האם', 'מדוע', 'כמה', 'מי', 'ממה', 'מאיזה'];
+    const hasQuestionWord = questionWords.some(w => lowerMessage.includes(w));
+    
+    if (!hasQuestionWord) {
+      console.log('🔍 אין שאלה ואין planning keyword → חיפוש קורסים');
+      return false;
+    }
+    
+    // יש שאלה - בדוק keywords כלליים מהקובץ
     const hasCoursesKeyword = COURSES_QA.keywords.some(keyword => {
       const keywordLower = keyword.toLowerCase();
       return lowerMessage.includes(keywordLower);
@@ -1445,34 +1453,128 @@ function detectStudyField(message) {
 }
 
 // ========================================
+// 🤔 אבחנת כוונת המשתמש
+// ========================================
+const DISAMBIG_MARKER = '<!-- SHABATON_ORIG:';
+const DISAMBIG_END = '-->';
+
+function classifyIntent(message) {
+  const lower = message.toLowerCase().trim();
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 1️⃣ תשלומים — ברור, אין ספק
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  if (detectPaymentsQuestion(message)) return 'payments';
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 2️⃣ FAQ ברור — שאלות שהן 100% מידע, לא חיפוש
+  //    אלה שאלות שמתחילות עם "מה זה", "ממה מורכבת" וכו'
+  //    → אין ספק, תשובה אוטומטית
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const clearFAQPatterns = [
+    'מה זה קורס רשות',
+    'מה זה קורס חובה',
+    'מה זה לימודי רשות',
+    'מה זה לימודי חובה',
+    'ממה מורכבת תוכנית',
+    'ממה מורכבת תכנית',
+    'כמה שעות רשות',
+    'כמה שעות חובה',
+    'כמה שעות צריך',
+    'מתי צריך לבדוק',
+    'לא מופיע בפורטל',
+    'לא מופיע במאגר',
+    'נרשמתי כבר',
+    'שילמתי מקדמה',
+    'מה זה שש',
+    'תוכנית הלימודים',
+    'תכנית הלימודים',
+    'הכרה בקורס',
+    'הוא מוכר לשבתון',
+    'קורס מוכר לשבתון',
+  ];
+  if (clearFAQPatterns.some(p => lower.includes(p))) return 'qa';
+
+  // גם בדוק findCoursesAnswer — אם יש match חזק בקובץ
+  const coursesMatch = findCoursesAnswer(message);
+  if (coursesMatch) return 'qa';
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 3️⃣ חיפוש ברור — תחום + מקום → ברור שמחפשת קורס
+  //    דוגמה: "קורס צילום בתל אביב"
+  //    דוגמה: "מה יש בירושלים"
+  //    → אין ספק, חיפוש אוטומטי
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const regions = detectRegions(message);
+  const studyFields = detectStudyField(message);
+  const hasLocation = regions && regions.length > 0;
+  const hasStudyField = studyFields && studyFields.length > 0;
+
+  // "מחפשת קורס ___" = חיפוש ברור
+  const clearSearchPatterns = ['מחפש קורס', 'מחפשת קורס', 'תמצאי קורס', 'תמצא קורס'];
+  if (clearSearchPatterns.some(p => lower.includes(p))) return 'search';
+
+  // תחום + מקום = חיפוש ברור ("צילום בתל אביב")
+  if (hasLocation && hasStudyField) return 'search';
+
+  // רק מקום ("מה יש בירושלים", "קורסים בחיפה") = חיפוש
+  if (hasLocation) return 'search';
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 4️⃣ יש "קורס"/"לימוד"/תחום אבל אין מקום → ספק!
+  //    דוגמה: "האם יש קורס הנחיית קבוצות"
+  //    דוגמה: "קורס עיסת נייר"
+  //    → שאל את הגולש
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  if (lower.includes('קורס') || lower.includes('לימוד') || hasStudyField) return 'ambiguous';
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 5️⃣ Default — אין keywords קורס → חיפוש כללי
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  return 'search';
+}
+
+function formatDisambiguation(originalMessage) {
+  let response = `🤔 כדי שאני אעזור לך הכי טוב, הבהרי בבקשה:\n\n`;
+  response += `> "${originalMessage}"\n\n`;
+  response += `מה הכוונה?\n\n`;
+  response += `**1️⃣ 🔍 חיפוש קורס** — אני מחפשת קורס כזה, תמצאי לי אנה\n`;
+  response += `**2️⃣ 📚 מידע שבתון** — אני שואלת אם הוא מוכר/מאושר לשבתון\n\n`;
+  response += `כתבי **1** ו **2** 😊\n`;
+  response += `${DISAMBIG_MARKER} ${originalMessage} ${DISAMBIG_END}`;
+  return response;
+}
+
+// ========================================
 // 🤖 יצירת תשובה חכמה
 // ========================================
-function generateSmartResponse(userMessage) {
+function generateSmartResponse(userMessage, forcedMode) {
   console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
   console.log('========================================\n');
-  
+
   try {
-    // ✅ בדוק תשלומים ומענקים
-    if (detectPaymentsQuestion(userMessage)) {
-      const answer = findPaymentsAnswer(userMessage);
-      
-      if (answer) {
-        return formatPaymentsAnswer(answer);
-      } else {
-        return formatGeneralPaymentsInfo();
-      }
+    // 🎯 אבחנת כוונה
+    const intent = forcedMode || classifyIntent(userMessage);
+    console.log(`🎯 [classifyIntent] intent: ${intent}`);
+
+    // 🤔 אמבמבוי → שאל את הגולשת
+    if (intent === 'ambiguous') {
+      return formatDisambiguation(userMessage);
     }
-    
-    // 🆕 בדוק הכרת קורסים
-    if (detectCoursesQuestion(userMessage)) {
+
+    // ✅ תשלומים ומענקים
+    if (intent === 'payments') {
+      const answer = findPaymentsAnswer(userMessage);
+      if (answer) return formatPaymentsAnswer(answer);
+      return formatGeneralPaymentsInfo();
+    }
+
+    // 📚 שאלות מידע (courses-qa)
+    if (intent === 'qa') {
       const answer = findCoursesAnswer(userMessage);
-      
-      if (answer) {
-        return formatCoursesAnswer(answer);
-      } else {
-        return formatGeneralCoursesInfo();
-      }
+      if (answer) return formatCoursesAnswer(answer);
+      return formatGeneralCoursesInfo();
     }
     
     let regions = detectRegions(userMessage);
@@ -1781,6 +1883,42 @@ export default async function handler(req, res) {
     
     console.log(`\n📨 [handler] New message: "${message}"`);
     
+    // 🤔 בדוק אם הגולשת מתפתחת לשאלת הבהרה שלנו
+    let lastBotMessage = null;
+    if (history && Array.isArray(history) && history.length > 0) {
+      for (let i = history.length - 1; i >= 0; i--) {
+        if (history[i].role === 'assistant') {
+          lastBotMessage = history[i].content;
+          break;
+        }
+      }
+    }
+    
+    if (lastBotMessage && lastBotMessage.includes(DISAMBIG_MARKER)) {
+      const markerStart = lastBotMessage.indexOf(DISAMBIG_MARKER) + DISAMBIG_MARKER.length;
+      const markerEnd = lastBotMessage.indexOf(DISAMBIG_END, markerStart);
+      
+      if (markerEnd > markerStart) {
+        const originalQuery = lastBotMessage.substring(markerStart, markerEnd).trim();
+        const userChoice = message.toLowerCase().trim();
+        
+        console.log(`🤔 [handler] Disambiguation! choice="${userChoice}" original="${originalQuery}"`);
+        
+        let forcedMode = null;
+        if (userChoice === '1' || userChoice.includes('חיפוש') || userChoice.includes('🔍')) {
+          forcedMode = 'search';
+        } else if (userChoice === '2' || userChoice.includes('מידע') || userChoice.includes('📚') || userChoice.includes('שבתון')) {
+          forcedMode = 'qa';
+        }
+        
+        if (forcedMode) {
+          console.log(`🎯 [handler] Routing to: ${forcedMode} with query: "${originalQuery}"`);
+          const response = generateSmartResponse(originalQuery, forcedMode);
+          return res.status(200).json({ response, timestamp: new Date().toISOString() });
+        }
+      }
+    }
+    
     let response = generateSmartResponse(message);
     
     const missingRegion = response.includes('באיזה אזור');
@@ -1796,16 +1934,6 @@ export default async function handler(req, res) {
     console.log(`   - Is short answer: ${isShortAnswer}`);
     console.log(`   - Missing region: ${missingRegion}`);
     console.log(`   - Missing field: ${missingField}`);
-    
-    let lastBotMessage = null;
-    if (history && Array.isArray(history) && history.length > 0) {
-      for (let i = history.length - 1; i >= 0; i--) {
-        if (history[i].role === 'assistant') {
-          lastBotMessage = history[i].content;
-          break;
-        }
-      }
-    }
     
     const lastBotMessageWasQuestion = lastBotMessage && 
       (lastBotMessage.includes('באיזה אזור') || 
