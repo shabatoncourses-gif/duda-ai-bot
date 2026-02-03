@@ -1455,8 +1455,6 @@ function detectStudyField(message) {
 // ========================================
 // 🤔 אבחנת כוונת המשתמש
 // ========================================
-const DISAMBIG_MARKER = '<!-- SHABATON_ORIG:';
-const DISAMBIG_END = '-->';
 
 function classifyIntent(message) {
   const lower = message.toLowerCase().trim();
@@ -1535,13 +1533,12 @@ function classifyIntent(message) {
 }
 
 function formatDisambiguation(originalMessage) {
-  let response = `🤔 כדי שאני אעזור לך הכי טוב, הבהרי בבקשה:\n\n`;
+  let response = `🤔 כדי שאני אעזור לך הכי טוב:\n\n`;
   response += `> "${originalMessage}"\n\n`;
   response += `מה הכוונה?\n\n`;
-  response += `**1️⃣ 🔍 חיפוש קורס** — אני מחפשת קורס כזה, תמצאי לי אנה\n`;
-  response += `**2️⃣ 📚 מידע שבתון** — אני שואלת אם הוא מוכר/מאושר לשבתון\n\n`;
-  response += `כתבי **1** ו **2** 😊\n`;
-  response += `${DISAMBIG_MARKER} ${originalMessage} ${DISAMBIG_END}`;
+  response += `**1️⃣ 🔍 חיפוש קורס** — מחפש.ת קורס כזה, מצא לי בבקשה\n`;
+  response += `**2️⃣ 📚 מידע שבתון** — שואל.ת אם הוא מוכר/מאושר לשבתון\n\n`;
+  response += `כתבי **1** או **2** 😊`;
   return response;
 }
 
@@ -1846,23 +1843,29 @@ export default async function handler(req, res) {
       }
     }
     
-    if (lastBotMessage && lastBotMessage.includes(DISAMBIG_MARKER)) {
-      const markerStart = lastBotMessage.indexOf(DISAMBIG_MARKER) + DISAMBIG_MARKER.length;
-      const markerEnd = lastBotMessage.indexOf(DISAMBIG_END, markerStart);
-      
-      if (markerEnd > markerStart) {
-        const originalQuery = lastBotMessage.substring(markerStart, markerEnd).trim();
+    if (lastBotMessage && lastBotMessage.includes('מה הכוונה?')) {
+      // השאלה המקורית היא הודעת הגולש הקודמה ב-history
+      let originalQuery = null;
+      if (history && Array.isArray(history) && history.length > 0) {
+        for (let i = history.length - 1; i >= 0; i--) {
+          if (history[i].role === 'user') {
+            originalQuery = history[i].content;
+            break;
+          }
+        }
+      }
+
+      if (originalQuery) {
         const userChoice = message.toLowerCase().trim();
-        
         console.log(`🤔 [handler] Disambiguation! choice="${userChoice}" original="${originalQuery}"`);
-        
+
         let forcedMode = null;
         if (userChoice === '1' || userChoice.includes('חיפוש') || userChoice.includes('🔍')) {
           forcedMode = 'search';
         } else if (userChoice === '2' || userChoice.includes('מידע') || userChoice.includes('📚') || userChoice.includes('שבתון')) {
           forcedMode = 'qa';
         }
-        
+
         if (forcedMode) {
           console.log(`🎯 [handler] Routing to: ${forcedMode} with query: "${originalQuery}"`);
           const response = generateSmartResponse(originalQuery, forcedMode);
