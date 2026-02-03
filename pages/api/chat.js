@@ -1425,6 +1425,8 @@ function detectStudyField(message) {
       continue;
     }
     
+    let bestMatch = null;
+
     for (const keyword of field.keywords) {
       if (!keyword) continue;
       
@@ -1435,9 +1437,14 @@ function detectStudyField(message) {
       }
       
       if (lowerMessage.includes(keywordLower)) {
-        matches.push({ field, keyword, length: keywordLower.length });
-        break;
+        if (!bestMatch || keywordLower.length > bestMatch.length) {
+          bestMatch = { keyword, length: keywordLower.length };
+        }
       }
+    }
+
+    if (bestMatch) {
+      matches.push({ field, keyword: bestMatch.keyword, length: bestMatch.length });
     }
   }
   
