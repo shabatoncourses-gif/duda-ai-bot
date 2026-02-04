@@ -1881,70 +1881,43 @@ export default async function handler(req, res) {
       }
     }
     
-    let response = generateSmartResponse(message);
-    
-    const missingRegion = response.includes('באיזה אזור');
-    const missingField = response.includes('באיזה תחום');
-    const genericResponse = response.includes('אשמח לעזור');
-    
-    const needsContext = missingRegion && !missingField && !genericResponse;
-    
+    // 🔄 בדוק אם זו תשובת המשך לשאלה של הבוט
     const isShortAnswer = message.trim().split(/\s+/).length <= 5;
-    
-    console.log(`🔍 [handler] Analysis:`);
-    console.log(`   - Needs context: ${needsContext}`);
-    console.log(`   - Is short answer: ${isShortAnswer}`);
-    console.log(`   - Missing region: ${missingRegion}`);
-    console.log(`   - Missing field: ${missingField}`);
-    
-    const lastBotMessageWasQuestion = lastBotMessage && 
+    const lastBotMessageWasFollowUpQuestion = lastBotMessage && 
       (lastBotMessage.includes('באיזה אזור') || 
-       lastBotMessage.includes('באיזה תחום') ||
+       lastBotMessage.includes('איזה תחום') ||
        lastBotMessage.includes('מה תרצה'));
     
-    console.log(`   - Last bot message was question: ${lastBotMessageWasQuestion}`);
-    if (lastBotMessage) {
-      console.log(`   - Last bot message preview: "${lastBotMessage.substring(0, 100)}..."`);
-    }
-    
-    if (needsContext && isShortAnswer && lastBotMessageWasQuestion && lastBotMessage) {
-      console.log('🔄 [handler] Short answer to bot question - using only last exchange');
+    if (isShortAnswer && lastBotMessageWasFollowUpQuestion) {
+      console.log('🔄 [handler] Detected short answer to follow-up question');
       
-      let context = '';
+      let contextPrefix = '';
       
+      // אם הבוט שאל "באיזה תחום?" - חלץ את האזור מההודעה הקודמת
       if (lastBotMessage.includes('באיזה תחום')) {
         const regionMatch = lastBotMessage.match(/מעולה!\s+([^🗺️]+)/);
         if (regionMatch) {
-          context = regionMatch[1].trim();
-          console.log(`   📍 Extracted region context: "${context}"`);
+          contextPrefix = regionMatch[1].trim();
+          console.log(`   📍 Extracted region context: "${contextPrefix}"`);
         }
       }
       
+      // אם הבוט שאל "באיזה אזור תרצה ללמוד X?" - חלץ את התחום
       if (lastBotMessage.includes('באיזה אזור')) {
         const fieldMatch = lastBotMessage.match(/באיזה אזור תרצה ללמוד\s+([^?]+)/);
         if (fieldMatch) {
-          context = fieldMatch[1].trim();
-          console.log(`   📚 Extracted field context: "${context}"`);
+          contextPrefix = fieldMatch[1].trim();
+          console.log(`   📚 Extracted field context: "${contextPrefix}"`);
         }
       }
       
-      const fullContext = context ? `${context} ${message}` : message;
-      console.log(`📝 [handler] Reconstructed query: "${fullContext}"`);
-      response = generateSmartResponse(fullContext);
+      const fullQuery = contextPrefix ? `${contextPrefix} ${message}` : message;
+      console.log(`📝 [handler] Reconstructed query: "${fullQuery}"`);
+      const response = generateSmartResponse(fullQuery);
+      return res.status(200).json({ response, timestamp: new Date().toISOString() });
     }
-    else if (needsContext && history && Array.isArray(history) && history.length > 0) {
-      console.log('🔄 [handler] Using history for context');
-      
-      const recentUserMessages = history
-        .filter(msg => msg.role === 'user')
-        .slice(-1)
-        .map(msg => msg.content)
-        .join(' ');
-      
-      const fullContext = recentUserMessages + ' ' + message;
-      console.log(`📝 [handler] Context from history: "${fullContext}"`);
-      response = generateSmartResponse(fullContext);
-    }
+    
+    let response = generateSmartResponse(message);
     
     console.log(`✅ [handler] Returning response (${response.length} chars)\n`);
     
