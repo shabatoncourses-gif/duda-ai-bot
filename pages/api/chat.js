@@ -1883,12 +1883,17 @@ export default async function handler(req, res) {
     
     // 🔄 בדוק אם זו תשובת המשך לשאלה של הבוט
     const isShortAnswer = message.trim().split(/\s+/).length <= 5;
+    const messageLower = message.toLowerCase();
+    const isActualQuery = messageLower.includes('קורס') || 
+                          messageLower.includes('לימוד') || 
+                          messageLower.includes('השתלמות');
+    
     const lastBotMessageWasFollowUpQuestion = lastBotMessage && 
       (lastBotMessage.includes('באיזה אזור') || 
        lastBotMessage.includes('איזה תחום') ||
        lastBotMessage.includes('מה תרצה'));
     
-    if (isShortAnswer && lastBotMessageWasFollowUpQuestion) {
+    if (isShortAnswer && !isActualQuery && lastBotMessageWasFollowUpQuestion) {
       console.log('🔄 [handler] Detected short answer to follow-up question');
       
       let contextPrefix = '';
