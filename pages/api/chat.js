@@ -1916,6 +1916,30 @@ export default async function handler(req, res) {
         }
       }
       
+      // אם הבוט שאל את השאלה הגנרית "באיזה אזור? איזה תחום?"
+      // צריך לחזור להיסטוריה ולמצוא את השאילתה המקורית
+      if (!contextPrefix && (lastBotMessage.includes('אשמח לעזור') || lastBotMessage.includes('ספר לי'))) {
+        console.log('   🔍 Generic question detected - searching history for original query');
+        
+        if (history && Array.isArray(history) && history.length >= 2) {
+          // חפש בהיסטוריה אחורה - דלג על ההודעה הנוכחית ועל תשובות disambiguation
+          for (let i = history.length - 1; i >= 0; i--) {
+            if (history[i].role === 'user' && history[i].content !== message) {
+              const previousUserMessage = history[i].content.trim();
+              
+              // דלג על תשובות disambiguation ("1", "2")
+              if (previousUserMessage === '1' || previousUserMessage === '2') {
+                continue;
+              }
+              
+              console.log(`   📝 Found original query in history: "${previousUserMessage}"`);
+              contextPrefix = previousUserMessage;
+              break;
+            }
+          }
+        }
+      }
+      
       const fullQuery = contextPrefix ? `${contextPrefix} ${message}` : message;
       console.log(`📝 [handler] Reconstructed query: "${fullQuery}"`);
       const response = generateSmartResponse(fullQuery);
