@@ -1707,12 +1707,49 @@ function generateSmartResponse(userMessage, forcedMode) {
       }
       
       const hasSpecificKeyword = field && field.specificKeyword;
+      const hasStaticResults = filteredResults.some(r => r.isStatic);
       
-      if (filteredResults.length === 0 && uniqueResults.length === 0 && hasSpecificKeyword) {
+      if (!hasStaticResults && hasSpecificKeyword) {
         const keyword = field.specificKeyword;
+        console.log(`🔍 לא נמצאו תוצאות static ל-"${keyword}" ב${regionNames.join(' ו')} — מנסה fallback`);
+
+        // אם יש uniqueResults אבל אין static - נסה ללא פילטר באזור
+        if (uniqueResults.length > 0) {
+          console.log(`📊 יש ${uniqueResults.length} תוצאות כלליות, מנסה ללא פילטר specificKeyword`);
+          const fieldWithoutKeyword = { ...field, specificKeyword: null };
+          
+          let broadResults = [];
+          for (const region of regions) {
+            try {
+              const searchResults = searchPages(userMessage, region, 'all', fieldWithoutKeyword);
+              if (searchResults && searchResults.length > 0) {
+                broadResults = broadResults.concat(searchResults);
+              }
+            } catch (error) {
+              console.error(`Error in broad search:`, error.message);
+            }
+          }
+          
+          if (broadResults.length > 0) {
+            const uniqueBroad = [];
+            const seenUrls = new Set();
+            for (const result of broadResults) {
+              if (!seenUrls.has(result.url)) {
+                seenUrls.add(result.url);
+                uniqueBroad.push(result);
+              }
+            }
+            
+            filteredResults = uniqueBroad;
+            console.log(`✅ מצאתי ${filteredResults.length} תוצאות ללא פילטר`);
+          }
+        }
+
+        // אם עדיין אין תוצאות - חפש בכל הארץ
+        if (filteredResults.length === 0 || !filteredResults.some(r => r.isStatic)) {
         console.log(`🔍 "${keyword}" לא נמצא ב${regionNames.join(' ו')} — מחפש בכל הארץ עם אותה מילה`);
 
-        // שלב 1: חיפוש "פיסול" בכל הארץ (הפילטר נשאר!)
+        // שלב 1: חיפוש בכל הארץ עם הפילטר
         let nationwideResults = [];
         try {
           nationwideResults = searchPages(userMessage, null, 'all', field);
@@ -1740,8 +1777,36 @@ function generateSmartResponse(userMessage, forcedMode) {
           return response;
         }
 
-        // שלב 3: לא נמצא גם בכל הארץ → הודעה ברורה + לינקים
-        console.log(`❌ "${keyword}" לא נמצא גם בכל הארץ`);
+        // שלב 3: לא נמצא גם בכל הארץ עם הפילטר → נסה בלי פילטר
+        console.log(`❌ "${keyword}" לא נמצא גם בכל הארץ — מנסה ללא פילטר`);
+        
+        // הסר את specificKeyword וחפש שוב
+        const fieldWithoutKeyword = { ...field, specificKeyword: null };
+        let broadResults = [];
+        try {
+          broadResults = searchPages(userMessage, null, 'all', fieldWithoutKeyword);
+          console.log(`📊 Nationwide without filter: ${broadResults.length} results`);
+        } catch (error) {
+          console.error(`Error in broad search:`, error.message);
+        }
+        
+        if (broadResults.length > 0) {
+          response = `לא מצאתי קורסים ספציפית ב**${keyword}**.\n\n`;
+          response += `📍 אבל מצאתי ${broadResults.length} ${broadResults.length === 1 ? 'קורס' : 'קורסים'} ב**${field.name}** בכל הארץ:\n\n`;
+
+          const formatted = formatSearchResults(broadResults.slice(0, 10), field, null);
+          if (formatted) response += formatted;
+
+          if (regionSlugs && fieldSlug) {
+            response += `\n💡 לכל הקורסים ב${field.name}:\n`;
+            response += `[${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
+          }
+
+          return response;
+        }
+
+        // שלב 4: גם בלי פילטר לא נמצא → הודעה ברורה + לינקים
+        console.log(`❌ לא נמצא כלל ב${field.name}`);
 
         response = `לא מצאתי קורסים ב**${keyword}** בשבתון.\n\n`;
         response += `💡 אפשר לנסות:\n`;
