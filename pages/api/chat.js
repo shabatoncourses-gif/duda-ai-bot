@@ -1709,6 +1709,10 @@ function generateSmartResponse(userMessage, forcedMode) {
       const hasSpecificKeyword = field && field.specificKeyword;
       const hasStaticResults = filteredResults.some(r => r.isStatic);
       
+      // הגדרה מוקדמת של slugs לשימוש בכל הנתיבים
+      const regionSlugs = regions.map(r => r.slug).filter(s => s).join('-');
+      const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
+      
       if (!hasStaticResults && hasSpecificKeyword) {
         const keyword = field.specificKeyword;
         console.log(`🔍 לא נמצאו תוצאות static ל-"${keyword}" ב${regionNames.join(' ו')} — מנסה fallback`);
@@ -1747,77 +1751,75 @@ function generateSmartResponse(userMessage, forcedMode) {
 
         // אם עדיין אין תוצאות - חפש בכל הארץ
         if (filteredResults.length === 0 || !filteredResults.some(r => r.isStatic)) {
-        console.log(`🔍 "${keyword}" לא נמצא ב${regionNames.join(' ו')} — מחפש בכל הארץ עם אותה מילה`);
+          console.log(`🔍 "${keyword}" לא נמצא ב${regionNames.join(' ו')} — מחפש בכל הארץ עם אותה מילה`);
 
-        // שלב 1: חיפוש בכל הארץ עם הפילטר
-        let nationwideResults = [];
-        try {
-          nationwideResults = searchPages(userMessage, null, 'all', field);
-          console.log(`📊 Nationwide with filter: ${nationwideResults.length} results`);
-        } catch (error) {
-          console.error(`Error in nationwide search:`, error.message);
-        }
+          // שלב 1: חיפוש בכל הארץ עם הפילטר
+          let nationwideResults = [];
+          try {
+            nationwideResults = searchPages(userMessage, null, 'all', field);
+            console.log(`📊 Nationwide with filter: ${nationwideResults.length} results`);
+          } catch (error) {
+            console.error(`Error in nationwide search:`, error.message);
+          }
 
-        const regionSlugs = regions.map(r => r.slug).filter(s => s).join('-');
-        const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
+          // שלב 2: נמצא בכל הארץ → הציג אותו עם הבהרה
+          if (nationwideResults.length > 0) {
+            response = `לא מצאתי קורסים ב**${keyword}** ב${regionNames.join(' ו')}.\n\n`;
+            response += `📍 אבל מצאתי ${nationwideResults.length} ${nationwideResults.length === 1 ? 'קורס' : 'קורסים'} ב**${keyword}** בכל הארץ:\n\n`;
 
-        // שלב 2: נמצא בכל הארץ → הציג אותו עם הבהרה
-        if (nationwideResults.length > 0) {
-          response = `לא מצאתי קורסים ב**${keyword}** ב${regionNames.join(' ו')}.\n\n`;
-          response += `📍 אבל מצאתי ${nationwideResults.length} ${nationwideResults.length === 1 ? 'קורס' : 'קורסים'} ב**${keyword}** בכל הארץ:\n\n`;
+            const formatted = formatSearchResults(nationwideResults.slice(0, 10), field, null);
+            if (formatted) response += formatted;
 
-          const formatted = formatSearchResults(nationwideResults.slice(0, 10), field, null);
-          if (formatted) response += formatted;
+            if (regionSlugs && fieldSlug) {
+              response += `\n💡 רוצה לראות גם קורסים אחרים ב${regionNames.join(' ו')}?\n`;
+              response += `[לכל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
+            }
+
+            return response;
+          }
+
+          // שלב 3: לא נמצא גם בכל הארץ עם הפילטר → נסה בלי פילטר
+          console.log(`❌ "${keyword}" לא נמצא גם בכל הארץ — מנסה ללא פילטר`);
+          
+          // הסר את specificKeyword וחפש שוב
+          const fieldWithoutKeyword = { ...field, specificKeyword: null };
+          let broadResults = [];
+          try {
+            broadResults = searchPages(userMessage, null, 'all', fieldWithoutKeyword);
+            console.log(`📊 Nationwide without filter: ${broadResults.length} results`);
+          } catch (error) {
+            console.error(`Error in broad search:`, error.message);
+          }
+          
+          if (broadResults.length > 0) {
+            response = `לא מצאתי קורסים ספציפית ב**${keyword}**.\n\n`;
+            response += `📍 אבל מצאתי ${broadResults.length} ${broadResults.length === 1 ? 'קורס' : 'קורסים'} ב**${field.name}** בכל הארץ:\n\n`;
+
+            const formatted = formatSearchResults(broadResults.slice(0, 10), field, null);
+            if (formatted) response += formatted;
+
+            if (regionSlugs && fieldSlug) {
+              response += `\n💡 לכל הקורסים ב${field.name}:\n`;
+              response += `[${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
+            }
+
+            return response;
+          }
+
+          // שלב 4: גם בלי פילטר לא נמצא → הודעה ברורה + לינקים
+          console.log(`❌ לא נמצא כלל ב${field.name}`);
+
+          response = `לא מצאתי קורסים ב**${keyword}** בשבתון.\n\n`;
+          response += `💡 אפשר לנסות:\n`;
 
           if (regionSlugs && fieldSlug) {
-            response += `\n💡 רוצה לראות גם קורסים אחרים ב${regionNames.join(' ו')}?\n`;
-            response += `[לכל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
+            response += `• [כל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
           }
+          response += `• [כל הקורסים ב${field.name} בכל הארץ](https://www.shabaton.online/${fieldSlug})\n`;
+          response += `\nאפשר גם לכתוב תחום אחר 😊`;
 
           return response;
         }
-
-        // שלב 3: לא נמצא גם בכל הארץ עם הפילטר → נסה בלי פילטר
-        console.log(`❌ "${keyword}" לא נמצא גם בכל הארץ — מנסה ללא פילטר`);
-        
-        // הסר את specificKeyword וחפש שוב
-        const fieldWithoutKeyword = { ...field, specificKeyword: null };
-        let broadResults = [];
-        try {
-          broadResults = searchPages(userMessage, null, 'all', fieldWithoutKeyword);
-          console.log(`📊 Nationwide without filter: ${broadResults.length} results`);
-        } catch (error) {
-          console.error(`Error in broad search:`, error.message);
-        }
-        
-        if (broadResults.length > 0) {
-          response = `לא מצאתי קורסים ספציפית ב**${keyword}**.\n\n`;
-          response += `📍 אבל מצאתי ${broadResults.length} ${broadResults.length === 1 ? 'קורס' : 'קורסים'} ב**${field.name}** בכל הארץ:\n\n`;
-
-          const formatted = formatSearchResults(broadResults.slice(0, 10), field, null);
-          if (formatted) response += formatted;
-
-          if (regionSlugs && fieldSlug) {
-            response += `\n💡 לכל הקורסים ב${field.name}:\n`;
-            response += `[${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
-          }
-
-          return response;
-        }
-
-        // שלב 4: גם בלי פילטר לא נמצא → הודעה ברורה + לינקים
-        console.log(`❌ לא נמצא כלל ב${field.name}`);
-
-        response = `לא מצאתי קורסים ב**${keyword}** בשבתון.\n\n`;
-        response += `💡 אפשר לנסות:\n`;
-
-        if (regionSlugs && fieldSlug) {
-          response += `• [כל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
-        }
-        response += `• [כל הקורסים ב${field.name} בכל הארץ](https://www.shabaton.online/${fieldSlug})\n`;
-        response += `\nאפשר גם לכתוב תחום אחר 😊`;
-
-        return response;
       }
       
       if (filteredResults.length > 0) {
