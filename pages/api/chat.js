@@ -1186,20 +1186,33 @@ function formatSearchResults(pages, field = null, region = null) {
   if (pages.length === 0) return null;
   
   let response = '';
-  const staticPages = pages.filter(p => p.isStatic);
   
-  if (staticPages.length > 0) {
-    staticPages.forEach((page, index) => {
-      const title = page.title || page.h1 || 'מוסד לימודים';
+  // אם יש specificKeyword - הצג את כל הדפים (כבר מסוננים לפי המילה המדויקת)
+  // אחרת - הצג רק static pages
+  const hasSpecificKeyword = field && field.specificKeyword;
+  const pagesToShow = hasSpecificKeyword ? pages : pages.filter(p => p.isStatic);
+  
+  if (pagesToShow.length > 0) {
+    pagesToShow.forEach((page, index) => {
+      let title = page.title || page.h1 || 'מוסד לימודים';
+      
+      // המר |||BOLD|||...|||ENDBOLD||| ל-markdown bold
+      title = title.replace(/\|\|\|BOLD\|\|\|/g, '**');
+      title = title.replace(/\|\|\|ENDBOLD\|\|\|/g, '**');
       
       response += `**${title}**\n`;
       
       if (page.courses && Array.isArray(page.courses) && page.courses.length > 0) {
         page.courses.slice(0, 2).forEach(course => {
-          response += `${course}\n`;
+          // המר |||BOLD||| ל-markdown
+          let cleanCourse = course.replace(/\|\|\|BOLD\|\|\|/g, '**').replace(/\|\|\|ENDBOLD\|\|\|/g, '**');
+          response += `${cleanCourse}\n`;
         });
       } else if (page.description) {
         let desc = page.description.trim();
+        
+        // המר |||BOLD||| ל-markdown
+        desc = desc.replace(/\|\|\|BOLD\|\|\|/g, '**').replace(/\|\|\|ENDBOLD\|\|\|/g, '**');
         
         desc = desc.split('\n')
           .filter(line => !line.trim().startsWith('פנו ל'))
@@ -1243,7 +1256,7 @@ function formatSearchResults(pages, field = null, region = null) {
         response += `→ פנו למוסד הלימודים\n`;
       }
       
-      if (index < staticPages.length - 1) {
+      if (index < pagesToShow.length - 1) {
         response += `\n`;
       }
     });
@@ -1827,12 +1840,13 @@ function generateSmartResponse(userMessage, forcedMode) {
         
         // אם יש specificKeyword והתוצאות מסוננות לפי המילה המדויקת - הצג את המספר הכולל
         const displayCount = (hasSpecificKeyword && field.specificKeyword) ? totalCount : staticCount;
+        const fieldName = (hasSpecificKeyword && field.specificKeyword) ? field.specificKeyword : field.name;
         
         if (isRemoteLearning) {
-          response = `מצאתי ${displayCount} ${displayCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${field.name}:\n\n`;
+          response = `מצאתי ${displayCount} ${displayCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${fieldName}:\n\n`;
         } else {
           const regionsText = regionNames.join(' ו');
-          response = `מצאתי ${displayCount} ${displayCount === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
+          response = `מצאתי ${displayCount} ${displayCount === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${fieldName}:\n\n`;
         }
         
         const formatted = formatSearchResults(filteredResults, field, regions[0]);
