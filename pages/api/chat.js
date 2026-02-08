@@ -1707,15 +1707,14 @@ function generateSmartResponse(userMessage, forcedMode) {
       }
       
       const hasSpecificKeyword = field && field.specificKeyword;
-      const hasStaticResults = filteredResults.some(r => r.isStatic);
       
       // הגדרה מוקדמת של slugs לשימוש בכל הנתיבים
       const regionSlugs = regions.map(r => r.slug).filter(s => s).join('-');
       const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
       
-      if (!hasStaticResults && hasSpecificKeyword) {
+      if (filteredResults.length === 0 && hasSpecificKeyword) {
         const keyword = field.specificKeyword;
-        console.log(`🔍 לא נמצאו תוצאות static ל-"${keyword}" ב${regionNames.join(' ו')} — מנסה fallback`);
+        console.log(`🔍 לא נמצאו תוצאות ל-"${keyword}" ב${regionNames.join(' ו')} — מנסה fallback`);
 
         // אם יש uniqueResults אבל אין static - נסה ללא פילטר באזור
         if (uniqueResults.length > 0) {
@@ -1750,7 +1749,7 @@ function generateSmartResponse(userMessage, forcedMode) {
         }
 
         // אם עדיין אין תוצאות - חפש בכל הארץ
-        if (filteredResults.length === 0 || !filteredResults.some(r => r.isStatic)) {
+        if (filteredResults.length === 0) {
           console.log(`🔍 "${keyword}" לא נמצא ב${regionNames.join(' ו')} — מחפש בכל הארץ עם אותה מילה`);
 
           // שלב 1: חיפוש בכל הארץ עם הפילטר
@@ -1824,12 +1823,16 @@ function generateSmartResponse(userMessage, forcedMode) {
       
       if (filteredResults.length > 0) {
         const staticCount = filteredResults.filter(r => r.isStatic).length;
+        const totalCount = filteredResults.length;
+        
+        // אם יש specificKeyword והתוצאות מסוננות לפי המילה המדויקת - הצג את המספר הכולל
+        const displayCount = (hasSpecificKeyword && field.specificKeyword) ? totalCount : staticCount;
         
         if (isRemoteLearning) {
-          response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${field.name}:\n\n`;
+          response = `מצאתי ${displayCount} ${displayCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${field.name}:\n\n`;
         } else {
           const regionsText = regionNames.join(' ו');
-          response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
+          response = `מצאתי ${displayCount} ${displayCount === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${field.name}:\n\n`;
         }
         
         const formatted = formatSearchResults(filteredResults, field, regions[0]);
@@ -1837,7 +1840,7 @@ function generateSmartResponse(userMessage, forcedMode) {
           response += formatted;
         }
         
-        if (staticCount < 5 && field) {
+        if (displayCount < 5 && field) {
           try {
             let remoteResults = searchPages(userMessage, null, 'all', field);
             remoteResults = remoteResults.filter(page => isRemoteLearningPage(page));
