@@ -1214,6 +1214,16 @@ function formatSearchResults(pages, field = null, region = null) {
         // המר |||BOLD||| ל-markdown
         desc = desc.replace(/\|\|\|BOLD\|\|\|/g, '**').replace(/\|\|\|ENDBOLD\|\|\|/g, '**');
         
+        // הסר את הכותרת מתחילת ה-description אם היא שם
+        const titleText = (page.title || page.h1 || '').trim();
+        if (titleText && desc.startsWith(titleText)) {
+          desc = desc.substring(titleText.length).trim();
+          // הסר גם - או : אם יש בהתחלה
+          if (desc.startsWith('-') || desc.startsWith(':')) {
+            desc = desc.substring(1).trim();
+          }
+        }
+        
         desc = desc.split('\n')
           .filter(line => !line.trim().startsWith('פנו ל'))
           .join('\n');
@@ -1617,6 +1627,56 @@ function generateSmartResponse(userMessage, forcedMode) {
   console.log('========================================\n');
 
   try {
+    // 🎯 זיהוי אופק חדש / עוז לתמורה
+    const isOfek = /אופק חדש|עוז לתמורה|אופק\s+חדש/i.test(userMessage);
+    if (isOfek) {
+      console.log('🎓 זוהה אופק חדש - מחפש ב-ofek.json');
+      try {
+        const ofekPath = path.join(process.cwd(), 'data', 'ofek.json');
+        if (fs.existsSync(ofekPath)) {
+          const ofekData = JSON.parse(fs.readFileSync(ofekPath, 'utf8'));
+          const regions = detectRegions(userMessage);
+          
+          let results = ofekData.institutions || [];
+          
+          // סינון לפי אזור אם נבקש
+          if (regions && regions.length > 0) {
+            const regionNames = regions.map(r => r.name.toLowerCase());
+            results = results.filter(inst => {
+              const location = inst.location_in_israel.toLowerCase();
+              return regionNames.some(rn => location.includes(rn) || rn.includes(location));
+            });
+          }
+          
+          if (results.length > 0) {
+            let response = `מצאתי ${results.length} ${results.length === 1 ? 'מוסד' : 'מוסדות'} לאופק חדש`;
+            if (regions && regions.length > 0) {
+              response += ` ב${regions[0].name}`;
+            }
+            response += `:\n\n`;
+            
+            results.slice(0, 10).forEach(inst => {
+              response += `**${inst.institution_name}**\n`;
+              response += `📍 ${inst.location_in_israel}\n`;
+              if (inst.tracks && inst.tracks.length > 0) {
+                response += `קורסים: ${inst.tracks.slice(0, 3).join(', ')}`;
+                if (inst.tracks.length > 3) response += ` ועוד ${inst.tracks.length - 3}`;
+                response += `\n`;
+              }
+              if (inst.url) {
+                response += `[→ למידע נוסף](${inst.url})\n`;
+              }
+              response += `\n`;
+            });
+            
+            return response;
+          }
+        }
+      } catch (error) {
+        console.error('שגיאה בטעינת ofek.json:', error.message);
+      }
+    }
+    
     // 🎯 אבחנת כוונה
     const intent = forcedMode || classifyIntent(userMessage);
     console.log(`🎯 [classifyIntent] intent: ${intent}`);
