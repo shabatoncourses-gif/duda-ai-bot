@@ -6,6 +6,12 @@ import path from 'path';
 // 📚 טעינת כל קבצי האינדקס
 // ========================================
 let ALL_PAGES = null;
+
+// פונקציה לרענון הקבצים (לדיבוג)
+function reloadAllPages() {
+  ALL_PAGES = null;
+  return loadAllPages();
+}
 let REGIONS = null;
 let STUDY_FIELDS = null;
 let PAYMENTS_QA = null;
@@ -659,30 +665,39 @@ function loadAllPages() {
         'shabaton_index.json'
       ];
       
+      console.log('🔍 [loadAllPages] Starting to load index files...');
+      console.log(`📁 Working directory: ${process.cwd()}`);
+      
       for (const filename of indexFiles) {
         try {
           const filepath = path.join(process.cwd(), 'data', filename);
+          console.log(`   Trying to load: ${filepath}`);
+          
           const data = JSON.parse(fs.readFileSync(filepath, 'utf8'));
           
           if (Array.isArray(data)) {
+            console.log(`   ✅ Loaded ${data.length} pages from ${filename}`);
             ALL_PAGES = ALL_PAGES.concat(data);
           } else if (data.pages) {
+            console.log(`   ✅ Loaded ${data.pages.length} pages from ${filename}`);
             ALL_PAGES = ALL_PAGES.concat(data.pages);
           } else {
+            console.log(`   ✅ Loaded 1 page from ${filename}`);
             ALL_PAGES.push(data);
           }
         } catch (err) {
-          console.log(`Could not load ${filename}:`, err.message);
+          console.log(`   ❌ Could not load ${filename}: ${err.message}`);
         }
       }
       
-      console.log(`Loaded ${ALL_PAGES.length} total pages`);
+      console.log(`✅ Total loaded: ${ALL_PAGES.length} pages`);
       
       if (ALL_PAGES.length === 0) {
         console.error('⚠️ WARNING: ALL_PAGES is EMPTY!');
+        console.error('   Check if files exist in: ' + path.join(process.cwd(), 'data'));
       }
     } catch (error) {
-      console.error('Error loading indexes:', error);
+      console.error('❌ Error loading indexes:', error);
       ALL_PAGES = [];
     }
   }
@@ -1836,130 +1851,6 @@ function generateSmartResponse(userMessage, forcedMode) {
         console.error(`Error adding remote suggestions:`, error.message);
       }
     }
-    
-    return response;
-            }
-
-            return response;
-          }
-
-          // שלב 4: גם בלי פילטר לא נמצא → הודעה ברורה + לינקים
-          console.log(`❌ לא נמצא כלל ב${field.name}`);
-
-          response = `לא מצאתי קורסים ב**${keyword}** בשבתון.\n\n`;
-          response += `💡 אפשר לנסות:\n`;
-
-          if (regionSlugs && fieldSlug) {
-            response += `• [כל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
-          }
-          response += `• [כל הקורסים ב${field.name} בכל הארץ](https://www.shabaton.online/${fieldSlug})\n`;
-          response += `\nאפשר גם לכתוב תחום אחר 😊`;
-
-          return response;
-        }
-      }
-      
-      if (filteredResults.length > 0) {
-        const staticCount = filteredResults.filter(r => r.isStatic).length;
-        const totalCount = filteredResults.length;
-        
-        // אם יש specificKeyword והתוצאות מסוננות לפי המילה המדויקת - הצג את המספר הכולל
-        const displayCount = (hasSpecificKeyword && field.specificKeyword) ? totalCount : staticCount;
-        const fieldName = (hasSpecificKeyword && field.specificKeyword) ? field.specificKeyword : field.name;
-        
-        if (isRemoteLearning) {
-          response = `מצאתי ${displayCount} ${displayCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${fieldName}:\n\n`;
-        } else {
-          const regionsText = regionNames.join(' ו');
-          response = `מצאתי ${displayCount} ${displayCount === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${fieldName}:\n\n`;
-        }
-        
-        const formatted = formatSearchResults(filteredResults, field, regions[0]);
-        if (formatted) {
-          response += formatted;
-        }
-        
-        if (displayCount < 5 && field) {
-          try {
-            let remoteResults = searchPages(userMessage, null, 'all', field);
-            remoteResults = remoteResults.filter(page => isRemoteLearningPage(page));
-            
-            const shownUrls = new Set(filteredResults.map(r => r.url));
-            remoteResults = remoteResults.filter(page => !shownUrls.has(page.url));
-            
-            if (remoteResults.length > 0) {
-              response += `\n\n💡 **מצאתי גם ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} בלמידה מרחוק**\n\n`;
-              const remoteFormatted = formatSearchResults(remoteResults.slice(0, 5), field, null);
-              if (remoteFormatted) {
-                response += remoteFormatted;
-              }
-            }
-          } catch (error) {
-            console.error(`Error adding remote suggestions:`, error.message);
-          }
-        }
-        
-        return response;
-      }
-    }
-    
-    if (studyFields.length > 0 && (!regions || regions.length === 0)) {
-      const field = studyFields[0];
-      
-      const isRemoteLearning = detectRemoteLearning(userMessage);
-      if (isRemoteLearning) {
-        try {
-          let remoteResults = searchPages(userMessage, null, 'all', field);
-          remoteResults = remoteResults.filter(page => isRemoteLearningPage(page));
-          
-          if (remoteResults.length > 0) {
-            const staticCount = remoteResults.filter(r => r.isStatic).length;
-            response = `מצאתי ${staticCount} ${staticCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${field.name}:\n\n`;
-            const formatted = formatSearchResults(remoteResults.slice(0, 10), field, null);
-            if (formatted) {
-              response += formatted;
-            }
-            return response;
-          }
-        } catch (error) {
-          console.error(`Error in remote learning search:`, error.message);
-        }
-      }
-      
-      response = `באיזה אזור תרצה ללמוד ${field.name}?\n\n`;
-      response += `📍 תל אביב והמרכז\n`;
-      response += `📍 חיפה והצפון\n`;
-      response += `📍 השרון\n`;
-      response += `📍 ירושלים והסביבה\n`;
-      response += `📍 השפלה והדרום\n`;
-      response += `💻 למידה מרחוק\n`;
-      response += `🌍 כל הארץ`;
-      
-      return response;
-    }
-    
-    if (regions && regions.length > 0) {
-      const regionNames = regions.map(r => r.name).join(' ו');
-      response = `מעולה! ${regionNames} 🗺️\n\n`;
-      response += `באיזה תחום תרצה להתמחות?\n`;
-      response += `ספר לי במילים שלך - למשל: "גישור", "צילום", "NLP"...`;
-      
-      return response;
-    }
-    
-    const searchResults = searchPages(userMessage, null, 'static');
-    
-    if (searchResults && searchResults.length > 0) {
-      response = `מצאתי ${searchResults.length} תוצאות:\n\n`;
-      response += formatSearchResults(searchResults);
-      return response;
-    }
-    
-    response = `אשמח לעזור! 🎯\n\n`;
-    response += `ספר לי:\n`;
-    response += `📍 באיזה אזור?\n`;
-    response += `📚 איזה תחום?\n\n`;
-    response += `דוגמה: "הנחיית קבוצות בחיפה"`;
     
     return response;
     
