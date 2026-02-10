@@ -1391,6 +1391,7 @@ function detectStudyField(message) {
   loadConfigs();
   
   console.log('\n🔍 [detectStudyField] START');
+  console.log(`📝 Message: "${message}"`);
   
   if (!STUDY_FIELDS || !Array.isArray(STUDY_FIELDS)) {
     console.error('❌ STUDY_FIELDS is not an array');
@@ -1398,88 +1399,60 @@ function detectStudyField(message) {
   }
   
   const lowerMessage = message.toLowerCase();
-  const detectedFields = [];
   
+  // שלב 1: חפש התאמה מדויקת לשם התחום
   for (const field of STUDY_FIELDS) {
-    if (field.name === 'למידה מרחוק') {
-      continue;
-    }
+    if (field.name === 'למידה מרחוק') continue;
     
     const fieldNameLower = field.name.toLowerCase();
     if (lowerMessage.includes(fieldNameLower)) {
-      console.log(`✅ Found exact match: "${field.name}"`);
-      return [{ ...field, specificKeyword: field.name }];
+      console.log(`✅ Found exact field name: "${field.name}"`);
+      return [{ ...field, specificKeyword: null }];
     }
   }
   
-  if (REQUIRED_PHRASES && Array.isArray(REQUIRED_PHRASES)) {
-    for (const phraseEntry of REQUIRED_PHRASES) {
-      const mainPhrase = phraseEntry.phrase.toLowerCase();
-      
-      if (mainPhrase === 'למידה מרחוק') {
-        continue;
-      }
-      
-      for (const variation of phraseEntry.variations) {
-        const variationLower = variation.toLowerCase();
-        
-        if (lowerMessage.includes(variationLower)) {
-          console.log(`✅ Found phrase variation: "${variation}"`);
-          
-          for (const field of STUDY_FIELDS) {
-            if (field.name.toLowerCase().includes(mainPhrase)) {
-              return [{ ...field, specificKeyword: variation }];
-            }
-            
-            if (field.keywords && field.keywords.some(kw => kw.toLowerCase() === mainPhrase)) {
-              return [{ ...field, specificKeyword: variation }];
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  const matches = [];
-  const tooGenericKeywords = ['למידה', 'לימוד', 'קורס', 'קורסים', 'השתלמות'];
+  // שלב 2: חפש keywords - העדף מילים ארוכות (ספציפיות) יותר
+  let bestMatch = null;
+  const tooGenericKeywords = ['למידה', 'לימוד', 'קורס', 'קורסים', 'השתלמות', 'תואר'];
   
   for (const field of STUDY_FIELDS) {
-    if (field.name === 'למידה מרחוק') {
-      continue;
-    }
+    if (field.name === 'למידה מרחוק') continue;
+    if (!field.keywords || !Array.isArray(field.keywords)) continue;
     
-    let bestMatch = null;
-
     for (const keyword of field.keywords) {
       if (!keyword) continue;
       
       const keywordLower = keyword.toLowerCase();
       
-      if (tooGenericKeywords.includes(keywordLower)) {
-        continue;
-      }
+      // דלג על מילים גנריות
+      if (tooGenericKeywords.includes(keywordLower)) continue;
       
+      // בדוק אם המילה נמצאת בהודעה
       if (lowerMessage.includes(keywordLower)) {
-        if (!bestMatch || keywordLower.length > bestMatch.length) {
-          bestMatch = { keyword, length: keywordLower.length };
+        const keywordLength = keywordLower.length;
+        
+        // שמור את ההתאמה הכי ארוכה (הכי ספציפית)
+        if (!bestMatch || keywordLength > bestMatch.length) {
+          bestMatch = {
+            field: field,
+            keyword: keyword,
+            length: keywordLength
+          };
         }
       }
     }
-
-    if (bestMatch) {
-      matches.push({ field, keyword: bestMatch.keyword, length: bestMatch.length });
-    }
   }
   
-  matches.sort((a, b) => b.length - a.length);
-  
-  detectedFields.push(...matches.map(m => ({ ...m.field, specificKeyword: m.keyword })));
-  
-  if (detectedFields.length > 0) {
-    console.log(`✅ Found ${detectedFields.length} fields`);
+  if (bestMatch) {
+    console.log(`✅ Found keyword: "${bestMatch.keyword}" in field: "${bestMatch.field.name}"`);
+    return [{ 
+      ...bestMatch.field, 
+      specificKeyword: bestMatch.keyword 
+    }];
   }
   
-  return detectedFields;
+  console.log('❌ No study field detected');
+  return [];
 }
 
 // ========================================
@@ -1700,56 +1673,64 @@ function generateSmartResponse(userMessage, forcedMode) {
       return formatGeneralCoursesInfo();
     }
     
-    let regions = detectRegions(userMessage);
+    // 🎯 חיפוש קורסים - לוגיקה חדשה
+    console.log('\n🔍 === התחלת תהליך חיפוש קורסים ===\n');
+    
+    // שלב 1: זיהוי תחום
     const studyFields = detectStudyField(userMessage);
+    const field = studyFields.length > 0 ? studyFields[0] : null;
     
-    let response = '';
-    
-    const isInfoQuery = userMessage.toLowerCase().includes('שבתון') || 
-                        userMessage.toLowerCase().includes('מענק') ||
-                        userMessage.toLowerCase().includes('ביטוח לאומי') ||
-                        userMessage.toLowerCase().includes('לידה');
-    
-    if (isInfoQuery) {
-      try {
-        const infoResults = searchPages(userMessage, null, 'info');
-        
-        if (infoResults && infoResults.length > 0) {
-          response = formatSearchResults(infoResults);
-          return response;
-        }
-      } catch (error) {
-        console.error('[generateSmartResponse] Error in info search:', error.message);
-      }
-      
-      response = `שנת שבתון - מידע כללי 📘\n\n`;
-      response += `מה תרצה לדעת?\n`;
-      response += `• מענק בשבתון\n`;
-      response += `• ביטוח לאומי\n`;
-      response += `• לידה בשבתון\n`;
-      response += `• תוכנית הלימודים\n\n`;
-      response += `[שאל בקבוצת WhatsApp](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)`;
+    if (!field) {
+      console.log('❌ לא זוהה תחום לימוד');
+      response = `איזה תחום לימוד מעניין אותך?\n\n`;
+      response += `לדוגמה: צילום, אמנות, מוסיקה, חינוך, ניהול, תרפיה...\n\n`;
+      response += `[לכל התחומים](https://www.shabaton.online)`;
       return response;
     }
     
+    console.log(`✅ תחום זוהה: ${field.name}`);
+    if (field.specificKeyword) {
+      console.log(`🔍 מילת מפתח ספציפית: ${field.specificKeyword}`);
+    }
+    
+    // שלב 2: זיהוי אזור
+    let regions = detectRegions(userMessage);
     const isRemoteLearning = detectRemoteLearning(userMessage);
+    
     if (isRemoteLearning) {
-      console.log('🌐 Remote learning detected - removing region filter');
+      console.log('🌐 זוהתה למידה מרחוק - לא דורש אזור');
       regions = null;
     }
     
-    if (studyFields.length > 0 && regions && regions.length > 0) {
-      const field = studyFields[0];
-      
-      console.log(`📚 Field: ${field.name}`);
-      console.log(`📍 Regions: ${regions.map(r => r.name).join(', ')}`);
-      
-      let allResults = [];
-      const regionNames = [];
-      
+    if (!regions || regions.length === 0) {
+      if (!isRemoteLearning) {
+        console.log('❌ לא זוהה אזור ולא למידה מרחוק');
+        response = `באיזה אזור תרצה ללמוד ${field.name}?\n\n`;
+        response += `📍 תל אביב והמרכז\n`;
+        response += `📍 חיפה והצפון\n`;
+        response += `📍 השרון\n`;
+        response += `📍 ירושלים והסביבה\n`;
+        response += `📍 השפלה והדרום\n`;
+        response += `💻 למידה מרחוק\n`;
+        response += `🌍 כל הארץ`;
+        return response;
+      }
+    }
+    
+    // שלב 3: חיפוש
+    console.log(`\n🔍 מחפש מוסדות עבור:`);
+    console.log(`   תחום: ${field.name}`);
+    if (field.specificKeyword) console.log(`   מילת מפתח: ${field.specificKeyword}`);
+    if (regions) console.log(`   אזורים: ${regions.map(r => r.name).join(', ')}`);
+    if (isRemoteLearning) console.log(`   למידה מרחוק: כן`);
+    
+    let allResults = [];
+    const regionNames = regions ? regions.map(r => r.name) : [];
+    
+    if (regions && regions.length > 0) {
+      // חיפוש לפי אזורים
       for (const region of regions) {
         try {
-          regionNames.push(region.name);
           const searchResults = searchPages(userMessage, region, 'all', field);
           if (searchResults && searchResults.length > 0) {
             allResults = allResults.concat(searchResults);
@@ -1758,121 +1739,105 @@ function generateSmartResponse(userMessage, forcedMode) {
           console.error(`Error searching in region ${region.name}:`, error.message);
         }
       }
-      
-      const uniqueResults = [];
-      const seenUrls = new Set();
-      for (const result of allResults) {
-        if (!seenUrls.has(result.url)) {
-          seenUrls.add(result.url);
-          uniqueResults.push(result);
-        }
+    } else if (isRemoteLearning) {
+      // חיפוש למידה מרחוק בלבד
+      try {
+        const remoteResults = searchPages(userMessage, null, 'all', field);
+        allResults = remoteResults.filter(page => isRemoteLearningPage(page));
+      } catch (error) {
+        console.error('Error in remote learning search:', error.message);
       }
+    } else {
+      // חיפוש בכל הארץ
+      try {
+        const searchResults = searchPages(userMessage, null, 'all', field);
+        if (searchResults && searchResults.length > 0) {
+          allResults = searchResults;
+        }
+      } catch (error) {
+        console.error('Error in nationwide search:', error.message);
+      }
+    }
+    
+    // הסרת כפילויות
+    const uniqueResults = [];
+    const seenUrls = new Set();
+    for (const result of allResults) {
+      if (!seenUrls.has(result.url)) {
+        seenUrls.add(result.url);
+        uniqueResults.push(result);
+      }
+    }
+    
+    let filteredResults = uniqueResults;
+    
+    console.log(`📊 נמצאו ${filteredResults.length} תוצאות`);
+    
+    // שלב 4: הצגת תוצאות
+    const hasSpecificKeyword = field && field.specificKeyword;
+    let response = '';
+    
+    // הגדרת slugs לקישורים
+    const regionSlugs = regions ? regions.map(r => r.slug).filter(s => s).join('-') : '';
+    const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
+    
+    if (filteredResults.length === 0) {
+      // אין תוצאות
+      const searchDesc = hasSpecificKeyword ? field.specificKeyword : field.name;
+      const locationDesc = isRemoteLearning ? 'בלמידה מרחוק' : 
+                           (regions && regions.length > 0 ? `ב${regionNames.join(' ו')}` : 'בכל הארץ');
       
-      const includeRemote = detectRemoteLearning(userMessage);
+      response = `לא מצאתי קורסים ב**${searchDesc}** ${locationDesc}.\n\n`;
+      response += `💡 אפשר לנסות:\n`;
+      if (regions && regionSlugs && fieldSlug) {
+        response += `• [כל הקורסים ב${field.name} ${locationDesc}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
+      }
+      response += `• [כל הקורסים ב${field.name} בכל הארץ](https://www.shabaton.online/${fieldSlug})\n`;
+      response += `\nאו תנסה חיפוש אחר 😊`;
       
-      let filteredResults = uniqueResults;
-      if (regions.length > 0) {
-        const specificCity = detectSpecificCity(userMessage, regions[0]);
+      return response;
+    }
+    
+    // יש תוצאות - הצג אותן
+    const fieldName = hasSpecificKeyword ? field.specificKeyword : field.name;
+    const totalCount = filteredResults.length;
+    
+    if (isRemoteLearning) {
+      response = `מצאתי ${totalCount} ${totalCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${fieldName}:\n\n`;
+    } else if (regions && regions.length > 0) {
+      const regionsText = regionNames.join(' ו');
+      response = `מצאתי ${totalCount} ${totalCount === 1 ? 'מוסד' : 'מוסדות'} ב${regionsText} ל${fieldName}:\n\n`;
+    } else {
+      response = `מצאתי ${totalCount} ${totalCount === 1 ? 'מוסד' : 'מוסדות'} ל${fieldName}:\n\n`;
+    }
+    
+    const formatted = formatSearchResults(filteredResults, field, regions ? regions[0] : null);
+    if (formatted) {
+      response += formatted;
+    }
+    
+    // הצעת למידה מרחוק אם יש מעט תוצאות
+    if (totalCount < 5 && !isRemoteLearning) {
+      try {
+        let remoteResults = searchPages(userMessage, null, 'all', field);
+        remoteResults = remoteResults.filter(page => isRemoteLearningPage(page));
         
-        if (specificCity || includeRemote) {
-          filteredResults = filterBySpecificCity(filteredResults, specificCity, includeRemote);
+        const shownUrls = new Set(filteredResults.map(r => r.url));
+        remoteResults = remoteResults.filter(page => !shownUrls.has(page.url));
+        
+        if (remoteResults.length > 0) {
+          response += `\n\n💡 **מצאתי גם ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} בלמידה מרחוק**\n\n`;
+          const remoteFormatted = formatSearchResults(remoteResults.slice(0, 5), field, null);
+          if (remoteFormatted) {
+            response += remoteFormatted;
+          }
         }
+      } catch (error) {
+        console.error(`Error adding remote suggestions:`, error.message);
       }
-      
-      const hasSpecificKeyword = field && field.specificKeyword;
-      
-      // הגדרה מוקדמת של slugs לשימוש בכל הנתיבים
-      const regionSlugs = regions.map(r => r.slug).filter(s => s).join('-');
-      const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
-      
-      if (filteredResults.length === 0 && hasSpecificKeyword) {
-        const keyword = field.specificKeyword;
-        console.log(`🔍 לא נמצאו תוצאות ל-"${keyword}" ב${regionNames.join(' ו')} — מנסה fallback`);
-
-        // אם יש uniqueResults אבל אין static - נסה ללא פילטר באזור
-        if (uniqueResults.length > 0) {
-          console.log(`📊 יש ${uniqueResults.length} תוצאות כלליות, מנסה ללא פילטר specificKeyword`);
-          const fieldWithoutKeyword = { ...field, specificKeyword: null };
-          
-          let broadResults = [];
-          for (const region of regions) {
-            try {
-              const searchResults = searchPages(userMessage, region, 'all', fieldWithoutKeyword);
-              if (searchResults && searchResults.length > 0) {
-                broadResults = broadResults.concat(searchResults);
-              }
-            } catch (error) {
-              console.error(`Error in broad search:`, error.message);
-            }
-          }
-          
-          if (broadResults.length > 0) {
-            const uniqueBroad = [];
-            const seenUrls = new Set();
-            for (const result of broadResults) {
-              if (!seenUrls.has(result.url)) {
-                seenUrls.add(result.url);
-                uniqueBroad.push(result);
-              }
-            }
-            
-            filteredResults = uniqueBroad;
-            console.log(`✅ מצאתי ${filteredResults.length} תוצאות ללא פילטר`);
-          }
-        }
-
-        // אם עדיין אין תוצאות - חפש בכל הארץ
-        if (filteredResults.length === 0) {
-          console.log(`🔍 "${keyword}" לא נמצא ב${regionNames.join(' ו')} — מחפש בכל הארץ עם אותה מילה`);
-
-          // שלב 1: חיפוש בכל הארץ עם הפילטר
-          let nationwideResults = [];
-          try {
-            nationwideResults = searchPages(userMessage, null, 'all', field);
-            console.log(`📊 Nationwide with filter: ${nationwideResults.length} results`);
-          } catch (error) {
-            console.error(`Error in nationwide search:`, error.message);
-          }
-
-          // שלב 2: נמצא בכל הארץ → הציג אותו עם הבהרה
-          if (nationwideResults.length > 0) {
-            response = `לא מצאתי קורסים ב**${keyword}** ב${regionNames.join(' ו')}.\n\n`;
-            response += `📍 אבל מצאתי ${nationwideResults.length} ${nationwideResults.length === 1 ? 'קורס' : 'קורסים'} ב**${keyword}** בכל הארץ:\n\n`;
-
-            const formatted = formatSearchResults(nationwideResults.slice(0, 10), field, null);
-            if (formatted) response += formatted;
-
-            if (regionSlugs && fieldSlug) {
-              response += `\n💡 רוצה לראות גם קורסים אחרים ב${regionNames.join(' ו')}?\n`;
-              response += `[לכל הקורסים ב${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
-            }
-
-            return response;
-          }
-
-          // שלב 3: לא נמצא גם בכל הארץ עם הפילטר → נסה בלי פילטר
-          console.log(`❌ "${keyword}" לא נמצא גם בכל הארץ — מנסה ללא פילטר`);
-          
-          // הסר את specificKeyword וחפש שוב
-          const fieldWithoutKeyword = { ...field, specificKeyword: null };
-          let broadResults = [];
-          try {
-            broadResults = searchPages(userMessage, null, 'all', fieldWithoutKeyword);
-            console.log(`📊 Nationwide without filter: ${broadResults.length} results`);
-          } catch (error) {
-            console.error(`Error in broad search:`, error.message);
-          }
-          
-          if (broadResults.length > 0) {
-            response = `לא מצאתי קורסים ספציפית ב**${keyword}**.\n\n`;
-            response += `📍 אבל מצאתי ${broadResults.length} ${broadResults.length === 1 ? 'קורס' : 'קורסים'} ב**${field.name}** בכל הארץ:\n\n`;
-
-            const formatted = formatSearchResults(broadResults.slice(0, 10), field, null);
-            if (formatted) response += formatted;
-
-            if (regionSlugs && fieldSlug) {
-              response += `\n💡 לכל הקורסים ב${field.name}:\n`;
-              response += `[${field.name} ב${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
+    }
+    
+    return response;
             }
 
             return response;
