@@ -134,6 +134,7 @@ function identifyPageType(page) {
   
   const url = page.url.toLowerCase();
   const title = (page.title || page.h1 || '').toLowerCase();
+  const description = (page.description || '').toLowerCase();
   
   // ❌ דפים כלליים - לעולם לא להציג!
   const generalPagePatterns = [
@@ -152,6 +153,17 @@ function identifyPageType(page) {
     if (regex.test(url)) {
       return 'general'; // ❌ דף כללי
     }
+  }
+  
+  // ❌ זיהוי דפים כלליים לפי תוכן (close carousel וכו')
+  if (title.includes('close carousel') || description.includes('close carousel')) {
+    return 'general'; // ❌ דף כללי דינמי
+  }
+  
+  // ❌ דפים שמציגים קורסים מכל הארץ (לא מוסדות ספציפיים)
+  if (title.startsWith('קורסי ') || title.startsWith('לימודי ')) {
+    // זה דף קטגוריה כללי, לא מוסד
+    return 'general';
   }
   
   // 📘 דפי מידע על שבתון
@@ -1063,30 +1075,47 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     let matchesRegion = true;
     let regionBonus = 0;
     
-    if (region && region.cities && isStaticPage && !isInSpecificCity) {
+    // סינון לפי אזור - לכל סוגי הדפים!
+    if (region && region.cities && !isInSpecificCity) {
       const location = (page.location || '').toLowerCase();
       const titleAndDesc = (title + ' ' + description).toLowerCase();
       
+      // בדיקה 1: האם ה-location מכיל עיר מהאזור?
       const hasRegionCityInLocation = region.cities.some(city => {
         const cityLower = city.toLowerCase().replace(/-/g, ' ');
         return location.includes(cityLower);
       });
       
       if (location && location.trim() !== '') {
+        // יש location - חייב להיות מהאזור הנכון
         if (!hasRegionCityInLocation) {
-          const isNationalOrRemote = isRemoteLearningPage(page, true);
+          // הדף לא מהאזור הנכון - בדוק אם זה למידה מרחוק
+          const isRemote = location.includes('למידה מרחוק') || 
+                          location.includes('מקוון') || 
+                          location.includes('אונליין') ||
+                          location.includes('זום');
           
-          if (isNationalOrRemote) {
-            console.log(`  ℹ️ "${page.title || page.h1}" - national/remote, passing without region bonus`);
-            regionBonus = 0;
+          if (isRemote) {
+            // זה למידה מרחוק - אפשר לכלול רק אם יש אזכור של האזור
+            const mentionsRegion = titleAndDesc.includes(region.name.toLowerCase()) ||
+                                   (region.keywords && region.keywords.some(k => titleAndDesc.includes(k.toLowerCase())));
+            
+            if (mentionsRegion) {
+              console.log(`  ℹ️ "${page.title || page.h1}" - remote learning, mentions region, passing`);
+              regionBonus = 0;
+            } else {
+              console.log(`  ❌ "${page.title || page.h1}" - remote learning but no region mention, rejected`);
+              continue;
+            }
           } else {
-            console.log(`  ❌ "${page.title || page.h1}" - location "${location}" not in region, rejected`);
+            console.log(`  ❌ "${page.title || page.h1}" - location "${location}" not in region "${region.name}", rejected`);
             continue;
           }
         } else {
-          regionBonus = 50;
+          regionBonus = isStaticPage ? 50 : 30;
         }
       } else {
+        // אין location - בדוק אם יש אזכור עיר או אזור בתוכן
         let cityMentioned = null;
         let cityRegion = null;
         
@@ -1105,28 +1134,24 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         }
         
         if (cityMentioned) {
+          // נמצא אזכור עיר - חייב להיות מהאזור הנכון
           if (cityRegion === region.name) {
             regionBonus = 30;
           } else {
-            console.log(`  ❌ "${page.title || page.h1}" - mentions city "${cityMentioned}" from different region "${cityRegion}", rejected`);
+            console.log(`  ❌ "${page.title || page.h1}" - mentions city "${cityMentioned}" from region "${cityRegion}", not "${region.name}", rejected`);
             continue;
           }
         } else {
+          // אין אזכור עיר - בדוק אם יש אזכור האזור עצמו
           const regionMentioned = titleAndDesc.includes(region.name.toLowerCase()) ||
                                   (region.keywords && region.keywords.some(k => titleAndDesc.includes(k.toLowerCase())));
           
           if (regionMentioned) {
             regionBonus = 20;
           } else {
-            const isNationalOrRemote = isRemoteLearningPage(page, true);
-            
-            if (isNationalOrRemote) {
-              console.log(`  ℹ️ "${page.title || page.h1}" - national/remote (no location), passing without bonus`);
-              regionBonus = 0;
-            } else {
-              console.log(`  ❌ "${page.title || page.h1}" - no region mention and not national, rejected`);
-              continue;
-            }
+            // אין שום אזכור של אזור - דחה את הדף!
+            console.log(`  ❌ "${page.title || page.h1}" - no region "${region.name}" mention, rejected`);
+            continue;
           }
         }
       }
@@ -1147,6 +1172,8 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       if (upcomingDate && isUpcomingDate(upcomingDate)) {
         matchScore += 200;
       }
+      
+      console.log(`  ✅ ADDED: "${page.title || page.h1}" | score: ${matchScore} | static: ${isStaticPage} | location: ${page.location || 'N/A'}`);
       
       results.push({
         ...page,
