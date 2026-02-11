@@ -135,6 +135,7 @@ function identifyPageType(page) {
   const url = page.url.toLowerCase();
   const title = (page.title || page.h1 || '').toLowerCase();
   const description = (page.description || '').toLowerCase();
+  const location = (page.location || '').toLowerCase();
   
   // ❌ דפים כלליים - לעולם לא להציג!
   const generalPagePatterns = [
@@ -164,6 +165,59 @@ function identifyPageType(page) {
   if (title.startsWith('קורסי ') || title.startsWith('לימודי ')) {
     // זה דף קטגוריה כללי, לא מוסד
     return 'general';
+  }
+  
+  // ❌ דפים שהכותרת שלהם היא בדיוק שם התחום (לא מוסד ספציפי)
+  // דוגמה: "הדרכת הורים, זוגיות ומשפחה" זה לא שם מוסד!
+  const categoryTitles = [
+    'אמנות',
+    'מוסיקה',
+    'צילום',
+    'תרפיה וטיפול',
+    'הדרכת הורים, זוגיות ומשפחה',
+    'הדרכת הורים',
+    'זוגיות ומשפחה',
+    'ניהול',
+    'חינוך והוראה',
+    'אימון',
+    'הנחיית קבוצות'
+  ];
+  
+  // בדיקה מדויקת
+  for (const categoryTitle of categoryTitles) {
+    const categoryLower = categoryTitle.toLowerCase();
+    if (title === categoryLower || 
+        title === `קורסי ${categoryLower}` ||
+        title === `לימודי ${categoryLower}`) {
+      console.log(`  🚫 Identified as GENERAL (exact category match): "${title}"`);
+      return 'general'; // ❌ דף קטגוריה
+    }
+  }
+  
+  // ❌ דף עם כותרת כללית וללא location = דף קטגוריה
+  // אם אין location וכותרת היא רק שם תחום (ללא שם מוסד) → general
+  if (!location || location === 'n/a' || location.trim() === '') {
+    // בדוק אם יש שם מוסד בכותרת
+    const hasInstitutionName = title.includes('מכון') || 
+                               title.includes('מכללת') ||
+                               title.includes('אוניברסיטת') ||
+                               title.includes('המרכז ל') ||
+                               title.includes('מרכז ') ||
+                               title.includes(' - ') || // בדרך כלל מפריד בין שם מוסד לתיאור
+                               title.length > 50; // כותרת ארוכה = מפורטת = מוסד
+    
+    // אם אין שם מוסד והכותרת מכילה רק שם תחום → general
+    if (!hasInstitutionName) {
+      for (const categoryTitle of categoryTitles) {
+        if (title === categoryTitle.toLowerCase() ||
+            title === `${categoryTitle.toLowerCase()} בלמידה מרחוק` ||
+            title === `${categoryTitle.toLowerCase()} במרכז הארץ` ||
+            title === `${categoryTitle.toLowerCase()} בשרון`) {
+          console.log(`  🚫 Identified as GENERAL (category without institution): "${title}"`);
+          return 'general'; // ❌ דף קטגוריה
+        }
+      }
+    }
   }
   
   // 📘 דפי מידע על שבתון
@@ -913,6 +967,11 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   for (const page of pages) {
     const pageTypeIdentified = identifyPageType(page);
     
+    // לוג לדיבוג
+    if ((page.title || '').toLowerCase().includes('הדרכת הורים')) {
+      console.log(`  🔍 Page: "${page.title}" | Type: ${pageTypeIdentified} | Location: ${page.location || 'N/A'}`);
+    }
+    
     if (pageTypeIdentified === 'general') {
       continue;
     }
@@ -1096,7 +1155,40 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
                           location.includes('זום');
           
           if (isRemote) {
-            // זה למידה מרחוק - אפשר לכלול רק אם יש אזכור של האזור
+            // זה למידה מרחוק - אבל בדוק שאין אזכור של אזור אחר!
+            let hasOtherRegion = false;
+            
+            if (REGIONS && Array.isArray(REGIONS)) {
+              for (const r of REGIONS) {
+                if (r.name === region.name) continue; // דלג על האזור הנוכחי
+                
+                // בדוק אם ה-location מכיל את שם האזור האחר
+                const otherRegionName = r.name.toLowerCase();
+                if (location.includes(otherRegionName)) {
+                  hasOtherRegion = true;
+                  console.log(`  ❌ "${page.title || page.h1}" - location mentions "${r.name}" (different region), rejected`);
+                  break;
+                }
+                
+                // בדוק אם ה-location מכיל עיר מאזור אחר
+                for (const city of r.cities) {
+                  const cityLower = city.toLowerCase().replace(/-/g, ' ');
+                  if (location.includes(cityLower)) {
+                    hasOtherRegion = true;
+                    console.log(`  ❌ "${page.title || page.h1}" - location mentions city "${city}" from "${r.name}", rejected`);
+                    break;
+                  }
+                }
+                
+                if (hasOtherRegion) break;
+              }
+            }
+            
+            if (hasOtherRegion) {
+              continue; // דף עם אזור אחר - נדחה!
+            }
+            
+            // למידה מרחוק ללא אזור אחר - אפשר לכלול רק אם יש אזכור של האזור המבוקש
             const mentionsRegion = titleAndDesc.includes(region.name.toLowerCase()) ||
                                    (region.keywords && region.keywords.some(k => titleAndDesc.includes(k.toLowerCase())));
             
@@ -1118,8 +1210,10 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         // אין location - בדוק אם יש אזכור עיר או אזור בתוכן
         let cityMentioned = null;
         let cityRegion = null;
+        let otherRegionMentioned = null;
         
         if (REGIONS && Array.isArray(REGIONS)) {
+          // בדוק אזכור ערים
           for (const r of REGIONS) {
             for (const city of r.cities) {
               const cityLower = city.toLowerCase().replace(/-/g, ' ');
@@ -1131,6 +1225,19 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
             }
             if (cityMentioned) break;
           }
+          
+          // בדוק אזכור אזורים אחרים
+          if (!cityMentioned) {
+            for (const r of REGIONS) {
+              if (r.name === region.name) continue; // דלג על האזור הנוכחי
+              
+              const otherRegionName = r.name.toLowerCase();
+              if (titleAndDesc.includes(otherRegionName)) {
+                otherRegionMentioned = r.name;
+                break;
+              }
+            }
+          }
         }
         
         if (cityMentioned) {
@@ -1141,17 +1248,28 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
             console.log(`  ❌ "${page.title || page.h1}" - mentions city "${cityMentioned}" from region "${cityRegion}", not "${region.name}", rejected`);
             continue;
           }
+        } else if (otherRegionMentioned) {
+          // נמצא אזכור של אזור אחר - דחה
+          console.log(`  ❌ "${page.title || page.h1}" - mentions region "${otherRegionMentioned}", not "${region.name}", rejected`);
+          continue;
         } else {
-          // אין אזכור עיר - בדוק אם יש אזכור האזור עצמו
+          // אין אזכור עיר או אזור אחר - בדוק אם יש אזכור האזור המבוקש
           const regionMentioned = titleAndDesc.includes(region.name.toLowerCase()) ||
                                   (region.keywords && region.keywords.some(k => titleAndDesc.includes(k.toLowerCase())));
           
           if (regionMentioned) {
             regionBonus = 20;
           } else {
-            // אין שום אזכור של אזור - דחה את הדף!
-            console.log(`  ❌ "${page.title || page.h1}" - no region "${region.name}" mention, rejected`);
-            continue;
+            // אין אזכור של האזור המבוקש
+            // אם זה static page (מוסד אמיתי) - אפשר לעבור עם בונוס נמוך
+            // אחרת - דחה
+            if (isStaticPage) {
+              console.log(`  ⚠️ "${page.title || page.h1}" - static page, no region mention, allowing with low bonus`);
+              regionBonus = -10; // בונוס שלילי - יופיע בסוף
+            } else {
+              console.log(`  ❌ "${page.title || page.h1}" - no region "${region.name}" mention, rejected`);
+              continue;
+            }
           }
         }
       }
@@ -1303,9 +1421,7 @@ function formatSearchResults(pages, field = null, region = null) {
           cleanUrl = parts[0] + '://' + parts[parts.length - 1];
         }
         
-        response += `[→ פנו למוסד הלימודים](${cleanUrl})\n`;
-      } else {
-        response += `→ פנו למוסד הלימודים\n`;
+        response += `🔗 ${cleanUrl}\n`;
       }
       
       if (index < pagesToShow.length - 1) {
