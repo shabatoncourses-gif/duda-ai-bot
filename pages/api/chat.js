@@ -1001,8 +1001,32 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       const specificKeywordLower = studyField.specificKeyword.toLowerCase();
       const pageContent = title + ' ' + description + ' ' + allHeadersText + ' ' + keywords.join(' ');
       
-      if (!pageContent.includes(specificKeywordLower)) {
-        continue;
+      // בדוק אם יש את ה-specificKeyword
+      const hasSpecificKeyword = pageContent.includes(specificKeywordLower);
+      
+      if (!hasSpecificKeyword) {
+        // אין את המילה הספציפית - בדוק אם יש keywords אחרות מהתחום
+        let hasOtherRelevantKeyword = false;
+        
+        if (studyField.keywords && Array.isArray(studyField.keywords)) {
+          for (const fieldKeyword of studyField.keywords) {
+            const fieldKeywordLower = fieldKeyword.toLowerCase();
+            // דלג על מילים גנריות מדי
+            if (fieldKeywordLower.length < 4) continue;
+            if (['הורים', 'זוגיות', 'משפחה'].includes(fieldKeywordLower)) continue;
+            
+            if (pageContent.includes(fieldKeywordLower)) {
+              hasOtherRelevantKeyword = true;
+              console.log(`  ℹ️ "${page.title || page.h1}" - has related keyword: "${fieldKeyword}"`);
+              break;
+            }
+          }
+        }
+        
+        // אין specificKeyword ואין keyword אחר - דחה
+        if (!hasOtherRelevantKeyword) {
+          continue;
+        }
       }
     }
     
@@ -1421,7 +1445,7 @@ function formatSearchResults(pages, field = null, region = null) {
           cleanUrl = parts[0] + '://' + parts[parts.length - 1];
         }
         
-        response += `🔗 ${cleanUrl}\n`;
+        response += `[למידע ולייעוץ אישי](${cleanUrl})\n`;
       }
       
       if (index < pagesToShow.length - 1) {
