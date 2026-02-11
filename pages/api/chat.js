@@ -1005,7 +1005,34 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       const hasSpecificKeyword = pageContent.includes(specificKeywordLower);
       
       if (!hasSpecificKeyword) {
-        // אין את המילה הספציפית - בדוק אם יש keywords אחרות מהתחום
+        // אין את המילה הספציפית
+        
+        // בדוק אם המילה היא ספציפית מאוד (מכילה תת-מילה אחרת מה-keywords)
+        // למשל: "פוטותרפיה" מכילה "תרפיה" - זו מילה ספציפית!
+        let isVerySpecificKeyword = false;
+        
+        if (studyField.keywords && Array.isArray(studyField.keywords)) {
+          for (const fieldKeyword of studyField.keywords) {
+            const fieldKeywordLower = fieldKeyword.toLowerCase();
+            if (fieldKeywordLower === specificKeywordLower) continue; // דלג על עצמה
+            if (fieldKeywordLower.length < 4) continue; // מילים קצרות מדי
+            
+            // אם המילה הספציפית מכילה keyword אחר - זו מילה ספציפית!
+            if (specificKeywordLower.includes(fieldKeywordLower)) {
+              isVerySpecificKeyword = true;
+              console.log(`  🔍 "${specificKeywordLower}" is very specific (contains "${fieldKeywordLower}") - strict search only`);
+              break;
+            }
+          }
+        }
+        
+        // אם המילה ספציפית מאוד - אל תרחיב, דחה!
+        if (isVerySpecificKeyword) {
+          console.log(`  ❌ "${page.title || page.h1}" - no "${specificKeywordLower}", rejected (strict)`);
+          continue;
+        }
+        
+        // לא ספציפית - נסה keywords אחרות
         let hasOtherRelevantKeyword = false;
         
         if (studyField.keywords && Array.isArray(studyField.keywords)) {
@@ -1380,9 +1407,21 @@ function formatSearchResults(pages, field = null, region = null) {
     pagesToShow.forEach((page, index) => {
       let title = page.title || page.h1 || 'מוסד לימודים';
       
+      // לוג לדיבוג
+      if (title.includes('|||')) {
+        console.log(`  🔍 BOLD DEBUG: Original title: "${title.substring(0, 100)}..."`);
+      }
+      
       // המר |||BOLD|||...|||ENDBOLD||| ל-markdown bold
-      title = title.replace(/\|\|\|BOLD\|\|\|/g, '**');
-      title = title.replace(/\|\|\|ENDBOLD\|\|\|/g, '**');
+      // נסה כמה וריאציות אפשריות
+      title = title.replace(/\|{3}BOLD\|{3}/gi, '**');
+      title = title.replace(/\|{3}ENDBOLD\|{3}/gi, '**');
+      title = title.replace(/\|\|\|bold\|\|\|/gi, '**');
+      title = title.replace(/\|\|\|endbold\|\|\|/gi, '**');
+      
+      if (title.includes('|||')) {
+        console.log(`  ⚠️ BOLD WARNING: Still contains ||| after replacement: "${title.substring(0, 100)}..."`);
+      }
       
       response += `**${title}**\n`;
       
@@ -1392,7 +1431,7 @@ function formatSearchResults(pages, field = null, region = null) {
           let cleanCourse = course.replace(/\|\|\|BOLD\|\|\|/g, '**').replace(/\|\|\|ENDBOLD\|\|\|/g, '**');
           response += `${cleanCourse}\n`;
         });
-      } else if (page.description) {
+      } else if (page.description && page.description.trim() !== '') {
         let desc = page.description.trim();
         
         // המר |||BOLD||| ל-markdown
@@ -1423,7 +1462,30 @@ function formatSearchResults(pages, field = null, region = null) {
           }
         }
         
-        if (desc) response += `${desc}\n`;
+        if (desc && desc.trim() !== '') {
+          response += `${desc}\n`;
+        }
+      } else {
+        // אין courses ואין description - נסה fallback
+        console.log(`  ⚠️ No description for: "${page.title || page.h1}"`);
+        
+        // נסה להציג h2/h3
+        let fallbackText = '';
+        if (page.h2 && Array.isArray(page.h2) && page.h2.length > 0) {
+          fallbackText = page.h2.slice(0, 2).join(' • ');
+        } else if (page.h2 && typeof page.h2 === 'string') {
+          fallbackText = page.h2;
+        } else if (page.h3 && Array.isArray(page.h3) && page.h3.length > 0) {
+          fallbackText = page.h3.slice(0, 2).join(' • ');
+        } else if (page.keywords && Array.isArray(page.keywords) && page.keywords.length > 0) {
+          fallbackText = page.keywords.slice(0, 3).join(' • ');
+        }
+        
+        if (fallbackText && fallbackText.trim() !== '') {
+          // המר |||BOLD||| גם ב-fallback
+          fallbackText = fallbackText.replace(/\|\|\|BOLD\|\|\|/g, '**').replace(/\|\|\|ENDBOLD\|\|\|/g, '**');
+          response += `${fallbackText.trim()}\n`;
+        }
       }
       
       if (page.upcomingDate && isUpcomingDate(page.upcomingDate)) {
