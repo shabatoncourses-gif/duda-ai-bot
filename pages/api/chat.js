@@ -900,7 +900,7 @@ function filterBySpecificCity(institutions, city, includeRemote = false) {
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_12_v71_BOLD_FIXED 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_12_v73_COURSES_LIST_CRITICAL_FIX 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1021,7 +1021,10 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     
     if (studyField && studyField.specificKeyword) {
       const specificKeywordLower = studyField.specificKeyword.toLowerCase();
-      const pageContent = title + ' ' + description + ' ' + allHeadersText + ' ' + keywords.join(' ');
+      
+      // הוסף גם את רשימת הקורסים לחיפוש!
+      const coursesText = Array.isArray(page.courses) ? page.courses.join(' ').toLowerCase() : '';
+      const pageContent = title + ' ' + description + ' ' + allHeadersText + ' ' + keywords.join(' ') + ' ' + coursesText;
       
       // בדוק אם יש את ה-specificKeyword
       const hasSpecificKeyword = pageContent.includes(specificKeywordLower);
@@ -1426,7 +1429,16 @@ function formatSearchResults(pages, field = null, region = null) {
         console.log(`  ⚠️ BOLD WARNING: Still contains ||| after replacement: "${title.substring(0, 100)}..."`);
       }
       
-      response += `${title}\n`;
+      // ודא שהכותרת מובלטת
+      if (!title.startsWith('**')) {
+        title = `**${title}**`;
+      } else if (!title.endsWith('**')) {
+        // אם מתחיל ב-** אבל לא נגמר ב-**, הוסף בסוף
+        title = `${title}**`;
+      }
+      
+      // הוסף אייקון למוסד
+      response += `🏫 ${title}\n`;
       
       if (page.courses && Array.isArray(page.courses) && page.courses.length > 0) {
         page.courses.slice(0, 2).forEach(course => {
