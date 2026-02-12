@@ -900,6 +900,7 @@ function filterBySpecificCity(institutions, city, includeRemote = false) {
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_11_v69_PHOTOTHERAPY_FIX 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
