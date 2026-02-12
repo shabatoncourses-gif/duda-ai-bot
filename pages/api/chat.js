@@ -900,7 +900,7 @@ function filterBySpecificCity(institutions, city, includeRemote = false) {
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_11_v69_PHOTOTHERAPY_FIX 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_12_v70_PHOTOTHERAPY_FIXED_FOR_REAL 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -963,6 +963,27 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     }
   }
   
+  // בדוק פעם אחת בלבד אם המילה הספציפית היא "מאוד ספציפית"
+  let isVerySpecificKeyword = false;
+  
+  if (studyField && studyField.specificKeyword) {
+    const specificKeywordLower = studyField.specificKeyword.toLowerCase();
+    
+    if (studyField.keywords && Array.isArray(studyField.keywords)) {
+      for (const fieldKeyword of studyField.keywords) {
+        const fieldKeywordLower = fieldKeyword.toLowerCase();
+        if (fieldKeywordLower === specificKeywordLower) continue;
+        if (fieldKeywordLower.length < 4) continue;
+        
+        if (specificKeywordLower.includes(fieldKeywordLower)) {
+          isVerySpecificKeyword = true;
+          console.log(`🔍 "${specificKeywordLower}" is very specific (contains "${fieldKeywordLower}") - strict search only`);
+          break;
+        }
+      }
+    }
+  }
+  
   let results = [];
   
   for (const page of pages) {
@@ -1007,25 +1028,6 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       
       if (!hasSpecificKeyword) {
         // אין את המילה הספציפית
-        
-        // בדוק אם המילה היא ספציפית מאוד (מכילה תת-מילה אחרת מה-keywords)
-        // למשל: "פוטותרפיה" מכילה "תרפיה" - זו מילה ספציפית!
-        let isVerySpecificKeyword = false;
-        
-        if (studyField.keywords && Array.isArray(studyField.keywords)) {
-          for (const fieldKeyword of studyField.keywords) {
-            const fieldKeywordLower = fieldKeyword.toLowerCase();
-            if (fieldKeywordLower === specificKeywordLower) continue; // דלג על עצמה
-            if (fieldKeywordLower.length < 4) continue; // מילים קצרות מדי
-            
-            // אם המילה הספציפית מכילה keyword אחר - זו מילה ספציפית!
-            if (specificKeywordLower.includes(fieldKeywordLower)) {
-              isVerySpecificKeyword = true;
-              console.log(`  🔍 "${specificKeywordLower}" is very specific (contains "${fieldKeywordLower}") - strict search only`);
-              break;
-            }
-          }
-        }
         
         // אם המילה ספציפית מאוד - אל תרחיב, דחה!
         if (isVerySpecificKeyword) {
