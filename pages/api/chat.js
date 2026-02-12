@@ -900,7 +900,7 @@ function filterBySpecificCity(institutions, city, includeRemote = false) {
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_12_v76_BOLD_FIX_SPLIT_JOIN 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_12_v77_NO_IRRELEVANT_RESULTS_CRITICAL_FIX 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1407,10 +1407,21 @@ function formatSearchResults(pages, field = null, region = null) {
   
   let response = '';
   
-  // אם יש specificKeyword - הצג את כל הדפים (כבר מסוננים לפי המילה המדויקת)
+  // אם יש specificKeyword - הצג רק דפים שעברו את הסינון הקפדני
   // אחרת - הצג רק static pages
   const hasSpecificKeyword = field && field.specificKeyword;
-  const pagesToShow = hasSpecificKeyword ? pages : pages.filter(p => p.isStatic);
+  let pagesToShow = hasSpecificKeyword ? pages : pages.filter(p => p.isStatic);
+  
+  // תיקון קריטי: אם יש specificKeyword, דחה דפי קטגוריה כלליים!
+  if (hasSpecificKeyword) {
+    // דחה דפים שהם general (דפי קטגוריה)
+    pagesToShow = pagesToShow.filter(p => p.pageType !== 'general');
+    
+    // אם אין אף דף אחד - החזר null (לא מצאנו תוצאות)
+    if (pagesToShow.length === 0) {
+      return null;
+    }
+  }
   
   if (pagesToShow.length > 0) {
     pagesToShow.forEach((page, index) => {
@@ -2074,9 +2085,29 @@ function generateSmartResponse(userMessage, forcedMode) {
       return response;
     }
     
-    // יש תוצאות - הצג אותן
+    // יש תוצאות - נסה לעצב אותן
+    const formatted = formatSearchResults(filteredResults, field, regions ? regions[0] : null);
+    
+    // אם formatSearchResults החזיר null (כי סינן דפים general), אין תוצאות אמיתיות!
+    if (!formatted) {
+      const searchDesc = hasSpecificKeyword ? field.specificKeyword : field.name;
+      const locationDesc = isRemoteLearning ? 'בלמידה מרחוק' : 
+                           (regions && regions.length > 0 ? `ב${regionNames.join(' ו')}` : 'בכל הארץ');
+      
+      response = `לא מצאתי קורסים ב**${searchDesc}** ${locationDesc}.\n\n`;
+      response += `💡 אפשר לנסות:\n`;
+      if (regions && regionSlugs && fieldSlug) {
+        response += `• [כל הקורסים ב${field.name} ${locationDesc}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
+      }
+      response += `• [כל הקורסים ב${field.name} בכל הארץ](https://www.shabaton.online/${fieldSlug})\n`;
+      response += `\nאו תנסה חיפוש אחר 😊`;
+      
+      return response;
+    }
+    
+    // יש תוצאות אמיתיות - הצג אותן
     const fieldName = hasSpecificKeyword ? field.specificKeyword : field.name;
-    const totalCount = filteredResults.length;
+    const totalCount = filteredResults.filter(p => p.pageType !== 'general').length; // ספור רק דפים אמיתיים
     
     if (isRemoteLearning) {
       response = `מצאתי ${totalCount} ${totalCount === 1 ? 'מוסד' : 'מוסדות'} בלמידה מרחוק ל${fieldName}:\n\n`;
@@ -2087,10 +2118,7 @@ function generateSmartResponse(userMessage, forcedMode) {
       response = `מצאתי ${totalCount} ${totalCount === 1 ? 'מוסד' : 'מוסדות'} ל${fieldName}:\n\n`;
     }
     
-    const formatted = formatSearchResults(filteredResults, field, regions ? regions[0] : null);
-    if (formatted) {
-      response += formatted;
-    }
+    response += formatted;
     
     // הצעת למידה מרחוק אם יש מעט תוצאות
     if (totalCount < 5 && !isRemoteLearning) {
