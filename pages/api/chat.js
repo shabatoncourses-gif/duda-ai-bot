@@ -900,7 +900,7 @@ function filterBySpecificCity(institutions, city, includeRemote = false) {
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_12_v73_COURSES_LIST_CRITICAL_FIX 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_12_v74_LOCATION_AND_TEXT_MEGA_FIX 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1024,7 +1024,9 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       
       // הוסף גם את רשימת הקורסים לחיפוש!
       const coursesText = Array.isArray(page.courses) ? page.courses.join(' ').toLowerCase() : '';
-      const pageContent = title + ' ' + description + ' ' + allHeadersText + ' ' + keywords.join(' ') + ' ' + coursesText;
+      // הוסף גם את page.text (טקסט מלא של הדף)!
+      const fullText = (page.text || '').toLowerCase();
+      const pageContent = title + ' ' + description + ' ' + allHeadersText + ' ' + keywords.join(' ') + ' ' + coursesText + ' ' + fullText;
       
       // בדוק אם יש את ה-specificKeyword
       const hasSpecificKeyword = pageContent.includes(specificKeywordLower);
@@ -1194,7 +1196,8 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     // סינון לפי אזור - לכל סוגי הדפים!
     if (region && region.cities && !isInSpecificCity) {
       const location = (page.location || '').toLowerCase();
-      const titleAndDesc = (title + ' ' + description).toLowerCase();
+      // הסר גם "-" מהכותרת והתיאור כדי למצוא "תל-אביב"!
+      const titleAndDesc = (title + ' ' + description).toLowerCase().replace(/-/g, ' ');
       
       // בדיקה 1: האם ה-location מכיל עיר מהאזור?
       const hasRegionCityInLocation = region.cities.some(city => {
@@ -1419,11 +1422,15 @@ function formatSearchResults(pages, field = null, region = null) {
       }
       
       // המר |||BOLD|||...|||ENDBOLD||| ל-markdown bold
-      // נסה כמה וריאציות אפשריות
+      // נסה כמה וריאציות אפשריות (עם רווחים אפשריים)
+      title = title.replace(/\|\|\|\s*BOLD\s*\|\|\|/gi, '**');
+      title = title.replace(/\|\|\|\s*ENDBOLD\s*\|\|\|/gi, '**');
+      title = title.replace(/\|\|\|\s*bold\s*\|\|\|/gi, '**');
+      title = title.replace(/\|\|\|\s*endbold\s*\|\|\|/gi, '**');
+      
+      // נסה גם ללא רווחים (fallback)
       title = title.replace(/\|{3}BOLD\|{3}/gi, '**');
       title = title.replace(/\|{3}ENDBOLD\|{3}/gi, '**');
-      title = title.replace(/\|\|\|bold\|\|\|/gi, '**');
-      title = title.replace(/\|\|\|endbold\|\|\|/gi, '**');
       
       if (title.includes('|||')) {
         console.log(`  ⚠️ BOLD WARNING: Still contains ||| after replacement: "${title.substring(0, 100)}..."`);
@@ -1438,7 +1445,7 @@ function formatSearchResults(pages, field = null, region = null) {
       }
       
       // הוסף אייקון למוסד
-      response += `🏫 ${title}\n`;
+      response += `🏢 ${title}\n`;
       
       if (page.courses && Array.isArray(page.courses) && page.courses.length > 0) {
         page.courses.slice(0, 2).forEach(course => {
