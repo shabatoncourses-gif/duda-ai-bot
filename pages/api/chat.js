@@ -900,7 +900,7 @@ function filterBySpecificCity(institutions, city, includeRemote = false) {
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_12_v70_PHOTOTHERAPY_FIXED_FOR_REAL 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_12_v71_BOLD_FIXED 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1426,7 +1426,7 @@ function formatSearchResults(pages, field = null, region = null) {
         console.log(`  ⚠️ BOLD WARNING: Still contains ||| after replacement: "${title.substring(0, 100)}..."`);
       }
       
-      response += `**${title}**\n`;
+      response += `${title}\n`;
       
       if (page.courses && Array.isArray(page.courses) && page.courses.length > 0) {
         page.courses.slice(0, 2).forEach(course => {
