@@ -900,7 +900,7 @@ function filterBySpecificCity(institutions, city, includeRemote = false) {
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_12_v78_REMOTE_LEARNING_ULTRA_CRITICAL_FIX 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v79_FULL_WORD_DETECTION_CRITICAL_FIX 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1206,7 +1206,9 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     if (region && region.cities && !isInSpecificCity) {
       const location = (page.location || '').toLowerCase();
       // הסר גם "-" מהכותרת והתיאור כדי למצוא "תל-אביב"!
-      const titleAndDesc = (title + ' ' + description).toLowerCase().replace(/-/g, ' ');
+      // הוסף גם text לחיפוש מיקום!
+      const fullText = (page.text || '').toLowerCase();
+      const titleAndDesc = (title + ' ' + description + ' ' + fullText).toLowerCase().replace(/-/g, ' ');
       
       // בדיקה 1: האם ה-location מכיל עיר מהאזור?
       const hasRegionCityInLocation = region.cities.some(city => {
@@ -1747,9 +1749,27 @@ function detectStudyField(message) {
   
   if (bestMatch) {
     console.log(`✅ Found keyword: "${bestMatch.keyword}" in field: "${bestMatch.field.name}"`);
+    
+    // תיקון קריטי: מצא את המילה המלאה ב-query שמכילה את ה-keyword!
+    // דוגמה: query="הידרותרפיה", keyword="תרפיה" → specificKeyword="הידרותרפיה"
+    const words = lowerMessage.split(/\s+/);
+    const keywordLower = bestMatch.keyword.toLowerCase();
+    let fullWord = bestMatch.keyword; // default
+    
+    for (const word of words) {
+      // נקה מילה מסימני פיסוק
+      const cleanWord = word.replace(/[,\.!\?;:]/g, '');
+      if (cleanWord.includes(keywordLower)) {
+        // מצאנו את המילה המלאה!
+        fullWord = cleanWord;
+        console.log(`  🔍 Found full word: "${fullWord}" (contains "${bestMatch.keyword}")`);
+        break;
+      }
+    }
+    
     return [{ 
       ...bestMatch.field, 
-      specificKeyword: bestMatch.keyword 
+      specificKeyword: fullWord  // ← עכשיו זה המילה המלאה!
     }];
   }
   
