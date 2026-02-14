@@ -779,7 +779,7 @@ function loadAllPages() {
         const url = page.url || '';
         if (url && seen.has(url)) {
           duplicatesCount++;
-          console.log(`  🔄 Duplicate found (removed): "${page.title || page.h1}" - ${url}`);
+          // לא להדפיס כל duplicate - רק לספור!
           continue;
         }
         if (url) seen.add(url);
@@ -1205,7 +1205,7 @@ async function hybridSearch(query, region = null, pageType = 'all', studyField =
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v87_SEMANTIC_DISABLED_FINAL_FIX 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v88_NO_DUPLICATE_LOGS_FINAL 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -2288,7 +2288,7 @@ function formatDisambiguation(originalMessage) {
 async function generateSmartResponse(userMessage, forcedMode) {
   console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v87_SEMANTIC_DISABLED_FINAL_FIX 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v88_NO_DUPLICATE_LOGS_FINAL 🚀🚀🚀');
   console.log('========================================\n');
 
   try {
