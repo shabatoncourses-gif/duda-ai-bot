@@ -201,7 +201,7 @@ function identifyPageType(page) {
     if (title === categoryLower || 
         title === `קורסי ${categoryLower}` ||
         title === `לימודי ${categoryLower}`) {
-      console.log(`  🚫 Identified as GENERAL (exact category match): "${title}"`);
+      // DEBUG_LOG: console.log(`  🚫 Identified as GENERAL (exact category match): "${title}"`);
       return 'general'; // ❌ דף קטגוריה
     }
   }
@@ -225,7 +225,7 @@ function identifyPageType(page) {
             title === `${categoryTitle.toLowerCase()} בלמידה מרחוק` ||
             title === `${categoryTitle.toLowerCase()} במרכז הארץ` ||
             title === `${categoryTitle.toLowerCase()} בשרון`) {
-          console.log(`  🚫 Identified as GENERAL (category without institution): "${title}"`);
+          // DEBUG_LOG: console.log(`  🚫 Identified as GENERAL (category without institution): "${title}"`);
           return 'general'; // ❌ דף קטגוריה
         }
       }
@@ -1192,7 +1192,7 @@ async function hybridSearch(query, region = null, pageType = 'all', studyField =
       const semRank = page.semanticRank ? `#${page.semanticRank}` : 'N/A';
       const kwRank = page.keywordRank ? `#${page.keywordRank}` : 'N/A';
       console.log(`  ${i + 1}. "${page.title}"`);
-      console.log(`     Combined: ${page.combinedScore.toFixed(3)} | Semantic: ${semRank} (${page.semanticScore.toFixed(3)}) | Keyword: ${kwRank} (${page.keywordScore.toFixed(3)})`);
+      // DEBUG_LOG: console.log(`     Combined: ${page.combinedScore.toFixed(3)} | Semantic: ${semRank} (${page.semanticScore.toFixed(3)}) | Keyword: ${kwRank} (${page.keywordScore.toFixed(3)})`);
     });
   }
   
@@ -1205,7 +1205,7 @@ async function hybridSearch(query, region = null, pageType = 'all', studyField =
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v88_NO_DUPLICATE_LOGS_FINAL 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v89_MINIMAL_LOGS_ONLY 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1294,10 +1294,10 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   for (const page of pages) {
     const pageTypeIdentified = identifyPageType(page);
     
-    // לוג לדיבוג
-    if ((page.title || '').toLowerCase().includes('הדרכת הורים')) {
-      console.log(`  🔍 Page: "${page.title}" | Type: ${pageTypeIdentified} | Location: ${page.location || 'N/A'}`);
-    }
+    // הסרת לוג מיותר - רק debug במקרה מיוחד
+    // if ((page.title || '').toLowerCase().includes('הדרכת הורים')) {
+    //   console.log(`  🔍 Page: "${page.title}" | Type: ${pageTypeIdentified} | Location: ${page.location || 'N/A'}`);
+    // }
     
     if (pageTypeIdentified === 'general') {
       continue;
@@ -1339,9 +1339,9 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       // לוג לדיבוג - אם זה אורנים, הצג מה קורה
       if ((page.title || page.h1 || '').toLowerCase().includes('אורנים') || 
           (page.url || '').toLowerCase().includes('arnim')) {
-        console.log(`  🔍 DEBUG: "${page.title || page.h1}" - checking for "${specificKeywordLower}"`);
-        console.log(`     hasSpecificKeyword: ${hasSpecificKeyword}`);
-        console.log(`     pageContent (first 200): ${pageContent.substring(0, 200)}...`);
+        // DEBUG_LOG: console.log(`  🔍 DEBUG: "${page.title || page.h1}" - checking for "${specificKeywordLower}"`);
+        // DEBUG_LOG: console.log(`     hasSpecificKeyword: ${hasSpecificKeyword}`);
+        // DEBUG_LOG: console.log(`     pageContent (first 200): ${pageContent.substring(0, 200)}...`);
       }
       
       if (!hasSpecificKeyword) {
@@ -1350,7 +1350,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         // תיקון קריטי: אם יש specificKeyword בכלל - דחה! אין fallback!
         // גם אם המילה לא "מאוד ספציפית", אם המשתמש חיפש מילה ספציפית - צריך strict search!
         if (studyField.specificKeyword) {
-          console.log(`  ❌ "${page.title || page.h1}" - no "${specificKeywordLower}", rejected (has specificKeyword)`);
+          // DEBUG_LOG: console.log(`  ❌ "${page.title || page.h1}" - no "${specificKeywordLower}", rejected (has specificKeyword)`);
           continue;
         }
         
@@ -1366,7 +1366,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
             
             if (pageContent.includes(fieldKeywordLower)) {
               hasOtherRelevantKeyword = true;
-              console.log(`  ℹ️ "${page.title || page.h1}" - has related keyword: "${fieldKeyword}"`);
+              // DEBUG_LOG: console.log(`  ℹ️ "${page.title || page.h1}" - has related keyword: "${fieldKeyword}"`);
               break;
             }
           }
@@ -1382,7 +1382,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         const isStaticBeforeCheck = pageTypeIdentified === 'static';
         
         if (!isStaticBeforeCheck) {
-          console.log(`  ❌ "${page.title || page.h1}" - has "${specificKeywordLower}" BUT is category page (not static), rejected`);
+          // DEBUG_LOG: console.log(`  ❌ "${page.title || page.h1}" - has "${specificKeywordLower}" BUT is category page (not static), rejected`);
           continue;
         }
       }
@@ -1559,7 +1559,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
                 const otherRegionName = r.name.toLowerCase();
                 if (location.includes(otherRegionName)) {
                   hasOtherRegion = true;
-                  console.log(`  ❌ "${page.title || page.h1}" - location mentions "${r.name}" (different region), rejected`);
+                  // DEBUG_LOG: console.log(`  ❌ "${page.title || page.h1}" - location mentions "${r.name}" (different region), rejected`);
                   break;
                 }
                 
@@ -1568,7 +1568,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
                   const cityLower = city.toLowerCase().replace(/-/g, ' ');
                   if (location.includes(cityLower)) {
                     hasOtherRegion = true;
-                    console.log(`  ❌ "${page.title || page.h1}" - location mentions city "${city}" from "${r.name}", rejected`);
+                    // DEBUG_LOG: console.log(`  ❌ "${page.title || page.h1}" - location mentions city "${city}" from "${r.name}", rejected`);
                     break;
                   }
                 }
@@ -1584,7 +1584,7 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
             // למידה מרחוק ללא אזור אחר
             // אם יש specificKeyword - כלול גם בלי אזכור אזור!
             if (studyField && studyField.specificKeyword) {
-              console.log(`  ℹ️ "${page.title || page.h1}" - remote learning with specificKeyword, passing`);
+              // DEBUG_LOG: console.log(`  ℹ️ "${page.title || page.h1}" - remote learning with specificKeyword, passing`);
               regionBonus = 0;
             } else {
               // אין specificKeyword - צריך אזכור של האזור המבוקש
@@ -1592,15 +1592,15 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
                                      (region.keywords && region.keywords.some(k => titleAndDesc.includes(k.toLowerCase())));
               
               if (mentionsRegion) {
-                console.log(`  ℹ️ "${page.title || page.h1}" - remote learning, mentions region, passing`);
+                // DEBUG_LOG: console.log(`  ℹ️ "${page.title || page.h1}" - remote learning, mentions region, passing`);
                 regionBonus = 0;
               } else {
-                console.log(`  ❌ "${page.title || page.h1}" - remote learning but no region mention, rejected`);
+                // DEBUG_LOG: console.log(`  ❌ "${page.title || page.h1}" - remote learning but no region mention, rejected`);
                 continue;
               }
             }
           } else {
-            console.log(`  ❌ "${page.title || page.h1}" - location "${location}" not in region "${region.name}", rejected`);
+            // DEBUG_LOG: console.log(`  ❌ "${page.title || page.h1}" - location "${location}" not in region "${region.name}", rejected`);
             continue;
           }
         } else {
@@ -1645,12 +1645,12 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
           if (cityRegion === region.name) {
             regionBonus = 30;
           } else {
-            console.log(`  ❌ "${page.title || page.h1}" - mentions city "${cityMentioned}" from region "${cityRegion}", not "${region.name}", rejected`);
+            // DEBUG_LOG: console.log(`  ❌ "${page.title || page.h1}" - mentions city "${cityMentioned}" from region "${cityRegion}", not "${region.name}", rejected`);
             continue;
           }
         } else if (otherRegionMentioned) {
           // נמצא אזכור של אזור אחר - דחה
-          console.log(`  ❌ "${page.title || page.h1}" - mentions region "${otherRegionMentioned}", not "${region.name}", rejected`);
+          // DEBUG_LOG: console.log(`  ❌ "${page.title || page.h1}" - mentions region "${otherRegionMentioned}", not "${region.name}", rejected`);
           continue;
         } else {
           // אין אזכור עיר או אזור אחר - בדוק אם יש אזכור האזור המבוקש
@@ -1663,14 +1663,14 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
             // אין אזכור של האזור המבוקש
             // אם יש specificKeyword - כלול גם בלי אזכור אזור!
             if (studyField && studyField.specificKeyword) {
-              console.log(`  ℹ️ "${page.title || page.h1}" - no location but has specificKeyword, passing`);
+              // DEBUG_LOG: console.log(`  ℹ️ "${page.title || page.h1}" - no location but has specificKeyword, passing`);
               regionBonus = 0;
             } else if (isStaticPage) {
               // אין specificKeyword, אבל זה static page (מוסד אמיתי) - אפשר לעבור עם בונוס נמוך
               console.log(`  ⚠️ "${page.title || page.h1}" - static page, no region mention, allowing with low bonus`);
               regionBonus = -10; // בונוס שלילי - יופיע בסוף
             } else {
-              console.log(`  ❌ "${page.title || page.h1}" - no region "${region.name}" mention, rejected`);
+              // DEBUG_LOG: console.log(`  ❌ "${page.title || page.h1}" - no region "${region.name}" mention, rejected`);
               continue;
             }
           }
@@ -1778,7 +1778,7 @@ function formatSearchResults(pages, field = null, region = null) {
       const hasKeyword = pageContent.includes(specificKeywordLower);
       
       if (!hasKeyword) {
-        console.log(`  ❌ [formatSearchResults] Rejected: "${page.title}" - no "${field.specificKeyword}"`);
+        // DEBUG_LOG: console.log(`  ❌ [formatSearchResults] Rejected: "${page.title}" - no "${field.specificKeyword}"`);
       } else {
         console.log(`  ✅ [formatSearchResults] Kept: "${page.title}" - has "${field.specificKeyword}"`);
       }
@@ -2288,7 +2288,7 @@ function formatDisambiguation(originalMessage) {
 async function generateSmartResponse(userMessage, forcedMode) {
   console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v88_NO_DUPLICATE_LOGS_FINAL 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v89_MINIMAL_LOGS_ONLY 🚀🚀🚀');
   console.log('========================================\n');
 
   try {
