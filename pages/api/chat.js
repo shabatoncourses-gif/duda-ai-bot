@@ -6,7 +6,7 @@ import path from 'path';
 // 🔧 Semantic Search Configuration
 // ========================================
 const SEMANTIC_SEARCH_CONFIG = {
-  enabled: true,  // הפעל/כבה semantic search
+  enabled: false,  // כבוי לגמרי! עד שיש API key תקין!
   openaiApiKey: process.env.OPENAI_API_KEY,  // צריך להגדיר ב-Vercel
   embeddingModel: 'text-embedding-3-small',  // model זול וטוב
   hybridWeight: 0.6,  // משקל ל-semantic (0.6) vs keyword (0.4)
@@ -969,17 +969,18 @@ function cosineSimilarity(vecA, vecB) {
  * @returns {Promise<number[]>} - Vector embedding
  */
 async function getEmbedding(text) {
-  if (!SEMANTIC_SEARCH_CONFIG.openaiApiKey) {
-    console.error('❌ OpenAI API key not configured');
+  // בדיקה מוקדמת - אם אין API key או שהוא לא תקין
+  if (!SEMANTIC_SEARCH_CONFIG.openaiApiKey || 
+      SEMANTIC_SEARCH_CONFIG.openaiApiKey === '' ||
+      SEMANTIC_SEARCH_CONFIG.openaiApiKey === 'undefined' ||
+      SEMANTIC_SEARCH_CONFIG.openaiApiKey === 'null') {
+    console.log('⚠️ [getEmbedding] No valid OpenAI API key configured');
     return null;
   }
   
   try {
-    // הוסף timeout של 10 שניות
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    
-    const response = await fetch('https://api.openai.com/v1/embeddings', {
+    // יצירת Promise עם timeout של 5 שניות (קצר יותר!)
+    const fetchPromise = fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SEMANTIC_SEARCH_CONFIG.openaiApiKey}`,
@@ -988,25 +989,30 @@ async function getEmbedding(text) {
       body: JSON.stringify({
         model: SEMANTIC_SEARCH_CONFIG.embeddingModel,
         input: text
-      }),
-      signal: controller.signal
+      })
     });
     
-    clearTimeout(timeoutId);
+    // יצירת timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout')), 5000);
+    });
+    
+    // Promise.race - מי שמסיים ראשון מנצח!
+    const response = await Promise.race([fetchPromise, timeoutPromise]);
     
     if (!response.ok) {
       const error = await response.text();
-      console.error('❌ OpenAI API error:', error);
+      console.error('❌ [getEmbedding] OpenAI API error:', error.substring(0, 200));
       return null;
     }
     
     const data = await response.json();
     return data.data[0].embedding;
   } catch (error) {
-    if (error.name === 'AbortError') {
-      console.error('❌ Error getting embedding: Request timeout (10s)');
+    if (error.message === 'Timeout') {
+      console.error('❌ [getEmbedding] Request timeout (5s) - API not responding');
     } else {
-      console.error('❌ Error getting embedding:', error.message);
+      console.error('❌ [getEmbedding] Error:', error.message);
     }
     return null;
   }
@@ -1199,7 +1205,7 @@ async function hybridSearch(query, region = null, pageType = 'all', studyField =
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v86_SEMANTIC_SEARCH_ERROR_HANDLING_CRITICAL 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v87_SEMANTIC_DISABLED_FINAL_FIX 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -2282,7 +2288,7 @@ function formatDisambiguation(originalMessage) {
 async function generateSmartResponse(userMessage, forcedMode) {
   console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v86_SEMANTIC_SEARCH_ERROR_HANDLING_CRITICAL 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v87_SEMANTIC_DISABLED_FINAL_FIX 🚀🚀🚀');
   console.log('========================================\n');
 
   try {
