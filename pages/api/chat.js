@@ -1158,7 +1158,7 @@ async function hybridSearch(query, region = null, pageType = 'all', studyField =
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v80_SEMANTIC_SEARCH_INTEGRATED 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v81_AUTO_REMOTE_LEARNING_CRITICAL_FIX 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -2081,6 +2081,24 @@ function classifyIntent(message) {
   const hasInfoKeyword = infoKeywords.some(kw => lower.includes(kw));
   const hasQuestionWord = questionWords.some(qw => lower.includes(qw));
   
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // תיקון קריטי: בדוק חיפוש למידה מרחוק לפני QA!
+  // אם יש "קורס/השתלמות" + "למידה מרחוק" → זה חיפוש, לא QA!
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const isRemoteLearningSearch = (lower.includes('קורס') || lower.includes('השתלמות') || lower.includes('לימוד')) &&
+                                   (lower.includes('למידה מרחוק') || 
+                                    lower.includes('בלמידה מרחוק') ||
+                                    lower.includes('במרחוק') || 
+                                    lower.includes('מקוון') ||
+                                    lower.includes('אונליין') ||
+                                    lower.includes('zoom') ||
+                                    lower.includes('זום'));
+  
+  if (isRemoteLearningSearch) {
+    console.log('🔍 [classifyIntent] Detected remote learning search → search (not QA)');
+    return 'search';
+  }
+  
   // שאלה + מילת מפתח מידע = QA ברור
   if (hasQuestionWord && hasInfoKeyword) return 'qa';
   
@@ -2373,12 +2391,47 @@ async function generateSmartResponse(userMessage, forcedMode) {
     const fieldSlug = field.slug || field.name.replace(/[, ]/g, '-').toLowerCase();
     
     if (filteredResults.length === 0) {
-      // אין תוצאות
+      // אין תוצאות באזור - נסה חיפוש אוטומטי למידה מרחוק!
+      console.log('⚠️ אין תוצאות באזור - מנסה למידה מרחוק אוטומטית...');
+      
+      if (regions && regions.length > 0 && !isRemoteLearning) {
+        // חיפשנו באזור ספציפי ולא מצאנו - נסה למידה מרחוק
+        try {
+          console.log('🔄 מחפש אוטומטית במידה מרחוק...');
+          
+          const remoteSearchResults = SEMANTIC_SEARCH_CONFIG.enabled 
+            ? await hybridSearch(userMessage, null, 'all', field)
+            : searchPages(userMessage, null, 'all', field);
+          
+          const remoteResults = remoteSearchResults.filter(page => isRemoteLearningPage(page));
+          
+          if (remoteResults.length > 0) {
+            console.log(`✅ נמצאו ${remoteResults.length} תוצאות למידה מרחוק!`);
+            
+            // הצג תוצאות למידה מרחוק
+            const fieldName = hasSpecificKeyword ? field.specificKeyword : field.name;
+            response = `לא מצאתי קורסים ב**${fieldName}** ב${regionNames.join(' ו')}, אבל מצאתי ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} **בלמידה מרחוק**:\n\n`;
+            
+            const remoteFormatted = formatSearchResults(remoteResults.slice(0, 10), field, null);
+            if (remoteFormatted) {
+              response += remoteFormatted;
+            }
+            
+            response += `\n\n💡 לכל הקורסים ב${field.name}: [למידה מרחוק](https://www.shabaton.online/remote-learning/${fieldSlug}) | [${regionNames.join(' ו')}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})`;
+            
+            return response;
+          }
+        } catch (error) {
+          console.error('❌ שגיאה בחיפוש למידה מרחוק אוטומטי:', error.message);
+        }
+      }
+      
+      // אין תוצאות גם במידה מרחוק (או לא ניסינו)
       const searchDesc = hasSpecificKeyword ? field.specificKeyword : field.name;
       const locationDesc = isRemoteLearning ? 'בלמידה מרחוק' : 
                            (regions && regions.length > 0 ? `ב${regionNames.join(' ו')}` : 'בכל הארץ');
       
-      response = `לא מצאתי קורסים ב**${searchDesc}** ${locationDesc}.\n\n`;
+      response = `לא מצאתי קורסים **ב${searchDesc}** ${locationDesc}.\n\n`;
       response += `💡 אפשר לנסות:\n`;
       if (regions && regionSlugs && fieldSlug) {
         response += `• [כל הקורסים ב${field.name} ${locationDesc}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
@@ -2398,7 +2451,7 @@ async function generateSmartResponse(userMessage, forcedMode) {
       const locationDesc = isRemoteLearning ? 'בלמידה מרחוק' : 
                            (regions && regions.length > 0 ? `ב${regionNames.join(' ו')}` : 'בכל הארץ');
       
-      response = `לא מצאתי קורסים ב**${searchDesc}** ${locationDesc}.\n\n`;
+      response = `לא מצאתי קורסים **ב${searchDesc}** ${locationDesc}.\n\n`;
       response += `💡 אפשר לנסות:\n`;
       if (regions && regionSlugs && fieldSlug) {
         response += `• [כל הקורסים ב${field.name} ${locationDesc}](https://www.shabaton.online/${regionSlugs}/${fieldSlug})\n`;
