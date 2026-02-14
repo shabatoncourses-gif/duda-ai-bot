@@ -1158,7 +1158,7 @@ async function hybridSearch(query, region = null, pageType = 'all', studyField =
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v81_AUTO_REMOTE_LEARNING_CRITICAL_FIX 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v82_DOUBLE_CHECK_SPECIFIC_KEYWORD_ULTRA_FIX 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1693,11 +1693,40 @@ function formatSearchResults(pages, field = null, region = null) {
   
   // תיקון קריטי: אם יש specificKeyword, דחה דפי קטגוריה כלליים!
   if (hasSpecificKeyword) {
+    console.log(`🔍 [formatSearchResults] Filtering by specificKeyword: "${field.specificKeyword}"`);
+    
+    const specificKeywordLower = field.specificKeyword.toLowerCase();
+    
     // דחה דפים שהם general (דפי קטגוריה)
     pagesToShow = pagesToShow.filter(p => p.pageType !== 'general');
     
+    // תיקון אולטרה קריטי: וודא שכל דף באמת מכיל את ה-specificKeyword!
+    pagesToShow = pagesToShow.filter(page => {
+      const title = (page.title || '').toLowerCase();
+      const h1 = (page.h1 || '').toLowerCase();
+      const h2 = (page.h2 || '').toLowerCase();
+      const h3 = (page.h3 || '').toLowerCase();
+      const description = (page.description || '').toLowerCase();
+      const text = (page.text || '').toLowerCase();
+      
+      const pageContent = title + ' ' + h1 + ' ' + h2 + ' ' + h3 + ' ' + description + ' ' + text;
+      
+      const hasKeyword = pageContent.includes(specificKeywordLower);
+      
+      if (!hasKeyword) {
+        console.log(`  ❌ [formatSearchResults] Rejected: "${page.title}" - no "${field.specificKeyword}"`);
+      } else {
+        console.log(`  ✅ [formatSearchResults] Kept: "${page.title}" - has "${field.specificKeyword}"`);
+      }
+      
+      return hasKeyword;
+    });
+    
+    console.log(`📊 [formatSearchResults] After filtering: ${pagesToShow.length} pages with "${field.specificKeyword}"`);
+    
     // אם אין אף דף אחד - החזר null (לא מצאנו תוצאות)
     if (pagesToShow.length === 0) {
+      console.log(`⚠️ [formatSearchResults] No pages left after specificKeyword filtering!`);
       return null;
     }
   }
