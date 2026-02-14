@@ -900,7 +900,7 @@ function filterBySpecificCity(institutions, city, includeRemote = false) {
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_12_v77_NO_IRRELEVANT_RESULTS_CRITICAL_FIX 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_12_v78_REMOTE_LEARNING_ULTRA_CRITICAL_FIX 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1031,16 +1031,25 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       // בדוק אם יש את ה-specificKeyword
       const hasSpecificKeyword = pageContent.includes(specificKeywordLower);
       
+      // לוג לדיבוג - אם זה אורנים, הצג מה קורה
+      if ((page.title || page.h1 || '').toLowerCase().includes('אורנים') || 
+          (page.url || '').toLowerCase().includes('arnim')) {
+        console.log(`  🔍 DEBUG: "${page.title || page.h1}" - checking for "${specificKeywordLower}"`);
+        console.log(`     hasSpecificKeyword: ${hasSpecificKeyword}`);
+        console.log(`     pageContent (first 200): ${pageContent.substring(0, 200)}...`);
+      }
+      
       if (!hasSpecificKeyword) {
         // אין את המילה הספציפית
         
-        // אם המילה ספציפית מאוד - אל תרחיב, דחה!
-        if (isVerySpecificKeyword) {
-          console.log(`  ❌ "${page.title || page.h1}" - no "${specificKeywordLower}", rejected (strict)`);
+        // תיקון קריטי: אם יש specificKeyword בכלל - דחה! אין fallback!
+        // גם אם המילה לא "מאוד ספציפית", אם המשתמש חיפש מילה ספציפית - צריך strict search!
+        if (studyField.specificKeyword) {
+          console.log(`  ❌ "${page.title || page.h1}" - no "${specificKeywordLower}", rejected (has specificKeyword)`);
           continue;
         }
         
-        // לא ספציפית - נסה keywords אחרות
+        // אין specificKeyword בכלל - נסה keywords אחרות
         let hasOtherRelevantKeyword = false;
         
         if (studyField.keywords && Array.isArray(studyField.keywords)) {
@@ -1248,16 +1257,23 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
               continue; // דף עם אזור אחר - נדחה!
             }
             
-            // למידה מרחוק ללא אזור אחר - אפשר לכלול רק אם יש אזכור של האזור המבוקש
-            const mentionsRegion = titleAndDesc.includes(region.name.toLowerCase()) ||
-                                   (region.keywords && region.keywords.some(k => titleAndDesc.includes(k.toLowerCase())));
-            
-            if (mentionsRegion) {
-              console.log(`  ℹ️ "${page.title || page.h1}" - remote learning, mentions region, passing`);
+            // למידה מרחוק ללא אזור אחר
+            // אם יש specificKeyword - כלול גם בלי אזכור אזור!
+            if (studyField && studyField.specificKeyword) {
+              console.log(`  ℹ️ "${page.title || page.h1}" - remote learning with specificKeyword, passing`);
               regionBonus = 0;
             } else {
-              console.log(`  ❌ "${page.title || page.h1}" - remote learning but no region mention, rejected`);
-              continue;
+              // אין specificKeyword - צריך אזכור של האזור המבוקש
+              const mentionsRegion = titleAndDesc.includes(region.name.toLowerCase()) ||
+                                     (region.keywords && region.keywords.some(k => titleAndDesc.includes(k.toLowerCase())));
+              
+              if (mentionsRegion) {
+                console.log(`  ℹ️ "${page.title || page.h1}" - remote learning, mentions region, passing`);
+                regionBonus = 0;
+              } else {
+                console.log(`  ❌ "${page.title || page.h1}" - remote learning but no region mention, rejected`);
+                continue;
+              }
             }
           } else {
             console.log(`  ❌ "${page.title || page.h1}" - location "${location}" not in region "${region.name}", rejected`);
@@ -1321,9 +1337,12 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
             regionBonus = 20;
           } else {
             // אין אזכור של האזור המבוקש
-            // אם זה static page (מוסד אמיתי) - אפשר לעבור עם בונוס נמוך
-            // אחרת - דחה
-            if (isStaticPage) {
+            // אם יש specificKeyword - כלול גם בלי אזכור אזור!
+            if (studyField && studyField.specificKeyword) {
+              console.log(`  ℹ️ "${page.title || page.h1}" - no location but has specificKeyword, passing`);
+              regionBonus = 0;
+            } else if (isStaticPage) {
+              // אין specificKeyword, אבל זה static page (מוסד אמיתי) - אפשר לעבור עם בונוס נמוך
               console.log(`  ⚠️ "${page.title || page.h1}" - static page, no region mention, allowing with low bonus`);
               regionBonus = -10; // בונוס שלילי - יופיע בסוף
             } else {
