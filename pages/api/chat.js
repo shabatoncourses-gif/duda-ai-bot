@@ -3,6 +3,18 @@ import fs from 'fs';
 import path from 'path';
 
 // ========================================
+// 🔧 Semantic Search Configuration
+// ========================================
+const SEMANTIC_SEARCH_CONFIG = {
+  enabled: true,  // הפעל/כבה semantic search
+  openaiApiKey: process.env.OPENAI_API_KEY,  // צריך להגדיר ב-Vercel
+  embeddingModel: 'text-embedding-3-small',  // model זול וטוב
+  hybridWeight: 0.6,  // משקל ל-semantic (0.6) vs keyword (0.4)
+  minSimilarityScore: 0.3,  // סף מינימלי לsimilarity
+  maxResults: 20  // כמה תוצאות semantic לשלב
+};
+
+// ========================================
 // 📚 טעינת כל קבצי האינדקס
 // ========================================
 let ALL_PAGES = null;
@@ -896,11 +908,257 @@ function filterBySpecificCity(institutions, city, includeRemote = false) {
 }
 
 // ========================================
+// 🧠 Semantic Search Functions
+// ========================================
+
+/**
+ * חישוב Cosine Similarity בין שני vectors
+ * @param {number[]} vecA - Vector ראשון
+ * @param {number[]} vecB - Vector שני
+ * @returns {number} - Similarity score (0-1)
+ */
+function cosineSimilarity(vecA, vecB) {
+  if (!vecA || !vecB || vecA.length !== vecB.length) {
+    console.error('⚠️ Invalid vectors for similarity calculation');
+    return 0;
+  }
+  
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  
+  for (let i = 0; i < vecA.length; i++) {
+    dotProduct += vecA[i] * vecB[i];
+    normA += vecA[i] * vecA[i];
+    normB += vecB[i] * vecB[i];
+  }
+  
+  if (normA === 0 || normB === 0) {
+    return 0;
+  }
+  
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+/**
+ * המרת טקסט ל-embedding vector באמצעות OpenAI
+ * @param {string} text - הטקסט להמרה
+ * @returns {Promise<number[]>} - Vector embedding
+ */
+async function getEmbedding(text) {
+  if (!SEMANTIC_SEARCH_CONFIG.openaiApiKey) {
+    console.error('❌ OpenAI API key not configured');
+    return null;
+  }
+  
+  try {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SEMANTIC_SEARCH_CONFIG.openaiApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: SEMANTIC_SEARCH_CONFIG.embeddingModel,
+        input: text
+      })
+    });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('❌ OpenAI API error:', error);
+      return null;
+    }
+    
+    const data = await response.json();
+    return data.data[0].embedding;
+  } catch (error) {
+    console.error('❌ Error getting embedding:', error.message);
+    return null;
+  }
+}
+
+/**
+ * חיפוש semantic - מוצא דפים דומים לפי משמעות
+ * @param {string} query - שאילתת החיפוש
+ * @param {Object} region - אזור (אופציונלי)
+ * @param {Object} studyField - תחום לימוד (אופציונלי)
+ * @returns {Promise<Array>} - דפים ממוינים לפי דמיון
+ */
+async function semanticSearch(query, region = null, studyField = null) {
+  console.log('\n🧠 [semanticSearch] START');
+  console.log(`📝 Query: "${query}"`);
+  
+  if (!SEMANTIC_SEARCH_CONFIG.enabled) {
+    console.log('⚠️ Semantic search is disabled');
+    return [];
+  }
+  
+  // 1. המר את השאילתה ל-vector
+  const queryVector = await getEmbedding(query);
+  if (!queryVector) {
+    console.log('❌ Failed to get query embedding');
+    return [];
+  }
+  
+  console.log(`✅ Got query embedding (${queryVector.length} dimensions)`);
+  
+  // 2. טען את כל הדפים
+  const allPages = loadAllPages();
+  console.log(`📚 Loaded ${allPages.length} pages`);
+  
+  // 3. חשב similarity עם כל דף שיש לו vector
+  const results = [];
+  let pagesWithVectors = 0;
+  let pagesWithoutVectors = 0;
+  
+  for (const page of allPages) {
+    if (!page.vector || !Array.isArray(page.vector) || page.vector.length === 0) {
+      pagesWithoutVectors++;
+      continue;
+    }
+    
+    pagesWithVectors++;
+    const similarity = cosineSimilarity(queryVector, page.vector);
+    
+    // סנן תוצאות עם similarity נמוך מדי
+    if (similarity < SEMANTIC_SEARCH_CONFIG.minSimilarityScore) {
+      continue;
+    }
+    
+    results.push({
+      ...page,
+      semanticScore: similarity
+    });
+  }
+  
+  console.log(`📊 Pages with vectors: ${pagesWithVectors}, without: ${pagesWithoutVectors}`);
+  console.log(`🎯 Found ${results.length} results above threshold (${SEMANTIC_SEARCH_CONFIG.minSimilarityScore})`);
+  
+  // 4. מיין לפי similarity (גבוה לנמוך)
+  results.sort((a, b) => b.semanticScore - a.semanticScore);
+  
+  // 5. סנן לפי region אם צריך
+  let filtered = results;
+  if (region && region.cities) {
+    filtered = results.filter(page => {
+      const fullText = (page.text || '').toLowerCase();
+      const titleAndDesc = (page.title + ' ' + page.description).toLowerCase().replace(/-/g, ' ');
+      const content = titleAndDesc + ' ' + fullText;
+      
+      // בדוק אם יש אזכור של עיר מהאזור
+      return region.cities.some(city => {
+        const cityLower = city.toLowerCase().replace(/-/g, ' ');
+        return content.includes(cityLower);
+      });
+    });
+    
+    console.log(`🗺️ Filtered by region "${region.name}": ${filtered.length} results`);
+  }
+  
+  // 6. החזר את התוצאות הטובות ביותר
+  const topResults = filtered.slice(0, SEMANTIC_SEARCH_CONFIG.maxResults);
+  
+  if (topResults.length > 0) {
+    console.log(`✅ Top ${topResults.length} semantic results:`);
+    topResults.slice(0, 5).forEach((page, i) => {
+      console.log(`  ${i + 1}. "${page.title}" (score: ${page.semanticScore.toFixed(3)})`);
+    });
+  }
+  
+  console.log('🧠 [semanticSearch] END\n');
+  return topResults;
+}
+
+/**
+ * חיפוש היברידי - משלב semantic search עם keyword search
+ * @param {string} query - שאילתת החיפוש
+ * @param {Object} region - אזור
+ * @param {string} pageType - סוג דף
+ * @param {Object} studyField - תחום לימוד
+ * @returns {Promise<Array>} - דפים ממוינים
+ */
+async function hybridSearch(query, region = null, pageType = 'all', studyField = null) {
+  console.log('\n🔀 [hybridSearch] START');
+  
+  // 1. הפעל שני חיפושים במקביל
+  const [semanticResults, keywordResults] = await Promise.all([
+    semanticSearch(query, region, studyField),
+    Promise.resolve(searchPages(query, region, pageType, studyField))
+  ]);
+  
+  console.log(`📊 Semantic: ${semanticResults.length} results, Keyword: ${keywordResults.length} results`);
+  
+  // 2. מזג תוצאות
+  const scoreMap = new Map();
+  
+  // הוסף semantic results
+  semanticResults.forEach((page, index) => {
+    const normalizedScore = page.semanticScore; // כבר בין 0-1
+    scoreMap.set(page.url, {
+      ...page,
+      semanticScore: normalizedScore,
+      semanticRank: index + 1,
+      keywordScore: 0,
+      keywordRank: null
+    });
+  });
+  
+  // הוסף keyword results
+  keywordResults.forEach((page, index) => {
+    const normalizedScore = 1 - (index / Math.max(keywordResults.length, 1));
+    const existing = scoreMap.get(page.url);
+    
+    if (existing) {
+      // הדף נמצא גם ב-semantic - עדכן
+      existing.keywordScore = normalizedScore;
+      existing.keywordRank = index + 1;
+    } else {
+      // דף חדש מ-keyword
+      scoreMap.set(page.url, {
+        ...page,
+        semanticScore: 0,
+        semanticRank: null,
+        keywordScore: normalizedScore,
+        keywordRank: index + 1
+      });
+    }
+  });
+  
+  // 3. חשב combined score
+  const semanticWeight = SEMANTIC_SEARCH_CONFIG.hybridWeight;
+  const keywordWeight = 1 - semanticWeight;
+  
+  const combinedResults = Array.from(scoreMap.values()).map(page => ({
+    ...page,
+    combinedScore: (page.semanticScore * semanticWeight) + (page.keywordScore * keywordWeight)
+  }));
+  
+  // 4. מיין לפי combined score
+  combinedResults.sort((a, b) => b.combinedScore - a.combinedScore);
+  
+  console.log(`🎯 Combined ${combinedResults.length} unique results`);
+  
+  if (combinedResults.length > 0) {
+    console.log('📊 Top 5 hybrid results:');
+    combinedResults.slice(0, 5).forEach((page, i) => {
+      const semRank = page.semanticRank ? `#${page.semanticRank}` : 'N/A';
+      const kwRank = page.keywordRank ? `#${page.keywordRank}` : 'N/A';
+      console.log(`  ${i + 1}. "${page.title}"`);
+      console.log(`     Combined: ${page.combinedScore.toFixed(3)} | Semantic: ${semRank} (${page.semanticScore.toFixed(3)}) | Keyword: ${kwRank} (${page.keywordScore.toFixed(3)})`);
+    });
+  }
+  
+  console.log('🔀 [hybridSearch] END\n');
+  return combinedResults;
+}
+
+// ========================================
 // 🔍 חיפוש דפים באינדקסים
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v79_FULL_WORD_DETECTION_CRITICAL_FIX 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v80_SEMANTIC_SEARCH_INTEGRATED 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1916,7 +2174,7 @@ function formatDisambiguation(originalMessage) {
 // ========================================
 // 🤖 יצירת תשובה חכמה
 // ========================================
-function generateSmartResponse(userMessage, forcedMode) {
+async function generateSmartResponse(userMessage, forcedMode) {
   console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
   console.log('========================================\n');
@@ -2057,7 +2315,10 @@ function generateSmartResponse(userMessage, forcedMode) {
       // חיפוש לפי אזורים
       for (const region of regions) {
         try {
-          const searchResults = searchPages(userMessage, region, 'all', field);
+          // שימוש ב-hybrid search אם semantic מופעל
+          const searchResults = SEMANTIC_SEARCH_CONFIG.enabled 
+            ? await hybridSearch(userMessage, region, 'all', field)
+            : searchPages(userMessage, region, 'all', field);
           if (searchResults && searchResults.length > 0) {
             allResults = allResults.concat(searchResults);
           }
@@ -2068,15 +2329,19 @@ function generateSmartResponse(userMessage, forcedMode) {
     } else if (isRemoteLearning) {
       // חיפוש למידה מרחוק בלבד
       try {
-        const remoteResults = searchPages(userMessage, null, 'all', field);
-        allResults = remoteResults.filter(page => isRemoteLearningPage(page));
+        const searchResults = SEMANTIC_SEARCH_CONFIG.enabled 
+          ? await hybridSearch(userMessage, null, 'all', field)
+          : searchPages(userMessage, null, 'all', field);
+        allResults = searchResults.filter(page => isRemoteLearningPage(page));
       } catch (error) {
         console.error('Error in remote learning search:', error.message);
       }
     } else {
       // חיפוש בכל הארץ
       try {
-        const searchResults = searchPages(userMessage, null, 'all', field);
+        const searchResults = SEMANTIC_SEARCH_CONFIG.enabled 
+          ? await hybridSearch(userMessage, null, 'all', field)
+          : searchPages(userMessage, null, 'all', field);
         if (searchResults && searchResults.length > 0) {
           allResults = searchResults;
         }
@@ -2249,7 +2514,7 @@ export default async function handler(req, res) {
 
         if (forcedMode) {
           console.log(`🎯 [handler] Routing to: ${forcedMode} with query: "${originalQuery}"`);
-          const response = generateSmartResponse(originalQuery, forcedMode);
+          const response = await generateSmartResponse(originalQuery, forcedMode);
           return res.status(200).json({ response, timestamp: new Date().toISOString() });
         }
       }
@@ -2316,11 +2581,11 @@ export default async function handler(req, res) {
       
       const fullQuery = contextPrefix ? `${contextPrefix} ${message}` : message;
       console.log(`📝 [handler] Reconstructed query: "${fullQuery}"`);
-      const response = generateSmartResponse(fullQuery);
+      const response = await generateSmartResponse(fullQuery);
       return res.status(200).json({ response, timestamp: new Date().toISOString() });
     }
     
-    let response = generateSmartResponse(message);
+    let response = await generateSmartResponse(message);
     
     console.log(`✅ [handler] Returning response (${response.length} chars)\n`);
     
