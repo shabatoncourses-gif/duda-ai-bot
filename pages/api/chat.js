@@ -975,6 +975,10 @@ async function getEmbedding(text) {
   }
   
   try {
+    // הוסף timeout של 10 שניות
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
     const response = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: {
@@ -984,8 +988,11 @@ async function getEmbedding(text) {
       body: JSON.stringify({
         model: SEMANTIC_SEARCH_CONFIG.embeddingModel,
         input: text
-      })
+      }),
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       const error = await response.text();
@@ -996,7 +1003,11 @@ async function getEmbedding(text) {
     const data = await response.json();
     return data.data[0].embedding;
   } catch (error) {
-    console.error('❌ Error getting embedding:', error.message);
+    if (error.name === 'AbortError') {
+      console.error('❌ Error getting embedding: Request timeout (10s)');
+    } else {
+      console.error('❌ Error getting embedding:', error.message);
+    }
     return null;
   }
 }
@@ -1009,22 +1020,23 @@ async function getEmbedding(text) {
  * @returns {Promise<Array>} - דפים ממוינים לפי דמיון
  */
 async function semanticSearch(query, region = null, studyField = null) {
-  console.log('\n🧠 [semanticSearch] START');
-  console.log(`📝 Query: "${query}"`);
-  
-  if (!SEMANTIC_SEARCH_CONFIG.enabled) {
-    console.log('⚠️ Semantic search is disabled');
-    return [];
-  }
-  
-  // 1. המר את השאילתה ל-vector
-  const queryVector = await getEmbedding(query);
-  if (!queryVector) {
-    console.log('❌ Failed to get query embedding');
-    return [];
-  }
-  
-  console.log(`✅ Got query embedding (${queryVector.length} dimensions)`);
+  try {
+    console.log('\n🧠 [semanticSearch] START');
+    console.log(`📝 Query: "${query}"`);
+    
+    if (!SEMANTIC_SEARCH_CONFIG.enabled) {
+      console.log('⚠️ Semantic search is disabled');
+      return [];
+    }
+    
+    // 1. המר את השאילתה ל-vector
+    const queryVector = await getEmbedding(query);
+    if (!queryVector) {
+      console.log('❌ Failed to get query embedding');
+      return [];
+    }
+    
+    console.log(`✅ Got query embedding (${queryVector.length} dimensions)`);
   
   // 2. טען את כל הדפים
   const allPages = loadAllPages();
@@ -1091,6 +1103,12 @@ async function semanticSearch(query, region = null, studyField = null) {
   
   console.log('🧠 [semanticSearch] END\n');
   return topResults;
+  } catch (error) {
+    console.error('❌ [semanticSearch] CRITICAL ERROR:', error.message);
+    console.error('❌ [semanticSearch] Stack:', error.stack);
+    console.log('⚠️ [semanticSearch] Falling back to empty results');
+    return [];
+  }
 }
 
 /**
@@ -1181,7 +1199,7 @@ async function hybridSearch(query, region = null, pageType = 'all', studyField =
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v85_REJECT_CATEGORY_PAGES_ULTRA_CRITICAL 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v86_SEMANTIC_SEARCH_ERROR_HANDLING_CRITICAL 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -2264,7 +2282,7 @@ function formatDisambiguation(originalMessage) {
 async function generateSmartResponse(userMessage, forcedMode) {
   console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v85_REJECT_CATEGORY_PAGES_ULTRA_CRITICAL 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v86_SEMANTIC_SEARCH_ERROR_HANDLING_CRITICAL 🚀🚀🚀');
   console.log('========================================\n');
 
   try {
