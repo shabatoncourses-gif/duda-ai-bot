@@ -1181,7 +1181,7 @@ async function hybridSearch(query, region = null, pageType = 'all', studyField =
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v84_DEDUPE_AND_SCORE_FIX_ULTRA_CRITICAL 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v85_REJECT_CATEGORY_PAGES_ULTRA_CRITICAL 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1350,6 +1350,15 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         
         // אין specificKeyword ואין keyword אחר - דחה
         if (!hasOtherRelevantKeyword) {
+          continue;
+        }
+      } else {
+        // יש specificKeyword - תיקון אולטרה קריטי!
+        // דחה category pages (non-static) - הם מכילים רשימות קורסים, לא קורסים ספציפיים!
+        const isStaticBeforeCheck = pageTypeIdentified === 'static';
+        
+        if (!isStaticBeforeCheck) {
+          console.log(`  ❌ "${page.title || page.h1}" - has "${specificKeywordLower}" BUT is category page (not static), rejected`);
           continue;
         }
       }
@@ -2255,7 +2264,7 @@ function formatDisambiguation(originalMessage) {
 async function generateSmartResponse(userMessage, forcedMode) {
   console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v84_DEDUPE_AND_SCORE_FIX_ULTRA_CRITICAL 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v85_REJECT_CATEGORY_PAGES_ULTRA_CRITICAL 🚀🚀🚀');
   console.log('========================================\n');
 
   try {
