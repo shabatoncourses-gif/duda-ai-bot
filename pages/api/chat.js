@@ -2224,6 +2224,7 @@ function formatDisambiguation(originalMessage) {
 async function generateSmartResponse(userMessage, forcedMode) {
   console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v83_ERROR_HANDLING_IMPROVED 🚀🚀🚀');
   console.log('========================================\n');
 
   try {
@@ -2531,6 +2532,23 @@ async function generateSmartResponse(userMessage, forcedMode) {
     
   } catch (error) {
     console.error('[generateSmartResponse] ERROR:', error.message);
+    console.error('[generateSmartResponse] Stack:', error.stack);
+    
+    // נסה לזהות לפחות את התחום והאזור
+    try {
+      const fields = detectStudyField(userMessage);
+      const regions = detectRegions(userMessage);
+      
+      if (fields && fields.length > 0 && regions && regions.length > 0) {
+        // יש גם תחום וגם אזור - אבל יש שגיאה, אז נחזיר תשובה בסיסית
+        return `מצטער, הייתה בעיה טכנית בחיפוש.\n\nאבל נראה שאתה מחפש **${fields[0].name}** ב**${regions[0].name}**.\n\nנסה שוב, או [חפש כאן](https://www.shabaton.online/${regions[0].slug}/${encodeURIComponent(fields[0].name)})`;
+      } else if (fields && fields.length > 0) {
+        return `מצטער, הייתה בעיה טכנית בחיפוש.\n\nאבל נראה שאתה מחפש **${fields[0].name}**.\n\nנסה שוב, או [חפש כאן](https://www.shabaton.online/${encodeURIComponent(fields[0].name)})`;
+      }
+    } catch (fallbackError) {
+      console.error('[generateSmartResponse] Fallback also failed:', fallbackError.message);
+    }
+    
     return `אשמח לעזור! 🎯\n\nספר לי:\n📍 באיזה אזור?\n📚 איזה תחום?`;
   }
 }
