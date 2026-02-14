@@ -770,6 +770,29 @@ function loadAllPages() {
       
       console.log(`✅ Total loaded: ${ALL_PAGES.length} pages`);
       
+      // תיקון אולטרה קריטי: הסר duplicates by URL!
+      const seen = new Set();
+      const uniquePages = [];
+      let duplicatesCount = 0;
+      
+      for (const page of ALL_PAGES) {
+        const url = page.url || '';
+        if (url && seen.has(url)) {
+          duplicatesCount++;
+          console.log(`  🔄 Duplicate found (removed): "${page.title || page.h1}" - ${url}`);
+          continue;
+        }
+        if (url) seen.add(url);
+        uniquePages.push(page);
+      }
+      
+      ALL_PAGES = uniquePages;
+      
+      if (duplicatesCount > 0) {
+        console.log(`⚠️ Removed ${duplicatesCount} duplicates`);
+        console.log(`✅ Final unique pages: ${ALL_PAGES.length}`);
+      }
+      
       if (ALL_PAGES.length === 0) {
         console.error('⚠️ WARNING: ALL_PAGES is EMPTY!');
         console.error('   Check if files exist in: ' + path.join(process.cwd(), 'data'));
@@ -1158,7 +1181,7 @@ async function hybridSearch(query, region = null, pageType = 'all', studyField =
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v82_DOUBLE_CHECK_SPECIFIC_KEYWORD_ULTRA_FIX 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v84_DEDUPE_AND_SCORE_FIX_ULTRA_CRITICAL 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1337,7 +1360,15 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     
     let matchScore = 0;
     
-    if (studyField && studyField.keywords) {
+    // תיקון אולטרה קריטי: אם יש specificKeyword - התעלם מ-keywords אחרות לגמרי!
+    // אחרת הקוד יכול לתת score גבוה לדפים שלא מכילים את המילה הספציפית!
+    if (studyField && studyField.specificKeyword) {
+      // יש specificKeyword - כבר בדקנו שהדף מכיל אותו (אחרת continue)
+      // תן score בסיסי של 100 כדי שהדף יעבור את הסף
+      matchScore = 100;
+      console.log(`  ✅ "${page.title || page.h1}" - has specificKeyword "${studyField.specificKeyword}", base score: 100`);
+    } else if (studyField && studyField.keywords) {
+      // אין specificKeyword - חפש keywords רגילות
       for (const kw of studyField.keywords) {
         const kwLower = kw.toLowerCase();
         
@@ -2224,7 +2255,7 @@ function formatDisambiguation(originalMessage) {
 async function generateSmartResponse(userMessage, forcedMode) {
   console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v83_ERROR_HANDLING_IMPROVED 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v84_DEDUPE_AND_SCORE_FIX_ULTRA_CRITICAL 🚀🚀🚀');
   console.log('========================================\n');
 
   try {
