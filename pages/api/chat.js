@@ -1205,7 +1205,7 @@ async function hybridSearch(query, region = null, pageType = 'all', studyField =
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v89_MINIMAL_LOGS_ONLY 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v90_ARRAY_FIX_FINAL 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1768,8 +1768,8 @@ function formatSearchResults(pages, field = null, region = null) {
     pagesToShow = pagesToShow.filter(page => {
       const title = (page.title || '').toLowerCase();
       const h1 = (page.h1 || '').toLowerCase();
-      const h2 = (page.h2 || '').toLowerCase();
-      const h3 = (page.h3 || '').toLowerCase();
+      const h2 = (Array.isArray(page.h2) ? page.h2.join(' ') : (page.h2 || '')).toLowerCase();
+      const h3 = (Array.isArray(page.h3) ? page.h3.join(' ') : (page.h3 || '')).toLowerCase();
       const description = (page.description || '').toLowerCase();
       const text = (page.text || '').toLowerCase();
       
@@ -2288,7 +2288,7 @@ function formatDisambiguation(originalMessage) {
 async function generateSmartResponse(userMessage, forcedMode) {
   console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v89_MINIMAL_LOGS_ONLY 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v90_ARRAY_FIX_FINAL 🚀🚀🚀');
   console.log('========================================\n');
 
   try {
