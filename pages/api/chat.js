@@ -139,6 +139,196 @@ function isRemoteLearningPage(page, includeNational = false) {
 }
 
 // ========================================
+// 📊 ניתוח מבנה דף - זיהוי קורסים תחת כותרות
+// ========================================
+
+/**
+ * מנתח את מבנה הדף ומזהה איזה קורס נמצא תחת איזו כותרת
+ * @param {Object} page - דף מה-index
+ * @returns {Object} - { courses: [{name, isRemote, section, sectionTitle}] }
+ */
+function analyzeCourseStructure(page) {
+  try {
+    // שלב 1: קבל את הכותרות (h3) והטקסט המלא
+    const h3Headers = page.h3 || [];
+    const fullText = page.text || '';
+    
+    if (!fullText || h3Headers.length === 0) {
+      return { courses: [] };
+    }
+    
+    // שלב 2: זהה איזה כותרות הן "למידה מרחוק"
+    const remoteSectionPatterns = [
+      'למידה מרחוק',
+      'בלמידה מרחוק',
+      'מקוון',
+      'אונליין',
+      'זום',
+      'א-סינכרונית',
+      'סינכרונית'
+    ];
+    
+    const isRemoteSection = (sectionTitle) => {
+      const lower = sectionTitle.toLowerCase();
+      return remoteSectionPatterns.some(pattern => lower.includes(pattern));
+    };
+    
+    // שלב 3: פצל את הטקסט לפי הכותרות
+    const sections = [];
+    
+    for (let i = 0; i < h3Headers.length; i++) {
+      const currentHeader = h3Headers[i];
+      const nextHeader = h3Headers[i + 1] || null;
+      
+      // מצא את המיקום של הכותרת הנוכחית והבאה בטקסט
+      const currentIndex = fullText.indexOf(currentHeader);
+      if (currentIndex === -1) continue;
+      
+      const nextIndex = nextHeader ? fullText.indexOf(nextHeader, currentIndex + 1) : fullText.length;
+      
+      // חלץ את הטקסט בין שתי הכותרות
+      const sectionText = fullText.substring(currentIndex + currentHeader.length, nextIndex);
+      
+      sections.push({
+        title: currentHeader,
+        text: sectionText.trim(),
+        isRemote: isRemoteSection(currentHeader)
+      });
+    }
+    
+    // שלב 4: זהה קורסים בכל סקשן
+    const coursePatterns = [
+      /(?:^|\n)\s*(קורס[^\n]+)/gm,
+      /(?:^|\n)\s*(הכשרת[^\n]+)/gm,
+      /(?:^|\n)\s*(לימודי[^\n]+)/gm,
+      /(?:^|\n)\s*(תכנית[^\n]+)/gm,
+      /(?:^|\n)\s*(מסלול[^\n]+)/gm
+    ];
+    
+    const allCourses = [];
+    
+    for (const section of sections) {
+      const coursesInSection = [];
+      
+      for (const pattern of coursePatterns) {
+        let match;
+        while ((match = pattern.exec(section.text)) !== null) {
+          const courseName = match[1].trim();
+          
+          // סנן שמות קצרים מדי או כלליים מדי
+          if (courseName.length < 10) continue;
+          if (courseName.includes('פנו ל')) continue;
+          if (courseName.includes('למידע')) continue;
+          
+          coursesInSection.push({
+            name: courseName,
+            isRemote: section.isRemote,
+            section: section.text.substring(0, 100) + '...',
+            sectionTitle: section.title
+          });
+        }
+      }
+      
+      allCourses.push(...coursesInSection);
+    }
+    
+    return {
+      courses: allCourses,
+      sections: sections.map(s => ({ title: s.title, isRemote: s.isRemote }))
+    };
+    
+  } catch (error) {
+    console.error('[analyzeCourseStructure] ERROR:', error.message);
+    return { courses: [] };
+  }
+}
+
+/**
+ * בדוק אם קורס ספציפי הוא בלמידה מרחוק
+ * @param {Object} page - דף מה-index
+ * @param {string} keyword - מילת מפתח (כמו "פוטותרפיה")
+ * @returns {Object} - { found: boolean, isRemote: boolean, courseName: string }
+ */
+function isCourseRemote(page, keyword) {
+  try {
+    const analysis = analyzeCourseStructure(page);
+    
+    if (!analysis.courses || analysis.courses.length === 0) {
+      // אם לא הצלחנו לנתח - נסה בדיקה פשוטה
+      return fallbackRemoteCheck(page, keyword);
+    }
+    
+    const keywordLower = keyword.toLowerCase();
+    
+    // חפש קורס שמכיל את ה-keyword
+    for (const course of analysis.courses) {
+      if (course.name.toLowerCase().includes(keywordLower)) {
+        console.log(`  🔍 [isCourseRemote] Found course: "${course.name}" under section: "${course.sectionTitle}" | isRemote: ${course.isRemote}`);
+        return {
+          found: true,
+          isRemote: course.isRemote,
+          courseName: course.name,
+          sectionTitle: course.sectionTitle
+        };
+      }
+    }
+    
+    // לא מצאנו - נסה fallback
+    return fallbackRemoteCheck(page, keyword);
+    
+  } catch (error) {
+    console.error('[isCourseRemote] ERROR:', error.message);
+    return { found: false, isRemote: false };
+  }
+}
+
+/**
+ * בדיקה פשוטה יותר אם הניתוח המלא נכשל
+ */
+function fallbackRemoteCheck(page, keyword) {
+  const text = (page.text || '').toLowerCase();
+  const keywordLower = keyword.toLowerCase();
+  
+  // האם הקורס קיים בכלל?
+  if (!text.includes(keywordLower)) {
+    return { found: false, isRemote: false };
+  }
+  
+  // מצא את המיקום של ה-keyword
+  const keywordIndex = text.indexOf(keywordLower);
+  
+  // קח 500 תווים לפני ואחרי
+  const contextBefore = text.substring(Math.max(0, keywordIndex - 500), keywordIndex);
+  const contextAfter = text.substring(keywordIndex, Math.min(text.length, keywordIndex + 500));
+  const context = contextBefore + contextAfter;
+  
+  // בדוק אם יש "למידה מרחוק" בקונטקסט הקרוב
+  const hasRemoteNearby = context.includes('למידה מרחוק') || 
+                          context.includes('מקוון') || 
+                          context.includes('אונליין') ||
+                          context.includes('זום');
+  
+  // אבל בדוק גם שזה לא כותרת כללית רחוקה
+  const h3Text = Array.isArray(page.h3) ? page.h3.join(' ').toLowerCase() : '';
+  const hasRemoteInHeaders = h3Text.includes('קורסים בלמידה מרחוק');
+  
+  // אם יש "למידה מרחוק" בכותרות כלליות, אבל לא בקונטקסט הקרוב - אז כנראה לא בלמידה מרחוק
+  if (hasRemoteInHeaders && !hasRemoteNearby) {
+    console.log(`  ⚠️ [fallbackRemoteCheck] "${keyword}" - has remote in headers but NOT in context - assuming NOT remote`);
+    return { found: true, isRemote: false, courseName: keyword };
+  }
+  
+  // אם יש בקונטקסט הקרוב - כנראה כן בלמידה מרחוק
+  console.log(`  ℹ️ [fallbackRemoteCheck] "${keyword}" - hasRemoteNearby: ${hasRemoteNearby}`);
+  return { 
+    found: true, 
+    isRemote: hasRemoteNearby,
+    courseName: keyword,
+    confidence: hasRemoteNearby ? 'high' : 'low'
+  };
+}
+
+// ========================================
 // 🏷️ זיהוי סוג דף
 // ========================================
 function identifyPageType(page) {
@@ -1205,7 +1395,7 @@ async function hybridSearch(query, region = null, pageType = 'all', studyField =
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v92_SPECIFIC_COURSE_REMOTE_CHECK 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_16_v94_DEEP_PAGE_STRUCTURE_ANALYSIS 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1523,30 +1713,21 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         if (!hasRegionCityInLocation) {
           // הדף לא מהאזור הנכון - בדוק אם זה למידה מרחוק
           
-          // תיקון קריטי: בדוק ספציפית את הקורס שנמצא, לא את כל הדף!
+          // תיקון קריטי v94: שימוש בניתוח מבנה דף מתקדם!
           let isRemote = false;
           
-          // אם יש specificKeyword - בדוק אם הקורס הספציפי הוא בלמידה מרחוק
+          // אם יש specificKeyword - השתמש בפונקציה החדשה לניתוח מבנה הדף
           if (studyField && studyField.specificKeyword) {
             const specificKeywordLower = studyField.specificKeyword.toLowerCase();
             
-            // בדוק ב-courses אם הקורס הספציפי מכיל "למידה מרחוק"
-            if (page.courses && Array.isArray(page.courses)) {
-              for (const course of page.courses) {
-                const courseLower = course.toLowerCase();
-                
-                // האם הקורס הזה מכיל את ה-specificKeyword?
-                if (courseLower.includes(specificKeywordLower)) {
-                  // כן! עכשיו בדוק אם **הקורס הזה** בלמידה מרחוק
-                  if (courseLower.includes('למידה מרחוק') || 
-                      courseLower.includes('מקוון') || 
-                      courseLower.includes('אונליין') ||
-                      courseLower.includes('זום')) {
-                    isRemote = true;
-                    break;
-                  }
-                }
-              }
+            // קרא לפונקציה החדשה שמנתחת את מבנה הדף!
+            const courseCheck = isCourseRemote(page, specificKeywordLower);
+            
+            if (courseCheck.found) {
+              isRemote = courseCheck.isRemote;
+              console.log(`  📊 [Page Analysis] Course "${specificKeywordLower}" in "${page.title}": isRemote=${isRemote}, section="${courseCheck.sectionTitle || 'unknown'}"`);
+            } else {
+              console.log(`  ⚠️ [Page Analysis] Course "${specificKeywordLower}" not found in "${page.title}"`);
             }
           } else {
             // אין specificKeyword - בדוק את כל הדף (לוגיקה ישנה)
@@ -2297,7 +2478,7 @@ function formatDisambiguation(originalMessage) {
 async function generateSmartResponse(userMessage, forcedMode) {
   console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v92_SPECIFIC_COURSE_REMOTE_CHECK 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_16_v94_DEEP_PAGE_STRUCTURE_ANALYSIS 🚀🚀🚀');
   console.log('========================================\n');
 
   try {
@@ -2580,26 +2761,10 @@ async function generateSmartResponse(userMessage, forcedMode) {
     
     response += formatted;
     
-    // הצעת למידה מרחוק אם יש מעט תוצאות
-    if (totalCount < 5 && !isRemoteLearning) {
-      try {
-        let remoteResults = searchPages(userMessage, null, 'all', field);
-        remoteResults = remoteResults.filter(page => isRemoteLearningPage(page));
-        
-        const shownUrls = new Set(filteredResults.map(r => r.url));
-        remoteResults = remoteResults.filter(page => !shownUrls.has(page.url));
-        
-        if (remoteResults.length > 0) {
-          response += `\n\n💡 **מצאתי גם ${remoteResults.length} ${remoteResults.length === 1 ? 'קורס' : 'קורסים'} בלמידה מרחוק**\n\n`;
-          const remoteFormatted = formatSearchResults(remoteResults.slice(0, 5), field, null);
-          if (remoteFormatted) {
-            response += remoteFormatted;
-          }
-        }
-      } catch (error) {
-        console.error(`Error adding remote suggestions:`, error.message);
-      }
-    }
+    // תיקון קריטי v93: הסרה מלאה של חיפוש "למידה מרחוק" אוטומטי!
+    // הסיבה: אין לנו מידע מדויק ברמת הקורס הספציפי אם הוא בלמידה מרחוק.
+    // ה-index מכיל מידע כללי על המוסד, לא על כל קורס בנפרד.
+    // אם המשתמש רוצה למידה מרחוק - הוא יכתוב את זה בשאילתה!
     
     return response;
     
