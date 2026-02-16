@@ -3,117 +3,163 @@ import fs from 'fs';
 import path from 'path';
 
 // ========================================
-// 🧠 מערכת ניתוח סמנטי - Semantic Analysis
+// 🧠 מערכת ניתוח סמנטי v2.0 - טעינה מ-JSON
 // ========================================
 
-/**
- * מילון מילים נרדפות וניתוח סמנטי
- */
-const SEMANTIC_MAPPINGS = {
-  // תרפיה וטיפול - מילים נרדפות
-  'הידרותרפיה': ['טיפול במים', 'מים טיפוליים', 'hydrotherapy', 'water therapy', 'aqua therapy', 'אקווה תרפיה'],
-  'פוטותרפיה': ['צילום טיפולי', 'טיפול בצילום', 'תרפיה בצילום', 'phototherapy'],
-  'ארט תרפיה': ['תרפיה באמנות', 'טיפול באמנות', 'אמנות טיפולית', 'art therapy', 'טיפול באומנות'],
-  'מוזיקותרפיה': ['תרפיה במוזיקה', 'טיפול במוזיקה', 'music therapy'],
-  'דרמה תרפיה': ['תרפיה בדרמה', 'טיפול בדרמה', 'drama therapy', 'פסיכודרמה'],
-  
-  // קשב וריכוז
-  'ADHD': ['קשב וריכוז', 'בעיות קשב', 'בעיות ריכוז', 'הפרעת קשב', 'הפרעות קשב וריכוז', 'ADD', 'קשיי ריכוז', 'קשיי קשב'],
-  'דיסלקציה': ['קשיי קריאה', 'קשיים בקריאה', 'dyslexia', 'קשיי למידה בקריאה'],
-  'דיסגרפיה': ['קשיי כתיבה', 'קשיים בכתיבה', 'dysgraphia', 'קשיי למידה בכתיבה'],
-  'דיסקלקוליה': ['קשיים במתמטיקה', 'קשיי מתמטיקה', 'dyscalculia', 'קשיי למידה במתמטיקה'],
-  
-  // יוגה וספורט
-  'יוגה': ['yoga', 'יוגה טיפולית', 'הכשרת מדריכי יוגה', 'מדריך יוגה'],
-  'פילאטיס': ['pilates', 'פילאטיס טיפולי'],
-  'פלדנקרייז': ['feldenkrais', 'מודעות דרך תנועה'],
-  
-  // אמנות
-  'קרמיקה': ['חרס', 'קדרות', 'פיסול בחימר', 'ceramics', 'pottery', 'חימר'],
-  'פסיפס': ['מוזאיקה', 'mosaic', 'משבצות'],
-  'צילום': ['פוטוגרפיה', 'photography', 'סטודיו צילום', 'צלם'],
-  
-  // הוראה
-  'הוראה מתקנת': ['הוראה מותאמת', 'חינוך מיוחד', 'לקויות למידה', 'special education', 'הוראה מותאמת אישית'],
-  'גיל רך': ['חינוך קדם יסודי', 'גן ילדים', 'early childhood', 'גננות', 'ילדים צעירים'],
-  
-  // פסיכולוגיה
-  'פסיכותרפיה': ['טיפול נפשי', 'ייעוץ פסיכולוגי', 'psychotherapy', 'טיפול פסיכולוגי'],
-  'CBT': ['קוגניטיבית התנהגותית', 'טיפול קוגניטיבי', 'cognitive behavioral', 'טיפול התנהגותי קוגניטיבי'],
-  
-  // אחר
-  'מיינדפולנס': ['mindfulness', 'מודעות מלאה', 'מדיטציה', 'קשיבות'],
-  'NLP': ['תכנות נוירו לשוני', 'neuro linguistic', 'אן אל פי'],
-  'coaching': ['קואצ\'ינג', 'אימון', 'הדרכה אישית', 'אימון אישי']
-};
+let SEMANTIC_DATA = null;
+let WORD_GRAPH = null;
 
 /**
- * מיפוי כוונות - זיהוי מה המשתמש באמת רוצה
+ * טוען semantic-mappings.json
  */
-const INTENT_MAPPINGS = {
-  // בעיות לימוד → קורסים רלוונטיים
-  'בעיות קשב': ['ADHD', 'קשב וריכוז', 'הפרעות קשב', 'אימון קוגניטיבי', 'ייעוץ חינוכי', 'ניתוח התנהגות'],
-  'בעיות ריכוז': ['ADHD', 'קשב וריכוז', 'אימון קוגניטיבי', 'מיינדפולנס', 'ייעוץ חינוכי'],
-  'קשיים בקריאה': ['דיסלקציה', 'הוראה מתקנת', 'לקויות למידה', 'הוראה מותאמת'],
-  'קשיים בכתיבה': ['דיסגרפיה', 'הוראה מתקנת', 'לקויות למידה', 'הוראה מותאמת'],
-  'קשיים במתמטיקה': ['דיסקלקוליה', 'הוראה מתקנת', 'לקויות למידה', 'הוראה מותאמת'],
-  'תלמיד מתקשה': ['הוראה מתקנת', 'חינוך מיוחד', 'לקויות למידה', 'הוראה מותאמת'],
-  'להתמודד עם': ['ייעוץ', 'טיפול', 'הדרכה', 'אימון', 'העצמה'],
+function loadSemanticData() {
+  if (SEMANTIC_DATA) return SEMANTIC_DATA;
   
-  // בעיות רגשיות → טיפולים
-  'חרדה': ['פסיכותרפיה', 'CBT', 'מיינדפולנס', 'ייעוץ פסיכולוגי', 'טיפול נפשי'],
-  'דיכאון': ['פסיכותרפיה', 'CBT', 'ייעוץ פסיכולוגי', 'טיפול נפשי'],
-  'מתח': ['מיינדפולנס', 'יוגה', 'פסיכותרפיה', 'הרפיה'],
-  'שחיקה': ['אימון', 'העצמה אישית', 'מיינדפולנס', 'coaching'],
-  'שחיקה מקצועית': ['אימון', 'coaching', 'העצמה אישית', 'ייעוץ ארגוני'],
-  
-  // התפתחות ילדים
-  'אוטיזם': ['חינוך מיוחד', 'ניתוח התנהגות', 'טיפול התנהגותי', 'ספקטרום'],
-  'ספקטרום': ['חינוך מיוחד', 'ניתוח התנהגות', 'טיפול התנהגותי', 'אוטיזם'],
-  
-  // יחסים
-  'זוגיות': ['ייעוץ זוגי', 'טיפול זוגי', 'תקשורת בין אישית', 'יחסים'],
-  'הורות': ['הדרכת הורים', 'ייעוץ הורי', 'חינוך ילדים', 'אימון הורי'],
-  
-  // כישורים
-  'ניהול כיתה': ['ניהול חינוכי', 'משמעת חיובית', 'תקשורת חינוכית'],
-  'תקשורת': ['תקשורת בין אישית', 'אסרטיביות', 'שפת גוף', 'תקשורת מקרבת'],
-  'מנהיגות': ['ניהול', 'הדרכה', 'העצמה', 'leadership']
-};
+  try {
+    const semanticPath = path.join(process.cwd(), 'data', 'semantic-mappings.json');
+    const semanticJson = JSON.parse(fs.readFileSync(semanticPath, 'utf8'));
+    SEMANTIC_DATA = semanticJson;
+    console.log(`✅ [Semantic] Loaded semantic-mappings.json: ${Object.keys(semanticJson.synonyms || {}).length} terms`);
+    return SEMANTIC_DATA;
+  } catch (error) {
+    console.error('⚠️ [Semantic] Failed to load semantic-mappings.json:', error.message);
+    console.error('⚠️ [Semantic] Using empty semantic data');
+    SEMANTIC_DATA = { synonyms: {}, intentPatterns: {}, genericTerms: [] };
+    return SEMANTIC_DATA;
+  }
+}
 
 /**
- * הרחבת שאילתה עם ניתוח סמנטי
+ * בונה גרף מילים מכל המקורות
+ */
+function buildWordGraph() {
+  if (WORD_GRAPH) return WORD_GRAPH;
+  
+  loadSemanticData();
+  loadConfigs(); // טוען REQUIRED_PHRASES + STUDY_FIELDS
+  
+  const wordGraph = new Map();
+  
+  // 1. הוסף מ-semantic-mappings.json
+  if (SEMANTIC_DATA && SEMANTIC_DATA.synonyms) {
+    for (const [mainTerm, data] of Object.entries(SEMANTIC_DATA.synonyms)) {
+      const allTerms = [mainTerm, ...(data.variations || [])];
+      
+      for (const term of allTerms) {
+        if (!wordGraph.has(term.toLowerCase())) {
+          wordGraph.set(term.toLowerCase(), new Set());
+        }
+        
+        allTerms.forEach(t => {
+          if (t.toLowerCase() !== term.toLowerCase()) {
+            wordGraph.get(term.toLowerCase()).add(t);
+          }
+        });
+        
+        wordGraph.get(term.toLowerCase()).add(mainTerm);
+      }
+    }
+  }
+  
+  // 2. הוסף מ-required-phrases.json
+  if (REQUIRED_PHRASES) {
+    for (const phraseEntry of REQUIRED_PHRASES) {
+      const mainPhrase = phraseEntry.phrase;
+      const variations = phraseEntry.variations || [];
+      const allPhrases = [mainPhrase, ...variations];
+      
+      for (const phrase of allPhrases) {
+        if (!wordGraph.has(phrase.toLowerCase())) {
+          wordGraph.set(phrase.toLowerCase(), new Set());
+        }
+        
+        allPhrases.forEach(p => {
+          if (p.toLowerCase() !== phrase.toLowerCase()) {
+            wordGraph.get(phrase.toLowerCase()).add(p);
+          }
+        });
+        
+        wordGraph.get(phrase.toLowerCase()).add(mainPhrase);
+      }
+    }
+  }
+  
+  // 3. הוסף מ-study-fields.json
+  if (STUDY_FIELDS) {
+    for (const field of STUDY_FIELDS) {
+      const keywords = field.keywords || [];
+      const allTerms = [field.name, ...keywords];
+      
+      for (const term of allTerms) {
+        if (!wordGraph.has(term.toLowerCase())) {
+          wordGraph.set(term.toLowerCase(), new Set());
+        }
+        
+        wordGraph.get(term.toLowerCase()).add(field.name);
+      }
+    }
+  }
+  
+  WORD_GRAPH = wordGraph;
+  console.log(`🧠 [buildWordGraph] Built graph with ${wordGraph.size} terms`);
+  return wordGraph;
+}
+
+/**
+ * הרחבה חכמה של שאילתה - גרסה v2.0
  */
 function expandQuerySemantically(query) {
+  if (!WORD_GRAPH) {
+    buildWordGraph();
+  }
+  
+  loadSemanticData();
+  
   const expanded = new Set([query]);
   const queryLower = query.toLowerCase();
   
-  // שלב 1: מילים נרדפות
-  for (const [mainTerm, synonyms] of Object.entries(SEMANTIC_MAPPINGS)) {
-    const mainLower = mainTerm.toLowerCase();
-    
-    if (queryLower.includes(mainLower)) {
-      expanded.add(mainTerm);
-      synonyms.forEach(syn => expanded.add(syn));
+  // שלב 1: הרחב מהגרף
+  for (const [term, relatedTerms] of WORD_GRAPH.entries()) {
+    if (queryLower.includes(term)) {
+      relatedTerms.forEach(rt => expanded.add(rt));
     }
-    
-    synonyms.forEach(syn => {
-      if (queryLower.includes(syn.toLowerCase())) {
-        expanded.add(mainTerm);
-        synonyms.forEach(s => expanded.add(s));
-      }
-    });
   }
   
   // שלב 2: זיהוי כוונה
-  for (const [intent, relatedTerms] of Object.entries(INTENT_MAPPINGS)) {
-    if (queryLower.includes(intent.toLowerCase())) {
-      relatedTerms.forEach(term => expanded.add(term));
-      console.log(`  🎯 [Intent] Detected: "${intent}" → suggesting: [${relatedTerms.join(', ')}]`);
+  if (SEMANTIC_DATA && SEMANTIC_DATA.intentPatterns) {
+    for (const [intentType, intentData] of Object.entries(SEMANTIC_DATA.intentPatterns)) {
+      const patterns = intentData.patterns || [];
+      
+      const hasPattern = patterns.some(pattern => queryLower.includes(pattern.toLowerCase()));
+      
+      if (hasPattern && intentData.problemToSolution) {
+        for (const [problem, solutions] of Object.entries(intentData.problemToSolution)) {
+          if (queryLower.includes(problem.toLowerCase())) {
+            console.log(`  🎯 [Intent] Detected: "${problem}" → [${solutions.join(', ')}]`);
+            solutions.forEach(sol => expanded.add(sol));
+          }
+        }
+      }
     }
   }
   
-  return Array.from(expanded);
+  const result = Array.from(expanded);
+  console.log(`  🧠 [Semantic Expansion] "${query}" → [${result.slice(0, 6).join(', ')}${result.length > 6 ? '...' : ''}]`);
+  
+  return result;
+}
+
+/**
+ * בדוק אם מונח הוא גנרי
+ */
+function isGenericTerm(term) {
+  loadSemanticData();
+  
+  if (!SEMANTIC_DATA || !SEMANTIC_DATA.genericTerms) {
+    return ['סטודיו', 'studio', 'לימוד', 'קורס', 'טיפול', 'תרפיה'].includes(term.toLowerCase());
+  }
+  
+  return SEMANTIC_DATA.genericTerms.includes(term.toLowerCase());
 }
 
 // ========================================
@@ -1509,7 +1555,7 @@ async function hybridSearch(query, region = null, pageType = 'all', studyField =
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_16_v96_SEMANTIC_ANALYSIS_INTEGRATED 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_16_v98_SEMANTIC_V2_FULL_JSON_INTEGRATION 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1651,32 +1697,59 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       } 
       // אפשרות 2: אין specificKeyword, אבל יש keywords (כמו "צילום")
       else if (studyField.keywords && Array.isArray(studyField.keywords) && studyField.keywords.length > 0) {
-        // תיקון קריטי v95: חייבים אזכור של שם התחום עצמו!
-        // לא מספיק רק keyword כמו "סטודיו" - זה גנרי מדי!
+        // תיקון קריטי v97: חייבים אזכור של שם התחום!
+        // אבל: אם המילה ספציפית מספיק - חפש גם בתוכן המלא!
         
         const fieldNameLower = studyField.name.toLowerCase();
         const headerAndDesc = title + ' ' + description + ' ' + allHeadersText;
         
-        // בדיקה 1: האם שם התחום מופיע בכותרת/תיאור?
-        const hasFieldName = headerAndDesc.includes(fieldNameLower);
+        const isGenericTermValue = isGenericTerm(fieldNameLower);
         
-        if (!hasFieldName) {
-          // אין אזכור של שם התחום - דחה!
-          // (גם אם יש keyword כמו "סטודיו", זה לא מספיק!)
+        // בדיקה 1: האם שם התחום מופיע בכותרת/תיאור?
+        const hasFieldNameInHeader = headerAndDesc.includes(fieldNameLower);
+        
+        if (hasFieldNameInHeader) {
+          // מצוין! יש בכותרת ✅
+        } else if (!isGenericTermValue) {
+          // המילה ספציפית (כמו "צילום", "יוגה", "קרמיקה")
+          // חפש גם בתוכן המלא!
+          const hasFieldNameInContent = pageContent.includes(fieldNameLower);
+          
+          if (!hasFieldNameInContent) {
+            // אין גם בתוכן - דחה!
+            continue;
+          }
+          
+          console.log(`  ℹ️ "${page.title || page.h1}" - field name "${studyField.name}" found in content (not header)`);
+        } else {
+          // המילה גנרית (כמו "סטודיו") וגם לא בכותרת - דחה!
           continue;
         }
         
-        // אם הגענו לכאן - יש אזכור של שם התחום ✅
-        // עכשיו בדוק אם יש גם keywords רלוונטיים (בונוס, לא חובה)
-        // זה עוזר לסנן במקרים מסוימים
+        // אם הגענו לכאן - יש אזכור של שם התחום (בכותרת או בתוכן) ✅
       }
       // אפשרות 3: אין specificKeyword ואין keywords - השתמש בשם התחום
       else {
         const fieldNameLower = studyField.name.toLowerCase();
         const headerAndDesc = title + ' ' + description + ' ' + allHeadersText;
         
-        if (!headerAndDesc.includes(fieldNameLower)) {
-          // אין את שם התחום בכותרת/תיאור - דחה!
+        const isGenericTermValue = isGenericTerm(fieldNameLower);
+        
+        const hasFieldNameInHeader = headerAndDesc.includes(fieldNameLower);
+        
+        if (hasFieldNameInHeader) {
+          // יש בכותרת ✅
+        } else if (!isGenericTermValue) {
+          // מילה ספציפית - חפש גם בתוכן
+          const hasFieldNameInContent = pageContent.includes(fieldNameLower);
+          
+          if (!hasFieldNameInContent) {
+            continue;
+          }
+          
+          console.log(`  ℹ️ "${page.title || page.h1}" - field name "${studyField.name}" found in content (not header)`);
+        } else {
+          // מילה גנרית וגם לא בכותרת - דחה!
           continue;
         }
       }
@@ -1700,7 +1773,6 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
       }
     } else if (studyField && studyField.keywords) {
       // אין specificKeyword - נתן score לפי שם התחום!
-      // (כבר בדקנו שיש אזכור של שם התחום, אז הדף רלוונטי)
       const fieldNameLower = studyField.name.toLowerCase();
       
       if (title.includes(fieldNameLower)) {
@@ -1708,8 +1780,14 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         console.log(`  ✅ "${page.title || page.h1}" - has field name "${studyField.name}" in title, score: +100`);
       } else if (description.includes(fieldNameLower)) {
         matchScore += 70;
+        console.log(`  ✅ "${page.title || page.h1}" - has field name "${studyField.name}" in description, score: +70`);
       } else if (allHeadersText.includes(fieldNameLower)) {
         matchScore += 50;
+        console.log(`  ✅ "${page.title || page.h1}" - has field name "${studyField.name}" in headers, score: +50`);
+      } else {
+        // נמצא רק בתוכן - score נמוך
+        matchScore += 30;
+        console.log(`  ℹ️ "${page.title || page.h1}" - has field name "${studyField.name}" in content only, score: +30`);
       }
     } else if (studyField) {
       // אין specificKeyword ואין keywords - השתמש בשם התחום
@@ -2607,7 +2685,7 @@ function formatDisambiguation(originalMessage) {
 async function generateSmartResponse(userMessage, forcedMode) {
   console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_16_v96_SEMANTIC_ANALYSIS_INTEGRATED 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_16_v98_SEMANTIC_V2_FULL_JSON_INTEGRATION 🚀🚀🚀');
   console.log('========================================\n');
 
   try {
