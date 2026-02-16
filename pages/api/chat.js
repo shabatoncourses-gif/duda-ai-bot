@@ -1205,7 +1205,7 @@ async function hybridSearch(query, region = null, pageType = 'all', studyField =
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v91_STRICT_SEARCH_FOR_ALL_FIELDS 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v92_SPECIFIC_COURSE_REMOTE_CHECK 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1522,10 +1522,39 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
         // יש location - חייב להיות מהאזור הנכון
         if (!hasRegionCityInLocation) {
           // הדף לא מהאזור הנכון - בדוק אם זה למידה מרחוק
-          const isRemote = location.includes('למידה מרחוק') || 
-                          location.includes('מקוון') || 
-                          location.includes('אונליין') ||
-                          location.includes('זום');
+          
+          // תיקון קריטי: בדוק ספציפית את הקורס שנמצא, לא את כל הדף!
+          let isRemote = false;
+          
+          // אם יש specificKeyword - בדוק אם הקורס הספציפי הוא בלמידה מרחוק
+          if (studyField && studyField.specificKeyword) {
+            const specificKeywordLower = studyField.specificKeyword.toLowerCase();
+            
+            // בדוק ב-courses אם הקורס הספציפי מכיל "למידה מרחוק"
+            if (page.courses && Array.isArray(page.courses)) {
+              for (const course of page.courses) {
+                const courseLower = course.toLowerCase();
+                
+                // האם הקורס הזה מכיל את ה-specificKeyword?
+                if (courseLower.includes(specificKeywordLower)) {
+                  // כן! עכשיו בדוק אם **הקורס הזה** בלמידה מרחוק
+                  if (courseLower.includes('למידה מרחוק') || 
+                      courseLower.includes('מקוון') || 
+                      courseLower.includes('אונליין') ||
+                      courseLower.includes('זום')) {
+                    isRemote = true;
+                    break;
+                  }
+                }
+              }
+            }
+          } else {
+            // אין specificKeyword - בדוק את כל הדף (לוגיקה ישנה)
+            isRemote = location.includes('למידה מרחוק') || 
+                      location.includes('מקוון') || 
+                      location.includes('אונליין') ||
+                      location.includes('זום');
+          }
           
           if (isRemote) {
             // זה למידה מרחוק - אבל בדוק שאין אזכור של אזור אחר!
@@ -2268,7 +2297,7 @@ function formatDisambiguation(originalMessage) {
 async function generateSmartResponse(userMessage, forcedMode) {
   console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v91_STRICT_SEARCH_FOR_ALL_FIELDS 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v92_SPECIFIC_COURSE_REMOTE_CHECK 🚀🚀🚀');
   console.log('========================================\n');
 
   try {
