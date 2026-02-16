@@ -1205,7 +1205,7 @@ async function hybridSearch(query, region = null, pageType = 'all', studyField =
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v90_ARRAY_FIX_FINAL 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_14_v91_STRICT_SEARCH_FOR_ALL_FIELDS 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -1291,13 +1291,12 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
   
   let results = [];
   
+  // תיקון קריטי: אם יש studyField - ALWAYS strict search!
+  // לא משנה אם יש specificKeyword או לא!
+  const shouldUseStrictSearch = studyField && studyField.name;
+  
   for (const page of pages) {
     const pageTypeIdentified = identifyPageType(page);
-    
-    // הסרת לוג מיותר - רק debug במקרה מיוחד
-    // if ((page.title || '').toLowerCase().includes('הדרכת הורים')) {
-    //   console.log(`  🔍 Page: "${page.title}" | Type: ${pageTypeIdentified} | Location: ${page.location || 'N/A'}`);
-    // }
     
     if (pageTypeIdentified === 'general') {
       continue;
@@ -1308,6 +1307,12 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     }
     
     if (!isInfoQuery && pageTypeIdentified === 'info') {
+      continue;
+    }
+    
+    // תיקון קריטי: דחה category pages אם יש studyField!
+    // category pages מכילים רשימות קורסים, לא קורסים ספציפיים!
+    if (shouldUseStrictSearch && pageTypeIdentified !== 'static') {
       continue;
     }
     
@@ -1324,65 +1329,56 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     const url = (page.url || '').toLowerCase();
     const keywords = (page.keywords || []).map(k => k.toLowerCase());
     
-    if (studyField && studyField.specificKeyword) {
-      const specificKeywordLower = studyField.specificKeyword.toLowerCase();
-      
-      // הוסף גם את רשימת הקורסים לחיפוש!
-      const coursesText = Array.isArray(page.courses) ? page.courses.join(' ').toLowerCase() : '';
-      // הוסף גם את page.text (טקסט מלא של הדף)!
-      const fullText = (page.text || '').toLowerCase();
-      const pageContent = title + ' ' + description + ' ' + allHeadersText + ' ' + keywords.join(' ') + ' ' + coursesText + ' ' + fullText;
-      
-      // בדוק אם יש את ה-specificKeyword
-      const hasSpecificKeyword = pageContent.includes(specificKeywordLower);
-      
-      // לוג לדיבוג - אם זה אורנים, הצג מה קורה
-      if ((page.title || page.h1 || '').toLowerCase().includes('אורנים') || 
-          (page.url || '').toLowerCase().includes('arnim')) {
-        // DEBUG_LOG: console.log(`  🔍 DEBUG: "${page.title || page.h1}" - checking for "${specificKeywordLower}"`);
-        // DEBUG_LOG: console.log(`     hasSpecificKeyword: ${hasSpecificKeyword}`);
-        // DEBUG_LOG: console.log(`     pageContent (first 200): ${pageContent.substring(0, 200)}...`);
-      }
-      
-      if (!hasSpecificKeyword) {
-        // אין את המילה הספציפית
+    // הוסף את כל התוכן לחיפוש
+    const coursesText = Array.isArray(page.courses) ? page.courses.join(' ').toLowerCase() : '';
+    const fullText = (page.text || '').toLowerCase();
+    const pageContent = title + ' ' + description + ' ' + allHeadersText + ' ' + keywords.join(' ') + ' ' + coursesText + ' ' + fullText;
+    
+    // תיקון קריטי: אם יש studyField - וודא שהדף באמת על התחום!
+    if (shouldUseStrictSearch) {
+      // אפשרות 1: יש specificKeyword (כמו "הידרותרפיה")
+      if (studyField.specificKeyword) {
+        const specificKeywordLower = studyField.specificKeyword.toLowerCase();
         
-        // תיקון קריטי: אם יש specificKeyword בכלל - דחה! אין fallback!
-        // גם אם המילה לא "מאוד ספציפית", אם המשתמש חיפש מילה ספציפית - צריך strict search!
-        if (studyField.specificKeyword) {
-          // DEBUG_LOG: console.log(`  ❌ "${page.title || page.h1}" - no "${specificKeywordLower}", rejected (has specificKeyword)`);
+        if (!pageContent.includes(specificKeywordLower)) {
+          // אין את המילה הספציפית - דחה!
           continue;
         }
+      } 
+      // אפשרות 2: אין specificKeyword, אבל יש keywords (כמו "צילום")
+      else if (studyField.keywords && Array.isArray(studyField.keywords) && studyField.keywords.length > 0) {
+        // בדוק אם יש לפחות keyword אחד מהתחום
+        let hasFieldKeyword = false;
         
-        // אין specificKeyword בכלל - נסה keywords אחרות
-        let hasOtherRelevantKeyword = false;
-        
-        if (studyField.keywords && Array.isArray(studyField.keywords)) {
-          for (const fieldKeyword of studyField.keywords) {
-            const fieldKeywordLower = fieldKeyword.toLowerCase();
-            // דלג על מילים גנריות מדי
-            if (fieldKeywordLower.length < 4) continue;
-            if (['הורים', 'זוגיות', 'משפחה'].includes(fieldKeywordLower)) continue;
-            
-            if (pageContent.includes(fieldKeywordLower)) {
-              hasOtherRelevantKeyword = true;
-              // DEBUG_LOG: console.log(`  ℹ️ "${page.title || page.h1}" - has related keyword: "${fieldKeyword}"`);
-              break;
-            }
+        for (const fieldKeyword of studyField.keywords) {
+          const fieldKeywordLower = fieldKeyword.toLowerCase();
+          
+          // דלג על מילים גנריות מדי
+          if (fieldKeywordLower.length < 3) continue;
+          if (['קורס', 'קורסי', 'קורסים', 'לימוד', 'לימודי'].includes(fieldKeywordLower)) continue;
+          
+          // בדוק אם המילה קיימת בכותרת/תיאור (לא בתוכן המלא!)
+          // זה מבטיח שהדף באמת על התחום
+          const headerAndDesc = title + ' ' + description + ' ' + allHeadersText;
+          
+          if (headerAndDesc.includes(fieldKeywordLower)) {
+            hasFieldKeyword = true;
+            break;
           }
         }
         
-        // אין specificKeyword ואין keyword אחר - דחה
-        if (!hasOtherRelevantKeyword) {
+        if (!hasFieldKeyword) {
+          // אין אף keyword מהתחום בכותרת/תיאור - דחה!
           continue;
         }
-      } else {
-        // יש specificKeyword - תיקון אולטרה קריטי!
-        // דחה category pages (non-static) - הם מכילים רשימות קורסים, לא קורסים ספציפיים!
-        const isStaticBeforeCheck = pageTypeIdentified === 'static';
+      }
+      // אפשרות 3: אין specificKeyword ואין keywords - השתמש בשם התחום
+      else {
+        const fieldNameLower = studyField.name.toLowerCase();
+        const headerAndDesc = title + ' ' + description + ' ' + allHeadersText;
         
-        if (!isStaticBeforeCheck) {
-          // DEBUG_LOG: console.log(`  ❌ "${page.title || page.h1}" - has "${specificKeywordLower}" BUT is category page (not static), rejected`);
+        if (!headerAndDesc.includes(fieldNameLower)) {
+          // אין את שם התחום בכותרת/תיאור - דחה!
           continue;
         }
       }
@@ -1393,114 +1389,98 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
     
     let matchScore = 0;
     
-    // תיקון אולטרה קריטי: אם יש specificKeyword - התעלם מ-keywords אחרות לגמרי!
-    // אחרת הקוד יכול לתת score גבוה לדפים שלא מכילים את המילה הספציפית!
+    // תיקון אולטרה קריטי: חישוב score חכם!
     if (studyField && studyField.specificKeyword) {
-      // יש specificKeyword - כבר בדקנו שהדף מכיל אותו (אחרת continue)
-      // תן score בסיסי של 100 כדי שהדף יעבור את הסף
+      // יש specificKeyword - כבר בדקנו שהדף מכיל אותו
+      // תן score בסיסי של 100
       matchScore = 100;
       console.log(`  ✅ "${page.title || page.h1}" - has specificKeyword "${studyField.specificKeyword}", base score: 100`);
+      
+      // בונוס אם המילה בכותרת
+      if (title.includes(studyField.specificKeyword.toLowerCase())) {
+        matchScore += 50;
+      }
     } else if (studyField && studyField.keywords) {
-      // אין specificKeyword - חפש keywords רגילות
+      // אין specificKeyword - חפש keywords רגילות (כבר בדקנו שיש לפחות אחת!)
       for (const kw of studyField.keywords) {
         const kwLower = kw.toLowerCase();
         
+        // דלג על מילים גנריות
+        if (kwLower.length < 3) continue;
+        if (['קורס', 'קורסי', 'קורסים', 'לימוד', 'לימודי'].includes(kwLower)) continue;
+        
         if (title.includes(kwLower)) {
-          matchScore += 50;
+          matchScore += 100;
+          console.log(`  ✅ "${page.title || page.h1}" - has field keyword "${kw}" in title, score: +100`);
           break;
         } else if (description.includes(kwLower)) {
-          matchScore += 40;
+          matchScore += 70;
           break;
-        } else if (keywords.some(k => k.toLowerCase().includes(kwLower))) {
-          matchScore += 30;
+        } else if (allHeadersText.includes(kwLower)) {
+          matchScore += 50;
           break;
         }
       }
-    }
-    
-    if (cleanQueryForSearch.length > 5) {
-      if (title.includes(cleanQueryForSearch)) {
+    } else if (studyField) {
+      // אין specificKeyword ואין keywords - השתמש בשם התחום
+      const fieldNameLower = studyField.name.toLowerCase();
+      if (title.includes(fieldNameLower)) {
         matchScore += 100;
-      }
-      if (description.includes(cleanQueryForSearch)) {
+      } else if (description.includes(fieldNameLower)) {
         matchScore += 70;
-      }
-    }
-    
-    function flexibleMatch(text, word) {
-      if (text.includes(word)) return true;
-      if (word.includes(text)) return true;
-      
-      if (word.length >= 4) {
-        const stem = word.substring(0, Math.min(word.length - 1, 5));
-        if (text.includes(stem)) return true;
-      }
-      
-      return false;
-    }
-    
-    let wordMatchesInTitle = 0;
-    
-    for (const word of queryWordsWithoutCities) {
-      let foundInTitle = flexibleMatch(title, word);
-      let foundInDesc = flexibleMatch(description, word);
-      let foundInKeywords = keywords.some(k => flexibleMatch(k, word));
-      
-      const isMainTopic = (word === mainTopicWord);
-      
-      if (foundInTitle) {
-        matchScore += isMainTopic ? 30 : 20;
-        wordMatchesInTitle++;
-      }
-      if (foundInDesc) {
-        matchScore += isMainTopic ? 15 : 10;
-      }
-      if (foundInKeywords) {
-        matchScore += isMainTopic ? 12 : 8;
-      }
-    }
-    
-    let exactVariation = null;
-    
-    if (detectedPhrase && phraseVariations.length > 0) {
-      const coursesText = (page.courses && Array.isArray(page.courses)) ? page.courses.join(' ').toLowerCase() : '';
-      const descText = description.substring(0, 300).toLowerCase();
-      
-      let foundPhraseVariation = false;
-      let foundInHeader = false;
-      
-      for (const variation of phraseVariations) {
-        if (titleText.includes(variation) || h1Text.includes(variation) || h2Text.includes(variation) || h3Text.includes(variation) || coursesText.includes(variation)) {
-          foundPhraseVariation = true;
-          foundInHeader = true;
-          exactVariation = variation;
-          break;
-        }
-        
-        if (descText.includes(variation)) {
-          foundPhraseVariation = true;
-          exactVariation = variation;
-          break;
-        }
-      }
-      
-      if (!foundPhraseVariation) {
-        continue;
-      }
-      
-      if (studyField && !foundInHeader) {
-        continue;
-      }
-      
-      if (exactVariation === detectedPhrase) {
-        matchScore += 100;
-      } else {
+      } else if (allHeadersText.includes(fieldNameLower)) {
         matchScore += 50;
       }
     }
     
-    if (wordMatchesInTitle >= queryWordsWithoutCities.length) {
-      matchScore += 30;
+    // תיקון: אל תוסיף score נוסף אם כבר יש studyField!
+    // הקוד כבר עשה strict search ונתן score מתאים
+    if (!shouldUseStrictSearch) {
+      if (cleanQueryForSearch.length > 5) {
+        if (title.includes(cleanQueryForSearch)) {
+          matchScore += 100;
+        }
+        if (description.includes(cleanQueryForSearch)) {
+          matchScore += 70;
+        }
+      }
+      
+      function flexibleMatch(text, word) {
+        if (text.includes(word)) return true;
+        if (word.includes(text)) return true;
+        
+        if (word.length >= 4) {
+          const stem = word.substring(0, Math.min(word.length - 1, 5));
+          if (text.includes(stem)) return true;
+        }
+        
+        return false;
+      }
+      
+      let wordMatchesInTitle = 0;
+      
+      for (const word of queryWordsWithoutCities) {
+        let foundInTitle = flexibleMatch(title, word);
+        let foundInDesc = flexibleMatch(description, word);
+        let foundInKeywords = keywords.some(k => flexibleMatch(k, word));
+        
+        const isMainTopic = (word === mainTopicWord);
+        
+        if (foundInTitle) {
+          matchScore += isMainTopic ? 30 : 20;
+          wordMatchesInTitle++;
+        }
+        if (foundInDesc) {
+          matchScore += isMainTopic ? 15 : 10;
+        }
+        if (foundInKeywords) {
+          matchScore += isMainTopic ? 12 : 8;
+        }
+      }
+      
+      if (wordMatchesInTitle >= queryWordsWithoutCities.length) {
+        matchScore += 30;
+      }
     }
     
     const specificCity = detectSpecificCity(query, region);
@@ -2288,7 +2268,7 @@ function formatDisambiguation(originalMessage) {
 async function generateSmartResponse(userMessage, forcedMode) {
   console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v90_ARRAY_FIX_FINAL 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_14_v91_STRICT_SEARCH_FOR_ALL_FIELDS 🚀🚀🚀');
   console.log('========================================\n');
 
   try {
