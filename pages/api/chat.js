@@ -1,7 +1,7 @@
 // ================================================================
 // 🎯 chat.js v100 - CLEAN & COMPLETE VERSION
 // ================================================================
-// VERSION: FEB_16_v100_CLEAN_WITH_REMOTE_LEARNING_FALLBACK
+// VERSION: FEB_16_v100.1_FIXED_BODY_PARSER
 // Created: 2026-02-16
 // 
 // פיצ'רים:
@@ -339,7 +339,7 @@ function detectRegion(message) {
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_16_v100_CLEAN_WITH_REMOTE_LEARNING_FALLBACK`);
+  console.log(`🚀 VERSION: FEB_16_v100.1_FIXED_BODY_PARSER`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'כל הארץ'}`);
   console.log(`Study Field: ${studyField?.name || 'כללי'}`);
@@ -625,7 +625,7 @@ function formatRemoteResults(results, studyField) {
 async function generateSmartResponse(message) {
   console.log('========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_16_v100_CLEAN_WITH_REMOTE_LEARNING_FALLBACK 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_16_v100.1_FIXED_BODY_PARSER 🚀🚀🚀');
   console.log('========================================');
   
   loadConfigs();
@@ -710,18 +710,37 @@ async function generateSmartResponse(message) {
 // 🌐 VERCEL HANDLER
 // ================================================================
 
+// Vercel config - disable automatic body parsing
+export const config = {
+  api: {
+    bodyParser: true,
+  },
+};
+
 export default async function handler(req, res) {
-  console.log('📨 [handler] New message:', req.body.message);
+  // Safe access to body
+  const body = req.body || {};
+  
+  console.log('📨 [handler] New request');
+  console.log('Method:', req.method);
+  console.log('Body:', JSON.stringify(body).substring(0, 100));
   
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   
-  const { message } = req.body;
+  const { message } = body;
   
   if (!message || typeof message !== 'string') {
-    return res.status(400).json({ error: 'Invalid message' });
+    console.error('❌ Invalid message:', message);
+    return res.status(400).json({ 
+      error: 'Invalid message',
+      received: typeof message,
+      body: body 
+    });
   }
+  
+  console.log('📨 [handler] Message:', message);
   
   try {
     const response = await generateSmartResponse(message);
@@ -736,7 +755,8 @@ export default async function handler(req, res) {
     console.error('❌ [handler] ERROR:', error);
     return res.status(500).json({ 
       error: 'Internal server error',
-      message: error.message 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
