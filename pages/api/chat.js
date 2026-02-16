@@ -1555,7 +1555,7 @@ async function hybridSearch(query, region = null, pageType = 'all', studyField =
 // ========================================
 function searchPages(query, region = null, pageType = 'all', studyField = null) {
   console.log(`\n========== [searchPages] START ==========`);
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_16_v98_SEMANTIC_V2_FULL_JSON_INTEGRATION 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_16_v99_FIX_STATIC_PAGES_WITH_SPECIFIC_REGION 🚀🚀🚀`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'none'}`);
   console.log(`Study Field: ${studyField?.name || 'none'}`);
@@ -2034,9 +2034,26 @@ function searchPages(query, region = null, pageType = 'all', studyField = null) 
               // DEBUG_LOG: console.log(`  ℹ️ "${page.title || page.h1}" - no location but has specificKeyword, passing`);
               regionBonus = 0;
             } else if (isStaticPage) {
-              // אין specificKeyword, אבל זה static page (מוסד אמיתי) - אפשר לעבור עם בונוס נמוך
-              console.log(`  ⚠️ "${page.title || page.h1}" - static page, no region mention, allowing with low bonus`);
-              regionBonus = -10; // בונוס שלילי - יופיע בסוף
+              // תיקון קריטי v99: אל תוסיף static pages ללא אזור כשהמשתמש ביקש אזור ספציפי!
+              // רק אם המשתמש לא ציין אזור בכלל, או אם זה למידה מרחוק
+              
+              // בדוק אם המשתמש באמת ביקש אזור ספציפי
+              const queryLower = query.toLowerCase();
+              const userRequestedSpecificRegion = 
+                queryLower.includes('בצפון') || queryLower.includes('בדרום') ||
+                queryLower.includes('במרכז') || queryLower.includes('בירושלים') ||
+                queryLower.includes('בשפלה') || queryLower.includes('בשרון') ||
+                queryLower.includes('בחיפה') || queryLower.includes('בגליל');
+              
+              if (userRequestedSpecificRegion) {
+                // המשתמש ביקש אזור ספציפי - דחה static pages ללא אזכור!
+                console.log(`  ❌ "${page.title || page.h1}" - static page, user requested specific region "${region.name}", no region mention - REJECTED`);
+                continue;
+              } else {
+                // המשתמש לא ביקש אזור ספציפי - אפשר לעבור עם בונוס נמוך
+                console.log(`  ⚠️ "${page.title || page.h1}" - static page, no region mention, allowing with low bonus`);
+                regionBonus = -10; // בונוס שלילי - יופיע בסוף
+              }
             } else {
               // DEBUG_LOG: console.log(`  ❌ "${page.title || page.h1}" - no region "${region.name}" mention, rejected`);
               continue;
@@ -2685,7 +2702,7 @@ function formatDisambiguation(originalMessage) {
 async function generateSmartResponse(userMessage, forcedMode) {
   console.log('\n========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_16_v98_SEMANTIC_V2_FULL_JSON_INTEGRATION 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_16_v99_FIX_STATIC_PAGES_WITH_SPECIFIC_REGION 🚀🚀🚀');
   console.log('========================================\n');
 
   try {
