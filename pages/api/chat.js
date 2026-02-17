@@ -1,7 +1,7 @@
 // ================================================================
 // 🎯 chat.js v100 - CLEAN & COMPLETE VERSION
 // ================================================================
-// VERSION: FEB_17_v102_FILTER_JUNK_PAGES
+// VERSION: FEB_17_v103_FILTER_JUNK_AND_SEARCH_ALL_CONTENT
 // Created: 2026-02-16
 // 
 // פיצ'רים:
@@ -339,7 +339,7 @@ function detectRegion(message) {
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_17_v102_FILTER_JUNK_PAGES`);
+  console.log(`🚀 VERSION: FEB_17_v103_FILTER_JUNK_AND_SEARCH_ALL_CONTENT`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'כל הארץ'}`);
   console.log(`Study Field: ${studyField?.name || 'כללי'}`);
@@ -374,21 +374,32 @@ async function searchPages(query, region = null, studyField = null) {
     // דפי ניווט - כותרת קצרה מאוד ללא תוכן ממשי
     if (rawTitle.trim().length < 10 && !desc && !content) continue;
     
-    // סינון תחום
+    // ✅ סינון תחום - חיפוש בכל מקום (כמו שדיברנו!)
     if (studyField) {
       const fieldLower = studyField.name.toLowerCase();
-      // חיפוש רק בכותרת + תיאור + headers (לא בכל התוכן!)
       const headerAndDesc = title + ' ' + desc + ' ' + headers;
       
       if (studyField.specificKeyword) {
         const specificLower = studyField.specificKeyword.toLowerCase();
-        // חפש בכותרת/תיאור/headers בלבד
-        if (!headerAndDesc.includes(specificLower)) {
-          continue; // לא מוצאים בכותרת - דחה!
+        // חפש בכותרת/תיאור/headers + גם בתוכן המלא!
+        if (!headerAndDesc.includes(specificLower) && !content.includes(specificLower)) {
+          continue;
         }
       } else {
-        if (!headerAndDesc.includes(fieldLower)) {
-          continue; // רק כותרת/תיאור - לא תוכן!
+        const isGeneric = isGenericTerm(fieldLower);
+        const inHeader = headerAndDesc.includes(fieldLower);
+        
+        if (inHeader) {
+          // מצוין! יש בכותרת ✅
+        } else if (!isGeneric) {
+          // מילה ספציפית - חפש גם בתוכן המלא!
+          if (!content.includes(fieldLower)) {
+            continue; // אין גם בתוכן - דחה!
+          }
+          console.log(`  ℹ️ "${rawTitle}" - field in content only`);
+        } else {
+          // מילה גנרית ולא בכותרת - דחה!
+          continue;
         }
       }
     }
@@ -404,7 +415,7 @@ async function searchPages(query, region = null, studyField = null) {
       if (title.includes(fieldLower)) score += 100;
       else if (desc.includes(fieldLower)) score += 70;
       else if (headers.includes(fieldLower)) score += 50;
-      // אין score=30 לתוכן בלבד - כבר סוננו למעלה
+      else score += 30; // ← חזר! מצא בתוכן בלבד
     }
     
     // סינון אזור
@@ -652,7 +663,7 @@ function formatRemoteResults(results, studyField) {
 async function generateSmartResponse(message) {
   console.log('========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_17_v102_FILTER_JUNK_PAGES 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_17_v103_FILTER_JUNK_AND_SEARCH_ALL_CONTENT 🚀🚀🚀');
   console.log('========================================');
   
   loadConfigs();
