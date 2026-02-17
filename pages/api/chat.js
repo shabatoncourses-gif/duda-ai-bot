@@ -1,19 +1,11 @@
 // ================================================================
-// 🎯 chat.js v105 - COMPLETE & FULL VERSION
+// 🎯 chat.js v106 - SMART JUNK FILTERING FIX
 // ================================================================
-// VERSION: FEB_17_v105_COMPLETE_WITH_SMART_SEARCH_AND_ALL_FEATURES
+// VERSION: FEB_17_v106_SMART_JUNK_FILTERING_FIX
 // Created: 2026-02-17
 // 
-// גרסה מלאה עם כל הפיצ'רים:
-// ✅ ניתוח סמנטי v2.0 מ-JSON מלא
-// ✅ חיפוש חכם עם ניקוי ניווט
-// ✅ סינון אזורים מדויק + עיר ספציפית
-// ✅ הצעת למידה מרחוק כשאין תוצאות
-// ✅ מערכת QA מלאה (courses + payments)
-// ✅ זיהוי תחומי לימוד מתקדם
-// ✅ זיהוי תאריכים קרובים
-// ✅ סינון דפי זבל חכם
-// ✅ ניקוד מתקדם של תוצאות
+// תיקון קריטי: במקום לדחות דפים עם "close carousel"
+// נקה את הטקסט ותמשיך עם החיפוש
 // ================================================================
 
 import fs from 'fs';
@@ -142,19 +134,10 @@ function loadAllPages() {
   return ALL_PAGES;
 }
 
-// פונקציה לרענון הקבצים (לדיבוג)
-function reloadAllPages() {
-  ALL_PAGES = null;
-  return loadAllPages();
-}
-
 // ================================================================
-// 🧠 SMART CONTENT CLEANING - הפתרון החכם לבעיית הניווט!
+// 🧠 SMART CONTENT CLEANING
 // ================================================================
 
-/**
- * מנקה תוכן מחלקי ניווט/תפריט - הפתרון החכם שהמשתמשת ביקשה!
- */
 function cleanContentFromNavigation(content, title = '', description = '') {
   if (!content || typeof content !== 'string') return '';
   
@@ -294,12 +277,9 @@ function cleanContentFromNavigation(content, title = '', description = '') {
 }
 
 // ================================================================
-// 🧠 SEMANTIC ANALYSIS SYSTEM v2.0 - מלא ומשופר
+// 🧠 SEMANTIC ANALYSIS SYSTEM v2.0
 // ================================================================
 
-/**
- * בונה גרף מילים מכל המקורות - מאוחד וחכם
- */
 function buildWordGraph() {
   if (WORD_GRAPH) return WORD_GRAPH;
   
@@ -378,9 +358,6 @@ function buildWordGraph() {
   return wordGraph;
 }
 
-/**
- * הרחבה סמנטית של שאילתה - גרסה v2.0 מלאה
- */
 function expandQuerySemantically(query) {
   if (!WORD_GRAPH) {
     buildWordGraph();
@@ -424,9 +401,6 @@ function expandQuerySemantically(query) {
   return result;
 }
 
-/**
- * בדוק אם מונח הוא גנרי (דורש חיפוש רק בכותרות)
- */
 function isGenericTerm(term) {
   loadSemanticData();
   
@@ -442,12 +416,9 @@ function isGenericTerm(term) {
 }
 
 // ================================================================
-// 🔍 SEARCH & DETECTION FUNCTIONS - מלאות ומתקדמות
+// 🔍 SEARCH & DETECTION FUNCTIONS
 // ================================================================
 
-/**
- * זיהוי תחום לימוד - פונקציה מלאה ומתקדמת
- */
 function detectStudyField(message) {
   loadConfigs();
   
@@ -552,9 +523,6 @@ function detectStudyField(message) {
   return [];
 }
 
-/**
- * זיהוי אזור - פונקציה מלאה ומשופרת
- */
 function detectRegion(message) {
   loadConfigs();
   
@@ -595,9 +563,6 @@ function detectRegion(message) {
   return null;
 }
 
-/**
- * זיהוי עיר ספציפית בתוך אזור
- */
 function detectSpecificCity(query, region) {
   if (!region || !region.cities) return null;
   
@@ -615,7 +580,7 @@ function detectSpecificCity(query, region) {
 }
 
 // ================================================================
-// 📅 DATE & TIME UTILITIES - פונקציות עזר לתאריכים
+// 📅 DATE & TIME UTILITIES
 // ================================================================
 
 function findUpcomingDateInSchedule(page, fieldName) {
@@ -716,12 +681,12 @@ function isCourseRemote(page) {
 }
 
 // ================================================================
-// 🔍 MAIN SEARCH FUNCTION - מלאה ומשופרת עם חיפוש חכם
+// 🔍 MAIN SEARCH FUNCTION - עם תיקון חכם לסינון דפי זבל
 // ================================================================
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('========== [searchPages] START ==========');
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_17_v105_COMPLETE_WITH_SMART_SEARCH_AND_ALL_FEATURES 🚀🚀🚀`);
+  console.log(`🚀🚀🚀 CODE VERSION: FEB_17_v106_SMART_JUNK_FILTERING_FIX 🚀🚀🚀`);
   console.log('========================================');
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'כל הארץ'}`);
@@ -732,7 +697,7 @@ async function searchPages(query, region = null, studyField = null) {
   const pages = loadAllPages();
   const results = [];
   
-  // דפטרנים לזיהוי דפי זבל - מלאים ומדויקים
+  // דפטרנים לזיהוי דפי זבל - אלה יוסרו מהכותרת במקום לדחות את הדף
   const JUNK_TITLE_PATTERNS = [
     'close carousel', 'carousel', 'next', 'prev', 'previous', 'menu', 'navigation',
     'ינואר 2', 'פברואר 2', 'מרץ 2', 'אפריל 2', 'מאי 2', 'יוני 2',
@@ -751,31 +716,43 @@ async function searchPages(query, region = null, studyField = null) {
     const allHeadersText = ((page.h2 || []).join(' ') + ' ' + (page.h3 || []).join(' ')).toLowerCase();
     const url = (page.url || page.link || '').toLowerCase();
     
-    // ❌ סנן דפי זבל - קפדני ומדויק
-    if (JUNK_TITLE_PATTERNS.some(p => title.includes(p))) {
-      console.log(`  ❌ JUNK: "${rawTitle}" - contains junk pattern`);
+    // 🧹 נקה דפטרני זבל מהכותרת במקום לדחות את הדף
+    let cleanedRawTitle = rawTitle;
+    let cleanedTitle = title;
+    
+    // הסר דפטרנים של carousel/navigation מהכותרת
+    for (const pattern of JUNK_TITLE_PATTERNS) {
+      cleanedRawTitle = cleanedRawTitle.replace(new RegExp(pattern, 'gi'), '').trim();
+      cleanedTitle = cleanedTitle.replace(new RegExp(pattern, 'gi'), '').trim();
+    }
+    
+    // עכשיו בדוק אם זה באמת זבל אחרי הניקוי
+    if (cleanedTitle.length === 0 || cleanedRawTitle.length < 3) {
+      console.log(`  ❌ JUNK: "${rawTitle}" - no content after cleaning junk patterns`);
       continue;
     }
     if (!url || url.length < 10) {
       console.log(`  ❌ JUNK: "${rawTitle}" - invalid URL`);
       continue;
     }
-    if (!rawTitle || rawTitle.trim().length < 3) {
-      console.log(`  ❌ JUNK: "${rawTitle}" - title too short`);
-      continue;
-    }
-    if (rawTitle.trim().length < 10 && !description && !rawContent) {
-      console.log(`  ❌ JUNK: "${rawTitle}" - no content`);
+    if (cleanedRawTitle.length < 10 && !description && !rawContent) {
+      console.log(`  ❌ JUNK: "${rawTitle}" - no meaningful content after cleaning`);
       continue;
     }
     
+    // השתמש בכותרת המנוקה לחיפוש
+    const finalTitle = cleanedTitle;
+    const finalRawTitle = cleanedRawTitle;
+    
+    console.log(`  🧼 "${rawTitle}" → "${finalRawTitle}" (cleaned)`);
+    
     // 🧠 השתמש בחיפוש חכם עם ניקוי ניווט!
-    const cleanedContent = cleanContentFromNavigation(rawContent, rawTitle, page.description || '');
+    const cleanedContent = cleanContentFromNavigation(rawContent, finalRawTitle, page.description || '');
     
     // סינון לפי תחום לימוד - משופר עם חיפוש חכם
     if (studyField) {
       const fieldNameLower = studyField.name.toLowerCase();
-      const headerAndDesc = title + ' ' + description + ' ' + allHeadersText;
+      const headerAndDesc = finalTitle + ' ' + description + ' ' + allHeadersText;
       
       let fieldFound = false;
       let searchLocation = '';
@@ -784,7 +761,7 @@ async function searchPages(query, region = null, studyField = null) {
         // יש specificKeyword - חפש אותו בכל מקום
         const specificLower = studyField.specificKeyword.toLowerCase();
         
-        if (title.includes(specificLower)) {
+        if (finalTitle.includes(specificLower)) {
           fieldFound = true;
           searchLocation = 'title';
         } else if (description.includes(specificLower)) {
@@ -804,7 +781,7 @@ async function searchPages(query, region = null, studyField = null) {
         // אין specificKeyword - חפש את שם התחום
         const isGeneric = isGenericTerm(fieldNameLower);
         
-        if (title.includes(fieldNameLower)) {
+        if (finalTitle.includes(fieldNameLower)) {
           fieldFound = true;
           searchLocation = 'title';
         } else if (description.includes(fieldNameLower)) {
@@ -816,7 +793,7 @@ async function searchPages(query, region = null, studyField = null) {
         } else if (!isGeneric && cleanedContent.toLowerCase().includes(fieldNameLower)) {
           fieldFound = true;
           searchLocation = 'clean_content';
-          console.log(`  ℹ️ "${rawTitle}" - field found in cleaned content only`);
+          console.log(`  ℹ️ "${finalRawTitle}" - field found in cleaned content only`);
         } else {
           // אם זה גנרי ולא נמצא בכותרת/תיאור/headers - דחה
           if (isGeneric) continue;
@@ -825,7 +802,7 @@ async function searchPages(query, region = null, studyField = null) {
         }
       }
       
-      console.log(`  ✅ "${rawTitle}" - field "${fieldNameLower}" found in ${searchLocation}`);
+      console.log(`  ✅ "${finalRawTitle}" - field "${fieldNameLower}" found in ${searchLocation}`);
     }
     
     // חישוב Score מפורט ומדויק
@@ -833,7 +810,7 @@ async function searchPages(query, region = null, studyField = null) {
     
     if (studyField && studyField.specificKeyword) {
       const specificLower = studyField.specificKeyword.toLowerCase();
-      if (title.includes(specificLower)) {
+      if (finalTitle.includes(specificLower)) {
         matchScore += 150;
         console.log(`    [SCORE] +150 for specificKeyword "${studyField.specificKeyword}" in title`);
       } else if (description.includes(specificLower)) {
@@ -845,7 +822,7 @@ async function searchPages(query, region = null, studyField = null) {
       }
     } else if (studyField) {
       const fieldNameLower = studyField.name.toLowerCase();
-      if (title.includes(fieldNameLower)) {
+      if (finalTitle.includes(fieldNameLower)) {
         matchScore += 100;
         console.log(`    [SCORE] +100 for field "${studyField.name}" in title`);
       } else if (description.includes(fieldNameLower)) {
@@ -866,7 +843,7 @@ async function searchPages(query, region = null, studyField = null) {
     
     if (specificCity && isStaticPage) {
       const location = (page.location || '').toLowerCase();
-      const titleAndDesc = (title + ' ' + description + ' ' + url).toLowerCase();
+      const titleAndDesc = (finalTitle + ' ' + description + ' ' + url).toLowerCase();
       const cityLower = specificCity.toLowerCase().replace(/-/g, ' ');
       
       const inLocation = location.includes(cityLower);
@@ -885,7 +862,7 @@ async function searchPages(query, region = null, studyField = null) {
     if (region && region.cities && !isInSpecificCity) {
       const location = (page.location || '').toLowerCase();
       const fullText = cleanedContent; // השתמש בתוכן המנוקה
-      const titleAndDesc = (title + ' ' + description + ' ' + fullText).toLowerCase().replace(/-/g, ' ');
+      const titleAndDesc = (finalTitle + ' ' + description + ' ' + fullText).toLowerCase().replace(/-/g, ' ');
       
       // בדיקה 1: האם ה-location מכיל עיר מהאזור?
       const hasRegionCityInLocation = region.cities.some(city => {
@@ -1007,7 +984,7 @@ async function searchPages(query, region = null, studyField = null) {
               regionBonus = 0;
               console.log(`    [SCORE] +0 for no region mention but has specific keyword`);
             } else if (isStaticPage) {
-              // בדוק אם המשתמש ביקש אזור ספציפי - תיקון v99
+              // בדוק אם המשתמש ביקש אזור ספציפי
               const queryLower = query.toLowerCase();
               const userRequestedSpecificRegion = 
                 queryLower.includes('בצפון') || queryLower.includes('בדרום') ||
@@ -1058,11 +1035,12 @@ async function searchPages(query, region = null, studyField = null) {
         console.log(`    [SCORE] +${remoteBonus} for remote course when region requested`);
       }
       
-      console.log(`  ✅ ADDED: "${rawTitle}"`);
+      console.log(`  ✅ ADDED: "${finalRawTitle}"`);
       console.log(`     Final Score: ${matchScore} | Static: ${isStaticPage} | Location: "${page.location || 'N/A'}" | Remote: ${isCourseRemote(page)}`);
       
       results.push({
         ...page,
+        title: finalRawTitle, // השתמש בכותרת המנוקה
         isStatic: isStaticPage,
         isInfo: isInfoPage,
         isInSpecificCity: isInSpecificCity,
@@ -1130,7 +1108,7 @@ async function searchRemoteLearning(studyField) {
   const pages = loadAllPages();
   const results = [];
   
-  // דפטרנים לזיהוי דפי זבל
+  // דפטרנים לזיהוי דפי זבל - אותם דפטרנים שבחיפוש הראשי
   const JUNK_TITLE_PATTERNS = [
     'close carousel', 'carousel', 'next', 'prev', 'menu', 'navigation',
     'ינואר 2', 'פברואר 2', 'מרץ 2', 'אפריל 2', 'מאי 2', 'יוני 2',
@@ -1145,21 +1123,29 @@ async function searchRemoteLearning(studyField) {
     const rawContent = (page.text || '');
     const url = (page.url || page.link || '').toLowerCase();
     
-    // ❌ סנן דפי זבל
-    if (JUNK_TITLE_PATTERNS.some(p => title.includes(p))) continue;
+    // 🧹 נקה דפטרני זבל מהכותרת כמו בחיפוש הראשי
+    let cleanedRawTitle = rawTitle;
+    let cleanedTitle = title;
+    
+    for (const pattern of JUNK_TITLE_PATTERNS) {
+      cleanedRawTitle = cleanedRawTitle.replace(new RegExp(pattern, 'gi'), '').trim();
+      cleanedTitle = cleanedTitle.replace(new RegExp(pattern, 'gi'), '').trim();
+    }
+    
+    // בדוק אם זה באמת זבל אחרי הניקוי
+    if (cleanedTitle.length === 0 || cleanedRawTitle.length < 3) continue;
     if (!url || url.length < 10) continue;
-    if (!rawTitle || rawTitle.trim().length < 3) continue;
     
     // בדוק אם זה למידה מרחוק
     const isRemote = isCourseRemote(page);
     if (!isRemote) continue;
     
     // 🧠 השתמש בחיפוש חכם עם ניקוי ניווט!
-    const cleanedContent = cleanContentFromNavigation(rawContent, rawTitle, page.description || '');
+    const cleanedContent = cleanContentFromNavigation(rawContent, cleanedRawTitle, page.description || '');
     
     // בדוק אם יש את התחום
     const fieldLower = studyField.name.toLowerCase();
-    const headerAndDesc = title + ' ' + description;
+    const headerAndDesc = cleanedTitle + ' ' + description;
     
     let hasField = false;
     
@@ -1169,14 +1155,14 @@ async function searchRemoteLearning(studyField) {
                  cleanedContent.toLowerCase().includes(specificLower);
       
       if (hasField) {
-        console.log(`  ✅ Remote course found: "${rawTitle}" - contains specificKeyword "${studyField.specificKeyword}"`);
+        console.log(`  ✅ Remote course found: "${cleanedRawTitle}" - contains specificKeyword "${studyField.specificKeyword}"`);
       }
     } else {
       hasField = headerAndDesc.includes(fieldLower) || 
                  cleanedContent.toLowerCase().includes(fieldLower);
       
       if (hasField) {
-        console.log(`  ✅ Remote course found: "${rawTitle}" - contains field "${studyField.name}"`);
+        console.log(`  ✅ Remote course found: "${cleanedRawTitle}" - contains field "${studyField.name}"`);
       }
     }
     
@@ -1184,7 +1170,7 @@ async function searchRemoteLearning(studyField) {
       // חישוב score לקורסים מרחוק
       let remoteScore = 50; // base score
       
-      if (title.includes(fieldLower) || (studyField.specificKeyword && title.includes(studyField.specificKeyword.toLowerCase()))) {
+      if (cleanedTitle.includes(fieldLower) || (studyField.specificKeyword && cleanedTitle.includes(studyField.specificKeyword.toLowerCase()))) {
         remoteScore += 30;
       } else if (description.includes(fieldLower) || (studyField.specificKeyword && description.includes(studyField.specificKeyword.toLowerCase()))) {
         remoteScore += 20;
@@ -1199,6 +1185,7 @@ async function searchRemoteLearning(studyField) {
       
       results.push({
         ...page,
+        title: cleanedRawTitle, // השתמש בכותרת המנוקה
         isRemote: true,
         upcomingDate: upcomingDate,
         score: remoteScore
@@ -1231,12 +1218,9 @@ async function searchRemoteLearning(studyField) {
 }
 
 // ================================================================
-// 💬 QA SYSTEM - מלא ומשופר
+// 💬 QA SYSTEM
 // ================================================================
 
-/**
- * חיפוש תשובה ב-QA - פונקציה מלאה
- */
 function findQAAnswer(message) {
   loadConfigs();
   
@@ -1307,9 +1291,6 @@ function findQAAnswer(message) {
   return null;
 }
 
-/**
- * זיהוי סוג כוונה - פונקציה משופרת
- */
 function classifyIntent(message) {
   const lowerMessage = message.toLowerCase();
   
@@ -1340,7 +1321,7 @@ function classifyIntent(message) {
 }
 
 // ================================================================
-// 🎨 RESPONSE FORMATTING - מלא ומשופר
+// 🎨 RESPONSE FORMATTING
 // ================================================================
 
 function formatResults(results, studyField, region) {
@@ -1436,13 +1417,13 @@ function formatRemoteResults(results, studyField) {
 }
 
 // ================================================================
-// 🎯 MAIN HANDLER - מלא ומשופר
+// 🎯 MAIN HANDLER
 // ================================================================
 
 async function generateSmartResponse(message) {
   console.log('========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_17_v105_COMPLETE_WITH_SMART_SEARCH_AND_ALL_FEATURES 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_17_v106_SMART_JUNK_FILTERING_FIX 🚀🚀🚀');
   console.log('========================================');
   console.log(`📝 Input message: "${message}"`);
   
@@ -1547,7 +1528,7 @@ async function generateSmartResponse(message) {
 }
 
 // ================================================================
-// 🌐 VERCEL HANDLER - מלא עם כל התיקונים
+// 🌐 VERCEL HANDLER
 // ================================================================
 
 export const config = {
@@ -1623,7 +1604,7 @@ export default async function handler(req, res) {
       reply: response,
       timestamp: new Date().toISOString(),
       processingTime: processingTime,
-      version: 'FEB_17_v105_COMPLETE_WITH_SMART_SEARCH_AND_ALL_FEATURES'
+      version: 'FEB_17_v106_SMART_JUNK_FILTERING_FIX'
     });
     
   } catch (error) {
@@ -1634,7 +1615,7 @@ export default async function handler(req, res) {
       error: 'Internal server error - please try again',
       message: error.message,
       timestamp: new Date().toISOString(),
-      version: 'FEB_17_v105_COMPLETE_WITH_SMART_SEARCH_AND_ALL_FEATURES'
+      version: 'FEB_17_v106_SMART_JUNK_FILTERING_FIX'
     });
   }
 }
