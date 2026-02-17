@@ -1,7 +1,7 @@
 // ================================================================
 // 🎯 chat.js v100 - CLEAN & COMPLETE VERSION
 // ================================================================
-// VERSION: FEB_17_v101_CORS_FIXED
+// VERSION: FEB_17_v102_FILTER_JUNK_PAGES
 // Created: 2026-02-16
 // 
 // פיצ'רים:
@@ -339,7 +339,7 @@ function detectRegion(message) {
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_17_v101_CORS_FIXED`);
+  console.log(`🚀 VERSION: FEB_17_v102_FILTER_JUNK_PAGES`);
   console.log(`Query: "${query}"`);
   console.log(`Region: ${region?.name || 'כל הארץ'}`);
   console.log(`Study Field: ${studyField?.name || 'כללי'}`);
@@ -347,34 +347,48 @@ async function searchPages(query, region = null, studyField = null) {
   const pages = loadAllPages();
   const results = [];
   
+  // מילים שמעידות על דף זבל (ניווט, carousel, תאריכים)
+  const JUNK_TITLE_PATTERNS = [
+    'close carousel', 'carousel', 'ינואר 2', 'פברואר 2', 'מרץ 2',
+    'אפריל 2', 'מאי 2', 'יוני 2', 'יולי 2', 'אוגוסט 2',
+    'ספטמבר 2', 'אוקטובר 2', 'נובמבר 2', 'דצמבר 2',
+    'next', 'prev', 'menu', 'navigation'
+  ];
+  
   for (const page of pages) {
     const pageType = page.pageType || 'unknown';
     const isStatic = pageType === 'static';
     const isInfo = pageType === 'info';
     
-    const title = (page.title || page.h1 || '').toLowerCase();
+    const rawTitle = page.title || page.h1 || '';
+    const title = rawTitle.toLowerCase().trim();
     const desc = (page.description || '').toLowerCase();
     const content = (page.text || '').toLowerCase();
     const headers = ((page.h2 || []).join(' ') + ' ' + (page.h3 || []).join(' ')).toLowerCase();
+    const url = (page.url || page.link || '').toLowerCase();
+    
+    // ❌ סנן דפי זבל
+    if (JUNK_TITLE_PATTERNS.some(p => title.includes(p))) continue;
+    if (!url || url.length < 10) continue;
+    if (!rawTitle || rawTitle.trim().length < 3) continue;
+    // דפי ניווט - כותרת קצרה מאוד ללא תוכן ממשי
+    if (rawTitle.trim().length < 10 && !desc && !content) continue;
     
     // סינון תחום
     if (studyField) {
       const fieldLower = studyField.name.toLowerCase();
+      // חיפוש רק בכותרת + תיאור + headers (לא בכל התוכן!)
       const headerAndDesc = title + ' ' + desc + ' ' + headers;
       
       if (studyField.specificKeyword) {
         const specificLower = studyField.specificKeyword.toLowerCase();
-        if (!headerAndDesc.includes(specificLower) && !content.includes(specificLower)) {
-          continue;
+        // חפש בכותרת/תיאור/headers בלבד
+        if (!headerAndDesc.includes(specificLower)) {
+          continue; // לא מוצאים בכותרת - דחה!
         }
       } else {
-        const isGeneric = isGenericTerm(fieldLower);
-        const inHeader = headerAndDesc.includes(fieldLower);
-        
-        if (!inHeader) {
-          if (isGeneric) continue;
-          if (!content.includes(fieldLower)) continue;
-          console.log(`  ℹ️ "${page.title}" - field in content only`);
+        if (!headerAndDesc.includes(fieldLower)) {
+          continue; // רק כותרת/תיאור - לא תוכן!
         }
       }
     }
@@ -390,7 +404,7 @@ async function searchPages(query, region = null, studyField = null) {
       if (title.includes(fieldLower)) score += 100;
       else if (desc.includes(fieldLower)) score += 70;
       else if (headers.includes(fieldLower)) score += 50;
-      else score += 30;
+      // אין score=30 לתוכן בלבד - כבר סוננו למעלה
     }
     
     // סינון אזור
@@ -460,10 +474,23 @@ async function searchRemoteLearning(studyField) {
   const pages = loadAllPages();
   const results = [];
   
+  const JUNK_TITLE_PATTERNS = [
+    'close carousel', 'carousel', 'ינואר 2', 'פברואר 2', 'מרץ 2',
+    'אפריל 2', 'מאי 2', 'יוני 2', 'יולי 2', 'אוגוסט 2',
+    'ספטמבר 2', 'אוקטובר 2', 'נובמבר 2', 'דצמבר 2'
+  ];
+  
   for (const page of pages) {
+    const rawTitle = page.title || page.h1 || '';
+    const title = rawTitle.toLowerCase().trim();
     const location = (page.location || '').toLowerCase();
-    const title = (page.title || page.h1 || '').toLowerCase();
     const desc = (page.description || '').toLowerCase();
+    const url = (page.url || page.link || '').toLowerCase();
+    
+    // סנן זבל
+    if (JUNK_TITLE_PATTERNS.some(p => title.includes(p))) continue;
+    if (!url || url.length < 10) continue;
+    if (!rawTitle || rawTitle.trim().length < 3) continue;
     const content = (page.text || '').toLowerCase();
     
     // בדוק למידה מרחוק
@@ -625,7 +652,7 @@ function formatRemoteResults(results, studyField) {
 async function generateSmartResponse(message) {
   console.log('========================================');
   console.log('🚀 [generateSmartResponse] START');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_17_v101_CORS_FIXED 🚀🚀🚀');
+  console.log('🚀🚀🚀 CODE VERSION: FEB_17_v102_FILTER_JUNK_PAGES 🚀🚀🚀');
   console.log('========================================');
   
   loadConfigs();
