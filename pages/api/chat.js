@@ -1042,7 +1042,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v165_ASK_FIELD');
+  console.log('🚀 VERSION: FEB_18_v166_RESHUT_SPLIT');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1057,8 +1057,14 @@ async function generateSmartResponse(message) {
     const detectedFieldsEarly = detectStudyField(message);
     const hasSubject = detectedFieldsEarly.length > 0;
     if (!hasSubject) {
-      // אין תחום — שאל באיזה תחום
-      console.log('📋 רשות/חובה without subject → ask for field');
+      // בדוק אם זו שאלת מידע ("מה זה", "מה הם", "הסבר") — הפנה לדף מידע
+      const isInfoQuestion = /מה זה|מה הם|מה ה|הסבר|הגדר|מה ההבדל|מה המשמעות|מה כולל|כמה/.test(message);
+      if (isInfoQuestion) {
+        console.log('📋 רשות/חובה info question → info page');
+        return `קורסי **רשות** וקורסי **חובה** הם מושגים מתוכנית הלימודים של שנת שבתון.\n\n📋 [לדף מידע על תוכניות הלימודים](https://www.shabaton.online/shabaton-program)\n\n💬 לשאלות נוספות: [קבוצת ווטסאפ שבתון](https://chat.whatsapp.com/GlI6mVGJFql9lBZEFGnRy6)`;
+      }
+      // בקשת חיפוש ללא תחום — שאל באיזה תחום
+      console.log('📋 רשות/חובה search without subject → ask for field');
       return `באיזה תחום לימודים אתה מחפש קורס? 😊\n\nלדוגמה: ציור, מיינדפולנס, הדרכת הורים, NLP, טכנולוגיה דיגיטלית...`;
     }
     // יש תחום — המשך חיפוש רגיל (מילות רשות/חובה מתעלמות)
