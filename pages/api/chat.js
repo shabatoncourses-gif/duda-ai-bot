@@ -664,7 +664,8 @@ function formatResults(results, studyField, region) {
 
     // סינון דפי אירועים/כנסים/יצירת קשר/חודשי
     const eventPatterns = ['/kenes/', '/event/', '/sde-yom/', '/yom-iyun/', '/workshop/',
-      '/contact', '/knassim', '/contact-us', '/courses-per-month-'];
+      '/contact', '/knassim', '/contact-us', '/courses-per-month-',
+      '/מחפשים-משרות', '/משרות-הוראה', '/drushim', '/הוספת-משרה', '/הוספת-מודעה'];
     if (eventPatterns.some(p => url.includes(p))) {
       console.log(`    [FILTER] ❌ Event/contact/monthly → skip: "${r.title}"`);
       return false;
@@ -769,7 +770,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v135_FIX_BLOCK_STRUCTURE');
+  console.log('🚀 VERSION: FEB_18_v136_FILTER_JOBS');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
