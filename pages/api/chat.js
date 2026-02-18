@@ -816,11 +816,42 @@ function formatResults(results, studyField, region, query = '') {
 
   const exactResults = results.filter(r => r.regionMatch === 'exact');
   const nationalResults = results.filter(r => r.regionMatch === 'none');
+  const otherRegionResults = results.filter(r => r.regionMatch === 'other');
 
-  const allInstitutions = [
+  let allInstitutions = [
     ...exactResults.filter(r => !isCategoryPage(r) && isRelevantInstitution(r)),
     ...nationalResults.filter(r => !isCategoryPage(r) && isRelevantInstitution(r))
   ];
+
+  // מיפוי אזורים סמוכים — fallback חכם
+  const NEARBY_REGIONS = {
+    'results-merkaz':   ['results-sharon'],          // מרכז → שרון
+    'results-sharon':   ['results-merkaz'],          // שרון → מרכז
+    'results-heifa':    ['results-sharon'],          // חיפה → שרון
+    'results-zafon':    ['results-heifa'],           // צפון → חיפה
+    'results-darom':    [],                          // דרום → אין סמוכים
+    'results-jerusalem': [],                         // ירושלים → אין סמוכים
+    'results-shfea-darom': [],
+  };
+
+  const regionSlug = region?.slug || '';
+  const allowedNearby = NEARBY_REGIONS[regionSlug] || [];
+
+  const isNearbyOrOnline = (r) => {
+    const url = (r.url || r.link || '').toLowerCase();
+    // למידה מרחוק — תמיד מותר
+    if (url.includes('results-all') || (r.title || '').includes('למידה מרחוק')) return true;
+    // אזורים סמוכים בלבד
+    return allowedNearby.some(slug => url.includes(slug));
+  };
+
+  // fallback: אם פחות מ-10 תוצאות — הוסף אזורים סמוכים ולמידה מרחוק (לא צפון/דרום/ירושלים)
+  if (allInstitutions.length < 10 && region) {
+    const nearbyFiltered = otherRegionResults
+      .filter(r => isNearbyOrOnline(r) && !isCategoryPage(r) && isRelevantInstitution(r));
+    allInstitutions = [...allInstitutions, ...nearbyFiltered];
+    console.log(`  📍 Fallback nearby: +${nearbyFiltered.length} (total: ${allInstitutions.length})`);
+  }
 
   // רוטציה אקראית
   for (let i = allInstitutions.length - 1; i > 0; i--) {
@@ -991,7 +1022,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v159_DEGREE_FILTER');
+  console.log('🚀 VERSION: FEB_18_v161_SMART_NEARBY');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
