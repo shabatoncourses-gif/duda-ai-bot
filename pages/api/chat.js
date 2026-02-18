@@ -805,7 +805,7 @@ function formatResults(results, studyField, region, query = '') {
         'ברזל', 'תחרה', 'בטון', 'זכוכית', 'מוזאיקה', 'שילוב אומנויות', 'בובות',
         'טקסטיל', 'הדפס', 'קולאז'
       ];
-      const combined = ((r.title || '') + ' ' + (r.description || '')).toLowerCase();
+      const combined = ((r.title || '') + ' ' + (r.description || '') + ' ' + (r.text || '').substring(0, 500)).toLowerCase();
       if (!artWhitelist.some(k => combined.includes(k))) {
         console.log(`    [ART] ❌ No art keyword → skip: "${r.title}"`);
         return false;
