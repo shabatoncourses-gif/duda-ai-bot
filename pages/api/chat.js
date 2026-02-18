@@ -792,7 +792,7 @@ function formatResults(results, studyField, region) {
       seenInstitutions.add(institution);
       dedupedInstitutions.push(r);
     }
-    if (dedupedInstitutions.length >= 10) break;
+    if (dedupedInstitutions.length >= 20) break;
   }
 
   const specificInstitutions = dedupedInstitutions;
@@ -946,7 +946,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v152_TEXT_SEARCH_INTENT');
+  console.log('🚀 VERSION: FEB_18_v153_MAX20_INSTITUTIONS');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
