@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_18_v124_FILTER_EVENTS
+// VERSION: FEB_18_v125_FILTER_HOMEPAGE_BOUTIQUE
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -365,7 +365,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_18_v124_FILTER_EVENTS`);
+  console.log(`🚀 VERSION: FEB_18_v125_FILTER_HOMEPAGE_BOUTIQUE`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -650,10 +650,31 @@ function formatResults(results, studyField, region) {
     const desc = (r.description || '').toLowerCase();
     const url = (r.url || r.link || '').toLowerCase();
 
-    // סינון דפי אירועים/כנסים — לא מוסדות לימודים
-    const eventPatterns = ['/kenes/', '/contact/', '/knassim/', '/contact-us-phone/'];
+    // סינון דפי אירועים/כנסים/יצירת קשר — לא מוסדות לימודים
+    const eventPatterns = ['/kenes/', '/event/', '/sde-yom/', '/yom-iyun/', '/workshop/',
+      '/contact', '/knassim', '/contact-us'];
     if (eventPatterns.some(p => url.includes(p))) {
-      console.log(`    [FILTER] ❌ Event/kenes page → skip: "${r.title}"`);
+      console.log(`    [FILTER] ❌ Event/contact page → skip: "${r.title}"`);
+      return false;
+    }
+
+    // סינון עמוד הבית של שבתון
+    const cleanUrl = url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+    if (cleanUrl === 'shabaton.online') {
+      console.log(`    [FILTER] ❌ Homepage → skip`);
+      return false;
+    }
+
+    // סינון דפי morim.boutique כלליים
+    const morimBlocked = [
+      '/fashion', '/art', '/cooking', '/trips', '/empowering',
+      '/health', '/courses-jewelry', '/mosaic', '/קורסי-נגרות', '/קורסי נגרות'
+    ];
+    if (url.includes('morim.boutique') && (
+      morimBlocked.some(p => url.includes(p)) ||
+      cleanUrl === 'www.morim.boutique' || cleanUrl === 'morim.boutique'
+    )) {
+      console.log(`    [FILTER] ❌ morim.boutique general → skip`);
       return false;
     }
 
@@ -727,7 +748,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v124_FILTER_EVENTS');
+  console.log('🚀 VERSION: FEB_18_v125_FILTER_HOMEPAGE_BOUTIQUE');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -821,9 +842,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v124_FILTER_EVENTS' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v125_FILTER_HOMEPAGE_BOUTIQUE' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v124_FILTER_EVENTS' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v125_FILTER_HOMEPAGE_BOUTIQUE' });
   }
 }
