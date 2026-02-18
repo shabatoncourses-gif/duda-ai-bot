@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_18_v121_NO_INTRO_BETTER_FILTER
+// VERSION: FEB_18_v122_MORE_RESULTS
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -365,7 +365,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_18_v121_NO_INTRO_BETTER_FILTER`);
+  console.log(`🚀 VERSION: FEB_18_v122_MORE_RESULTS`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -671,7 +671,7 @@ function formatResults(results, studyField, region) {
   const specificInstitutions = [
     ...exactResults.filter(r => !isCategoryPage(r) && isRelevantInstitution(r)),
     ...nationalResults.filter(r => !isCategoryPage(r) && isRelevantInstitution(r))
-  ].slice(0, 5);
+  ].slice(0, 10);
 
   if (specificInstitutions.length === 0 && exactResults.length === 0 && nationalResults.length === 0) return '';
 
@@ -710,7 +710,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v121_NO_INTRO_BETTER_FILTER');
+  console.log('🚀 VERSION: FEB_18_v122_MORE_RESULTS');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -804,9 +804,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v121_NO_INTRO_BETTER_FILTER' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v122_MORE_RESULTS' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v121_NO_INTRO_BETTER_FILTER' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v122_MORE_RESULTS' });
   }
 }
