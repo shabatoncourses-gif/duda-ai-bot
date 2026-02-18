@@ -553,11 +553,20 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
 
       } else {
         // אין אזור מבוקש - הוסף את כל הדפים עם הניקוד של התחום
-        console.log(`    ✅ ADDED (no region filter) | score:${fieldMatch.score}`);
+        let empowerBonus = 0;
+        if ((studyField?.name || '').includes('העצמה')) {
+          const preferred = ['יומן ויזואלי', 'פסיכולוגיה חיובית', 'מיינדפולנס', 'nlp', 'נלפ',
+            'העצמה אישית', 'ביטחון עצמי', 'חוסן', 'אימון אישי', 'coaching'];
+          const combined = ((page.title || '') + ' ' + (page.description || '')).toLowerCase();
+          if (preferred.some(p => combined.includes(p))) { empowerBonus = 30; }
+        }
+        const finalScore = fieldMatch.score + empowerBonus;
+        if (empowerBonus) console.log(`    [EMPOWER] ✨ Preferred content boost (+${empowerBonus})`);
+        console.log(`    ✅ ADDED (no region filter) | score:${finalScore}`);
         results.push({
           ...page,
           title: cleanTitle,
-          score: fieldMatch.score,
+          score: finalScore,
           regionMatch: 'none',
           fieldLocation: fieldMatch.location
         });
@@ -567,7 +576,6 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
 
   // מיון: קודם exact region, אחר כך לפי score
   results.sort((a, b) => {
-    const regionOrder = { exact: 0, none: 1, other: 2 };
     const rA = regionOrder[a.regionMatch] ?? 1;
     const rB = regionOrder[b.regionMatch] ?? 1;
     if (rA !== rB) return rA - rB;
@@ -752,7 +760,19 @@ function formatResults(results, studyField, region) {
       return false;
     }
 
-    // דף "קורסים בלמידה מרחוק" הכללי — לא רלוונטי לאופק חדש
+    // סינון לתחום "העצמה" — הוצא דפי אומנות/סטודיו שנכנסו בטעות
+    const isEmpowermentField = (studyField?.name || '').includes('העצמה');
+    if (isEmpowermentField) {
+      const artPatterns = ['סטודיו', 'קרמיקה', 'פיסול', 'ציור', 'אריגה', 'רקמה', 'נגרות',
+        'קדרות', 'חימר', 'פסיפס', 'גילוף', 'ויטראז', 'תכשיטנות', 'צורפות',
+        'studio', 'ceramics', 'pottery'];
+      const titleLower = (r.title || '').toLowerCase();
+      const descLower = (r.description || '').toLowerCase();
+      if (artPatterns.some(p => titleLower.includes(p) || descLower.startsWith(p))) {
+        console.log(`    [EMPOWER] ❌ Art studio → skip: "${r.title}"`);
+        return false;
+      }
+    }
     if (isOfekChadash && (title.includes('למידה מרחוק') || title.includes('לימוד מרחוק'))) return false;
     // דף "שנת שבתון מורים" הכללי — לא מוסד
     if (isOfekChadash && title === 'שנת שבתון מורים') return false;
@@ -946,7 +966,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v153_MAX20_INSTITUTIONS');
+  console.log('🚀 VERSION: FEB_18_v156_EMPOWER_BOOST');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1048,7 +1068,9 @@ async function generateSmartResponse(message) {
     }
 
     const isIntentSearch = !!studyField?._intentLabel;
-    const results = await searchPages(message, region, studyField, isIntentSearch);
+    // אפשר text search כשיש תחום (intent או ישיר) — הביטוי ארוך מספיק למניעת שגיאות
+    const useTextSearch = !!(studyField?.name && studyField.name.length > 5);
+    const results = await searchPages(message, region, studyField, useTextSearch);
 
     // אם יש תחומי intent נוספים — חפש לפי שם התחום
     let allResults = [...results];
