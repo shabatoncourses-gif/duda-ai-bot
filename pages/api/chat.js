@@ -777,29 +777,72 @@ function findInfoPageAnswer(message) {
   if (!SHABATON_INFO?.length) return null;
   const lm = message.toLowerCase();
 
-  // מצא את כל דפי המידע הרלוונטיים לפי מילות מפתח
+  // ── רמה 1: הרחבה סמנטית של השאלה ──
+  const expandedTerms = expandQuerySemantically(message);
+  const allTerms = [lm, ...expandedTerms.map(t => t.toLowerCase())];
+
+  // ── רמה 2: מילות מפתח נרדפות לתחומי מידע נפוצים ──
+  const SYNONYMS = {
+    'דמי לידה': ['לידה', 'יולדת', 'היריון', 'לאחר לידה', 'חופשת לידה'],
+    'ביטוח לאומי': ['ביטל', 'בטל', 'ביטוח', 'קצבה', 'גמלה', 'אבטלה', 'מחלה', 'נכות'],
+    'מענק חודשי': ['מענק', 'משכורת', 'כמה מקבלים', 'כמה משלמים', 'שכר', 'תשלום חודשי'],
+    'החזר שכ"ל': ['שכר לימוד', 'שכ"ל', 'קבלות', 'החזר', 'קרן', 'להחזיר'],
+    'תלוש': ['תלוש שכר', 'תלוש מענק', 'סליפ', 'פירוט תשלום'],
+    'טופס 101': ['101', 'מס הכנסה', 'ניכוי מס', 'זיכוי מס'],
+    'לוח זמנים': ['מתי', 'תאריך', 'דדליין', 'מועד', 'מתי צריך', 'עד מתי'],
+    'בקשת שבתון': ['איך מבקשים', 'איך יוצאים', 'איך מגישים', 'הגשת בקשה'],
+    'חצי שבתון': ['חצי', 'שנה', 'שנת שבתון מלאה', 'כמה זמן'],
+    'מוסדות מאושרים': ['אילו מוסדות', 'מוסד מוכר', 'מוסד מאושר', 'איפה ללמוד'],
+    'חובות לימודים': ['כמה שעות', 'שעות לימוד', 'חייב ללמוד', 'מינימום שעות'],
+    'לימודים בחו"ל': ['חו"ל', 'לימוד בחוץ לארץ', 'אוניברסיטה בחו"ל'],
+  };
+
+  // הרחב את allTerms עם נרדפות
+  const expandedAll = new Set(allTerms);
+  for (const term of allTerms) {
+    for (const [canonical, synonyms] of Object.entries(SYNONYMS)) {
+      if (synonyms.some(s => term.includes(s)) || term.includes(canonical.toLowerCase())) {
+        expandedAll.add(canonical.toLowerCase());
+        synonyms.forEach(s => expandedAll.add(s.toLowerCase()));
+      }
+    }
+  }
+
+  // ── התאמה לדפי מידע ──
   const matches = [];
   for (const page of SHABATON_INFO) {
+    let score = 0;
+    let matchedKeyword = null;
     for (const kw of page.keywords) {
-      if (lm.includes(kw.toLowerCase())) {
-        matches.push({ page, keyword: kw });
-        break; // מספיק התאמה אחת לדף
+      const kwl = kw.toLowerCase();
+      for (const term of expandedAll) {
+        if (term.includes(kwl) || kwl.includes(term) || term === kwl) {
+          const kwScore = kwl.length; // מפתח ארוך = ניקוד גבוה יותר
+          if (kwScore > score) { score = kwScore; matchedKeyword = kw; }
+        }
       }
+    }
+    if (score > 2) { // סף מינימלי — מונע התאמות שגויות
+      matches.push({ page, score, matchedKeyword });
     }
   }
 
   if (matches.length === 0) return null;
 
-  console.log(`✅ Info pages found: ${matches.map(m => m.page.id).join(', ')}`);
+  // מיין לפי ניקוד
+  matches.sort((a, b) => b.score - a.score);
+  console.log(`✅ Info pages found: ${matches.map(m => `${m.page.id}(${m.score})`).join(', ')}`);
 
-  if (matches.length === 1) {
-    const { page } = matches[0];
+  // החזר עד 2 דפים הכי רלוונטיים
+  const topMatches = matches.slice(0, 2);
+
+  if (topMatches.length === 1) {
+    const { page } = topMatches[0];
     return `📋 **${page.title}**\n[למידע מלא באתר שבתון](${page.url})\n`;
   }
 
-  // מספר דפים רלוונטיים
-  let response = `מצאתי מספר דפי מידע רלוונטיים:\n\n`;
-  for (const { page } of matches) {
+  let response = `מצאתי מידע רלוונטי:\n\n`;
+  for (const { page } of topMatches) {
     response += `📋 **${page.title}**\n[לפרטים](${page.url})\n\n`;
   }
   return response;
@@ -811,7 +854,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v137_INFO_PAGES');
+  console.log('🚀 VERSION: FEB_18_v138_SEMANTIC_INFO_SEARCH');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
