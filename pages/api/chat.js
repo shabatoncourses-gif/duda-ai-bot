@@ -805,7 +805,16 @@ function formatResults(results, studyField, region, query = '') {
         'ברזל', 'תחרה', 'בטון', 'זכוכית', 'מוזאיקה', 'שילוב אומנויות', 'בובות',
         'טקסטיל', 'הדפס', 'קולאז'
       ];
-      const combined = ((r.title || '') + ' ' + (r.description || '') + ' ' + (r.text || '').substring(0, 500)).toLowerCase();
+      // חסימה לפי כותרת — תחומי עיצוב שאינם אמנות
+      const titleLower = (r.title || '').toLowerCase();
+      const nonArtTitles = ['עיצוב הסביבה', 'עיצוב פנים', 'עיצוב אופנה', 'עיצוב גרפי',
+        'home styling', 'הום סטיילינג', 'קולנוע', 'צילום', 'תיאטרון'];
+      if (nonArtTitles.some(p => titleLower.includes(p))) {
+        console.log(`    [ART] ❌ Non-art title → skip: "${r.title}"`);
+        return false;
+      }
+      // whitelist — חייב להכיל מילת מפתח אמנות ב-title/desc/text
+      const combined = ((r.title || '') + ' ' + (r.description || '') + ' ' + (r.text || '').substring(0, 2000)).toLowerCase();
       if (!artWhitelist.some(k => combined.includes(k))) {
         console.log(`    [ART] ❌ No art keyword → skip: "${r.title}"`);
         return false;
