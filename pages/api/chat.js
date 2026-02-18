@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_18_v125_FILTER_HOMEPAGE_BOUTIQUE
+// VERSION: FEB_18_v126_FILTER_REGIONAL_PAGES
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -365,7 +365,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_18_v125_FILTER_HOMEPAGE_BOUTIQUE`);
+  console.log(`🚀 VERSION: FEB_18_v126_FILTER_REGIONAL_PAGES`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -649,27 +649,37 @@ function formatResults(results, studyField, region) {
     const title = (r.title || '').toLowerCase();
     const desc = (r.description || '').toLowerCase();
     const url = (r.url || r.link || '').toLowerCase();
+    const cleanUrl = url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
 
-    // סינון דפי אירועים/כנסים/יצירת קשר — לא מוסדות לימודים
+    // סינון דפי אירועים/כנסים/יצירת קשר/חודשי
     const eventPatterns = ['/kenes/', '/event/', '/sde-yom/', '/yom-iyun/', '/workshop/',
-      '/contact', '/knassim', '/contact-us'];
+      '/contact', '/knassim', '/contact-us', '/courses-per-month-'];
     if (eventPatterns.some(p => url.includes(p))) {
-      console.log(`    [FILTER] ❌ Event/contact page → skip: "${r.title}"`);
+      console.log(`    [FILTER] ❌ Event/contact/monthly → skip: "${r.title}"`);
       return false;
     }
 
     // סינון עמוד הבית של שבתון
-    const cleanUrl = url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
     if (cleanUrl === 'shabaton.online') {
       console.log(`    [FILTER] ❌ Homepage → skip`);
       return false;
     }
 
-    // סינון דפי morim.boutique כלליים
-    const morimBlocked = [
-      '/fashion', '/art', '/cooking', '/trips', '/empowering',
-      '/health', '/courses-jewelry', '/mosaic', '/קורסי-נגרות', '/קורסי נגרות'
+    // סינון דפי נחיתה אזוריים כלליים (path אחד בלבד)
+    const blockedSinglePaths = [
+      'shabaton.online/heifa', 'shabaton.online/sharon', 'shabaton.online/tel-aviv',
+      'shabaton.online/darom', 'shabaton.online/jerusalm', 'shabaton.online/jerusalem',
+      'shabaton.online/merkaz', 'shabaton.online/zafon', 'shabaton.online/north',
+      'shabaton.online/south',
     ];
+    if (blockedSinglePaths.some(p => cleanUrl === p)) {
+      console.log(`    [FILTER] ❌ Region landing → skip`);
+      return false;
+    }
+
+    // סינון דפי morim.boutique כלליים
+    const morimBlocked = ['/fashion', '/art', '/cooking', '/trips', '/empowering',
+      '/health', '/courses-jewelry', '/mosaic', '/קורסי-נגרות', '/קורסי נגרות'];
     if (url.includes('morim.boutique') && (
       morimBlocked.some(p => url.includes(p)) ||
       cleanUrl === 'www.morim.boutique' || cleanUrl === 'morim.boutique'
@@ -748,7 +758,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v125_FILTER_HOMEPAGE_BOUTIQUE');
+  console.log('🚀 VERSION: FEB_18_v126_FILTER_REGIONAL_PAGES');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -842,9 +852,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v125_FILTER_HOMEPAGE_BOUTIQUE' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v126_FILTER_REGIONAL_PAGES' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v125_FILTER_HOMEPAGE_BOUTIQUE' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v126_FILTER_REGIONAL_PAGES' });
   }
 }
