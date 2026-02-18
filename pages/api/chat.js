@@ -29,6 +29,7 @@ let COURSES_QA = null;
 let PAYMENTS_QA = null;
 let SEMANTIC_DATA = null;
 let WORD_GRAPH = null;
+let SHABATON_INFO = null;
 
 const WHATSAPP_LINK = 'https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME';
 const SITE_BASE = 'https://www.shabaton.online';
@@ -58,6 +59,10 @@ function loadConfigs() {
     if (!PAYMENTS_QA) {
       PAYMENTS_QA = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'payments-qa.json'), 'utf8'));
       console.log(`✅ payments-qa.json`);
+    }
+    if (!SHABATON_INFO) {
+      SHABATON_INFO = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'shabaton-info.json'), 'utf8')).infoPages;
+      console.log(`✅ shabaton-info.json: ${SHABATON_INFO.length} info pages`);
     }
   } catch (e) {
     console.error('[loadConfigs] ERROR:', e.message);
@@ -765,12 +770,48 @@ function formatResults(results, studyField, region) {
 }
 
 // ================================================================
+// INFO PAGE FINDER — שאלות מידע על שנת שבתון
+// ================================================================
+
+function findInfoPageAnswer(message) {
+  if (!SHABATON_INFO?.length) return null;
+  const lm = message.toLowerCase();
+
+  // מצא את כל דפי המידע הרלוונטיים לפי מילות מפתח
+  const matches = [];
+  for (const page of SHABATON_INFO) {
+    for (const kw of page.keywords) {
+      if (lm.includes(kw.toLowerCase())) {
+        matches.push({ page, keyword: kw });
+        break; // מספיק התאמה אחת לדף
+      }
+    }
+  }
+
+  if (matches.length === 0) return null;
+
+  console.log(`✅ Info pages found: ${matches.map(m => m.page.id).join(', ')}`);
+
+  if (matches.length === 1) {
+    const { page } = matches[0];
+    return `📋 **${page.title}**\n[למידע מלא באתר שבתון](${page.url})\n`;
+  }
+
+  // מספר דפים רלוונטיים
+  let response = `מצאתי מספר דפי מידע רלוונטיים:\n\n`;
+  for (const { page } of matches) {
+    response += `📋 **${page.title}**\n[לפרטים](${page.url})\n\n`;
+  }
+  return response;
+}
+
+// ================================================================
 // MAIN RESPONSE GENERATOR
 // ================================================================
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v136_FILTER_JOBS');
+  console.log('🚀 VERSION: FEB_18_v137_INFO_PAGES');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -778,6 +819,10 @@ async function generateSmartResponse(message) {
   // QA קודם
   const qa = findQAAnswer(message);
   if (qa) { console.log('✅ QA answer'); return qa.answer; }
+
+  // ── דפי מידע על שנת שבתון ──
+  const infoAnswer = findInfoPageAnswer(message);
+  if (infoAnswer) { console.log('✅ Info page answer'); return infoAnswer; }
 
   // ── זיהוי תשובה לשאלת הבהרה מסבב קודם ──
   // אם הגולש ענה "1" / "2" / "כתיבה יוצרת" / "הוראה מתקנת"
