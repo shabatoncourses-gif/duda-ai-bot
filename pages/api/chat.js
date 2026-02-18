@@ -758,7 +758,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v129_PROXIMITY_FILTER');
+  console.log('🚀 VERSION: FEB_18_v130_STRICT_DISAMBIGUATION');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -770,20 +770,25 @@ async function generateSmartResponse(message) {
   // ── זיהוי תשובה לשאלת הבהרה מסבב קודם ──
   // אם הגולש ענה "1" / "2" / "כתיבה יוצרת" / "הוראה מתקנת"
   const DISAMBIGUATION_ANSWERS = [
-    { patterns: ['כתיבה יוצרת', 'יוצרת', 'סיפורי חיים', 'סיפורים', '^1$', '^1\\.', 'אפשרות 1'],
+    // תשובות ל"קורסי כתיבה" — כתיבה יוצרת
+    { patterns: ['^1$', '^1\\.', '^אפשרות 1$', '^כתיבה יוצרת$', '^יוצרת$', '^סיפורי חיים$', '^סיפורים$'],
       field: 'כתיבה יוצרת', strictFilter: null },
-    { patterns: ['הוראה מתקנת', 'מתקנת', 'מותאמת', 'הוראת כתיבה', '^2$', '^2\\.', 'אפשרות 2'],
-      field: 'כתיבה', strictFilter: 'הוראה מתקנת|הוראה מותאמת' },
+    // תשובות ל"קורסי כתיבה" — הוראה מתקנת
+    { patterns: ['^2$', '^2\\.', '^אפשרות 2$', '^הוראה מתקנת$', '^הוראה מותאמת$', '^מתקנת$'],
+      field: 'הוראה מתקנת', strictFilter: 'הוראה מתקנת|הוראה מותאמת' },
   ];
 
   const lmCheck = message.trim().toLowerCase();
-  for (const ans of DISAMBIGUATION_ANSWERS) {
-    if (ans.patterns.some(p => new RegExp(p, 'i').test(lmCheck))) {
+  // disambiguation רק לתשובות קצרות (עד 4 מילים) — לא לשאילתות חדשות
+  const isShortReply = lmCheck.split(/\s+/).length <= 4;
+  if (isShortReply) {
+    for (const ans of DISAMBIGUATION_ANSWERS) {
+      if (ans.patterns.some(p => new RegExp(p, 'i').test(lmCheck))) {
       // נסה להחיל strictFilter אם יש
       if (ans.strictFilter) {
         console.log(`✅ Disambiguation answer → field:"${ans.field}" strict:"${ans.strictFilter}"`);
         // אחזר אזור מההקשר — אין לנו היסטוריה כאן, נשתמש ב-null
-        const sf = STUDY_FIELDS?.find(f => f.name === ans.field) || { name: ans.field };
+        const sf = STUDY_FIELDS?.find(f => f.name === ans.field) || { name: ans.field, specificKeyword: ans.field };
         sf._strictFilter = ans.strictFilter;
         const results2 = await searchPages(message, null, sf);
         const filtered = results2.filter(r => {
@@ -805,7 +810,7 @@ async function generateSmartResponse(message) {
       }
       break;
     }
-  }
+  } // end isShortReply
 
   const detectedFields = detectStudyField(message);
   const studyField = detectedFields[0] || null;
