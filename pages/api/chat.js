@@ -232,28 +232,43 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
   const h2h3Lower = ((page.h2 || []).concat(page.h3 || []).join(' ')).toLowerCase();
   const textLower = allowTextSearch ? (page.text || '').toLowerCase() : '';
 
-  const searchIn = (term, includeText = false) => {
-    const t = term.toLowerCase();
-    if (titleLower.includes(t)) return { found: true, location: 'title', score: 150 };
-    if (descLower.includes(t)) return { found: true, location: 'description', score: 80 };
-    if (h2h3Lower.includes(t)) return { found: true, location: 'headers', score: 60 };
-    if (includeText && allowTextSearch && t.length > 4 && textLower.includes(t))
+  // מילה בודדת קצרה (≤8 תווים) — לא מחפשים ב-text (מופיעה בכל תפריט ניווט)
+  const isSpecificTerm = (term) => term.trim().split(/\s+/).length >= 2 || term.length > 8;
+
+  const searchIn = (term, allowInText = false) => {
+    const t = term.toLowerCase().trim();
+    if (!t || t.length < 2) return { found: false };
+
+    // גבולות מילה — מונע "הוראה" מלהתאים ל"הוראת שפות" או "להוראה"
+    const isSingleWord = !t.includes(' ');
+    const matches = (text) => {
+      if (!isSingleWord) return text.includes(t); // ביטוי — חיפוש ישיר
+      const idx = text.indexOf(t);
+      if (idx === -1) return false;
+      const isBound = (c) => !c || /[\s,.\-\/()[\]"'!?:;]/.test(c);
+      return isBound(text[idx - 1]) && isBound(text[idx + t.length]);
+    };
+
+    if (matches(titleLower)) return { found: true, location: 'title', score: 150 };
+    if (matches(descLower)) return { found: true, location: 'description', score: 80 };
+    if (matches(h2h3Lower)) return { found: true, location: 'headers', score: 60 };
+    if (allowInText && allowTextSearch && t.length > 4 && matches(textLower))
       return { found: true, location: 'text', score: 40 };
     return { found: false };
   };
 
-  // שלב 1: specificKeyword — כולל text
+  // שלב 1: specificKeyword — text רק אם ספציפי (2+ מילים או >8 תווים)
   if (studyField.specificKeyword) {
-    const r = searchIn(studyField.specificKeyword, true);
+    const r = searchIn(studyField.specificKeyword, isSpecificTerm(studyField.specificKeyword));
     if (r.found) { console.log(`    [FIELD] "${studyField.specificKeyword}" in ${r.location} (+${r.score})`); return r; }
   }
 
-  // שלב 2: שם תחום — כולל text
-  const nameR = searchIn(studyField.name, true);
+  // שלב 2: שם תחום — text רק אם ספציפי
+  const nameR = searchIn(studyField.name, isSpecificTerm(studyField.name));
   if (nameR.found) { console.log(`    [FIELD] "${studyField.name}" in ${nameR.location} (+${nameR.score})`); return nameR; }
 
   // שלב 3: keywords מ-study-fields.json
-  // מילה בודדת קצרה (<= 8 תווים) — רק title/desc/headers
+  // מילה בודדת קצרה (≤8 תווים) — רק title/desc/headers
   // ביטוי ≥2 מילים או >8 תווים — גם text
   const keywords = (studyField.keywords || []).filter(kw => {
     if (!kw || kw === studyField.specificKeyword || kw === studyField.name) return false;
@@ -262,8 +277,7 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
   });
 
   for (const kw of keywords) {
-    const isSpecific = kw.trim().split(/\s+/).length >= 2 || kw.length > 8;
-    const r = searchIn(kw, isSpecific);
+    const r = searchIn(kw, isSpecificTerm(kw));
     if (r.found) { console.log(`    [FIELD] keyword "${kw}" in ${r.location} (+${r.score})`); return r; }
   }
 
@@ -972,7 +986,7 @@ function formatResults(results, studyField, region, query = '') {
       seenInstitutions.add(institution);
       dedupedInstitutions.push(r);
     }
-    if (dedupedInstitutions.length >= 20) break;
+    if (dedupedInstitutions.length >= 20) break; // מקסימום 20, אך לא ממלאים בכוח
   }
 
   const specificInstitutions = dedupedInstitutions;
