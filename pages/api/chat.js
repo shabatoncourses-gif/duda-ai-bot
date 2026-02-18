@@ -673,9 +673,13 @@ function buildPageSummary(page) {
   return '';
 }
 
-function formatResults(results, studyField, region) {
+function formatResults(results, studyField, region, query = '') {
   const fieldName = studyField?.name || 'הקורסים';
   const regionName = region?.name || 'כל הארץ';
+  const queryLower = query.toLowerCase();
+
+  // זיהוי בקשת תואר שני מפורשת
+  const isDegreeRequest = /תואר שני|תואר ב|מ\.א|M\.A|אקדמי|דוקטורט|תואר שלישי/.test(query);
 
   // ── זיהוי דפי קטגוריה לפי URL: בדיוק 2 חלקי נתיב ו-slug אזורי ידוע ──
   const isCategoryPage = (r) => {
@@ -764,6 +768,15 @@ function formatResults(results, studyField, region) {
     )) {
       console.log(`    [FILTER] ❌ morim.boutique general → skip`);
       return false;
+    }
+
+    // סינון תואר שני — רק אם הגולש לא ביקש תואר שני במפורש
+    if (!isDegreeRequest) {
+      const degreeKeywords = ['תואר שני', 'תואר שלישי', 'דוקטורט'];
+      if (degreeKeywords.some(k => title.includes(k))) {
+        console.log(`    [FILTER] ❌ Degree page (no degree request) → skip: "${r.title}"`);
+        return false;
+      }
     }
 
     // סינון לתחום "העצמה" — הוצא דפי אומנות/סטודיו ותארים אקדמיים
@@ -978,7 +991,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v158_EMPOWER_REFINED');
+  console.log('🚀 VERSION: FEB_18_v159_DEGREE_FILTER');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1027,7 +1040,7 @@ async function generateSmartResponse(message) {
             }
             return new RegExp(ans.strictFilter, 'i').test(content);
           });
-          if (filtered.length > 0) return formatResults(filtered, sf, null);
+          if (filtered.length > 0) return formatResults(filtered, sf, null, message);
         }
         break;
       }
@@ -1100,7 +1113,7 @@ async function generateSmartResponse(message) {
 
     if (mergedResults.length > 0) {
       // תמיד העבר את studyField כמו שהוא — שם התחום האמיתי יוצג
-      return formatResults(mergedResults, studyField, region);
+      return formatResults(mergedResults, studyField, region, message);
     }
 
     // ── Fallback: אין תוצאות ──
