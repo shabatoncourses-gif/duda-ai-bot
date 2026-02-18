@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_18_v126_FILTER_REGIONAL_PAGES
+// VERSION: FEB_18_v167_ASK_REGION
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -409,7 +409,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_18_v126_FILTER_REGIONAL_PAGES`);
+  console.log(`🚀 VERSION: FEB_18_v167_ASK_REGION`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1042,7 +1042,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v166_RESHUT_SPLIT');
+  console.log('🚀 VERSION: FEB_18_v167_ASK_REGION');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1128,6 +1128,15 @@ async function generateSmartResponse(message) {
 
   const intent = classifyIntent(message);
   console.log(`🎯 Intent: ${intent.intent}`);
+
+  // ── שאל על אזור אם יש תחום אבל אין אזור ──
+  const isIntentBased = !!studyField?._intentLabel;
+  const lmFull = message.toLowerCase();
+  const hasOnline = lmFull.includes('מרחוק') || lmFull.includes('אונליין') || lmFull.includes('מתוקשב');
+  if (intent.intent === 'search' && studyField && !region && !isIntentBased && !hasOnline) {
+    console.log('❓ Field detected but no region → ask for region');
+    return `באיזה אזור אתה מחפש קורסים ב${studyField.name}? 😊\n\nניתן לבחור: **תל אביב והמרכז**, **חיפה והצפון**, **ירושלים**, **דרום**, **שרון** — או לציין **למידה מרחוק**.`;
+  }
 
   if (intent.intent === 'search') {
     const lm = message.toLowerCase();
@@ -1247,9 +1256,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v126_FILTER_REGIONAL_PAGES' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v167_ASK_REGION' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v126_FILTER_REGIONAL_PAGES' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v167_ASK_REGION' });
   }
 }
