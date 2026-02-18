@@ -219,13 +219,13 @@ function findFieldInPage(page, searchTerm, allowTextSearch = false) {
 
 /**
  * בדוק אם הדף רלוונטי לתחום המבוקש
- * 
- * אסטרטגיה:
- * - אם specificKeyword הוא ביטוי מרובה מילים ("הוראה מתקנת") → STRICT MODE
- *   חייב להמצא specificKeyword, שם תחום, או keyword מרובה מילים
- *   לא נופלים ל-keywords בודדים (מונע false positives)
- * - אם specificKeyword הוא מילה בודדת ("ציור") → NORMAL MODE
- *   ממשיכים לכל הkeywords
+ *
+ * STRICT MODE — ביטוי מרובה מילים ("הוראה מתקנת", "הדרכת הורים"):
+ *   הביטוי חייב להיות בכותרת או ב-description בלבד
+ *   (מוסדות גדולים כמו "האוניברסיטה הפתוחה" מציעים כל תחום — ה-text שלהם עשיר מדי)
+ *
+ * NORMAL MODE — מילה בודדת ("ציור", "NLP"):
+ *   כרגיל — title / desc / headers / text
  */
 function pageMatchesField(page, studyField, allowTextSearch = false) {
   if (!studyField) return { found: true, score: 0 };
@@ -233,62 +233,69 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
   const titleLower = (page.title || page.h1 || '').toLowerCase();
   const descLower = (page.description || '').toLowerCase();
   const h2h3Lower = ((page.h2 || []).concat(page.h3 || []).join(' ')).toLowerCase();
-  const textLower = allowTextSearch ? (page.text || '').toLowerCase() : '';
+  const textLower = (page.text || '').toLowerCase();
 
   const isMultiWord = (term) => term && term.trim().split(/\s+/).length >= 2;
-  const isLongSpecific = (term) => term && term.length > 8;
 
+  // בדיקת גבולות מילה
   const matches = (text, term) => {
     const t = term.toLowerCase().trim();
-    if (!t || t.length < 2) return false;
-    if (!text.includes(t)) return false;
-    // גבולות מילה למילים בודדות
-    if (!t.includes(' ')) {
-      const idx = text.indexOf(t);
-      const isBound = (c) => !c || /[\s,.\-\/()[\]"'!?:;]/.test(c);
-      return isBound(text[idx - 1]) && isBound(text[idx + t.length]);
-    }
-    return true;
+    if (!t || t.length < 2 || !text.includes(t)) return false;
+    if (t.includes(' ')) return true; // ביטוי — חיפוש ישיר
+    // מילה בודדת — גבולות
+    const idx = text.indexOf(t);
+    const isBound = (c) => !c || /[\s,.\-\/()[\]"'!?:;]/.test(c);
+    return isBound(text[idx - 1]) && isBound(text[idx + t.length]);
   };
 
-  const searchIn = (term, allowInText = false) => {
-    if (!term) return { found: false };
+  // STRICT: ביטוי מרובה מילים — חיפוש בכל השדות (כרצף!) אבל לא מילים בודדות
+  const searchStrict = (term) => {
+    if (!term || !term.includes(' ')) return { found: false }; // רק ביטויים
     if (matches(titleLower, term)) return { found: true, location: 'title', score: 150 };
     if (matches(descLower, term)) return { found: true, location: 'description', score: 80 };
     if (matches(h2h3Lower, term)) return { found: true, location: 'headers', score: 60 };
-    if (allowInText && allowTextSearch && term.length > 4 && matches(textLower, term))
+    if (matches(textLower, term)) return { found: true, location: 'text', score: 40 };
+    return { found: false };
+  };
+
+  // NORMAL: title + desc + headers + text
+  const searchNormal = (term) => {
+    if (matches(titleLower, term)) return { found: true, location: 'title', score: 150 };
+    if (matches(descLower, term)) return { found: true, location: 'description', score: 80 };
+    if (matches(h2h3Lower, term)) return { found: true, location: 'headers', score: 60 };
+    if (allowTextSearch && term.length > 4 && matches(textLower, term))
       return { found: true, location: 'text', score: 40 };
     return { found: false };
   };
 
-  // האם אנחנו ב-STRICT MODE? (specificKeyword הוא ביטוי מרובה מילים)
-  const strictMode = isMultiWord(studyField.specificKeyword);
+  // האם STRICT MODE?
+  const strictMode = isMultiWord(studyField.specificKeyword) || isMultiWord(studyField.name);
+  const search = (term) => strictMode ? searchStrict(term) : searchNormal(term);
 
-  // שלב 1: specificKeyword
+  // ── שלב 1: specificKeyword ──
   if (studyField.specificKeyword) {
-    const r = searchIn(studyField.specificKeyword, true);
+    const r = search(studyField.specificKeyword);
     if (r.found) { console.log(`    [FIELD] "${studyField.specificKeyword}" in ${r.location} (+${r.score})`); return r; }
   }
 
-  // שלב 2: שם תחום (כולל variants עם מקף כגון "הוראה מתקנת - הוראה מותאמת")
-  // בדוק גם חלקים של השם (לפני מקף)
-  const nameParts = studyField.name.split(/\s*[-–—]\s*/);
+  // ── שלב 2: שם תחום וchלקים שלו (לפני מקף) ──
+  const nameParts = [studyField.name, ...studyField.name.split(/\s*[-–—]\s*/).map(p => p.trim())].filter(Boolean);
   for (const part of nameParts) {
-    const r = searchIn(part.trim(), true);
-    if (r.found) { console.log(`    [FIELD] name-part "${part.trim()}" in ${r.location} (+${r.score})`); return r; }
+    const r = search(part);
+    if (r.found) { console.log(`    [FIELD] name-part "${part}" in ${r.location} (+${r.score})`); return r; }
   }
 
-  // שלב 3: keywords — בSTRICT MODE רק ביטויים מרובי מילים
-  const tooGeneric = new Set(['למידה', 'לימוד', 'קורס', 'קורסים', 'השתלמות', 'תואר', 'חינוך', 'הוראה', 'טיפול']);
+  // ── שלב 3: keywords — STRICT: רק ביטויים מרובי מילים ──
+  const tooGeneric = new Set(['למידה', 'לימוד', 'קורס', 'קורסים', 'השתלמות', 'תואר', 'חינוך', 'הוראה', 'טיפול', 'ניהול']);
   const keywords = (studyField.keywords || []).filter(kw => {
-    if (!kw || kw === studyField.specificKeyword || nameParts.includes(kw)) return false;
+    if (!kw || nameParts.includes(kw) || kw === studyField.specificKeyword) return false;
     if (tooGeneric.has(kw.toLowerCase())) return false;
-    if (strictMode) return isMultiWord(kw); // STRICT: רק ביטויים מרובי מילים
-    return isMultiWord(kw) || isLongSpecific(kw); // NORMAL: ביטוי או מילה ספציפית ארוכה
+    if (strictMode) return isMultiWord(kw); // STRICT: רק ביטויים
+    return isMultiWord(kw) || kw.length > 8; // NORMAL: ביטוי או מילה ארוכה
   });
 
   for (const kw of keywords) {
-    const r = searchIn(kw, true);
+    const r = search(kw);
     if (r.found) { console.log(`    [FIELD] keyword "${kw}" in ${r.location} (+${r.score})`); return r; }
   }
 
