@@ -821,18 +821,14 @@ function detectIntentField(message) {
     let score = 0;
     for (const pattern of mapping.patterns) {
       if (lm.includes(pattern.toLowerCase())) {
-        score += pattern.length; // פטרן ארוך = ניקוד גבוה יותר
+        score += pattern.length;
       }
     }
-    if (score > bestScore) {
-      bestScore = score;
-      bestMatch = mapping;
-    }
+    if (score > bestScore) { bestScore = score; bestMatch = mapping; }
   }
 
   if (!bestMatch || bestScore < 3) return null;
 
-  // מצא את התחום הראשון מהרשימה שקיים ב-STUDY_FIELDS
   for (const fieldName of bestMatch.fields) {
     const found = STUDY_FIELDS.find(f => f.name === fieldName);
     if (found) {
@@ -924,7 +920,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v141_INTENT_SEARCH_TRIGGER');
+  console.log('🚀 VERSION: FEB_18_v142_CLEAN_INTENT');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
