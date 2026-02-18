@@ -1042,7 +1042,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v163_ART_FILTER_EXT');
+  console.log('🚀 VERSION: FEB_18_v165_ASK_FIELD');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1050,6 +1050,20 @@ async function generateSmartResponse(message) {
   // QA קודם
   const qa = findQAAnswer(message);
   if (qa) { console.log('✅ QA answer'); return qa.answer; }
+
+  // ── "קורס רשות/חובה" ── 
+  const hasReshutOrHova = /קורס רשות|קורסי רשות|קורס חובה|קורסי חובה/.test(message);
+  if (hasReshutOrHova) {
+    const detectedFieldsEarly = detectStudyField(message);
+    const hasSubject = detectedFieldsEarly.length > 0;
+    if (!hasSubject) {
+      // אין תחום — שאל באיזה תחום
+      console.log('📋 רשות/חובה without subject → ask for field');
+      return `באיזה תחום לימודים אתה מחפש קורס? 😊\n\nלדוגמה: ציור, מיינדפולנס, הדרכת הורים, NLP, טכנולוגיה דיגיטלית...`;
+    }
+    // יש תחום — המשך חיפוש רגיל (מילות רשות/חובה מתעלמות)
+    console.log('🔍 רשות/חובה with subject → search for subject');
+  }
 
   // ── דפי מידע על שנת שבתון ── רק אם זו שאלת מידע, לא חיפוש קורסים
   const isCourseQuery = /קורס|לימוד|השתלמות|תואר|מכללה|לימודים/.test(message);
