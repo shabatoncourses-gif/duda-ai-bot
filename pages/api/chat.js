@@ -782,12 +782,18 @@ function formatResults(results, studyField, region, query = '') {
       }
     }
 
-    // סינון לתחום "אמנות" — הוצא קורסי בישול ותחומים לא-רלוונטיים
+    // סינון לתחום "אמנות" — הוצא קורסים לא-רלוונטיים
     const isArtField = (studyField?.name || '').includes('אמנות') || (studyField?.name || '').includes('אומנות');
     if (isArtField) {
-      const nonArtPatterns = ['בישול', 'קונדיטוריה', 'אפייה', 'קולינאריה', 'שף', 'בייקינג'];
+      const nonArtPatterns = [
+        'בישול', 'קונדיטוריה', 'אפייה', 'קולינאריה', 'שף', 'בייקינג',
+        'nlp', 'נ.ל.פ', 'נלפ', 'אימון אישי', 'התפתחות אישית', 'קואצ',
+        'סטיילינג', 'styling', 'לבוש', 'פלייבק', 'playback',
+        'ייעוץ', 'פסיכולוגיה', 'טיפול נפשי', 'העצמה'
+      ];
       const titleLower = (r.title || '').toLowerCase();
-      if (nonArtPatterns.some(p => titleLower.includes(p))) {
+      const descLower = (r.description || '').toLowerCase();
+      if (nonArtPatterns.some(p => titleLower.includes(p) || descLower.startsWith(p))) {
         console.log(`    [ART] ❌ Non-art content → skip: "${r.title}"`);
         return false;
       }
@@ -1036,7 +1042,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v162_ART_FILTER');
+  console.log('🚀 VERSION: FEB_18_v163_ART_FILTER_EXT');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
