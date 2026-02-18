@@ -201,14 +201,13 @@ function findFieldInPage(page, searchTerm) {
   const sl = searchTerm.toLowerCase();
   const title = (page.title || page.h1 || '').toLowerCase();
   const description = (page.description || '').toLowerCase();
-  const text = (page.text || '').toLowerCase();
   const h2 = ((page.h2 || []).join(' ')).toLowerCase();
   const h3 = ((page.h3 || []).join(' ')).toLowerCase();
+  // text מכיל ניווט ותפריטים — לא אמין לסינון תחום
 
   if (title.includes(sl)) return { found: true, location: 'title', score: 150 };
   if (description.includes(sl)) return { found: true, location: 'description', score: 80 };
   if (h2.includes(sl) || h3.includes(sl)) return { found: true, location: 'headers', score: 60 };
-  if (text.includes(sl)) return { found: true, location: 'text', score: 50 };
 
   return { found: false, location: null, score: 0 };
 }
@@ -804,10 +803,12 @@ function formatResults(results, studyField, region) {
     response += `[פנו למידע ולייעוץ אישי](${url})\n\n`;
   }
 
-  // ── דף קטגוריה — רק לחיפוש ישיר (לא intent-based) ──
-  const categoryUrl = !isIntentBased ? findCategoryUrlFromResults() : null;
+  // ── דף קטגוריה — לפי intent URL אם קיים, אחרת רק לחיפוש ישיר ──
+  const intentCategoryUrl = studyField?._intentCategoryUrl || null;
+  const categoryUrl = intentCategoryUrl || (!isIntentBased ? findCategoryUrlFromResults() : null);
   if (categoryUrl) {
-    response += `\n🔍 **לכל הקורסים ב${fieldName}`;
+    const catLabel = isIntentBased ? (studyField._intentLabel || fieldName) : fieldName;
+    response += `\n🔍 **לכל הקורסים ב${catLabel}`;
     if (region) response += ` ב${regionName}`;
     response += `:** [לכל הקורסים](${categoryUrl})\n`;
   }
@@ -844,7 +845,7 @@ function detectIntentField(message) {
   if (matchedFields.length === 0) return null;
   console.log(`✅ Intent: "${bestMatch.intent}" → fields: ${matchedFields.map(f => f.name).join(', ')} (score:${bestScore})`);
   // שמור את שם ה-intent על התחום הראשון לשימוש בכותרת
-  matchedFields[0] = { ...matchedFields[0], _intentLabel: bestMatch.intent };
+  matchedFields[0] = { ...matchedFields[0], _intentLabel: bestMatch.intent, _intentCategoryUrl: bestMatch.categoryUrl || null };
   return matchedFields;
 }
 
@@ -929,7 +930,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v146_FIX_INTENT_DISPLAY');
+  console.log('🚀 VERSION: FEB_18_v148_INTENT_CATEGORY_URL');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
