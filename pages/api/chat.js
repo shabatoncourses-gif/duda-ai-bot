@@ -944,7 +944,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v149_INSTITUTION_DEDUP');
+  console.log('🚀 VERSION: FEB_18_v150_FIX_TITLE');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1060,11 +1060,8 @@ async function generateSmartResponse(message) {
     console.log(`📊 ${results.length} primary + ${allResults.length - results.length} extra = ${allResults.length} total`);
 
     if (mergedResults.length > 0) {
-      // כשיש מספר תחומים מ-intent — השתמש בשם intent כותרת גנרית
-      const displayField = extraIntentFields.length > 0
-        ? { ...studyField, name: studyField._intentLabel || studyField.name }
-        : studyField;
-      return formatResults(mergedResults, displayField, region);
+      // תמיד העבר את studyField כמו שהוא — שם התחום האמיתי יוצג
+      return formatResults(mergedResults, studyField, region);
     }
 
     // ── Fallback: אין תוצאות ──
