@@ -251,9 +251,6 @@ function detectStudyField(message) {
     return [{ ...remedialField, specificKeyword: 'הוראה מתקנת' }];
   }
 
-  const lm = message.toLowerCase();
-  const expanded = expandQuerySemantically(message);
-
   // חיפוש התאמה לשם תחום
   for (const field of STUDY_FIELDS) {
     if (field.name === 'למידה מרחוק') continue;
@@ -772,7 +769,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v132_REMEDIAL_PRIORITY');
+  console.log('🚀 VERSION: FEB_18_v135_FIX_BLOCK_STRUCTURE');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -793,39 +790,33 @@ async function generateSmartResponse(message) {
   ];
 
   const lmCheck = message.trim().toLowerCase();
-  // disambiguation רק לתשובות קצרות (עד 4 מילים) — לא לשאילתות חדשות
   const isShortReply = lmCheck.split(/\s+/).length <= 4;
   if (isShortReply) {
     for (const ans of DISAMBIGUATION_ANSWERS) {
       if (ans.patterns.some(p => new RegExp(p, 'i').test(lmCheck))) {
-      // נסה להחיל strictFilter אם יש
-      if (ans.strictFilter) {
-        console.log(`✅ Disambiguation answer → field:"${ans.field}" strict:"${ans.strictFilter}"`);
-        // אחזר אזור מההקשר — אין לנו היסטוריה כאן, נשתמש ב-null
-        const sf = STUDY_FIELDS?.find(f => f.name === ans.field) || { name: ans.field, specificKeyword: ans.field };
-        sf._strictFilter = ans.strictFilter;
-        const results2 = await searchPages(message, null, sf);
-        const filtered = results2.filter(r => {
-          const content = ((r.description || '') + ' ' + (r.text || '')).toLowerCase();
-          // לא מספיק שהמילים קיימות בנפרד — הן חייבות להופיע בסמיכות (עד 60 תווים)
-          if (ans.strictFilter === 'הוראה מתקנת|הוראה מותאמת') {
-            const hasRemedial = /הוראה מתקנת|הוראה מותאמת/.test(content);
-            if (!hasRemedial) return false;
-            // בדוק ש"כתיבה" מופיעה ב-60 תווים מ"הוראה מתקנת/מותאמת"
-            const matches = [...content.matchAll(/הוראה מ[תו][קכ][נת]ת/g)];
-            return matches.some(m => {
-              const snippet = content.substring(Math.max(0, m.index - 60), m.index + 80);
-              return snippet.includes('כתיבה');
-            });
-          }
-          return new RegExp(ans.strictFilter, 'i').test(content);
-        });
-        if (filtered.length > 0) return formatResults(filtered, sf, null);
+        if (ans.strictFilter) {
+          console.log(`✅ Disambiguation answer → field:"${ans.field}"`);
+          const sf = STUDY_FIELDS?.find(f => f.name === ans.field) || { name: ans.field, specificKeyword: ans.field };
+          sf._strictFilter = ans.strictFilter;
+          const results2 = await searchPages(message, null, sf);
+          const filtered = results2.filter(r => {
+            const content = ((r.description || '') + ' ' + (r.text || '')).toLowerCase();
+            if (ans.strictFilter === 'הוראה מתקנת|הוראה מותאמת') {
+              if (!/הוראה מתקנת|הוראה מותאמת/.test(content)) return false;
+              const matches = [...content.matchAll(/הוראה מ[תו][קכ][נת]ת/g)];
+              return matches.some(m => {
+                const snippet = content.substring(Math.max(0, m.index - 60), m.index + 80);
+                return snippet.includes('כתיבה');
+              });
+            }
+            return new RegExp(ans.strictFilter, 'i').test(content);
+          });
+          if (filtered.length > 0) return formatResults(filtered, sf, null);
+        }
+        break;
       }
-      break;
     }
-  } // end for
-} // end isShortReply
+  }
 
   const detectedFields = detectStudyField(message);
   const studyField = detectedFields[0] || null;
