@@ -758,7 +758,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v130_STRICT_DISAMBIGUATION');
+  console.log('🚀 VERSION: FEB_18_v131_FIX_SYNTAX');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -810,7 +810,8 @@ async function generateSmartResponse(message) {
       }
       break;
     }
-  } // end isShortReply
+  } // end for
+} // end isShortReply
 
   const detectedFields = detectStudyField(message);
   const studyField = detectedFields[0] || null;
