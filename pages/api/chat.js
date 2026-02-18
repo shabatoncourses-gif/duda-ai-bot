@@ -555,8 +555,13 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
         // אין אזור מבוקש - הוסף את כל הדפים עם הניקוד של התחום
         let empowerBonus = 0;
         if ((studyField?.name || '').includes('העצמה')) {
-          const preferred = ['יומן ויזואלי', 'פסיכולוגיה חיובית', 'מיינדפולנס', 'nlp', 'נלפ',
-            'העצמה אישית', 'ביטחון עצמי', 'חוסן', 'אימון אישי', 'coaching'];
+          const preferred = [
+            'nlp', 'נלפ', 'אימון עצמי', 'אימון אישי', 'coaching', 'קואצ\'ינג',
+            'יומן ויזואלי', 'פסיכולוגיה חיובית', 'מיינדפולנס', 'mindfulness',
+            'חוסן', 'חוסן נפשי', 'חוסן רגשי', 'ביטחון עצמי', 'מודעות עצמית',
+            'שחרור רגשי', 'התפתחות אישית', 'עוצמה אישית', 'העצמה אישית',
+            'חשיבה חיובית', 'רגש', 'ויסות רגשי', 'גוף נפש'
+          ];
           const combined = ((page.title || '') + ' ' + (page.description || '')).toLowerCase();
           if (preferred.some(p => combined.includes(p))) { empowerBonus = 30; }
         }
@@ -761,16 +766,22 @@ function formatResults(results, studyField, region) {
       return false;
     }
 
-    // סינון לתחום "העצמה" — הוצא דפי אומנות/סטודיו שנכנסו בטעות
+    // סינון לתחום "העצמה" — הוצא דפי אומנות/סטודיו ותארים אקדמיים
     const isEmpowermentField = (studyField?.name || '').includes('העצמה');
     if (isEmpowermentField) {
       const artPatterns = ['סטודיו', 'קרמיקה', 'פיסול', 'ציור', 'אריגה', 'רקמה', 'נגרות',
         'קדרות', 'חימר', 'פסיפס', 'גילוף', 'ויטראז', 'תכשיטנות', 'צורפות',
         'studio', 'ceramics', 'pottery'];
+      const degreePatterns = ['תואר שני', 'תואר שלישי', 'דוקטורט', 'אקדמי', 'מ.א', 'M.A',
+        'אוניברסיטת', 'אקדמית', 'הקריה האקדמית', 'מכללה אקדמית'];
       const titleLower = (r.title || '').toLowerCase();
       const descLower = (r.description || '').toLowerCase();
       if (artPatterns.some(p => titleLower.includes(p) || descLower.startsWith(p))) {
         console.log(`    [EMPOWER] ❌ Art studio → skip: "${r.title}"`);
+        return false;
+      }
+      if (degreePatterns.some(p => titleLower.includes(p.toLowerCase()))) {
+        console.log(`    [EMPOWER] ❌ Degree program → skip: "${r.title}"`);
         return false;
       }
     }
@@ -967,7 +978,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v157_FIX_SORT_CRASH');
+  console.log('🚀 VERSION: FEB_18_v158_EMPOWER_REFINED');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
