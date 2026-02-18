@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_18_v111_URL_REGION_TEXT_ANALYSIS
+// VERSION: FEB_18_v112_INSTITUTIONS_FIRST_CATEGORY_LAST
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -365,7 +365,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_18_v111_URL_REGION_TEXT_ANALYSIS`);
+  console.log(`🚀 VERSION: FEB_18_v112_INSTITUTIONS_FIRST_CATEGORY_LAST`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -612,37 +612,54 @@ function formatResults(results, studyField, region) {
   const fieldName = studyField?.name || 'הקורסים';
   const regionName = region?.name || 'כל הארץ';
 
-  // מקסימום 3 exact region + 3 national
-  const exactResults = results.filter(r => r.regionMatch === 'exact').slice(0, 4);
-  const nationalResults = results.filter(r => r.regionMatch === 'none').slice(0, 3);
-  const toShow = [...exactResults, ...nationalResults].slice(0, 6);
+  // ── הפרד בין מוסדות ספציפיים לדפי קטגוריה כלליים ──
+  // דפי קטגוריה כלליים: כותרת מכילה "קורסי X" ו"במרכז הארץ" או URL הוא {region}/{field} בלבד
+  const isCategoryPage = (r) => {
+    const title = (r.title || '').toLowerCase();
+    const url = (r.url || r.link || '').toLowerCase();
+    // דף קטגוריה: ה-URL הוא בדיוק /{regionSlug}/{fieldSlug} - ללא תת-נתיב נוסף
+    const urlPath = url.replace('https://www.shabaton.online/', '').split('/');
+    const isShortUrl = urlPath.length <= 2;
+    const hasCategoryTitle = title.includes('קורסי ') || title.includes('לימודי ') || title.includes('קורסים ב');
+    const hasNationalText = (r.description || '').toLowerCase().includes('בכל הארץ') ||
+                            (r.description || '').toLowerCase().includes('ובלמידה מרחוק');
+    return isShortUrl && (hasCategoryTitle || hasNationalText);
+  };
 
-  if (toShow.length === 0) return '';
+  const exactResults = results.filter(r => r.regionMatch === 'exact');
+  const nationalResults = results.filter(r => r.regionMatch === 'none');
 
-  let response = `מצאתי ${toShow.length} אפשרויות ל${fieldName}`;
+  // מוסדות ספציפיים קודם (לא דפי קטגוריה)
+  const specificInstitutions = [
+    ...exactResults.filter(r => !isCategoryPage(r)),
+    ...nationalResults.filter(r => !isCategoryPage(r))
+  ].slice(0, 5);
+
+  if (specificInstitutions.length === 0 && exactResults.length === 0 && nationalResults.length === 0) return '';
+
+  const totalShown = specificInstitutions.length;
+  let response = `מצאתי ${totalShown} מוסדות ל${fieldName}`;
   if (region) response += ` ב${regionName}`;
   response += `:\n\n`;
 
-  for (const result of toShow) {
+  // ── מוסדות ספציפיים ──
+  for (const result of specificInstitutions) {
     const url = result.url || result.link;
     if (!url) continue;
 
     const title = result.title || 'ללא שם';
     const summary = buildPageSummary(result, studyField);
-    const isExact = result.regionMatch === 'exact';
-    const icon = isExact ? '📍' : '🌐';
-    const regionLabel = isExact ? '' : ' (כלל-ארצי / ללא הגבלה)';
 
-    response += `${icon} **${title}**${regionLabel}\n`;
+    response += `🏛️ **${title}**\n`;
     if (summary) response += `${summary}\n`;
-    response += `[למידע מלא ורישום](${url})\n\n`;
+    response += `[למידע ולייעוץ אישי - פנו ישירות למוסד הלימודים](${url})\n\n`;
   }
 
-  // ── תמיד: קישור לדף קטגוריה ──
+  // ── תמיד בסוף: דף קטגוריה אזורי אחד בלבד ──
   const categoryUrl = buildCategoryUrl(region, studyField);
   if (categoryUrl) {
     response += `---\n`;
-    response += `🔍 **לכל הקורסים ב${fieldName}`;
+    response += `🔍 **לכל המוסדות ב${fieldName}`;
     if (region) response += ` ב${regionName}`;
     response += `:** [לדף הקטגוריה](${categoryUrl})\n`;
   }
@@ -656,7 +673,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v111_URL_REGION_TEXT_ANALYSIS');
+  console.log('🚀 VERSION: FEB_18_v112_INSTITUTIONS_FIRST_CATEGORY_LAST');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -742,9 +759,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v111_URL_REGION_TEXT_ANALYSIS' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v112_INSTITUTIONS_FIRST_CATEGORY_LAST' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v111_URL_REGION_TEXT_ANALYSIS' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v112_INSTITUTIONS_FIRST_CATEGORY_LAST' });
   }
 }
