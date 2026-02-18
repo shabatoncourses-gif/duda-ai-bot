@@ -795,19 +795,19 @@ function formatResults(results, studyField, region, query = '') {
       }
     }
 
-    // סינון לתחום "אמנות" — הוצא קורסים לא-רלוונטיים
+    // סינון לתחום "אמנות" — whitelist: חייב להכיל מילת מפתח אמנות אמיתית
     const isArtField = (studyField?.name || '').includes('אמנות') || (studyField?.name || '').includes('אומנות');
     if (isArtField) {
-      const nonArtPatterns = [
-        'בישול', 'קונדיטוריה', 'אפייה', 'קולינאריה', 'שף', 'בייקינג',
-        'nlp', 'נ.ל.פ', 'נלפ', 'אימון אישי', 'התפתחות אישית', 'קואצ',
-        'סטיילינג', 'styling', 'לבוש', 'פלייבק', 'playback',
-        'ייעוץ', 'פסיכולוגיה', 'טיפול נפשי', 'העצמה'
+      const artWhitelist = [
+        'ציור', 'פיסול', 'קרמיקה', 'פסיפס', 'ויטראז', 'יצירה', 'אמנות', 'אומנות',
+        'יומן ויזואלי', 'עיסת נייר', 'מנדלה', 'נגרות', 'רהיטים', 'עץ', 'רקמה',
+        'סריגה', 'מקרמה', 'רישום', 'פיוזינג', 'גילוף', 'חימר', 'קדרות', 'ליבוד',
+        'ברזל', 'תחרה', 'בטון', 'זכוכית', 'מוזאיקה', 'שילוב אומנויות', 'בובות',
+        'טקסטיל', 'הדפס', 'קולאז'
       ];
-      const titleLower = (r.title || '').toLowerCase();
-      const descLower = (r.description || '').toLowerCase();
-      if (nonArtPatterns.some(p => titleLower.includes(p) || descLower.startsWith(p))) {
-        console.log(`    [ART] ❌ Non-art content → skip: "${r.title}"`);
+      const combined = ((r.title || '') + ' ' + (r.description || '')).toLowerCase();
+      if (!artWhitelist.some(k => combined.includes(k))) {
+        console.log(`    [ART] ❌ No art keyword → skip: "${r.title}"`);
         return false;
       }
     }
@@ -855,6 +855,8 @@ function formatResults(results, studyField, region, query = '') {
     ...exactResults.filter(r => !isCategoryPage(r) && isRelevantInstitution(r)),
     ...nationalResults.filter(r => !isCategoryPage(r) && isRelevantInstitution(r))
   ];
+  const onlineCount = nationalResults.filter(r => (r.url||r.link||'').includes('results-all')).length;
+  console.log(`  📊 exact:${exactResults.length} national:${nationalResults.length} (online:${onlineCount}) other:${otherRegionResults.length}`);
 
   // מיפוי אזורים סמוכים — fallback חכם
   const NEARBY_REGIONS = {
