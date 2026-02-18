@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_18_v114_FIX_MONTH_JUNK_PATTERN
+// VERSION: FEB_18_v115_FORMAT_FIXES
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -365,7 +365,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_18_v114_FIX_MONTH_JUNK_PATTERN`);
+  console.log(`🚀 VERSION: FEB_18_v115_FORMAT_FIXES`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -589,28 +589,10 @@ function buildCategoryUrl(region, studyField) {
 /**
  * בנה תיאור קצר לדף על פי ניתוח ה-text field
  */
-function buildPageSummary(page, studyField) {
+function buildPageSummary(page) {
   const desc = page.description || '';
-  const text = page.text || '';
-  const keyword = studyField?.specificKeyword || studyField?.name || '';
-
-  // אם יש description קצר וספציפי - השתמש בו
-  if (desc && desc.length > 10 && desc.length < 200) return desc;
-
-  // נסה לחלץ משפט רלוונטי מה-text
-  if (text && keyword) {
-    const kl = keyword.toLowerCase();
-    const sentences = text.split(/[.!?\n]+/);
-    for (const s of sentences) {
-      const sl = s.toLowerCase().trim();
-      if (sl.includes(kl) && sl.length > 20 && sl.length < 200) {
-        return s.trim();
-      }
-    }
-  }
-
-  // fallback
-  if (desc) return desc.substring(0, 150) + (desc.length > 150 ? '...' : '');
+  // השתמש רק ב-description - קצר ומדויק
+  if (desc && desc.length > 10) return desc.substring(0, 180) + (desc.length > 180 ? '...' : '');
   return '';
 }
 
@@ -656,10 +638,9 @@ function formatResults(results, studyField, region) {
     if (!url) continue;
 
     const title = result.title || 'ללא שם';
-    const summary = buildPageSummary(result, studyField);
+    const summary = buildPageSummary(result);
 
-    response += `📚 **${title}**\n`;
-    if (summary) response += `${summary}\n`;
+    response += `📚 **${title}** ${summary ? '— ' + summary : ''}\n`;
     response += `[למידע ולייעוץ אישי - פנו ישירות למוסד הלימודים](${url})\n\n`;
   }
 
@@ -667,9 +648,9 @@ function formatResults(results, studyField, region) {
   const categoryUrl = buildCategoryUrl(region, studyField);
   if (categoryUrl) {
     response += `---\n`;
-    response += `🔍 **לכל המוסדות ב${fieldName}`;
+    response += `🔍 **לכל הקורסים ב${fieldName}`;
     if (region) response += ` ב${regionName}`;
-    response += `:** [לדף הקטגוריה](${categoryUrl})\n`;
+    response += `:** [לכל הקורסים](${categoryUrl})\n`;
   }
 
   return response;
@@ -681,7 +662,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v114_FIX_MONTH_JUNK_PATTERN');
+  console.log('🚀 VERSION: FEB_18_v115_FORMAT_FIXES');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -767,9 +748,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v114_FIX_MONTH_JUNK_PATTERN' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v115_FORMAT_FIXES' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v114_FIX_MONTH_JUNK_PATTERN' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v115_FORMAT_FIXES' });
   }
 }
