@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_18_v117_NO_DASHES
+// VERSION: FEB_18_v119_ONLINE_CATEGORY
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -365,7 +365,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_18_v117_NO_DASHES`);
+  console.log(`🚀 VERSION: FEB_18_v119_ONLINE_CATEGORY`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -610,17 +610,20 @@ function formatResults(results, studyField, region) {
     return (REGIONS || []).some(reg => reg.slug && firstPart === reg.slug.toLowerCase());
   };
 
-  // ── מציאת URL דף הקטגוריה מתוך האינדקס עצמו ──
-  // מחפשים דף קטגוריה שמכיל את שם התחום ב-URL (דף ארצי)
+  // ── מציאת URL דף הקטגוריה ──
+  const ONLINE_LEARNING_URL = 'https://www.shabaton.online/results-all/למידה מרחוק';
+
   const findCategoryUrlFromResults = () => {
-    // קודם מחפשים דף אזורי של האזור המבוקש
-    const allResults = results;
-    const regionalCat = allResults.find(r => isCategoryPage(r) && r.regionMatch === 'exact');
+    // למידה מרחוק - תמיד URL קבוע
+    if (!studyField || studyField.name === 'למידה מרחוק') return ONLINE_LEARNING_URL;
+
+    // קודם דף אזורי מהאינדקס
+    const regionalCat = results.find(r => isCategoryPage(r) && r.regionMatch === 'exact');
     if (regionalCat) return regionalCat.url || regionalCat.link;
-    // אחר כך דף ארצי (results-all וכד׳)
-    const nationalCat = allResults.find(r => isCategoryPage(r));
+    // אחר כך דף ארצי מהאינדקס
+    const nationalCat = results.find(r => isCategoryPage(r));
     if (nationalCat) return nationalCat.url || nationalCat.link;
-    // fallback: בנה מ-slug (פחות מדויק)
+    // fallback: בנה מ-slug
     if (studyField?.slug) {
       if (region?.slug) return `${SITE_BASE}/${region.slug}/${studyField.slug}`;
       return `${SITE_BASE}/${studyField.slug}`;
@@ -660,9 +663,13 @@ function formatResults(results, studyField, region) {
   response += `:\n\n`;
 
   for (const result of specificInstitutions) {
-    const url = result.url || result.link;
+    let url = result.url || result.link;
     if (!url) continue;
     const title = result.title || 'ללא שם';
+    // דף למידה מרחוק - תמיד URL קבוע
+    if (title.includes('למידה מרחוק') || title.includes('לימוד מרחוק')) {
+      url = 'https://www.shabaton.online/results-all/למידה מרחוק';
+    }
     const summary = buildPageSummary(result);
     response += `📚 **${title}**\n`;
     if (summary) response += `${summary}\n`;
@@ -686,7 +693,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v117_NO_DASHES');
+  console.log('🚀 VERSION: FEB_18_v119_ONLINE_CATEGORY');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -705,6 +712,14 @@ async function generateSmartResponse(message) {
   console.log(`🎯 Intent: ${intent.intent}`);
 
   if (intent.intent === 'search') {
+    const lm = message.toLowerCase();
+    const isOnlineLearning = lm.includes('למידה מרחוק') || lm.includes('קורסים מרחוק') || lm.includes('אונליין') || lm.includes('מתוקשב');
+
+    // בקשה ישירה ללמידה מרחוק ללא תחום ספציפי
+    if (isOnlineLearning && !studyField) {
+      return `🔍 **כל הקורסים בלמידה מרחוק:**\n[לכל הקורסים בלמידה מרחוק](https://www.shabaton.online/results-all/למידה מרחוק)\n`;
+    }
+
     const results = await searchPages(message, region, studyField);
     console.log(`📊 ${results.length} results`);
 
@@ -772,9 +787,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v117_NO_DASHES' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v119_ONLINE_CATEGORY' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v117_NO_DASHES' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v119_ONLINE_CATEGORY' });
   }
 }
