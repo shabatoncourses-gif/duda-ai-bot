@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_18_v113_FIX_CATEGORY_DETECTION
+// VERSION: FEB_18_v114_FIX_MONTH_JUNK_PATTERN
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -365,7 +365,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_18_v113_FIX_CATEGORY_DETECTION`);
+  console.log(`🚀 VERSION: FEB_18_v114_FIX_MONTH_JUNK_PATTERN`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -381,11 +381,17 @@ async function searchPages(query, region = null, studyField = null) {
     if (!url || url.length < 10) continue;
 
     // ── ניקוי כותרת ──
-    const junkPatterns = ['close carousel', 'carousel', 'next', 'prev', 'previous', 'menu', 'navigation',
-      'ינואר 2', 'פברואר 2', 'מרץ 2', 'אפריל 2', 'מאי 2', 'יוני 2',
-      'יולי 2', 'אוגוסט 2', 'ספטמבר 2', 'אוקטובר 2', 'נובמבר 2', 'דצמבר 2'];
+    // פטרני זבל: מחקו רק כשהם כותרת עצמאית (פריטי carousel/ניווט)
+    // תאריכים: רק כשהם כותרת בפני עצמה כגון "ינואר 2026" - לא כחלק מטקסט אמיתי
+    const junkExactPatterns = ['close carousel', 'carousel', 'next', 'prev', 'previous', 'menu', 'navigation'];
+    const monthPatterns = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
     let cleanTitle = rawTitle;
-    for (const j of junkPatterns) cleanTitle = cleanTitle.replace(new RegExp(j, 'gi'), '').trim();
+    for (const j of junkExactPatterns) cleanTitle = cleanTitle.replace(new RegExp(j, 'gi'), '').trim();
+    // תאריך בפני עצמו: "מרץ 2026" כשאין לפניו מילים משמעותיות
+    for (const m of monthPatterns) {
+      // מחק רק אם הכותרת *היא* תאריך בלבד (שם חודש + שנה)
+      cleanTitle = cleanTitle.replace(new RegExp('^' + m + '\\s+20\\d\\d$', 'i'), '').trim();
+    }
     if (cleanTitle.length < 3) { console.log(`  ❌ JUNK: "${rawTitle}"`); continue; }
     if (cleanTitle.length < 10 && !page.description && !page.text) continue;
 
@@ -675,7 +681,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v113_FIX_CATEGORY_DETECTION');
+  console.log('🚀 VERSION: FEB_18_v114_FIX_MONTH_JUNK_PATTERN');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -761,9 +767,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v113_FIX_CATEGORY_DETECTION' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v114_FIX_MONTH_JUNK_PATTERN' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v113_FIX_CATEGORY_DETECTION' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v114_FIX_MONTH_JUNK_PATTERN' });
   }
 }
