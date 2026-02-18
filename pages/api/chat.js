@@ -615,6 +615,17 @@ function classifyIntent(message) {
   }
   const searchKw = ['קורס', 'לימוד', 'השתלמות', 'תואר', 'מכללה', 'לימודים'];
   if (searchKw.some(k => lm.includes(k))) return { intent: 'search' };
+
+  // אם יש זיהוי כוונה (intent) — גם זה חיפוש
+  if (INTENT_MAPPINGS?.length) {
+    for (const mapping of INTENT_MAPPINGS) {
+      if (mapping.patterns.some(p => lm.includes(p.toLowerCase()))) {
+        console.log(`🎯 Intent keyword detected: "${mapping.intent}" → treating as search`);
+        return { intent: 'search' };
+      }
+    }
+  }
+
   return { intent: 'general' };
 }
 
@@ -913,7 +924,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v140_FIX_DUPLICATES');
+  console.log('🚀 VERSION: FEB_18_v141_INTENT_SEARCH_TRIGGER');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
