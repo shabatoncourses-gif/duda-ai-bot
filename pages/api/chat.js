@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_18_v120_OFEK_CHADASH_FIX
+// VERSION: FEB_18_v121_NO_INTRO_BETTER_FILTER
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -365,7 +365,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_18_v120_OFEK_CHADASH_FIX`);
+  console.log(`🚀 VERSION: FEB_18_v121_NO_INTRO_BETTER_FILTER`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -653,9 +653,16 @@ function formatResults(results, studyField, region) {
     // דף "שנת שבתון מורים" הכללי — לא מוסד
     if (isOfekChadash && title === 'שנת שבתון מורים') return false;
     if (!isOfekChadash) return true;
-    // לאופק חדש: חייב להזכיר "אופק חדש" או "עוז לתמורה" ב-description או text
-    const text = (r.text || '').substring(0, 800).toLowerCase();
-    return ['אופק חדש', 'עוז לתמורה'].some(k => desc.includes(k) || text.includes(k));
+    // לאופק חדש: חייב להזכיר "אופק חדש" או "עוז לתמורה" ב-description או ב-text המלא
+    const fullText = (r.text || '').toLowerCase();
+    const mentionsOfek = ['אופק חדש', 'עוז לתמורה'].some(k =>
+      desc.includes(k) || fullText.includes(k)
+    );
+    if (!mentionsOfek) {
+      console.log(`    [OFEK] ❌ No explicit mention → skip: "${r.title}"`);
+      return false;
+    }
+    return true;
   };
 
   const exactResults = results.filter(r => r.regionMatch === 'exact');
@@ -668,10 +675,9 @@ function formatResults(results, studyField, region) {
 
   if (specificInstitutions.length === 0 && exactResults.length === 0 && nationalResults.length === 0) return '';
 
-  const totalShown = specificInstitutions.length;
-  let response = `מצאתי ${totalShown} מוסדות ל${fieldName}`;
-  if (region) response += ` ב${regionName}`;
-  response += `:\n\n`;
+  let response = ``;
+  if (region) response += `קורסים ב${fieldName} ב${regionName}:\n\n`;
+  else response += `קורסים ב${fieldName}:\n\n`;
 
   for (const result of specificInstitutions) {
     let url = result.url || result.link;
@@ -704,7 +710,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v120_OFEK_CHADASH_FIX');
+  console.log('🚀 VERSION: FEB_18_v121_NO_INTRO_BETTER_FILTER');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -798,9 +804,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v120_OFEK_CHADASH_FIX' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v121_NO_INTRO_BETTER_FILTER' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v120_OFEK_CHADASH_FIX' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v121_NO_INTRO_BETTER_FILTER' });
   }
 }
