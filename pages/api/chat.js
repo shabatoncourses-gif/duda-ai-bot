@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_18_v119_ONLINE_CATEGORY
+// VERSION: FEB_18_v120_OFEK_CHADASH_FIX
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -365,7 +365,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_18_v119_ONLINE_CATEGORY`);
+  console.log(`🚀 VERSION: FEB_18_v120_OFEK_CHADASH_FIX`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -610,13 +610,24 @@ function formatResults(results, studyField, region) {
     return (REGIONS || []).some(reg => reg.slug && firstPart === reg.slug.toLowerCase());
   };
 
-  // ── מציאת URL דף הקטגוריה ──
+  // ── URLs קבועים לתחומים מיוחדים ──
   const ONLINE_LEARNING_URL = 'https://www.shabaton.online/results-all/למידה מרחוק';
+  const OFEK_CHADASH_URL = 'https://www.shabaton.online/results-all/קורסי אופק חדש - עוז לתמורה';
+
+  const FIXED_CATEGORY_URLS = {
+    'למידה מרחוק': ONLINE_LEARNING_URL,
+    'אופק חדש - עוז לתמורה': OFEK_CHADASH_URL,
+    'אופק חדש': OFEK_CHADASH_URL,
+    'עוז לתמורה': OFEK_CHADASH_URL,
+  };
 
   const findCategoryUrlFromResults = () => {
-    // למידה מרחוק - תמיד URL קבוע
-    if (!studyField || studyField.name === 'למידה מרחוק') return ONLINE_LEARNING_URL;
-
+    // בדוק URL קבוע לתחומים מיוחדים
+    const fieldName = studyField?.name || '';
+    for (const [key, url] of Object.entries(FIXED_CATEGORY_URLS)) {
+      if (fieldName.includes(key)) return url;
+    }
+    if (!studyField) return null;
     // קודם דף אזורי מהאינדקס
     const regionalCat = results.find(r => isCategoryPage(r) && r.regionMatch === 'exact');
     if (regionalCat) return regionalCat.url || regionalCat.link;
@@ -632,19 +643,19 @@ function formatResults(results, studyField, region) {
   };
 
   // ── סינון מוסדות ספציפיים ──
-  // לתחומים שדורשים הצהרת הכרה (אופק חדש, עוז לתמורה, גמול), 
-  // ודא שה-description מזכיר זאת במפורש
-  const requiresExplicitMention = studyField?.keywords?.some(k =>
-    ['אופק חדש', 'עוז לתמורה', 'גמול', 'הכרה'].includes(k)
-  ) || ['אופק חדש', 'עוז לתמורה'].some(t => (studyField?.name || '').includes(t));
+  const isOfekChadash = ['אופק חדש', 'עוז לתמורה'].some(t => (studyField?.name || '').includes(t));
 
   const isRelevantInstitution = (r) => {
-    if (!requiresExplicitMention) return true;
-    // בדוק שה-description מזכיר במפורש את התחום
+    const title = (r.title || '').toLowerCase();
     const desc = (r.description || '').toLowerCase();
-    const text = (page => (page.text || '').substring(0, 500).toLowerCase())(r);
-    const keywords = ['אופק חדש', 'עוז לתמורה'];
-    return keywords.some(k => desc.includes(k.toLowerCase()) || text.includes(k.toLowerCase()));
+    // דף "קורסים בלמידה מרחוק" הכללי — לא רלוונטי לאופק חדש
+    if (isOfekChadash && (title.includes('למידה מרחוק') || title.includes('לימוד מרחוק'))) return false;
+    // דף "שנת שבתון מורים" הכללי — לא מוסד
+    if (isOfekChadash && title === 'שנת שבתון מורים') return false;
+    if (!isOfekChadash) return true;
+    // לאופק חדש: חייב להזכיר "אופק חדש" או "עוז לתמורה" ב-description או text
+    const text = (r.text || '').substring(0, 800).toLowerCase();
+    return ['אופק חדש', 'עוז לתמורה'].some(k => desc.includes(k) || text.includes(k));
   };
 
   const exactResults = results.filter(r => r.regionMatch === 'exact');
@@ -693,7 +704,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v119_ONLINE_CATEGORY');
+  console.log('🚀 VERSION: FEB_18_v120_OFEK_CHADASH_FIX');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -787,9 +798,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v119_ONLINE_CATEGORY' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v120_OFEK_CHADASH_FIX' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v119_ONLINE_CATEGORY' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v120_OFEK_CHADASH_FIX' });
   }
 }
