@@ -781,7 +781,7 @@ function formatResults(results, studyField, region, query = '') {
       'shabaton.online/heifa', 'shabaton.online/sharon', 'shabaton.online/tel-aviv',
       'shabaton.online/darom', 'shabaton.online/jerusalm', 'shabaton.online/jerusalem',
       'shabaton.online/merkaz', 'shabaton.online/zafon', 'shabaton.online/north',
-      'shabaton.online/south',
+      'shabaton.online/south', 'shabaton.online/courses-next-2weeks',
     ];
     if (blockedSinglePaths.some(p => cleanUrl === p)) {
       console.log(`    [FILTER] ❌ Region landing → skip`);
@@ -818,30 +818,50 @@ function formatResults(results, studyField, region, query = '') {
       }
     }
 
-    // סינון לתחום "אמנות" — whitelist: חייב להכיל מילת מפתח אמנות אמיתית
+    // סינון לתחום "אמנות" — whitelist מחמיר
     const isArtField = (studyField?.name || '').includes('אמנות') || (studyField?.name || '').includes('אומנות');
     if (isArtField) {
-      const artWhitelist = [
-        'ציור', 'פיסול', 'קרמיקה', 'פסיפס', 'ויטראז', 'יצירה', 'אמנות', 'אומנות',
-        'יומן ויזואלי', 'עיסת נייר', 'מנדלה', 'נגרות', 'רהיטים', 'עץ', 'רקמה',
-        'סריגה', 'מקרמה', 'רישום', 'פיוזינג', 'גילוף', 'חימר', 'קדרות', 'ליבוד',
-        'ברזל', 'תחרה', 'בטון', 'זכוכית', 'מוזאיקה', 'שילוב אומנויות', 'בובות',
-        'טקסטיל', 'הדפס', 'קולאז'
-      ];
-      // חסימה לפי כותרת — תחומי עיצוב שאינם אמנות
       const titleLower = (r.title || '').toLowerCase();
-      const nonArtTitles = ['עיצוב הסביבה', 'עיצוב פנים', 'עיצוב אופנה', 'עיצוב גרפי',
-        'home styling', 'הום סטיילינג', 'קולנוע', 'צילום', 'תיאטרון'];
+      const descLower = (r.description || '').toLowerCase();
+      const textFull = (r.text || '').toLowerCase();
+
+      // חסימה לפי כותרת — תחומים לא-אמנותיים
+      const nonArtTitles = [
+        'עיצוב הסביבה', 'עיצוב פנים', 'עיצוב אופנה', 'עיצוב גרפי',
+        'home styling', 'הום סטיילינג', 'קולנוע', 'צילום', 'תיאטרון',
+        'לקויות למידה', 'חינוך מיוחד', 'nlp', 'coaching', 'אימון',
+        'טיולים', 'סיורים', 'ספורט', 'כושר', 'בישול', 'קולינאריה',
+        'השתלמויות מורים', 'לימודי חוץ', 'פיתוח מקצועי'
+      ];
       if (nonArtTitles.some(p => titleLower.includes(p))) {
         console.log(`    [ART] ❌ Non-art title → skip: "${r.title}"`);
         return false;
       }
-      // whitelist — חייב להכיל מילת מפתח אמנות ב-title/desc/text
-      const combined = ((r.title || '') + ' ' + (r.description || '') + ' ' + (r.text || '').substring(0, 2000)).toLowerCase();
-      if (!artWhitelist.some(k => combined.includes(k))) {
-        console.log(`    [ART] ❌ No art keyword → skip: "${r.title}"`);
-        return false;
+
+      // whitelist בכותרת/description — מילה בודדת מספיקה
+      const artInTitleDesc = [
+        'ציור', 'פיסול', 'קרמיקה', 'פסיפס', 'ויטראז', 'יצירה', 'אמנות', 'אומנות',
+        'יומן ויזואלי', 'עיסת נייר', 'מנדלה', 'נגרות', 'גילוף', 'חימר', 'קדרות',
+        'ליבוד', 'רקמה', 'סריגה', 'מקרמה', 'רישום', 'פיוזינג', 'טקסטיל',
+        'צורפות', 'תכשיטנות', 'בובות', 'בובנאות', 'הדפס', 'מוזאיקה'
+      ];
+      if (artInTitleDesc.some(k => titleLower.includes(k) || descLower.includes(k))) {
+        return true; // ✅ נמצאה מילת אמנות בכותרת/תיאור
       }
+
+      // whitelist ב-text — רק ביטויים ספציפיים (מונע false positive ממניע)
+      const artInTextPhrases = [
+        'קורס ציור', 'קורס פיסול', 'קורס קרמיקה', 'קורס אמנות', 'קורס אומנות',
+        'סדנאות ציור', 'סדנאות פסיפס', 'סדנאות ויטראז', 'סדנאות פיסול',
+        'יצירה בחומר', 'יצירה בנייר', 'עבודות טקסטיל', 'שילוב אומנויות',
+        'קורס מנדלה', 'יומן ויזואלי', 'קורס נגרות', 'קורס צורפות'
+      ];
+      if (artInTextPhrases.some(k => textFull.includes(k))) {
+        return true; // ✅ נמצא ביטוי אמנות ספציפי ב-text
+      }
+
+      console.log(`    [ART] ❌ No art content → skip: "${r.title}"`);
+      return false;
     }
 
     // סינון לתחום "העצמה" — הוצא דפי אומנות/סטודיו ותארים אקדמיים
