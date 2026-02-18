@@ -758,7 +758,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v126_FILTER_REGIONAL_PAGES');
+  console.log('🚀 VERSION: FEB_18_v128_WRITING_DISAMBIGUATION_ONLY');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -766,6 +766,35 @@ async function generateSmartResponse(message) {
   // QA קודם
   const qa = findQAAnswer(message);
   if (qa) { console.log('✅ QA answer'); return qa.answer; }
+
+  // ── זיהוי תשובה לשאלת הבהרה מסבב קודם ──
+  // אם הגולש ענה "1" / "2" / "כתיבה יוצרת" / "הוראה מתקנת"
+  const DISAMBIGUATION_ANSWERS = [
+    { patterns: ['כתיבה יוצרת', 'יוצרת', 'סיפורי חיים', 'סיפורים', '^1$', '^1\\.', 'אפשרות 1'],
+      field: 'כתיבה יוצרת', strictFilter: null },
+    { patterns: ['הוראה מתקנת', 'מתקנת', 'מותאמת', 'הוראת כתיבה', '^2$', '^2\\.', 'אפשרות 2'],
+      field: 'כתיבה', strictFilter: 'הוראה מתקנת|הוראה מותאמת' },
+  ];
+
+  const lmCheck = message.trim().toLowerCase();
+  for (const ans of DISAMBIGUATION_ANSWERS) {
+    if (ans.patterns.some(p => new RegExp(p, 'i').test(lmCheck))) {
+      // נסה להחיל strictFilter אם יש
+      if (ans.strictFilter) {
+        console.log(`✅ Disambiguation answer → field:"${ans.field}" strict:"${ans.strictFilter}"`);
+        // אחזר אזור מההקשר — אין לנו היסטוריה כאן, נשתמש ב-null
+        const sf = STUDY_FIELDS?.find(f => f.name === ans.field) || { name: ans.field };
+        sf._strictFilter = ans.strictFilter;
+        const results2 = await searchPages(message, null, sf);
+        const filtered = results2.filter(r => {
+          const content = ((r.description || '') + ' ' + (r.text || '')).toLowerCase();
+          return new RegExp(ans.strictFilter, 'i').test(content);
+        });
+        if (filtered.length > 0) return formatResults(filtered, sf, null);
+      }
+      break;
+    }
+  }
 
   const detectedFields = detectStudyField(message);
   const studyField = detectedFields[0] || null;
@@ -779,6 +808,31 @@ async function generateSmartResponse(message) {
   if (intent.intent === 'search') {
     const lm = message.toLowerCase();
     const isOnlineLearning = lm.includes('למידה מרחוק') || lm.includes('קורסים מרחוק') || lm.includes('אונליין') || lm.includes('מתוקשב');
+
+    // ── Disambiguation: מונחים עם אי-וודאות ──
+    const AMBIGUOUS_TERMS = {
+      'כתיבה': {
+        detect: (msg) => /כתיב/.test(msg) && !/כתיבה יוצרת|כתיבת סיפור|סיפורי חיים|הוראה מתקנת|הוראה מותאמת/.test(msg),
+        question: 'למה התכוונת בקורסי כתיבה?',
+        options: [
+          { label: '✍️ כתיבה יוצרת / סיפורי חיים', keyword: 'כתיבה יוצרת' },
+          { label: '📖 הוראת כתיבה מתקנת / מותאמת', keyword: 'הוראה מתקנת כתיבה', strictFilter: 'הוראה מתקנת|הוראה מותאמת' }
+        ]
+      }
+    };
+
+    // בדוק אם השאלה עמומה
+    for (const [term, config] of Object.entries(AMBIGUOUS_TERMS)) {
+      if (config.detect(lm)) {
+        console.log(`❓ Ambiguous term detected: "${term}"`);
+        let clarifyMsg = `${config.question}\n\n`;
+        config.options.forEach((opt, i) => {
+          clarifyMsg += `${i + 1}. ${opt.label}\n`;
+        });
+        clarifyMsg += `\nאנא בחר/י מספר או כתב/י את סוג הקורס שמעניין אותך.`;
+        return clarifyMsg;
+      }
+    }
 
     // בקשה ישירה ללמידה מרחוק ללא תחום ספציפי
     if (isOnlineLearning && !studyField) {
