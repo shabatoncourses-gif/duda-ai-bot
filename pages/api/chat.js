@@ -30,6 +30,8 @@ let PAYMENTS_QA = null;
 let SEMANTIC_DATA = null;
 let WORD_GRAPH = null;
 let SHABATON_INFO = null;
+let INTENT_MAPPINGS = null;
+let INTENT_MAPPINGS = null;
 
 const WHATSAPP_LINK = 'https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME';
 const SITE_BASE = 'https://www.shabaton.online';
@@ -63,6 +65,14 @@ function loadConfigs() {
     if (!SHABATON_INFO) {
       SHABATON_INFO = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'shabaton-info.json'), 'utf8')).infoPages;
       console.log(`✅ shabaton-info.json: ${SHABATON_INFO.length} info pages`);
+    }
+    if (!INTENT_MAPPINGS) {
+      INTENT_MAPPINGS = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'intent-mappings.json'), 'utf8')).intentMappings;
+      console.log(`✅ intent-mappings.json: ${INTENT_MAPPINGS.length} intents`);
+    }
+    if (!INTENT_MAPPINGS) {
+      INTENT_MAPPINGS = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'intent-mappings.json'), 'utf8')).intentMappings;
+      console.log(`✅ intent-mappings.json: ${INTENT_MAPPINGS.length} intents`);
     }
   } catch (e) {
     console.error('[loadConfigs] ERROR:', e.message);
@@ -231,6 +241,27 @@ function pageMatchesField(page, studyField) {
   }
 
   return { found: false, location: null, score: 0 };
+}
+
+// ================================================================
+// INTENT RESOLUTION — שאלות מורכבות עם כוונה
+// ================================================================
+
+function resolveIntentToField(message) {
+  if (!INTENT_MAPPINGS?.length || !STUDY_FIELDS?.length) return null;
+  const lm = message.toLowerCase();
+
+  for (const intent of INTENT_MAPPINGS) {
+    if (intent.patterns.some(p => lm.includes(p.toLowerCase()))) {
+      // מצא את ה-field המתאים
+      const field = STUDY_FIELDS.find(f => f.name === intent.field);
+      if (field) {
+        console.log(`🎯 Intent match: "${intent.id}" → field:"${field.name}"`);
+        return { ...field, _intentMatch: intent.id };
+      }
+    }
+  }
+  return null;
 }
 
 // ================================================================
@@ -770,8 +801,41 @@ function formatResults(results, studyField, region) {
 }
 
 // ================================================================
-// INFO PAGE FINDER — שאלות מידע על שנת שבתון
+// INTENT-BASED FIELD DETECTION — שאלות מורכבות עם כוונה
 // ================================================================
+
+function detectIntentField(message) {
+  if (!INTENT_MAPPINGS?.length || !STUDY_FIELDS?.length) return null;
+  const lm = message.toLowerCase();
+
+  let bestMatch = null;
+  let bestScore = 0;
+
+  for (const mapping of INTENT_MAPPINGS) {
+    let score = 0;
+    for (const pattern of mapping.patterns) {
+      if (lm.includes(pattern.toLowerCase())) {
+        score += pattern.length; // פטרן ארוך = ניקוד גבוה יותר
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = mapping;
+    }
+  }
+
+  if (!bestMatch || bestScore < 3) return null;
+
+  // מצא את התחום הראשון מהרשימה שקיים ב-STUDY_FIELDS
+  for (const fieldName of bestMatch.fields) {
+    const found = STUDY_FIELDS.find(f => f.name === fieldName);
+    if (found) {
+      console.log(`✅ Intent match: "${bestMatch.intent}" → field:"${found.name}" (score:${bestScore})`);
+      return found;
+    }
+  }
+  return null;
+}
 
 function findInfoPageAnswer(message) {
   if (!SHABATON_INFO?.length) return null;
@@ -854,7 +918,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v138_SEMANTIC_INFO_SEARCH');
+  console.log('🚀 VERSION: FEB_18_v139_INTENT_MAPPINGS');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -908,7 +972,7 @@ async function generateSmartResponse(message) {
   }
 
   const detectedFields = detectStudyField(message);
-  const studyField = detectedFields[0] || null;
+  const studyField = detectedFields[0] || detectIntentField(message) || null;
   const region = detectRegion(message);
 
   console.log(`📊 Field: ${studyField ? `"${studyField.name}" kw:"${studyField.specificKeyword}"` : 'none'} | Region: ${region?.name || 'none'}`);
