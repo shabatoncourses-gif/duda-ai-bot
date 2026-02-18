@@ -240,6 +240,20 @@ function detectStudyField(message) {
   const lm = message.toLowerCase();
   const expanded = expandQuerySemantically(message);
 
+  // ── עדיפות עליונה: הוראה מתקנת/מותאמת — חייבת להיזהות לפני "אופק חדש" ──
+  const isRemedial = /הוראה מתקנת|הוראה מותאמת|מתקנת|מותאמת/.test(lm) &&
+                     !/כתיבה יוצרת|סיפורי חיים/.test(lm);
+  if (isRemedial) {
+    const remedialField = STUDY_FIELDS.find(f =>
+      f.name.includes('הוראה מתקנת') || f.name.includes('הוראה מותאמת')
+    ) || { name: 'הוראה מתקנת', slug: 'הוראה-מתקנת', specificKeyword: 'הוראה מתקנת' };
+    console.log(`✅ Priority field: "${remedialField.name}" (remedial teaching)`);
+    return [{ ...remedialField, specificKeyword: 'הוראה מתקנת' }];
+  }
+
+  const lm = message.toLowerCase();
+  const expanded = expandQuerySemantically(message);
+
   // חיפוש התאמה לשם תחום
   for (const field of STUDY_FIELDS) {
     if (field.name === 'למידה מרחוק') continue;
@@ -758,7 +772,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v131_FIX_SYNTAX');
+  console.log('🚀 VERSION: FEB_18_v132_REMEDIAL_PRIORITY');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
