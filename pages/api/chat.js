@@ -777,9 +777,18 @@ function formatResults(results, studyField, region) {
 
   if (specificInstitutions.length === 0 && exactResults.length === 0 && nationalResults.length === 0) return '';
 
+  const isIntentBased = !!studyField?._intentLabel;
   let response = ``;
-  if (region) response += `קורסים ב${fieldName} ב${regionName}:\n\n`;
-  else response += `קורסים ב${fieldName}:\n\n`;
+  if (isIntentBased) {
+    // כותרת לפי שם ה-intent
+    const intentTitle = studyField._intentLabel;
+    if (region) response += `קורסים ב${intentTitle} ב${regionName}:\n\n`;
+    else response += `קורסים ב${intentTitle}:\n\n`;
+  } else if (region) {
+    response += `קורסים ב${fieldName} ב${regionName}:\n\n`;
+  } else {
+    response += `קורסים ב${fieldName}:\n\n`;
+  }
 
   for (const result of specificInstitutions) {
     let url = result.url || result.link;
@@ -795,8 +804,8 @@ function formatResults(results, studyField, region) {
     response += `[פנו למידע ולייעוץ אישי](${url})\n\n`;
   }
 
-  // ── דף קטגוריה מהאינדקס - לא בנוי ──
-  const categoryUrl = findCategoryUrlFromResults();
+  // ── דף קטגוריה — רק לחיפוש ישיר (לא intent-based) ──
+  const categoryUrl = !isIntentBased ? findCategoryUrlFromResults() : null;
   if (categoryUrl) {
     response += `\n🔍 **לכל הקורסים ב${fieldName}`;
     if (region) response += ` ב${regionName}`;
@@ -920,7 +929,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v145_FIX_INFO_TRIGGER');
+  console.log('🚀 VERSION: FEB_18_v146_FIX_INTENT_DISPLAY');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
