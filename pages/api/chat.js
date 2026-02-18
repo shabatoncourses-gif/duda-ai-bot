@@ -1,24 +1,26 @@
 // ================================================================
-// 🎯 chat.js v110 - COMPLETE VERSION
+// chat.js v111
+// VERSION: FEB_18_v111_URL_REGION_TEXT_ANALYSIS
 // ================================================================
-// VERSION: FEB_18_v110_FIX_DIRECT_MATCH_KEYWORD_AND_CATEGORY_FALLBACK
-// Created: 2026-02-18
 //
-// תיקונים בגרסה זו:
-// v107: בדיקת אזור על תוכן מנוקה
-// v108: שמירת specificKeyword כשתחום נמצא סמנטית
-// v109: תיקון URLs מקבצי data בלבד + fallback לווטסאפ
-// v110: תיקון קריטי - כשתחום נמצא בהתאמה ישירה לשם, 
-//       specificKeyword מקבל את שם התחום כדי שבדיקת האזור תהיה מקלה.
-//       כשאין תוצאות באזור - מציג את דף קטגוריה האזור כפתרון.
+// ארכיטקטורה חדשה:
+// ─────────────────────────────────────────────────────────────────
+// 1. זיהוי אזור לפי URL (מדויק!):
+//    - URL מכיל slug של האזור המבוקש → +100 (דף אזורי)
+//    - URL מכיל slug של אזור אחר    → דחייה מוחלטת
+//    - URL ללא slug אזורי             → +10 (תוכן ארצי/כללי)
+//
+// 2. זיהוי תחום לימוד:
+//    - בכותרת (title/h1)   → +150
+//    - בתיאור (description) → +80
+//    - בטקסט (text field)  → +50
+//
+// 3. תמיד בסוף התשובה: קישור לדף קטגוריה אזורי
 // ================================================================
 
 import fs from 'fs';
 import path from 'path';
 
-// ================================================================
-// 📦 GLOBAL DATA STORES
-// ================================================================
 let ALL_PAGES = null;
 let REGIONS = null;
 let STUDY_FIELDS = null;
@@ -32,308 +34,246 @@ const WHATSAPP_LINK = 'https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME';
 const SITE_BASE = 'https://www.shabaton.online';
 
 // ================================================================
-// 🔄 DATA LOADING
+// DATA LOADING
 // ================================================================
 
 function loadConfigs() {
   try {
     if (!REGIONS) {
-      const regionsPath = path.join(process.cwd(), 'data', 'regions.json');
-      REGIONS = JSON.parse(fs.readFileSync(regionsPath, 'utf8')).regions;
-      console.log(`✅ נטען regions.json: ${REGIONS.length} אזורים`);
+      REGIONS = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'regions.json'), 'utf8')).regions;
+      console.log(`✅ regions.json: ${REGIONS.length} regions`);
     }
     if (!STUDY_FIELDS) {
-      const fieldsPath = path.join(process.cwd(), 'data', 'study-fields.json');
-      STUDY_FIELDS = JSON.parse(fs.readFileSync(fieldsPath, 'utf8')).studyFields;
-      console.log(`✅ נטען study-fields.json: ${STUDY_FIELDS.length} תחומים`);
+      STUDY_FIELDS = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'study-fields.json'), 'utf8')).studyFields;
+      console.log(`✅ study-fields.json: ${STUDY_FIELDS.length} fields`);
     }
     if (!REQUIRED_PHRASES) {
-      const phrasesPath = path.join(process.cwd(), 'data', 'required-phrases.json');
-      REQUIRED_PHRASES = JSON.parse(fs.readFileSync(phrasesPath, 'utf8')).requiredPhrases || [];
-      console.log(`✅ נטען required-phrases.json: ${REQUIRED_PHRASES.length} ביטויים`);
+      REQUIRED_PHRASES = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'required-phrases.json'), 'utf8')).requiredPhrases || [];
+      console.log(`✅ required-phrases.json: ${REQUIRED_PHRASES.length} phrases`);
     }
     if (!COURSES_QA) {
-      const coursesQaPath = path.join(process.cwd(), 'data', 'courses-qa.json');
-      COURSES_QA = JSON.parse(fs.readFileSync(coursesQaPath, 'utf8'));
-      console.log(`✅ נטען courses-qa.json: ${COURSES_QA.questions?.length || 0} שאלות`);
+      COURSES_QA = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'courses-qa.json'), 'utf8'));
+      console.log(`✅ courses-qa.json: ${COURSES_QA.questions?.length || 0} questions`);
     }
     if (!PAYMENTS_QA) {
-      const paymentsQaPath = path.join(process.cwd(), 'data', 'payments-qa.json');
-      PAYMENTS_QA = JSON.parse(fs.readFileSync(paymentsQaPath, 'utf8'));
-      console.log(`✅ נטען payments-qa.json`);
+      PAYMENTS_QA = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'payments-qa.json'), 'utf8'));
+      console.log(`✅ payments-qa.json`);
     }
-  } catch (error) {
-    console.error('[loadConfigs] ERROR:', error.message);
+  } catch (e) {
+    console.error('[loadConfigs] ERROR:', e.message);
   }
 }
 
 function loadSemanticData() {
   if (SEMANTIC_DATA) return SEMANTIC_DATA;
   try {
-    const semanticPath = path.join(process.cwd(), 'data', 'semantic-mappings.json');
-    SEMANTIC_DATA = JSON.parse(fs.readFileSync(semanticPath, 'utf8'));
-    console.log(`✅ [Semantic] Loaded: ${Object.keys(SEMANTIC_DATA.synonyms || {}).length} synonyms`);
-    return SEMANTIC_DATA;
-  } catch (error) {
-    console.error('⚠️ [Semantic] Failed to load semantic-mappings.json:', error.message);
+    SEMANTIC_DATA = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'semantic-mappings.json'), 'utf8'));
+    console.log(`✅ semantic: ${Object.keys(SEMANTIC_DATA.synonyms || {}).length} synonyms`);
+  } catch (e) {
+    console.error('⚠️ semantic-mappings.json not found:', e.message);
     SEMANTIC_DATA = { synonyms: {}, intentPatterns: {}, genericTerms: [] };
-    return SEMANTIC_DATA;
   }
+  return SEMANTIC_DATA;
 }
 
 function loadAllPages() {
   if (ALL_PAGES) return ALL_PAGES;
-  console.log('🔍 [loadAllPages] Loading index files...');
   const pages = [];
-  const indexFiles = [
-    'shabaton_index_part1.json',
-    'shabaton_index_part2.json',
-    'morim_index_part1.json',
-    'shabaton_index.json'
-  ];
-  for (const filename of indexFiles) {
+  for (const fn of ['shabaton_index_part1.json', 'shabaton_index_part2.json', 'morim_index_part1.json', 'shabaton_index.json']) {
     try {
-      const filePath = path.join(process.cwd(), 'data', filename);
-      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-      const pagesArray = Array.isArray(data) ? data : (data.pages || []);
-      pages.push(...pagesArray);
-      console.log(`✅ Loaded ${pagesArray.length} pages from ${filename}`);
-    } catch (error) {
-      console.log(`⚠️ Could not load ${filename}: ${error.message}`);
+      const data = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', fn), 'utf8'));
+      const arr = Array.isArray(data) ? data : (data.pages || []);
+      pages.push(...arr);
+      console.log(`✅ ${arr.length} pages from ${fn}`);
+    } catch (e) {
+      console.log(`⚠️ ${fn}: ${e.message}`);
     }
   }
-  const uniquePages = [];
-  const seenUrls = new Set();
-  for (const page of pages) {
-    const url = page.url || page.link || '';
-    if (url && !seenUrls.has(url)) {
-      seenUrls.add(url);
-      uniquePages.push(page);
-    }
+  const unique = [];
+  const seen = new Set();
+  for (const p of pages) {
+    const url = p.url || p.link || '';
+    if (url && !seen.has(url)) { seen.add(url); unique.push(p); }
   }
-  console.log(`✅ Final unique pages: ${uniquePages.length}`);
-  ALL_PAGES = uniquePages;
+  console.log(`✅ Unique pages: ${unique.length}`);
+  ALL_PAGES = unique;
   return ALL_PAGES;
 }
 
 // ================================================================
-// 🧠 SMART CONTENT CLEANING
-// ================================================================
-
-function cleanContentFromNavigation(content, title = '', description = '') {
-  if (!content || typeof content !== 'string') return '';
-  let cleaned = content.toLowerCase();
-  const originalLength = cleaned.length;
-
-  const navigationPatterns = [
-    /close carousel/gi, /carousel/gi, /navigation/gi, /menu/gi,
-    /תפריט/gi, /ניווט/gi, /next/gi, /prev/gi, /previous/gi
-  ];
-  navigationPatterns.forEach(p => { cleaned = cleaned.replace(p, ' '); });
-
-  const categoryTerms = [
-    'צילום', 'פוטותרפיה', 'פסיכולוגיה', 'טכנולוגיה', 'רפואה משלימה',
-    'אמנות', 'אומנויות', 'חינוך', 'הוראה', 'תרפיה', 'טיפול',
-    'גיל רך', 'הנחיית קבוצות', 'תקשורת', 'העצמה', 'לקויות למידה',
-    'פיתוח מקצועי', 'למידה מרחוק', 'תואר שני', 'השתלמות'
-  ];
-
-  const words = cleaned.split(/\s+/);
-  let categoryCount = 0, consecutiveCategories = 0, maxConsecutive = 0;
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i];
-    if (word.length < 3) continue;
-    const isCategory = categoryTerms.some(cat => {
-      const catWords = cat.toLowerCase().split(/\s+/);
-      if (catWords.length === 1) return word.includes(catWords[0]) || catWords[0].includes(word);
-      const wordsAround = words.slice(Math.max(0, i - 1), i + 2).join(' ');
-      return wordsAround.includes(cat.toLowerCase());
-    });
-    if (isCategory) { consecutiveCategories++; categoryCount++; maxConsecutive = Math.max(maxConsecutive, consecutiveCategories); }
-    else { consecutiveCategories = 0; }
-  }
-
-  const isNavigationHeavy = categoryCount > 6 || maxConsecutive > 4;
-  if (isNavigationHeavy) {
-    console.log(`  🧹 [CleanContent] "${title.substring(0, 50)}..." - Heavy navigation: ${categoryCount} categories, max ${maxConsecutive} consecutive`);
-    const titleWords = title.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    const descWords = (description || '').toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    const uniqueWords = [...new Set([...titleWords, ...descWords])];
-    const sentences = cleaned.split(/[.!?]+/);
-    const relevantSentences = sentences.filter(sentence => {
-      if (sentence.length < 30) return false;
-      const sentenceWords = sentence.split(/\s+/);
-      const catInSentence = sentenceWords.filter(w => categoryTerms.some(cat => w.includes(cat.toLowerCase()) || cat.toLowerCase().includes(w))).length;
-      const uniqueInSentence = sentenceWords.filter(w => uniqueWords.some(u => w.includes(u) || u.includes(w))).length;
-      return uniqueInSentence > 0 && catInSentence <= 3;
-    });
-    if (relevantSentences.length > 0) {
-      cleaned = relevantSentences.join('. ');
-      console.log(`  🎯 [CleanContent] Kept ${relevantSentences.length}/${sentences.length} sentences (${Math.round(cleaned.length / originalLength * 100)}% kept)`);
-    } else {
-      cleaned = (title + ' ' + description).toLowerCase();
-      console.log(`  ⚠️ [CleanContent] No relevant sentences, using title+description only`);
-    }
-  }
-
-  const commonRepeatedText = [
-    'שבתון קורסים והשתלמויות למורים', 'למורים לגננות ולקהל הרחב',
-    'קורסים מוכרים משרד החינוך', 'בהשתתפות משרד החינוך', 'עוז לתמורה', 'אופק חדש'
-  ];
-  commonRepeatedText.forEach(r => {
-    const p = new RegExp(r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    cleaned = cleaned.replace(p, ' ');
-  });
-
-  return cleaned.replace(/\s+/g, ' ').trim();
-}
-
-// ================================================================
-// 🧠 SEMANTIC ANALYSIS
+// SEMANTIC ANALYSIS
 // ================================================================
 
 function buildWordGraph() {
   if (WORD_GRAPH) return WORD_GRAPH;
-  loadSemanticData();
-  loadConfigs();
-  const wordGraph = new Map();
-
-  if (SEMANTIC_DATA && SEMANTIC_DATA.synonyms) {
-    for (const [mainTerm, data] of Object.entries(SEMANTIC_DATA.synonyms)) {
-      const allTerms = [mainTerm, ...(data.variations || [])];
-      for (const term of allTerms) {
-        const tl = term.toLowerCase();
-        if (!wordGraph.has(tl)) wordGraph.set(tl, new Set());
-        allTerms.forEach(t => { if (t.toLowerCase() !== tl) wordGraph.get(tl).add(t); });
-        wordGraph.get(tl).add(mainTerm);
-      }
+  loadSemanticData(); loadConfigs();
+  const g = new Map();
+  const add = (terms, main) => {
+    for (const t of terms) {
+      const tl = t.toLowerCase();
+      if (!g.has(tl)) g.set(tl, new Set());
+      terms.forEach(x => { if (x.toLowerCase() !== tl) g.get(tl).add(x); });
+      g.get(tl).add(main);
     }
-  }
-  if (REQUIRED_PHRASES) {
-    for (const pe of REQUIRED_PHRASES) {
-      const allPhrases = [pe.phrase, ...(pe.variations || [])];
-      for (const phrase of allPhrases) {
-        const pl = phrase.toLowerCase();
-        if (!wordGraph.has(pl)) wordGraph.set(pl, new Set());
-        allPhrases.forEach(p => { if (p.toLowerCase() !== pl) wordGraph.get(pl).add(p); });
-        wordGraph.get(pl).add(pe.phrase);
-      }
-    }
-  }
-  if (STUDY_FIELDS) {
-    for (const field of STUDY_FIELDS) {
-      const allTerms = [field.name, ...(field.keywords || [])];
-      for (const term of allTerms) {
-        const tl = term.toLowerCase();
-        if (!wordGraph.has(tl)) wordGraph.set(tl, new Set());
-        wordGraph.get(tl).add(field.name);
-      }
-    }
-  }
-
-  WORD_GRAPH = wordGraph;
-  console.log(`🧠 [buildWordGraph] Built unified graph with ${wordGraph.size} terms`);
-  return wordGraph;
+  };
+  if (SEMANTIC_DATA?.synonyms)
+    for (const [m, d] of Object.entries(SEMANTIC_DATA.synonyms)) add([m, ...(d.variations || [])], m);
+  if (REQUIRED_PHRASES)
+    for (const p of REQUIRED_PHRASES) add([p.phrase, ...(p.variations || [])], p.phrase);
+  if (STUDY_FIELDS)
+    for (const f of STUDY_FIELDS) add([f.name, ...(f.keywords || [])], f.name);
+  WORD_GRAPH = g;
+  console.log(`🧠 WordGraph: ${g.size} terms`);
+  return g;
 }
 
 function expandQuerySemantically(query) {
   if (!WORD_GRAPH) buildWordGraph();
   loadSemanticData();
-  const expanded = new Set([query]);
-  const queryLower = query.toLowerCase();
-  for (const [term, relatedTerms] of WORD_GRAPH.entries()) {
-    if (queryLower.includes(term)) relatedTerms.forEach(rt => expanded.add(rt));
-  }
-  if (SEMANTIC_DATA && SEMANTIC_DATA.intentPatterns) {
-    for (const [, intentData] of Object.entries(SEMANTIC_DATA.intentPatterns)) {
-      const hasPattern = (intentData.patterns || []).some(p => queryLower.includes(p.toLowerCase()));
-      if (hasPattern && intentData.problemToSolution) {
-        for (const [problem, solutions] of Object.entries(intentData.problemToSolution)) {
-          if (queryLower.includes(problem.toLowerCase())) solutions.forEach(s => expanded.add(s));
-        }
-      }
+  const exp = new Set([query]);
+  const ql = query.toLowerCase();
+  for (const [t, rel] of WORD_GRAPH.entries()) if (ql.includes(t)) rel.forEach(r => exp.add(r));
+  if (SEMANTIC_DATA?.intentPatterns) {
+    for (const [, d] of Object.entries(SEMANTIC_DATA.intentPatterns)) {
+      if ((d.patterns || []).some(p => ql.includes(p.toLowerCase())) && d.problemToSolution)
+        for (const [prob, sols] of Object.entries(d.problemToSolution))
+          if (ql.includes(prob.toLowerCase())) sols.forEach(s => exp.add(s));
     }
   }
-  const result = Array.from(expanded);
-  console.log(`  🧠 [Semantic] "${query}" → [${result.slice(0, 6).join(', ')}${result.length > 6 ? '...' : ''}]`);
+  const result = Array.from(exp);
+  console.log(`  🧠 "${query}" → [${result.slice(0, 5).join(', ')}${result.length > 5 ? '...' : ''}]`);
   return result;
 }
 
-function isGenericTerm(term) {
-  loadSemanticData();
-  const defaults = ['סטודיו', 'studio', 'לימוד', 'קורס', 'טיפול', 'תרפיה'];
-  if (!SEMANTIC_DATA || !SEMANTIC_DATA.genericTerms) return defaults.includes(term.toLowerCase());
-  return SEMANTIC_DATA.genericTerms.includes(term.toLowerCase()) || defaults.includes(term.toLowerCase());
+// ================================================================
+// REGION DETECTION FROM URL  ← הלב החדש של v111
+// ================================================================
+
+/**
+ * בדוק האם URL שייך לאזור מסוים לפי slug.
+ * מחזיר: { match: 'exact'|'other'|'none', region: ... }
+ */
+function detectRegionFromUrl(pageUrl, requestedRegion) {
+  if (!REGIONS || !pageUrl) return { match: 'none', region: null };
+  const urlLower = pageUrl.toLowerCase();
+
+  // בדוק תחילה אם מכיל slug של האזור המבוקש
+  if (requestedRegion?.slug && urlLower.includes(requestedRegion.slug.toLowerCase())) {
+    console.log(`    [URL] ✅ URL contains requested region slug "${requestedRegion.slug}"`);
+    return { match: 'exact', region: requestedRegion };
+  }
+
+  // בדוק אם מכיל slug של אזור אחר
+  for (const r of REGIONS) {
+    if (!r.slug) continue;
+    if (r.slug === requestedRegion?.slug) continue;
+    if (urlLower.includes(r.slug.toLowerCase())) {
+      console.log(`    [URL] ❌ URL contains OTHER region slug "${r.slug}" → reject`);
+      return { match: 'other', region: r };
+    }
+  }
+
+  // אין slug אזורי בURL → תוכן ארצי/כללי
+  console.log(`    [URL] ℹ️ No region slug in URL → national content`);
+  return { match: 'none', region: null };
 }
 
 // ================================================================
-// 🔗 URL BUILDER - רק מנתוני data
+// FIELD DETECTION IN PAGE
 // ================================================================
 
-function buildCategoryUrl(region, studyField) {
-  if (!studyField || !studyField.slug) return null;
-  if (region && region.slug) return `${SITE_BASE}/${region.slug}/${studyField.slug}`;
-  return `${SITE_BASE}/${studyField.slug}`;
+/**
+ * חיפוש תחום בכל שדות הדף.
+ * חוזר: { found: bool, location: string, score: number }
+ * חשוב: searchTerm הוא מה שמחפשים (שם תחום או keyword)
+ */
+function findFieldInPage(page, searchTerm) {
+  const sl = searchTerm.toLowerCase();
+  const title = (page.title || page.h1 || '').toLowerCase();
+  const description = (page.description || '').toLowerCase();
+  const text = (page.text || '').toLowerCase();
+  const h2 = ((page.h2 || []).join(' ')).toLowerCase();
+  const h3 = ((page.h3 || []).join(' ')).toLowerCase();
+
+  if (title.includes(sl)) return { found: true, location: 'title', score: 150 };
+  if (description.includes(sl)) return { found: true, location: 'description', score: 80 };
+  if (h2.includes(sl) || h3.includes(sl)) return { found: true, location: 'headers', score: 60 };
+  if (text.includes(sl)) return { found: true, location: 'text', score: 50 };
+
+  return { found: false, location: null, score: 0 };
+}
+
+/**
+ * בדוק אם הדף רלוונטי לתחום המבוקש
+ */
+function pageMatchesField(page, studyField) {
+  if (!studyField) return { found: true, score: 0 }; // אין סינון תחום
+
+  // אם יש specificKeyword - חפש אותו
+  if (studyField.specificKeyword) {
+    const result = findFieldInPage(page, studyField.specificKeyword);
+    if (result.found) {
+      console.log(`    [FIELD] "${studyField.specificKeyword}" found in ${result.location} (+${result.score})`);
+      return result;
+    }
+  }
+
+  // חפש שם תחום
+  const nameResult = findFieldInPage(page, studyField.name);
+  if (nameResult.found) {
+    console.log(`    [FIELD] "${studyField.name}" found in ${nameResult.location} (+${nameResult.score})`);
+    return nameResult;
+  }
+
+  return { found: false, location: null, score: 0 };
 }
 
 // ================================================================
-// 🔍 DETECTION FUNCTIONS
+// STUDY FIELD DETECTION
 // ================================================================
 
 function detectStudyField(message) {
   loadConfigs();
-  console.log('\n🔍 [detectStudyField] START');
-  console.log(`📝 Message: "${message}"`);
+  console.log(`\n🔍 [detectStudyField] "${message}"`);
+  if (!STUDY_FIELDS?.length) return [];
 
-  if (!STUDY_FIELDS || !Array.isArray(STUDY_FIELDS)) {
-    console.error('❌ STUDY_FIELDS is not an array');
-    return [];
-  }
+  const lm = message.toLowerCase();
+  const expanded = expandQuerySemantically(message);
 
-  const lowerMessage = message.toLowerCase();
-  const expandedTerms = expandQuerySemantically(message);
-
-  // ================================================================
-  // חיפוש התאמה לשם תחום - ישירה או סמנטית
-  // v110: גם בהתאמה ישירה, specificKeyword מקבל ערך כדי שבדיקת האזור תהיה מקלה
-  // ================================================================
+  // חיפוש התאמה לשם תחום
   for (const field of STUDY_FIELDS) {
     if (field.name === 'למידה מרחוק') continue;
-    const fieldNameLower = field.name.toLowerCase();
-    const directMatch = lowerMessage.includes(fieldNameLower);
-    const semanticMatch = !directMatch && expandedTerms.some(term => fieldNameLower.includes(term.toLowerCase()));
+    const fl = field.name.toLowerCase();
+    const direct = lm.includes(fl);
+    const semantic = !direct && expanded.some(t => fl.includes(t.toLowerCase()));
 
-    if (directMatch || semanticMatch) {
-      console.log(`✅ Found field name: "${field.name}" (via: ${directMatch ? 'direct' : 'semantic'})`);
-
+    if (direct || semantic) {
+      console.log(`✅ Field: "${field.name}" (via: ${direct ? 'direct' : 'semantic'})`);
       let specificKeyword = null;
 
-      if (semanticMatch) {
-        // v108: חיפוש המילה המקורית מהמסר
-        const words = lowerMessage.split(/\s+/);
-        for (const expandedTerm of expandedTerms) {
-          if (expandedTerm.toLowerCase() === fieldNameLower) continue;
-          if (expandedTerm === message) continue;
-          for (const word of words) {
-            const cleanWord = word.replace(/[,\.!\?;:]/g, '');
-            if (cleanWord.length > 2 &&
-              (cleanWord.includes(expandedTerm.toLowerCase()) || expandedTerm.toLowerCase().includes(cleanWord))) {
-              specificKeyword = cleanWord;
-              console.log(`  🎯 [SemanticField] Original keyword preserved: "${specificKeyword}"`);
+      if (semantic) {
+        // v108: חיפוש מילה מקורית מהמסר
+        const words = lm.split(/\s+/);
+        for (const et of expanded) {
+          if (et.toLowerCase() === fl || et === message) continue;
+          for (const w of words) {
+            const cw = w.replace(/[,\.!\?;:]/g, '');
+            if (cw.length > 2 && (cw.includes(et.toLowerCase()) || et.toLowerCase().includes(cw))) {
+              specificKeyword = cw;
+              console.log(`  🎯 Semantic keyword preserved: "${specificKeyword}"`);
               break;
             }
           }
           if (specificKeyword) break;
         }
-        // fallback לkeywords של התחום
+        // fallback לkeywords
         if (!specificKeyword) {
-          for (const keyword of (field.keywords || [])) {
-            const kl = keyword.toLowerCase();
-            for (const word of lowerMessage.split(/\s+/)) {
-              const cw = word.replace(/[,\.!\?;:]/g, '');
-              if (cw.length > 2 && (cw.includes(kl) || kl.includes(cw))) {
+          for (const kw of (field.keywords || [])) {
+            for (const w of lm.split(/\s+/)) {
+              const cw = w.replace(/[,\.!\?;:]/g, '');
+              if (cw.length > 2 && (cw.includes(kw.toLowerCase()) || kw.toLowerCase().includes(cw))) {
                 specificKeyword = cw;
-                console.log(`  🎯 [SemanticField] Keyword from field: "${specificKeyword}"`);
+                console.log(`  🎯 Keyword fallback: "${specificKeyword}"`);
                 break;
               }
             }
@@ -341,10 +281,9 @@ function detectStudyField(message) {
           }
         }
       } else {
-        // ✅ v110 תיקון: גם בהתאמה ישירה - specificKeyword = שם התחום
-        // זה מאפשר לבדיקת האזור להיות מקלה (כמו כשיש specificKeyword)
-        specificKeyword = fieldNameLower;
-        console.log(`  🎯 [DirectMatch] specificKeyword set to field name: "${specificKeyword}"`);
+        // v110: גם direct match מקבל specificKeyword = שם התחום
+        specificKeyword = fl;
+        console.log(`  🎯 Direct match → specificKeyword: "${specificKeyword}"`);
       }
 
       return [{ ...field, specificKeyword }];
@@ -352,91 +291,68 @@ function detectStudyField(message) {
   }
 
   // חיפוש לפי keywords
-  let bestMatch = null;
+  let best = null;
   const tooGeneric = ['למידה', 'לימוד', 'קורס', 'קורסים', 'השתלמות', 'תואר'];
-
   for (const field of STUDY_FIELDS) {
     if (field.name === 'למידה מרחוק') continue;
-    if (!field.keywords || !Array.isArray(field.keywords)) continue;
-    for (const keyword of field.keywords) {
-      if (!keyword || tooGeneric.includes(keyword.toLowerCase())) continue;
-      const kl = keyword.toLowerCase();
-      const foundInMessage = lowerMessage.includes(kl);
-      const foundInExpanded = expandedTerms.some(t => t.toLowerCase().includes(kl) || kl.includes(t.toLowerCase()));
-      if (foundInMessage || foundInExpanded) {
-        if (!bestMatch || kl.length > bestMatch.length) {
-          bestMatch = { field, keyword, length: kl.length, foundVia: foundInMessage ? 'direct' : 'semantic' };
-        }
+    for (const kw of (field.keywords || [])) {
+      if (!kw || tooGeneric.includes(kw.toLowerCase())) continue;
+      const kl = kw.toLowerCase();
+      const inMsg = lm.includes(kl);
+      const inExp = expanded.some(t => t.toLowerCase().includes(kl) || kl.includes(t.toLowerCase()));
+      if ((inMsg || inExp) && (!best || kl.length > best.length)) {
+        best = { field, keyword: kw, length: kl.length, via: inMsg ? 'direct' : 'semantic' };
       }
     }
   }
 
-  if (bestMatch) {
-    console.log(`✅ Found keyword: "${bestMatch.keyword}" in field: "${bestMatch.field.name}" (via: ${bestMatch.foundVia})`);
-    const words = lowerMessage.split(/\s+/);
-    let fullWord = bestMatch.keyword;
-    const kl = bestMatch.keyword.toLowerCase();
-    if (bestMatch.foundVia === 'semantic') {
-      for (const et of expandedTerms) {
-        for (const word of words) {
-          const cw = word.replace(/[,\.!\?;:]/g, '');
-          if (cw.includes(et.toLowerCase()) || et.toLowerCase().includes(cw)) {
-            fullWord = cw;
-            console.log(`  🔍 [Semantic] Found original term: "${fullWord}"`);
-            break;
-          }
-        }
-        if (fullWord !== bestMatch.keyword) break;
-      }
-    } else {
-      for (const word of words) {
-        const cw = word.replace(/[,\.!\?;:]/g, '');
-        if (cw.includes(kl)) { fullWord = cw; break; }
-      }
+  if (best) {
+    console.log(`✅ Keyword: "${best.keyword}" → "${best.field.name}" (via: ${best.via})`);
+    // מצא את המילה המקורית מהמסר
+    let fullWord = best.keyword;
+    for (const w of lm.split(/\s+/)) {
+      const cw = w.replace(/[,\.!\?;:]/g, '');
+      if (cw.length > 2 && cw.includes(best.keyword.toLowerCase())) { fullWord = cw; break; }
     }
-    return [{ ...bestMatch.field, specificKeyword: fullWord }];
+    return [{ ...best.field, specificKeyword: fullWord }];
   }
 
-  console.log('❌ No study field detected');
+  console.log('❌ No field detected');
   return [];
 }
 
 function detectRegion(message) {
   loadConfigs();
-  if (!REGIONS || !Array.isArray(REGIONS)) return null;
+  if (!REGIONS?.length) return null;
   const lm = message.toLowerCase().replace(/-/g, ' ');
-  for (const region of REGIONS) {
-    if (lm.includes(region.name.toLowerCase())) {
-      console.log(`✅ [detectRegion] Found by name: "${region.name}"`);
-      return region;
+  for (const r of REGIONS) {
+    if (lm.includes(r.name.toLowerCase())) {
+      console.log(`✅ Region: "${r.name}" (by name)`);
+      return r;
     }
-    if (region.keywords) {
-      for (const kw of region.keywords) {
-        if (lm.includes(kw.toLowerCase())) {
-          console.log(`✅ [detectRegion] Found by keyword: "${kw}" → "${region.name}"`);
-          return region;
-        }
+    for (const kw of (r.keywords || [])) {
+      if (lm.includes(kw.toLowerCase())) {
+        console.log(`✅ Region: "${r.name}" (by keyword "${kw}")`);
+        return r;
       }
     }
-    if (region.cities) {
-      for (const city of region.cities) {
-        if (lm.includes(city.toLowerCase().replace(/-/g, ' '))) {
-          console.log(`✅ [detectRegion] Found by city: "${city}" → "${region.name}"`);
-          return region;
-        }
+    for (const city of (r.cities || [])) {
+      if (lm.includes(city.toLowerCase().replace(/-/g, ' '))) {
+        console.log(`✅ Region: "${r.name}" (by city "${city}")`);
+        return r;
       }
     }
   }
-  console.log('❌ [detectRegion] No region detected');
+  console.log('❌ No region detected');
   return null;
 }
 
 function detectSpecificCity(query, region) {
-  if (!region || !region.cities) return null;
+  if (!region?.cities) return null;
   const ql = query.toLowerCase().replace(/-/g, ' ');
   for (const city of region.cities) {
     if (ql.includes(city.toLowerCase().replace(/-/g, ' '))) {
-      console.log(`✅ [detectSpecificCity] Found: "${city}" in "${region.name}"`);
+      console.log(`✅ City: "${city}"`);
       return city;
     }
   }
@@ -444,370 +360,351 @@ function detectSpecificCity(query, region) {
 }
 
 // ================================================================
-// 🔍 MAIN SEARCH FUNCTION
+// MAIN SEARCH - לוגיקה חדשה עם URL כמקור אמת לאזור
 // ================================================================
 
 async function searchPages(query, region = null, studyField = null) {
-  console.log('========== [searchPages] START ==========');
-  console.log(`🚀🚀🚀 CODE VERSION: FEB_18_v110_FIX_DIRECT_MATCH_KEYWORD_AND_CATEGORY_FALLBACK 🚀🚀🚀`);
-  console.log(`Query: "${query}" | Region: ${region?.name || 'כל הארץ'} | Field: ${studyField?.name || 'כללי'} | Keyword: ${studyField?.specificKeyword || 'none'}`);
-  console.log('========================================');
+  console.log('\n========== [searchPages] START ==========');
+  console.log(`🚀 VERSION: FEB_18_v111_URL_REGION_TEXT_ANALYSIS`);
+  console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
+  console.log('==========================================');
 
   const pages = loadAllPages();
   const results = [];
-
-  const JUNK_TITLE_PATTERNS = [
-    'close carousel', 'carousel', 'next', 'prev', 'previous', 'menu', 'navigation',
-    'ינואר 2', 'פברואר 2', 'מרץ 2', 'אפריל 2', 'מאי 2', 'יוני 2',
-    'יולי 2', 'אוגוסט 2', 'ספטמבר 2', 'אוקטובר 2', 'נובמבר 2', 'דצמבר 2'
-  ];
+  const specificCity = detectSpecificCity(query, region);
 
   for (const page of pages) {
-    const pageType = page.pageType || 'unknown';
-    const isStaticPage = pageType === 'static';
-    const isInfoPage = pageType === 'info';
-
+    const url = page.url || page.link || '';
     const rawTitle = page.title || page.h1 || '';
-    let cleanedRawTitle = rawTitle;
-    let cleanedTitle = rawTitle.toLowerCase();
 
-    for (const pattern of JUNK_TITLE_PATTERNS) {
-      const re = new RegExp(pattern, 'gi');
-      cleanedRawTitle = cleanedRawTitle.replace(re, '').trim();
-      cleanedTitle = cleanedTitle.replace(re, '').trim();
-    }
-
-    if (cleanedTitle.length === 0 || cleanedRawTitle.length < 3) continue;
-    const url = (page.url || page.link || '').toLowerCase();
+    // ── בסיסי: חייב URL ──
     if (!url || url.length < 10) continue;
-    if (cleanedRawTitle.length < 10 && !page.description && !page.text) continue;
 
-    const finalTitle = cleanedTitle;
-    const finalRawTitle = cleanedRawTitle;
-    const description = (page.description || '').toLowerCase();
-    const allHeadersText = ((page.h2 || []).join(' ') + ' ' + (page.h3 || []).join(' ')).toLowerCase();
-    const cleanedContent = cleanContentFromNavigation(page.text || '', finalRawTitle, page.description || '');
+    // ── ניקוי כותרת ──
+    const junkPatterns = ['close carousel', 'carousel', 'next', 'prev', 'previous', 'menu', 'navigation',
+      'ינואר 2', 'פברואר 2', 'מרץ 2', 'אפריל 2', 'מאי 2', 'יוני 2',
+      'יולי 2', 'אוגוסט 2', 'ספטמבר 2', 'אוקטובר 2', 'נובמבר 2', 'דצמבר 2'];
+    let cleanTitle = rawTitle;
+    for (const j of junkPatterns) cleanTitle = cleanTitle.replace(new RegExp(j, 'gi'), '').trim();
+    if (cleanTitle.length < 3) { console.log(`  ❌ JUNK: "${rawTitle}"`); continue; }
+    if (cleanTitle.length < 10 && !page.description && !page.text) continue;
 
-    console.log(`  🧼 "${rawTitle}" → "${finalRawTitle}" (cleaned)`);
+    console.log(`  📄 "${cleanTitle}" | ${url}`);
 
-    // ── סינון לפי תחום ──────────────────────────────────────────
+    // ── שלב 1: בדיקת תחום לימוד בתוכן הדף ──
     if (studyField) {
-      const fieldNameLower = studyField.name.toLowerCase();
-      const specificLower = studyField.specificKeyword ? studyField.specificKeyword.toLowerCase() : null;
-
-      // מה לחפש: specificKeyword אם יש, אחרת שם התחום
-      const searchTerm = specificLower || fieldNameLower;
-
-      let fieldFound = false;
-      let searchLocation = '';
-
-      if (finalTitle.includes(searchTerm)) { fieldFound = true; searchLocation = 'title'; }
-      else if (description.includes(searchTerm)) { fieldFound = true; searchLocation = 'description'; }
-      else if (allHeadersText.includes(searchTerm)) { fieldFound = true; searchLocation = 'headers'; }
-      else if (!isGenericTerm(searchTerm) && cleanedContent.toLowerCase().includes(searchTerm)) {
-        fieldFound = true; searchLocation = 'clean_content';
+      const fieldMatch = pageMatchesField(page, studyField);
+      if (!fieldMatch.found) {
+        console.log(`    [FIELD] ❌ Not found`);
+        continue;
       }
 
-      if (!fieldFound) continue;
-      console.log(`  ✅ "${finalRawTitle}" - "${searchTerm}" found in ${searchLocation}`);
-    }
+      // ── שלב 2: בדיקת אזור לפי URL ──
+      let regionScore = 0;
 
-    // ── חישוב Score ──────────────────────────────────────────────
-    let matchScore = 0;
-    if (studyField) {
-      const specificLower = studyField.specificKeyword ? studyField.specificKeyword.toLowerCase() : null;
-      const searchTerm = specificLower || studyField.name.toLowerCase();
-      if (finalTitle.includes(searchTerm)) { matchScore += 150; console.log(`    [SCORE] +150 in title`); }
-      else if (description.includes(searchTerm)) { matchScore += 100; console.log(`    [SCORE] +100 in description`); }
-      else if (allHeadersText.includes(searchTerm)) { matchScore += 50; console.log(`    [SCORE] +50 in headers`); }
-      else { matchScore += 30; console.log(`    [SCORE] +30 in content`); }
-    }
+      if (region) {
+        const urlRegion = detectRegionFromUrl(url, region);
 
-    // ── בדיקת עיר ספציפית ────────────────────────────────────────
-    const specificCity = detectSpecificCity(query, region);
-    let isInSpecificCity = false;
-    if (specificCity && isStaticPage) {
-      const location = (page.location || '').toLowerCase();
-      const titleAndDesc = (finalTitle + ' ' + description + ' ' + url).toLowerCase();
-      const cityLower = specificCity.toLowerCase().replace(/-/g, ' ');
-      if (location.includes(cityLower) || titleAndDesc.includes(cityLower)) {
-        isInSpecificCity = true; matchScore += 100;
-        console.log(`    [SCORE] +100 for city "${specificCity}"`);
-      }
-    }
+        if (urlRegion.match === 'exact') {
+          // URL מכיל את slug האזור המבוקש - דף אזורי מדויק
+          regionScore = 100;
+          console.log(`    [REGION] ✅ Exact region match (+100)`);
 
-    // ── בדיקת אזור ───────────────────────────────────────────────
-    let regionBonus = 0;
-    if (region && region.cities && !isInSpecificCity) {
-      const location = (page.location || '').toLowerCase();
-      const titleDescContent = (finalTitle + ' ' + description + ' ' + cleanedContent).toLowerCase().replace(/-/g, ' ');
+          // בונוס לעיר ספציפית
+          if (specificCity) {
+            const text = (page.text || '').toLowerCase();
+            const desc = (page.description || '').toLowerCase();
+            const title = cleanTitle.toLowerCase();
+            const cityLower = specificCity.toLowerCase().replace(/-/g, ' ');
+            if (title.includes(cityLower) || desc.includes(cityLower) || text.includes(cityLower)) {
+              regionScore += 50;
+              console.log(`    [REGION] 🏙️ Specific city "${specificCity}" found (+50)`);
+            }
+          }
 
-      const hasRegionCityInLocation = region.cities.some(city =>
-        location.includes(city.toLowerCase().replace(/-/g, ' '))
-      );
+        } else if (urlRegion.match === 'other') {
+          // URL שייך לאזור אחר - דחייה
+          console.log(`    [REGION] ❌ Wrong region in URL → skip`);
+          continue;
 
-      if (location && location.trim() !== '') {
-        if (!hasRegionCityInLocation) {
-          const isRemote = location.includes('למידה מרחוק') || location.includes('מקוון') || location.includes('אונליין');
-          if (isRemote) {
-            let hasOtherRegion = false;
-            if (REGIONS) {
-              for (const otherRegion of REGIONS) {
-                if (otherRegion.name === region.name) continue;
-                for (const otherCity of otherRegion.cities || []) {
-                  if (titleDescContent.includes(otherCity.toLowerCase().replace(/-/g, ' '))) {
-                    hasOtherRegion = true;
-                    console.log(`    [REGION] Other region city found - rejecting`);
+        } else {
+          // URL ללא slug אזורי - תוכן ארצי/כללי
+          // בדוק גם בtext אם מוזכרת עיר מהאזור
+          const text = (page.text || '').toLowerCase().replace(/-/g, ' ');
+          const desc = (page.description || '').toLowerCase();
+          const titleLower = cleanTitle.toLowerCase();
+          const combined = titleLower + ' ' + desc + ' ' + text;
+
+          // האם מוזכרת עיר מהאזור המבוקש?
+          let regionCityFound = false;
+          let otherRegionCityFound = false;
+
+          if (specificCity) {
+            const cityLower = specificCity.toLowerCase().replace(/-/g, ' ');
+            if (combined.includes(cityLower)) {
+              regionCityFound = true;
+              regionScore = 80;
+              console.log(`    [REGION] 🏙️ Specific city "${specificCity}" in text (+80)`);
+            }
+          }
+
+          if (!regionCityFound) {
+            for (const city of (region.cities || [])) {
+              const cl = city.toLowerCase().replace(/-/g, ' ');
+              if (cl.length > 3 && combined.includes(cl)) {
+                regionCityFound = true;
+                regionScore = 40;
+                console.log(`    [REGION] 🏙️ Region city "${city}" in text (+40)`);
+                break;
+              }
+            }
+          }
+
+          if (!regionCityFound) {
+            // בדוק אם מוזכרת עיר מאזור אחר (ייתכן שהדף שייך לאזור אחר)
+            for (const otherR of (REGIONS || [])) {
+              if (otherR.name === region.name) continue;
+              for (const city of (otherR.cities || [])) {
+                const cl = city.toLowerCase().replace(/-/g, ' ');
+                if (cl.length > 3 && combined.includes(cl)) {
+                  // בדוק שלא מופיעה גם עיר מהאזור המבוקש
+                  const hasRequestedCity = (region.cities || []).some(rc =>
+                    rc.length > 3 && combined.includes(rc.toLowerCase().replace(/-/g, ' '))
+                  );
+                  if (!hasRequestedCity) {
+                    otherRegionCityFound = true;
+                    console.log(`    [REGION] ❌ Only other-region city "${city}" found → skip`);
                     break;
                   }
                 }
-                if (hasOtherRegion) break;
               }
+              if (otherRegionCityFound) break;
             }
-            if (hasOtherRegion) continue;
-            regionBonus = 10;
-            console.log(`    [SCORE] +10 for remote learning`);
-          } else {
-            console.log(`    [REGION] Not in region "${region.name}" - rejecting`);
-            continue;
           }
-        } else {
-          regionBonus = isStaticPage ? 50 : 30;
-          console.log(`    [SCORE] +${regionBonus} for being in region`);
+
+          if (otherRegionCityFound) continue;
+
+          if (!regionCityFound) {
+            // אין ציון אזורי - תוכן ארצי כללי
+            regionScore = 10;
+            console.log(`    [REGION] ℹ️ National content (+10)`);
+          }
         }
+
+        const totalScore = fieldMatch.score + regionScore;
+        console.log(`    ✅ ADDED | field:+${fieldMatch.score} region:+${regionScore} = total:${totalScore}`);
+        results.push({
+          ...page,
+          title: cleanTitle,
+          score: totalScore,
+          regionMatch: urlRegion.match,
+          fieldLocation: fieldMatch.location
+        });
+
       } else {
-        // אין location - בודקים לפי תוכן
-        let cityMentioned = null, cityRegion = null, otherRegionMentioned = null;
-        if (REGIONS) {
-          for (const r of REGIONS) {
-            for (const city of r.cities) {
-              if (titleDescContent.includes(city.toLowerCase().replace(/-/g, ' '))) {
-                cityMentioned = city; cityRegion = r.name;
-                console.log(`    [REGION] Found city "${city}" from region "${r.name}"`);
-                break;
-              }
-            }
-            if (cityMentioned) break;
-          }
-          if (!cityMentioned) {
-            for (const r of REGIONS) {
-              if (r.name === region.name) continue;
-              if (titleDescContent.includes(r.name.toLowerCase())) {
-                otherRegionMentioned = r.name;
-                console.log(`    [REGION] Found other region "${r.name}"`);
-                break;
-              }
-            }
-          }
-        }
-
-        if (cityMentioned) {
-          if (cityRegion === region.name) { regionBonus = 30; console.log(`    [SCORE] +30 for city in region`); }
-          else { console.log(`    [REGION] City from different region - rejecting`); continue; }
-        } else if (otherRegionMentioned) {
-          console.log(`    [REGION] Different region mentioned - rejecting`); continue;
-        } else {
-          const regionMentioned = titleDescContent.includes(region.name.toLowerCase()) ||
-            (region.keywords && region.keywords.some(k => titleDescContent.includes(k.toLowerCase())));
-          if (regionMentioned) {
-            regionBonus = 20; console.log(`    [SCORE] +20 for mentioning region`);
-          } else {
-            // ✅ v110: specificKeyword תמיד יש (שם התחום לפחות) → דפים ללא location מתקבלים עם +0
-            regionBonus = 0;
-            console.log(`    [SCORE] +0 no region mention but kept (specificKeyword: "${studyField?.specificKeyword}")`);
-          }
-        }
+        // אין אזור מבוקש - הוסף את כל הדפים עם הניקוד של התחום
+        console.log(`    ✅ ADDED (no region filter) | score:${fieldMatch.score}`);
+        results.push({
+          ...page,
+          title: cleanTitle,
+          score: fieldMatch.score,
+          regionMatch: 'none',
+          fieldLocation: fieldMatch.location
+        });
       }
-      matchScore += regionBonus;
-    }
-
-    if (matchScore > 0 || isInfoPage) {
-      console.log(`  ✅ ADDED: "${finalRawTitle}" | Score: ${matchScore} | Location: "${page.location || 'N/A'}"`);
-      results.push({
-        ...page,
-        title: finalRawTitle,
-        isStatic: isStaticPage,
-        isInfo: isInfoPage,
-        isInSpecificCity,
-        specificCity: isInSpecificCity ? specificCity : null,
-        score: matchScore
-      });
     }
   }
 
+  // מיון: קודם exact region, אחר כך לפי score
   results.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    if (a.isStatic && !b.isStatic) return -1;
-    if (!a.isStatic && b.isStatic) return 1;
-    if (a.isInSpecificCity && !b.isInSpecificCity) return -1;
-    if (!a.isInSpecificCity && b.isInSpecificCity) return 1;
-    return 0;
+    const regionOrder = { exact: 0, none: 1, other: 2 };
+    const rA = regionOrder[a.regionMatch] ?? 1;
+    const rB = regionOrder[b.regionMatch] ?? 1;
+    if (rA !== rB) return rA - rB;
+    return b.score - a.score;
   });
 
-  console.log(`[searchPages] RESULTS: ${results.length} found (Static: ${results.filter(r => r.isStatic).length}, Info: ${results.filter(r => r.isInfo).length})`);
+  console.log(`\n[searchPages] DONE: ${results.length} results`);
+  console.log(`  Exact region: ${results.filter(r => r.regionMatch === 'exact').length}`);
+  console.log(`  National: ${results.filter(r => r.regionMatch === 'none').length}`);
   return results;
 }
 
 // ================================================================
-// 💬 QA SYSTEM
+// QA SYSTEM
 // ================================================================
 
 function findQAAnswer(message) {
   loadConfigs();
-  console.log(`🔍 [findQAAnswer] "${message}"`);
   const lm = message.toLowerCase();
-
-  if (COURSES_QA && COURSES_QA.questions) {
+  if (COURSES_QA?.questions) {
     for (const q of COURSES_QA.questions) {
-      if (q.question && lm.includes(q.question.toLowerCase())) return { answer: q.answer, source: 'courses' };
-      if (q.variations) {
-        for (const v of q.variations) { if (lm.includes(v.toLowerCase())) return { answer: q.answer, source: 'courses' }; }
-      }
+      if (q.question && lm.includes(q.question.toLowerCase())) return { answer: q.answer };
+      for (const v of (q.variations || [])) if (lm.includes(v.toLowerCase())) return { answer: q.answer };
       if (q.keywords) {
-        const matches = q.keywords.filter(k => lm.includes(k.toLowerCase()));
-        if (matches.length >= 2) return { answer: q.answer, source: 'courses' };
+        const hits = q.keywords.filter(k => lm.includes(k.toLowerCase()));
+        if (hits.length >= 2) return { answer: q.answer };
       }
     }
   }
-
-  if (PAYMENTS_QA && PAYMENTS_QA.categories) {
-    for (const category of PAYMENTS_QA.categories) {
-      if (category.questions) {
-        for (const q of category.questions) {
-          if (q.question && lm.includes(q.question.toLowerCase())) return { answer: q.answer, source: 'payments' };
-          if (q.variations) {
-            for (const v of q.variations) { if (lm.includes(v.toLowerCase())) return { answer: q.answer, source: 'payments' }; }
-          }
-        }
+  if (PAYMENTS_QA?.categories) {
+    for (const cat of PAYMENTS_QA.categories) {
+      for (const q of (cat.questions || [])) {
+        if (q.question && lm.includes(q.question.toLowerCase())) return { answer: q.answer };
+        for (const v of (q.variations || [])) if (lm.includes(v.toLowerCase())) return { answer: q.answer };
       }
     }
   }
-
-  console.log('  ❌ No QA answer found');
   return null;
 }
 
 function classifyIntent(message) {
   const lm = message.toLowerCase();
-  console.log(`🎯 [classifyIntent] "${message}"`);
   const qaKw = ['כמה', 'מתי', 'איך', 'מה זה', 'האם', 'מי', 'למה', 'איפה', 'מה'];
   if (qaKw.some(k => lm.includes(k))) {
     const qa = findQAAnswer(message);
     if (qa) return { intent: 'qa', data: qa };
   }
   const searchKw = ['קורס', 'לימוד', 'השתלמות', 'תואר', 'מכללה', 'לימודים'];
-  if (searchKw.some(k => lm.includes(k))) return { intent: 'search', data: null };
-  return { intent: 'general', data: null };
+  if (searchKw.some(k => lm.includes(k))) return { intent: 'search' };
+  return { intent: 'general' };
 }
 
 // ================================================================
-// 🎨 RESPONSE FORMATTING
+// RESPONSE FORMATTING
 // ================================================================
 
+function buildCategoryUrl(region, studyField) {
+  if (!studyField?.slug) return null;
+  if (region?.slug) return `${SITE_BASE}/${region.slug}/${studyField.slug}`;
+  return `${SITE_BASE}/${studyField.slug}`;
+}
+
+/**
+ * בנה תיאור קצר לדף על פי ניתוח ה-text field
+ */
+function buildPageSummary(page, studyField) {
+  const desc = page.description || '';
+  const text = page.text || '';
+  const keyword = studyField?.specificKeyword || studyField?.name || '';
+
+  // אם יש description קצר וספציפי - השתמש בו
+  if (desc && desc.length > 10 && desc.length < 200) return desc;
+
+  // נסה לחלץ משפט רלוונטי מה-text
+  if (text && keyword) {
+    const kl = keyword.toLowerCase();
+    const sentences = text.split(/[.!?\n]+/);
+    for (const s of sentences) {
+      const sl = s.toLowerCase().trim();
+      if (sl.includes(kl) && sl.length > 20 && sl.length < 200) {
+        return s.trim();
+      }
+    }
+  }
+
+  // fallback
+  if (desc) return desc.substring(0, 150) + (desc.length > 150 ? '...' : '');
+  return '';
+}
+
 function formatResults(results, studyField, region) {
-  if (results.length === 0) return '';
   const fieldName = studyField?.name || 'הקורסים';
   const regionName = region?.name || 'כל הארץ';
 
-  let response = `מצאתי ${results.length} מוסדות`;
+  // מקסימום 3 exact region + 3 national
+  const exactResults = results.filter(r => r.regionMatch === 'exact').slice(0, 4);
+  const nationalResults = results.filter(r => r.regionMatch === 'none').slice(0, 3);
+  const toShow = [...exactResults, ...nationalResults].slice(0, 6);
+
+  if (toShow.length === 0) return '';
+
+  let response = `מצאתי ${toShow.length} אפשרויות ל${fieldName}`;
   if (region) response += ` ב${regionName}`;
-  response += ` ל${fieldName}:\n\n`;
+  response += `:\n\n`;
 
-  let added = 0;
-  for (const result of results) {
-    if (added >= 6) break;
-    const url = result.url || result.link || null;
-    if (!url) continue; // לא ממציאים URL
+  for (const result of toShow) {
+    const url = result.url || result.link;
+    if (!url) continue;
 
-    const title = result.title || result.h1 || 'ללא שם';
-    const desc = result.description || '';
-    const location = result.location || '';
-    const icon = result.isInSpecificCity ? '📍' : '🏢';
+    const title = result.title || 'ללא שם';
+    const summary = buildPageSummary(result, studyField);
+    const isExact = result.regionMatch === 'exact';
+    const icon = isExact ? '📍' : '🌐';
+    const regionLabel = isExact ? '' : ' (כלל-ארצי / ללא הגבלה)';
 
-    response += `${icon} **${title}**\n`;
-    if (location) response += `📍 ${location}\n`;
-    if (desc) response += `${desc.length > 150 ? desc.substring(0, 150) + '...' : desc}\n`;
-    response += `[למידע מלא וייעוץ אישי](${url})\n\n`;
-    added++;
+    response += `${icon} **${title}**${regionLabel}\n`;
+    if (summary) response += `${summary}\n`;
+    response += `[למידע מלא ורישום](${url})\n\n`;
   }
 
-  // קישור לדף קטגוריה - מ-data בלבד
+  // ── תמיד: קישור לדף קטגוריה ──
   const categoryUrl = buildCategoryUrl(region, studyField);
   if (categoryUrl) {
-    response += `💡 **לכל ${fieldName}`;
+    response += `---\n`;
+    response += `🔍 **לכל הקורסים ב${fieldName}`;
     if (region) response += ` ב${regionName}`;
-    response += `:** [לחץ כאן](${categoryUrl})\n`;
+    response += `:** [לדף הקטגוריה](${categoryUrl})\n`;
   }
 
   return response;
 }
 
 // ================================================================
-// 🎯 MAIN RESPONSE GENERATOR
+// MAIN RESPONSE GENERATOR
 // ================================================================
 
 async function generateSmartResponse(message) {
+  console.log('\n========================================');
+  console.log('🚀 VERSION: FEB_18_v111_URL_REGION_TEXT_ANALYSIS');
+  console.log(`📝 "${message}"`);
   console.log('========================================');
-  console.log('🚀🚀🚀 CODE VERSION: FEB_18_v110_FIX_DIRECT_MATCH_KEYWORD_AND_CATEGORY_FALLBACK 🚀🚀🚀');
-  console.log(`📝 Input: "${message}"`);
-  console.log('========================================');
-
   loadConfigs();
 
   // QA קודם
-  const qaAnswer = findQAAnswer(message);
-  if (qaAnswer) {
-    console.log('✅ QA answer found');
-    return qaAnswer.answer;
-  }
+  const qa = findQAAnswer(message);
+  if (qa) { console.log('✅ QA answer'); return qa.answer; }
 
   const detectedFields = detectStudyField(message);
   const studyField = detectedFields[0] || null;
   const region = detectRegion(message);
 
-  console.log(`📊 Field: ${studyField ? `${studyField.name} (keyword: "${studyField.specificKeyword}")` : 'None'} | Region: ${region?.name || 'None'}`);
+  console.log(`📊 Field: ${studyField ? `"${studyField.name}" kw:"${studyField.specificKeyword}"` : 'none'} | Region: ${region?.name || 'none'}`);
 
-  const intentInfo = classifyIntent(message);
-  console.log(`🎯 Intent: ${intentInfo.intent}`);
+  const intent = classifyIntent(message);
+  console.log(`🎯 Intent: ${intent.intent}`);
 
-  if (intentInfo.intent === 'search') {
+  if (intent.intent === 'search') {
     const results = await searchPages(message, region, studyField);
-    console.log(`📊 Results: ${results.length} found`);
+    console.log(`📊 ${results.length} results`);
 
     if (results.length > 0) {
-      return formatResults(results.slice(0, 6), studyField, region);
+      return formatResults(results, studyField, region);
     }
 
-    // ── Fallback: אין תוצאות ──────────────────────────────────
-    console.log('❌ No results - building fallback response');
+    // ── Fallback: אין תוצאות ──
     const fieldName = studyField?.name || '';
     const regionName = region?.name || '';
-
     let response = `מצטערת, לא מצאתי מוסדות`;
     if (regionName) response += ` ב${regionName}`;
     if (fieldName) response += ` ל${fieldName}`;
     response += `.\n\n`;
 
-    // ✅ v110: הצג דף קטגוריה של האזור הספציפי
+    // קישור לדף קטגוריה של האזור - תמיד
     const categoryUrl = buildCategoryUrl(region, studyField);
     if (categoryUrl) {
-      response += `🔍 **אפשר לחפש קורסים נוספים`;
-      if (fieldName) response += ` ב${fieldName}`;
+      response += `🔍 **חפש עוד אפשרויות ב${fieldName}`;
       if (regionName) response += ` ב${regionName}`;
-      response += `:**\n[לכל הקורסים](${categoryUrl})\n\n`;
+      response += `:**\n[לדף הקטגוריה](${categoryUrl})\n\n`;
     }
 
-    // הצע למידה מרחוק אם חיפשו באזור
-    if (region && studyField) {
-      const onlineField = STUDY_FIELDS?.find(f => f.name === 'למידה מרחוק');
-      if (onlineField?.slug) {
-        const onlineUrl = `${SITE_BASE}/${onlineField.slug}`;
-        response += `🌐 **אפשר גם לחפש קורסי ${fieldName} בלמידה מרחוק:**\n`;
-        response += `[קורסי ${fieldName} אונליין](${onlineUrl})\n\n`;
-      }
+    // למידה מרחוק כאלטרנטיבה
+    const onlineField = STUDY_FIELDS?.find(f => f.name === 'למידה מרחוק');
+    if (onlineField?.slug && region && fieldName) {
+      response += `🌐 **אפשר גם לחפש קורסי ${fieldName} בלמידה מרחוק:**\n`;
+      response += `[קורסי ${fieldName} אונליין](${SITE_BASE}/${onlineField.slug})\n\n`;
     }
 
-    // ווטסאפ - תמיד
     response += `💬 **לא מצאת מה שחיפשת?**\n`;
     response += `שאל בקבוצת הווטסאפ של שבתון:\n`;
     response += `[קבוצת ווטסאפ שבתון](${WHATSAPP_LINK})`;
@@ -816,11 +713,11 @@ async function generateSmartResponse(message) {
   }
 
   // General
-  return `היי! 👋\n\nאני כאן לעזור לך למצוא קורסים והשתלמויות למורים בשבתון.\n\n**אפשר לשאול אותי על:**\n• קורסים ספציפיים (צילום, פסיכולוגיה, טכנולוגיה...)\n• קורסים באזור שלך (צפון, דרום, מרכז...)\n• שאלות על התשלומים והרישום\n\n**דוגמאות:**\n• "קורס פסיכולוגיה בצפון"\n• "קורס הנחיית קבוצות במרכז"\n• "כמה עולה קורס?"\n\n💬 **שאלה שלא מצאת תשובה לה?** [קבוצת ווטסאפ שבתון](${WHATSAPP_LINK})`;
+  return `היי! 👋\n\nאני כאן לעזור לך למצוא קורסים והשתלמויות למורים בשבתון.\n\n**לדוגמה:**\n• "קורס הנחיית קבוצות במרכז"\n• "קורס צילום בצפון"\n• "כמה עולה קורס?"\n\n💬 [קבוצת ווטסאפ שבתון](${WHATSAPP_LINK})`;
 }
 
 // ================================================================
-// 🌐 VERCEL HANDLER
+// VERCEL HANDLER
 // ================================================================
 
 export const config = { api: { bodyParser: true } };
@@ -830,44 +727,24 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const body = req.body || {};
-  console.log(`📨 [handler] ${req.method} | Body: ${JSON.stringify(body).substring(0, 200)}`);
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed', allowed: ['POST', 'OPTIONS'] });
-  }
+  const { message } = req.body || {};
+  if (!message || typeof message !== 'string') return res.status(400).json({ error: 'Invalid message' });
+  if (message.length > 500) return res.status(400).json({ error: 'Message too long' });
 
-  const { message } = body;
-  if (!message || typeof message !== 'string') {
-    return res.status(400).json({ error: 'Invalid message - string required' });
-  }
-  if (message.length > 500) {
-    return res.status(400).json({ error: 'Message too long - maximum 500 characters' });
-  }
+  console.log(`📨 POST | "${message}"`);
 
   try {
-    const startTime = Date.now();
+    const start = Date.now();
     const response = await generateSmartResponse(message);
-    const processingTime = Date.now() - startTime;
-
-    console.log(`✅ Response length: ${response.length} chars | Time: ${processingTime}ms`);
-
-    return res.status(200).json({
-      reply: response,
-      timestamp: new Date().toISOString(),
-      processingTime,
-      version: 'FEB_18_v110_FIX_DIRECT_MATCH_KEYWORD_AND_CATEGORY_FALLBACK'
-    });
-  } catch (error) {
-    console.error('❌ CRITICAL ERROR:', error);
-    return res.status(500).json({
-      error: 'Internal server error - please try again',
-      message: error.message,
-      timestamp: new Date().toISOString(),
-      version: 'FEB_18_v110_FIX_DIRECT_MATCH_KEYWORD_AND_CATEGORY_FALLBACK'
-    });
+    const ms = Date.now() - start;
+    console.log(`✅ ${response.length} chars | ${ms}ms`);
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v111_URL_REGION_TEXT_ANALYSIS' });
+  } catch (e) {
+    console.error('❌ ERROR:', e);
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v111_URL_REGION_TEXT_ANALYSIS' });
   }
 }
