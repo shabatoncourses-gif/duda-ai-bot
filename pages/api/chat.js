@@ -920,7 +920,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v144_MULTI_INTENT_SEARCH');
+  console.log('🚀 VERSION: FEB_18_v145_FIX_INFO_TRIGGER');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -929,9 +929,12 @@ async function generateSmartResponse(message) {
   const qa = findQAAnswer(message);
   if (qa) { console.log('✅ QA answer'); return qa.answer; }
 
-  // ── דפי מידע על שנת שבתון ──
-  const infoAnswer = findInfoPageAnswer(message);
-  if (infoAnswer) { console.log('✅ Info page answer'); return infoAnswer; }
+  // ── דפי מידע על שנת שבתון ── רק אם זו שאלת מידע, לא חיפוש קורסים
+  const isCourseQuery = /קורס|לימוד|השתלמות|תואר|מכללה|לימודים/.test(message);
+  if (!isCourseQuery) {
+    const infoAnswer = findInfoPageAnswer(message);
+    if (infoAnswer) { console.log('✅ Info page answer'); return infoAnswer; }
+  }
 
   // ── זיהוי תשובה לשאלת הבהרה מסבב קודם ──
   // אם הגולש ענה "1" / "2" / "כתיבה יוצרת" / "הוראה מתקנת"
