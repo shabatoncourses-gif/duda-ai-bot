@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_18_v116_CATEGORY_FROM_INDEX
+// VERSION: FEB_18_v117_NO_DASHES
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -365,7 +365,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_18_v116_CATEGORY_FROM_INDEX`);
+  console.log(`🚀 VERSION: FEB_18_v117_NO_DASHES`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -664,15 +664,15 @@ function formatResults(results, studyField, region) {
     if (!url) continue;
     const title = result.title || 'ללא שם';
     const summary = buildPageSummary(result);
-    response += `📚 **${title}**${summary ? ' — ' + summary : ''}\n`;
+    response += `📚 **${title}**\n`;
+    if (summary) response += `${summary}\n`;
     response += `[פנו למידע ולייעוץ אישי](${url})\n\n`;
   }
 
   // ── דף קטגוריה מהאינדקס - לא בנוי ──
   const categoryUrl = findCategoryUrlFromResults();
   if (categoryUrl) {
-    response += `---\n`;
-    response += `🔍 **לכל הקורסים ב${fieldName}`;
+    response += `\n🔍 **לכל הקורסים ב${fieldName}`;
     if (region) response += ` ב${regionName}`;
     response += `:** [לכל הקורסים](${categoryUrl})\n`;
   }
@@ -686,7 +686,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v116_CATEGORY_FROM_INDEX');
+  console.log('🚀 VERSION: FEB_18_v117_NO_DASHES');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -772,9 +772,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v116_CATEGORY_FROM_INDEX' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v117_NO_DASHES' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v116_CATEGORY_FROM_INDEX' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v117_NO_DASHES' });
   }
 }
