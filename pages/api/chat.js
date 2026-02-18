@@ -758,7 +758,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v128_WRITING_DISAMBIGUATION_ONLY');
+  console.log('🚀 VERSION: FEB_18_v129_PROXIMITY_FILTER');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -788,6 +788,17 @@ async function generateSmartResponse(message) {
         const results2 = await searchPages(message, null, sf);
         const filtered = results2.filter(r => {
           const content = ((r.description || '') + ' ' + (r.text || '')).toLowerCase();
+          // לא מספיק שהמילים קיימות בנפרד — הן חייבות להופיע בסמיכות (עד 60 תווים)
+          if (ans.strictFilter === 'הוראה מתקנת|הוראה מותאמת') {
+            const hasRemedial = /הוראה מתקנת|הוראה מותאמת/.test(content);
+            if (!hasRemedial) return false;
+            // בדוק ש"כתיבה" מופיעה ב-60 תווים מ"הוראה מתקנת/מותאמת"
+            const matches = [...content.matchAll(/הוראה מ[תו][קכ][נת]ת/g)];
+            return matches.some(m => {
+              const snippet = content.substring(Math.max(0, m.index - 60), m.index + 80);
+              return snippet.includes('כתיבה');
+            });
+          }
           return new RegExp(ans.strictFilter, 'i').test(content);
         });
         if (filtered.length > 0) return formatResults(filtered, sf, null);
