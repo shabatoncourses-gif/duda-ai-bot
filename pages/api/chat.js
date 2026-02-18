@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_18_v168_REGION_FORMAT
+// VERSION: FEB_18_v169_NO_REGION_ASK
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -409,7 +409,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_18_v168_REGION_FORMAT`);
+  console.log(`🚀 VERSION: FEB_18_v169_NO_REGION_ASK`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1042,7 +1042,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v168_REGION_FORMAT');
+  console.log('🚀 VERSION: FEB_18_v169_NO_REGION_ASK');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1129,14 +1129,8 @@ async function generateSmartResponse(message) {
   const intent = classifyIntent(message);
   console.log(`🎯 Intent: ${intent.intent}`);
 
-  // ── שאל על אזור אם יש תחום אבל אין אזור ──
-  const isIntentBased = !!studyField?._intentLabel;
-  const lmFull = message.toLowerCase();
-  const hasOnline = lmFull.includes('מרחוק') || lmFull.includes('אונליין') || lmFull.includes('מתוקשב');
-  if (intent.intent === 'search' && studyField && !region && !isIntentBased && !hasOnline) {
-    console.log('❓ Field detected but no region → ask for region');
-    return `באיזה אזור אתה מחפש קורסים ב${studyField.name}? 😊\n\n🗺️ תל אביב והמרכז\n🗺️ חיפה והצפון\n🗺️ ירושלים\n🗺️ דרום\n🗺️ שרון\n💻 למידה מרחוק`;
-  }
+  // ── אם יש תחום אבל אין אזור — חפש בכל הארץ (אין זיכרון בין הודעות) ──
+  // לא שואלים על אזור כי הבוט שוכח את התחום בהודעה הבאה
 
   if (intent.intent === 'search') {
     const lm = message.toLowerCase();
@@ -1256,9 +1250,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v168_REGION_FORMAT' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v169_NO_REGION_ASK' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v168_REGION_FORMAT' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v169_NO_REGION_ASK' });
   }
 }
