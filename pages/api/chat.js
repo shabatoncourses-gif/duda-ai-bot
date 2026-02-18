@@ -223,6 +223,7 @@ function findFieldInPage(page, searchTerm, allowTextSearch = false) {
 function pageMatchesField(page, studyField, allowTextSearch = false) {
   if (!studyField) return { found: true, score: 0 };
 
+  // נסה specificKeyword קודם
   if (studyField.specificKeyword) {
     const result = findFieldInPage(page, studyField.specificKeyword, allowTextSearch);
     if (result.found) {
@@ -231,10 +232,22 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
     }
   }
 
+  // נסה שם תחום
   const nameResult = findFieldInPage(page, studyField.name, allowTextSearch);
   if (nameResult.found) {
     console.log(`    [FIELD] "${studyField.name}" found in ${nameResult.location} (+${nameResult.score})`);
     return nameResult;
+  }
+
+  // נסה aliases — 5 מילות המפתח הראשונות של התחום (מונע miss בגלל שורשים שונים כמו אמנות/אומנות)
+  const aliases = (studyField.keywords || []).slice(0, 5);
+  for (const alias of aliases) {
+    if (alias === studyField.specificKeyword || alias === studyField.name) continue;
+    const aliasResult = findFieldInPage(page, alias, allowTextSearch);
+    if (aliasResult.found) {
+      console.log(`    [FIELD] alias "${alias}" found in ${aliasResult.location} (+${aliasResult.score})`);
+      return aliasResult;
+    }
   }
 
   return { found: false, location: null, score: 0 };
@@ -775,7 +788,17 @@ function formatResults(results, studyField, region, query = '') {
       return false;
     }
 
-    // סינון דפי morim.boutique כלליים
+    // סינון דפי גמלאים/גימלאים כלליים (אלא אם חיפשו גמלאים)
+    const isGimalaiQuery = /גמלא|גימלא|פנסיה|פנסיונר/.test(query);
+    if (!isGimalaiQuery) {
+      const gimalaiTitles = ['לגמלאים', 'לגימלאים', 'קורסים לגמלאים', 'קורסים לגימלאים', 'חוגים לגמלאים'];
+      if (gimalaiTitles.some(g => title.trim() === g || title.trim().startsWith(g))) {
+        console.log(`    [FILTER] ❌ Gimalai general page → skip: "${r.title}"`);
+        return false;
+      }
+    }
+
+    // סינון דפי קטגוריה כלליים ב-isCategoryPage
     const morimBlocked = ['/fashion', '/art', '/cooking', '/trips', '/empowering',
       '/health', '/courses-jewelry', '/mosaic', '/קורסי-נגרות', '/קורסי נגרות'];
     if (url.includes('morim.boutique') && (
