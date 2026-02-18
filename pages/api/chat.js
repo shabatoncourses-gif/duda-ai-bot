@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_18_v123_RANDOM_ROTATION
+// VERSION: FEB_18_v124_FILTER_EVENTS
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -365,7 +365,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_18_v123_RANDOM_ROTATION`);
+  console.log(`🚀 VERSION: FEB_18_v124_FILTER_EVENTS`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -648,6 +648,15 @@ function formatResults(results, studyField, region) {
   const isRelevantInstitution = (r) => {
     const title = (r.title || '').toLowerCase();
     const desc = (r.description || '').toLowerCase();
+    const url = (r.url || r.link || '').toLowerCase();
+
+    // סינון דפי אירועים/כנסים — לא מוסדות לימודים
+    const eventPatterns = ['/kenes/', '/contact/', '/knassim/', '/contact-us-phone/'];
+    if (eventPatterns.some(p => url.includes(p))) {
+      console.log(`    [FILTER] ❌ Event/kenes page → skip: "${r.title}"`);
+      return false;
+    }
+
     // דף "קורסים בלמידה מרחוק" הכללי — לא רלוונטי לאופק חדש
     if (isOfekChadash && (title.includes('למידה מרחוק') || title.includes('לימוד מרחוק'))) return false;
     // דף "שנת שבתון מורים" הכללי — לא מוסד
@@ -718,7 +727,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v123_RANDOM_ROTATION');
+  console.log('🚀 VERSION: FEB_18_v124_FILTER_EVENTS');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -812,9 +821,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v123_RANDOM_ROTATION' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v124_FILTER_EVENTS' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v123_RANDOM_ROTATION' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v124_FILTER_EVENTS' });
   }
 }
