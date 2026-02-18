@@ -31,7 +31,6 @@ let SEMANTIC_DATA = null;
 let WORD_GRAPH = null;
 let SHABATON_INFO = null;
 let INTENT_MAPPINGS = null;
-let INTENT_MAPPINGS = null;
 
 const WHATSAPP_LINK = 'https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME';
 const SITE_BASE = 'https://www.shabaton.online';
@@ -65,10 +64,6 @@ function loadConfigs() {
     if (!SHABATON_INFO) {
       SHABATON_INFO = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'shabaton-info.json'), 'utf8')).infoPages;
       console.log(`✅ shabaton-info.json: ${SHABATON_INFO.length} info pages`);
-    }
-    if (!INTENT_MAPPINGS) {
-      INTENT_MAPPINGS = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'intent-mappings.json'), 'utf8')).intentMappings;
-      console.log(`✅ intent-mappings.json: ${INTENT_MAPPINGS.length} intents`);
     }
     if (!INTENT_MAPPINGS) {
       INTENT_MAPPINGS = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'intent-mappings.json'), 'utf8')).intentMappings;
@@ -918,7 +913,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v139_INTENT_MAPPINGS');
+  console.log('🚀 VERSION: FEB_18_v140_FIX_DUPLICATES');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
