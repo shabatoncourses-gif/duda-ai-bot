@@ -694,12 +694,15 @@ function formatResults(results, studyField, region, query = '') {
   // ── URLs קבועים לתחומים מיוחדים ──
   const ONLINE_LEARNING_URL = 'https://www.shabaton.online/results-all/למידה מרחוק';
   const OFEK_CHADASH_URL = 'https://www.shabaton.online/results-all/קורסי אופק חדש - עוז לתמורה';
+  const ART_URL = 'https://www.shabaton.online/results-all/קורסי אמנות ואומנויות';
 
   const FIXED_CATEGORY_URLS = {
     'למידה מרחוק': ONLINE_LEARNING_URL,
     'אופק חדש - עוז לתמורה': OFEK_CHADASH_URL,
     'אופק חדש': OFEK_CHADASH_URL,
     'עוז לתמורה': OFEK_CHADASH_URL,
+    'אמנות ואומנויות': ART_URL,
+    'אמנות': ART_URL,
   };
 
   const findCategoryUrlFromResults = () => {
@@ -775,6 +778,17 @@ function formatResults(results, studyField, region, query = '') {
       const degreeKeywords = ['תואר שני', 'תואר שלישי', 'דוקטורט'];
       if (degreeKeywords.some(k => title.includes(k))) {
         console.log(`    [FILTER] ❌ Degree page (no degree request) → skip: "${r.title}"`);
+        return false;
+      }
+    }
+
+    // סינון לתחום "אמנות" — הוצא קורסי בישול ותחומים לא-רלוונטיים
+    const isArtField = (studyField?.name || '').includes('אמנות') || (studyField?.name || '').includes('אומנות');
+    if (isArtField) {
+      const nonArtPatterns = ['בישול', 'קונדיטוריה', 'אפייה', 'קולינאריה', 'שף', 'בייקינג'];
+      const titleLower = (r.title || '').toLowerCase();
+      if (nonArtPatterns.some(p => titleLower.includes(p))) {
+        console.log(`    [ART] ❌ Non-art content → skip: "${r.title}"`);
         return false;
       }
     }
@@ -1022,7 +1036,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v161_SMART_NEARBY');
+  console.log('🚀 VERSION: FEB_18_v162_ART_FILTER');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
