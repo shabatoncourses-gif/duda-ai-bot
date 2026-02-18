@@ -197,17 +197,22 @@ function detectRegionFromUrl(pageUrl, requestedRegion) {
  * חוזר: { found: bool, location: string, score: number }
  * חשוב: searchTerm הוא מה שמחפשים (שם תחום או keyword)
  */
-function findFieldInPage(page, searchTerm) {
+function findFieldInPage(page, searchTerm, allowTextSearch = false) {
   const sl = searchTerm.toLowerCase();
   const title = (page.title || page.h1 || '').toLowerCase();
   const description = (page.description || '').toLowerCase();
   const h2 = ((page.h2 || []).join(' ')).toLowerCase();
   const h3 = ((page.h3 || []).join(' ')).toLowerCase();
-  // text מכיל ניווט ותפריטים — לא אמין לסינון תחום
 
   if (title.includes(sl)) return { found: true, location: 'title', score: 150 };
   if (description.includes(sl)) return { found: true, location: 'description', score: 80 };
   if (h2.includes(sl) || h3.includes(sl)) return { found: true, location: 'headers', score: 60 };
+
+  // text — רק אם מותר (intent-based) ורק לביטויים ארוכים (>4 תווים)
+  if (allowTextSearch && sl.length > 4) {
+    const text = (page.text || '').toLowerCase();
+    if (text.includes(sl)) return { found: true, location: 'text', score: 40 };
+  }
 
   return { found: false, location: null, score: 0 };
 }
@@ -215,20 +220,18 @@ function findFieldInPage(page, searchTerm) {
 /**
  * בדוק אם הדף רלוונטי לתחום המבוקש
  */
-function pageMatchesField(page, studyField) {
-  if (!studyField) return { found: true, score: 0 }; // אין סינון תחום
+function pageMatchesField(page, studyField, allowTextSearch = false) {
+  if (!studyField) return { found: true, score: 0 };
 
-  // אם יש specificKeyword - חפש אותו
   if (studyField.specificKeyword) {
-    const result = findFieldInPage(page, studyField.specificKeyword);
+    const result = findFieldInPage(page, studyField.specificKeyword, allowTextSearch);
     if (result.found) {
       console.log(`    [FIELD] "${studyField.specificKeyword}" found in ${result.location} (+${result.score})`);
       return result;
     }
   }
 
-  // חפש שם תחום
-  const nameResult = findFieldInPage(page, studyField.name);
+  const nameResult = findFieldInPage(page, studyField.name, allowTextSearch);
   if (nameResult.found) {
     console.log(`    [FIELD] "${studyField.name}" found in ${nameResult.location} (+${nameResult.score})`);
     return nameResult;
@@ -404,7 +407,7 @@ function detectSpecificCity(query, region) {
 // MAIN SEARCH - לוגיקה חדשה עם URL כמקור אמת לאזור
 // ================================================================
 
-async function searchPages(query, region = null, studyField = null) {
+async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
   console.log(`🚀 VERSION: FEB_18_v126_FILTER_REGIONAL_PAGES`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
@@ -440,7 +443,7 @@ async function searchPages(query, region = null, studyField = null) {
 
     // ── שלב 1: בדיקת תחום לימוד בתוכן הדף ──
     if (studyField) {
-      const fieldMatch = pageMatchesField(page, studyField);
+      const fieldMatch = pageMatchesField(page, studyField, allowTextSearch);
       if (!fieldMatch.found) {
         console.log(`    [FIELD] ❌ Not found`);
         continue;
@@ -943,7 +946,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v151_DEBUG_EXTRA');
+  console.log('🚀 VERSION: FEB_18_v152_TEXT_SEARCH_INTENT');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1044,13 +1047,14 @@ async function generateSmartResponse(message) {
       return `🔍 **כל הקורסים בלמידה מרחוק:**\n[לכל הקורסים בלמידה מרחוק](https://www.shabaton.online/results-all/למידה מרחוק)\n`;
     }
 
-    const results = await searchPages(message, region, studyField);
+    const isIntentSearch = !!studyField?._intentLabel;
+    const results = await searchPages(message, region, studyField, isIntentSearch);
 
-    // אם יש תחומי intent נוספים — חפש לפי שם התחום (לא לפי השאלה המקורית)
+    // אם יש תחומי intent נוספים — חפש לפי שם התחום
     let allResults = [...results];
     console.log(`🔎 Extra intent fields: ${extraIntentFields.length} → [${extraIntentFields.map(f=>f.name).join(', ')}]`);
     for (const extraField of extraIntentFields) {
-      const extraResults = await searchPages(extraField.name, region, extraField);
+      const extraResults = await searchPages(extraField.name, region, extraField, true);
       console.log(`🔎 Extra field "${extraField.name}": ${extraResults.length} results`);
       const existingUrls = new Set(allResults.map(r => r.url || r.link || r.pageUrl));
       extraResults.forEach(r => {
