@@ -681,14 +681,27 @@ function formatResults(results, studyField, region, query = '') {
   // זיהוי בקשת תואר שני מפורשת
   const isDegreeRequest = /תואר שני|תואר ב|מ\.א|M\.A|אקדמי|דוקטורט|תואר שלישי/.test(query);
 
-  // ── זיהוי דפי קטגוריה לפי URL: בדיוק 2 חלקי נתיב ו-slug אזורי ידוע ──
+  // ── זיהוי דפי קטגוריה לפי URL ──
+  // דף קטגוריה אמיתי: 2 חלקי נתיב, slug אזורי ידוע, ושם הדף תואם שם תחום לימוד
+  const FIELD_NAMES_SET = new Set((STUDY_FIELDS || []).flatMap(f => [
+    f.name.toLowerCase(),
+    (f.slug || '').toLowerCase(),
+    (f.name || '').replace(/^(קורסי|לימודי|קורסים ב|קורסים ל)\s+/i, '').trim().toLowerCase()
+  ]).filter(Boolean));
+
   const isCategoryPage = (r) => {
     const url = (r.url || r.link || '');
     const path = url.replace(/^https?:\/\/[^\/]+\//, '');
     const parts = path.split('/').filter(p => p.length > 0);
     if (parts.length !== 2) return false;
     const firstPart = decodeURIComponent(parts[0]).toLowerCase();
-    return (REGIONS || []).some(reg => reg.slug && firstPart === reg.slug.toLowerCase());
+    if (!(REGIONS || []).some(reg => reg.slug && firstPart === reg.slug.toLowerCase())) return false;
+    // בדוק שהחלק השני הוא שם תחום — אחרת זה דף מוסד
+    const secondPart = decodeURIComponent(parts[1]).toLowerCase()
+      .replace(/^(קורסי|לימודי|קורסים ב|קורסים ל)\s+/i, '').trim();
+    const title = (r.title || r.h1 || '').toLowerCase()
+      .replace(/^(קורסי|לימודי|קורסים ב|קורסים ל)\s+/i, '').trim();
+    return FIELD_NAMES_SET.has(secondPart) || FIELD_NAMES_SET.has(title);
   };
 
   // ── URLs קבועים לתחומים מיוחדים ──
