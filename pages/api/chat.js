@@ -817,12 +817,11 @@ function formatResults(results, studyField, region) {
     response += `[פנו למידע ולייעוץ אישי](${url})\n\n`;
   }
 
-  // ── דף קטגוריה — לפי intent URL אם קיים, אחרת רק לחיפוש ישיר ──
+  // ── דף קטגוריה ──
   const intentCategoryUrl = studyField?._intentCategoryUrl || null;
   const categoryUrl = intentCategoryUrl || (!isIntentBased ? findCategoryUrlFromResults() : null);
   if (categoryUrl) {
-    const catLabel = isIntentBased ? (studyField._intentLabel || fieldName) : fieldName;
-    response += `\n🔍 **לכל הקורסים ב${catLabel}`;
+    response += `\n🔍 **לכל הקורסים ב${fieldName}`;
     if (region) response += ` ב${regionName}`;
     response += `:** [לכל הקורסים](${categoryUrl})\n`;
   }
@@ -944,7 +943,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v150_FIX_TITLE');
+  console.log('🚀 VERSION: FEB_18_v151_DEBUG_EXTRA');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1049,8 +1048,10 @@ async function generateSmartResponse(message) {
 
     // אם יש תחומי intent נוספים — חפש לפי שם התחום (לא לפי השאלה המקורית)
     let allResults = [...results];
+    console.log(`🔎 Extra intent fields: ${extraIntentFields.length} → [${extraIntentFields.map(f=>f.name).join(', ')}]`);
     for (const extraField of extraIntentFields) {
       const extraResults = await searchPages(extraField.name, region, extraField);
+      console.log(`🔎 Extra field "${extraField.name}": ${extraResults.length} results`);
       const existingUrls = new Set(allResults.map(r => r.url || r.link || r.pageUrl));
       extraResults.forEach(r => {
         if (!existingUrls.has(r.url || r.link || r.pageUrl)) allResults.push(r);
