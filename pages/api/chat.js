@@ -219,35 +219,52 @@ function findFieldInPage(page, searchTerm, allowTextSearch = false) {
 
 /**
  * בדוק אם הדף רלוונטי לתחום המבוקש
+ * שלב 1: specificKeyword — בכל השדות כולל text
+ * שלב 2: שם תחום — בכל השדות כולל text  
+ * שלב 3: כל keywords מ-study-fields.json — רק ב-title/desc/headers
+ *         ביטויים של 2+ מילים — גם ב-text
  */
 function pageMatchesField(page, studyField, allowTextSearch = false) {
   if (!studyField) return { found: true, score: 0 };
 
-  // נסה specificKeyword קודם
+  const titleLower = (page.title || page.h1 || '').toLowerCase();
+  const descLower = (page.description || '').toLowerCase();
+  const h2h3Lower = ((page.h2 || []).concat(page.h3 || []).join(' ')).toLowerCase();
+  const textLower = allowTextSearch ? (page.text || '').toLowerCase() : '';
+
+  const searchIn = (term, includeText = false) => {
+    const t = term.toLowerCase();
+    if (titleLower.includes(t)) return { found: true, location: 'title', score: 150 };
+    if (descLower.includes(t)) return { found: true, location: 'description', score: 80 };
+    if (h2h3Lower.includes(t)) return { found: true, location: 'headers', score: 60 };
+    if (includeText && allowTextSearch && t.length > 4 && textLower.includes(t))
+      return { found: true, location: 'text', score: 40 };
+    return { found: false };
+  };
+
+  // שלב 1: specificKeyword — כולל text
   if (studyField.specificKeyword) {
-    const result = findFieldInPage(page, studyField.specificKeyword, allowTextSearch);
-    if (result.found) {
-      console.log(`    [FIELD] "${studyField.specificKeyword}" found in ${result.location} (+${result.score})`);
-      return result;
-    }
+    const r = searchIn(studyField.specificKeyword, true);
+    if (r.found) { console.log(`    [FIELD] "${studyField.specificKeyword}" in ${r.location} (+${r.score})`); return r; }
   }
 
-  // נסה שם תחום
-  const nameResult = findFieldInPage(page, studyField.name, allowTextSearch);
-  if (nameResult.found) {
-    console.log(`    [FIELD] "${studyField.name}" found in ${nameResult.location} (+${nameResult.score})`);
-    return nameResult;
-  }
+  // שלב 2: שם תחום — כולל text
+  const nameR = searchIn(studyField.name, true);
+  if (nameR.found) { console.log(`    [FIELD] "${studyField.name}" in ${nameR.location} (+${nameR.score})`); return nameR; }
 
-  // נסה aliases — 5 מילות המפתח הראשונות של התחום (מונע miss בגלל שורשים שונים כמו אמנות/אומנות)
-  const aliases = (studyField.keywords || []).slice(0, 5);
-  for (const alias of aliases) {
-    if (alias === studyField.specificKeyword || alias === studyField.name) continue;
-    const aliasResult = findFieldInPage(page, alias, allowTextSearch);
-    if (aliasResult.found) {
-      console.log(`    [FIELD] alias "${alias}" found in ${aliasResult.location} (+${aliasResult.score})`);
-      return aliasResult;
-    }
+  // שלב 3: keywords מ-study-fields.json
+  // מילה בודדת קצרה (<= 8 תווים) — רק title/desc/headers
+  // ביטוי ≥2 מילים או >8 תווים — גם text
+  const keywords = (studyField.keywords || []).filter(kw => {
+    if (!kw || kw === studyField.specificKeyword || kw === studyField.name) return false;
+    const tooGeneric = ['למידה', 'לימוד', 'קורס', 'קורסים', 'השתלמות', 'תואר', 'חינוך', 'הוראה'];
+    return !tooGeneric.includes(kw.toLowerCase());
+  });
+
+  for (const kw of keywords) {
+    const isSpecific = kw.trim().split(/\s+/).length >= 2 || kw.length > 8;
+    const r = searchIn(kw, isSpecific);
+    if (r.found) { console.log(`    [FIELD] keyword "${kw}" in ${r.location} (+${r.score})`); return r; }
   }
 
   return { found: false, location: null, score: 0 };
