@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_18_v112_INSTITUTIONS_FIRST_CATEGORY_LAST
+// VERSION: FEB_18_v113_FIX_CATEGORY_DETECTION
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -365,7 +365,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_18_v112_INSTITUTIONS_FIRST_CATEGORY_LAST`);
+  console.log(`🚀 VERSION: FEB_18_v113_FIX_CATEGORY_DETECTION`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -613,17 +613,19 @@ function formatResults(results, studyField, region) {
   const regionName = region?.name || 'כל הארץ';
 
   // ── הפרד בין מוסדות ספציפיים לדפי קטגוריה כלליים ──
-  // דפי קטגוריה כלליים: כותרת מכילה "קורסי X" ו"במרכז הארץ" או URL הוא {region}/{field} בלבד
+  // דף קטגוריה = URL בעל בדיוק 2 חלקים: /{regionSlug}/{fieldName}
+  // מוסד ספציפי = URL עם 3+ חלקים, או ללא slug אזורי
   const isCategoryPage = (r) => {
-    const title = (r.title || '').toLowerCase();
-    const url = (r.url || r.link || '').toLowerCase();
-    // דף קטגוריה: ה-URL הוא בדיוק /{regionSlug}/{fieldSlug} - ללא תת-נתיב נוסף
-    const urlPath = url.replace('https://www.shabaton.online/', '').split('/');
-    const isShortUrl = urlPath.length <= 2;
-    const hasCategoryTitle = title.includes('קורסי ') || title.includes('לימודי ') || title.includes('קורסים ב');
-    const hasNationalText = (r.description || '').toLowerCase().includes('בכל הארץ') ||
-                            (r.description || '').toLowerCase().includes('ובלמידה מרחוק');
-    return isShortUrl && (hasCategoryTitle || hasNationalText);
+    const url = (r.url || r.link || '');
+    // הסר את הבסיס וספור חלקי הנתיב
+    const path = url.replace(/^https?:\/\/[^\/]+\//, ''); // הסר domain
+    const parts = path.split('/').filter(p => p.length > 0);
+    // דף קטגוריה: בדיוק 2 חלקים - {regionSlug}/{fieldName}
+    // לדוגמה: search-results-merkaz/הנחיית%20קבוצות
+    if (parts.length !== 2) return false;
+    // בדוק שהחלק הראשון הוא slug של אזור ידוע
+    const firstPart = decodeURIComponent(parts[0]).toLowerCase();
+    return (REGIONS || []).some(reg => reg.slug && firstPart === reg.slug.toLowerCase());
   };
 
   const exactResults = results.filter(r => r.regionMatch === 'exact');
@@ -650,7 +652,7 @@ function formatResults(results, studyField, region) {
     const title = result.title || 'ללא שם';
     const summary = buildPageSummary(result, studyField);
 
-    response += `🏛️ **${title}**\n`;
+    response += `📚 **${title}**\n`;
     if (summary) response += `${summary}\n`;
     response += `[למידע ולייעוץ אישי - פנו ישירות למוסד הלימודים](${url})\n\n`;
   }
@@ -673,7 +675,7 @@ function formatResults(results, studyField, region) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v112_INSTITUTIONS_FIRST_CATEGORY_LAST');
+  console.log('🚀 VERSION: FEB_18_v113_FIX_CATEGORY_DETECTION');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -759,9 +761,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v112_INSTITUTIONS_FIRST_CATEGORY_LAST' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v113_FIX_CATEGORY_DETECTION' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v112_INSTITUTIONS_FIRST_CATEGORY_LAST' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v113_FIX_CATEGORY_DETECTION' });
   }
 }
