@@ -575,6 +575,7 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
   }
 
   // מיון: קודם exact region, אחר כך לפי score
+  const regionOrder = { exact: 0, none: 1, other: 2 };
   results.sort((a, b) => {
     const rA = regionOrder[a.regionMatch] ?? 1;
     const rB = regionOrder[b.regionMatch] ?? 1;
@@ -966,7 +967,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v156_EMPOWER_BOOST');
+  console.log('🚀 VERSION: FEB_18_v157_FIX_SORT_CRASH');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
