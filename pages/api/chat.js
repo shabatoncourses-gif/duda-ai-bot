@@ -641,7 +641,7 @@ function formatResults(results, studyField, region) {
     const summary = buildPageSummary(result);
 
     response += `📚 **${title}** ${summary ? '— ' + summary : ''}\n`;
-    response += `[למידע ולייעוץ אישי - פנו ישירות למוסד הלימודים](${url})\n\n`;
+    response += `[פנו למידע ולייעוץ אישי ](${url})\n\n`;
   }
 
   // ── תמיד בסוף: דף קטגוריה אזורי אחד בלבד ──
