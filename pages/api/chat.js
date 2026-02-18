@@ -820,23 +820,21 @@ function detectIntentField(message) {
   for (const mapping of INTENT_MAPPINGS) {
     let score = 0;
     for (const pattern of mapping.patterns) {
-      if (lm.includes(pattern.toLowerCase())) {
-        score += pattern.length;
-      }
+      if (lm.includes(pattern.toLowerCase())) score += pattern.length;
     }
     if (score > bestScore) { bestScore = score; bestMatch = mapping; }
   }
 
   if (!bestMatch || bestScore < 3) return null;
 
-  for (const fieldName of bestMatch.fields) {
-    const found = STUDY_FIELDS.find(f => f.name === fieldName);
-    if (found) {
-      console.log(`✅ Intent match: "${bestMatch.intent}" → field:"${found.name}" (score:${bestScore})`);
-      return found;
-    }
-  }
-  return null;
+  // החזר את כל התחומים הרלוונטיים (לא רק הראשון)
+  const matchedFields = bestMatch.fields
+    .map(fieldName => STUDY_FIELDS.find(f => f.name === fieldName))
+    .filter(Boolean);
+
+  if (matchedFields.length === 0) return null;
+  console.log(`✅ Intent: "${bestMatch.intent}" → fields: ${matchedFields.map(f => f.name).join(', ')} (score:${bestScore})`);
+  return matchedFields; // מחזיר מערך
 }
 
 function findInfoPageAnswer(message) {
@@ -920,7 +918,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v142_CLEAN_INTENT');
+  console.log('🚀 VERSION: FEB_18_v143_MULTI_INTENT_FIELDS');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -974,7 +972,9 @@ async function generateSmartResponse(message) {
   }
 
   const detectedFields = detectStudyField(message);
-  const studyField = detectedFields[0] || detectIntentField(message) || null;
+  const intentFields = !detectedFields[0] ? detectIntentField(message) : null;
+  const studyField = detectedFields[0] || (Array.isArray(intentFields) ? intentFields[0] : intentFields) || null;
+  const extraIntentFields = Array.isArray(intentFields) && intentFields.length > 1 ? intentFields.slice(1) : [];
   const region = detectRegion(message);
 
   console.log(`📊 Field: ${studyField ? `"${studyField.name}" kw:"${studyField.specificKeyword}"` : 'none'} | Region: ${region?.name || 'none'}`);
@@ -1017,10 +1017,22 @@ async function generateSmartResponse(message) {
     }
 
     const results = await searchPages(message, region, studyField);
-    console.log(`📊 ${results.length} results`);
 
-    if (results.length > 0) {
-      return formatResults(results, studyField, region);
+    // אם יש תחומי intent נוספים — חפש גם בהם ומזג תוצאות
+    let allResults = [...results];
+    for (const extraField of extraIntentFields) {
+      const extraResults = await searchPages(message, region, extraField);
+      // הוסף רק תוצאות חדשות (לפי URL)
+      const existingUrls = new Set(allResults.map(r => r.url || r.link));
+      extraResults.forEach(r => {
+        if (!existingUrls.has(r.url || r.link)) allResults.push(r);
+      });
+    }
+    const mergedResults = allResults;
+    console.log(`📊 ${results.length} results (+ ${allResults.length - results.length} from extra intent fields)`);
+
+    if (mergedResults.length > 0) {
+      return formatResults(mergedResults, studyField, region);
     }
 
     // ── Fallback: אין תוצאות ──
