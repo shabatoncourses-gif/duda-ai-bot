@@ -26,8 +26,8 @@
       "keywords": ["הרשמה", "מתי", "תאריך", "אוקטובר", "נובמבר"],
       "relatedLinks": [
         {
-          "text": "למידע נוסף על לוח הזמנים",
-          "url": "https://www.shabaton.online/luz_shabaton#1725164454"
+          "text": "למידע נוסף על ביטוח לאומי",
+          "url": "https://www.shabaton.online/btl_shabaton"
         }
       ]
     },
@@ -54,5 +54,5 @@
       "relatedLinks": []
     }
   ],
-  "fallbackMessage": "לא מצאתי תשובה מדויקת לשאלתך על ביטוח לאומי. אתה מוזמן לעיין בלוח הזמנים המלא בפורטל שבתון:\n\nhttps://www.shabaton.online/luz_shabaton\n\nאו לשאול בקבוצת WhatsApp:\nhttps://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME"
+  "fallbackMessage": "לא מצאתי תשובה מדויקת לשאלתך על ביטוח לאומי. אתה מוזמן לעיין בלוח הזמנים המלא בפורטל שבתון:\n\nhttps://www.shabaton.online/btl_shabaton\n\nאו לשאול בקבוצת WhatsApp:\nhttps://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME"
 }
