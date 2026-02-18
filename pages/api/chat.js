@@ -834,7 +834,9 @@ function detectIntentField(message) {
 
   if (matchedFields.length === 0) return null;
   console.log(`✅ Intent: "${bestMatch.intent}" → fields: ${matchedFields.map(f => f.name).join(', ')} (score:${bestScore})`);
-  return matchedFields; // מחזיר מערך
+  // שמור את שם ה-intent על התחום הראשון לשימוש בכותרת
+  matchedFields[0] = { ...matchedFields[0], _intentLabel: bestMatch.intent };
+  return matchedFields;
 }
 
 function findInfoPageAnswer(message) {
@@ -918,7 +920,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v143_MULTI_INTENT_FIELDS');
+  console.log('🚀 VERSION: FEB_18_v144_MULTI_INTENT_SEARCH');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1018,21 +1020,24 @@ async function generateSmartResponse(message) {
 
     const results = await searchPages(message, region, studyField);
 
-    // אם יש תחומי intent נוספים — חפש גם בהם ומזג תוצאות
+    // אם יש תחומי intent נוספים — חפש לפי שם התחום (לא לפי השאלה המקורית)
     let allResults = [...results];
     for (const extraField of extraIntentFields) {
-      const extraResults = await searchPages(message, region, extraField);
-      // הוסף רק תוצאות חדשות (לפי URL)
-      const existingUrls = new Set(allResults.map(r => r.url || r.link));
+      const extraResults = await searchPages(extraField.name, region, extraField);
+      const existingUrls = new Set(allResults.map(r => r.url || r.link || r.pageUrl));
       extraResults.forEach(r => {
-        if (!existingUrls.has(r.url || r.link)) allResults.push(r);
+        if (!existingUrls.has(r.url || r.link || r.pageUrl)) allResults.push(r);
       });
     }
     const mergedResults = allResults;
-    console.log(`📊 ${results.length} results (+ ${allResults.length - results.length} from extra intent fields)`);
+    console.log(`📊 ${results.length} primary + ${allResults.length - results.length} extra = ${allResults.length} total`);
 
     if (mergedResults.length > 0) {
-      return formatResults(mergedResults, studyField, region);
+      // כשיש מספר תחומים מ-intent — השתמש בשם intent כותרת גנרית
+      const displayField = extraIntentFields.length > 0
+        ? { ...studyField, name: studyField._intentLabel || studyField.name }
+        : studyField;
+      return formatResults(mergedResults, displayField, region);
     }
 
     // ── Fallback: אין תוצאות ──
