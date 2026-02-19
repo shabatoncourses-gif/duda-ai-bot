@@ -750,11 +750,14 @@ function formatResults(results, studyField, region, query = '') {
 
   // ── זיהוי דפי קטגוריה לפי URL ──
   // דף קטגוריה אמיתי: 2 חלקי נתיב, slug אזורי ידוע, ושם הדף תואם שם תחום לימוד
-  const FIELD_NAMES_SET = new Set((STUDY_FIELDS || []).flatMap(f => [
-    f.name.toLowerCase(),
-    (f.slug || '').toLowerCase(),
-    (f.name || '').replace(/^(קורסי|לימודי|קורסים ב|קורסים ל)\s+/i, '').trim().toLowerCase()
-  ]).filter(Boolean));
+  // FIELD_NAMES_SET — כולל שמות מלאים, חלקים לפני/אחרי מקף, ו-slugs
+  const FIELD_NAMES_SET = new Set((STUDY_FIELDS || []).flatMap(f => {
+    const name = (f.name || '').toLowerCase();
+    const slug = (f.slug || '').toLowerCase();
+    const parts = name.split(/\s*[-–—]\s*/).map(p => p.trim()).filter(p => p.length > 2);
+    const stripped = name.replace(/^(קורסי|לימודי|קורסים ב|קורסים ל)\s+/i, '').trim();
+    return [name, slug, stripped, ...parts];
+  }).filter(Boolean));
 
   const isCategoryPage = (r) => {
     const url = (r.url || r.link || '');
@@ -763,18 +766,19 @@ function formatResults(results, studyField, region, query = '') {
     if (parts.length !== 2) return false;
     const firstPart = decodeURIComponent(parts[0]).toLowerCase();
     if (!(REGIONS || []).some(reg => reg.slug && firstPart === reg.slug.toLowerCase())) return false;
+
     const secondPart = decodeURIComponent(parts[1]).toLowerCase()
       .replace(/^(קורסי|לימודי|קורסים ב|קורסים ל)\s+/i, '').trim();
-    const title = (r.title || r.h1 || '').toLowerCase()
+    const titleRaw = (r.title || r.h1 || '').toLowerCase()
       .replace(/^(קורסי|לימודי|קורסים ב|קורסים ל)\s+/i, '').trim();
 
     // בדיקה ישירה
-    if (FIELD_NAMES_SET.has(secondPart) || FIELD_NAMES_SET.has(title)) return true;
+    if (FIELD_NAMES_SET.has(secondPart) || FIELD_NAMES_SET.has(titleRaw)) return true;
 
-    // בדיקה חלקית — "הוראה מתקנת - מותאמת" מכיל "הוראה מתקנת"
-    for (const fieldName of FIELD_NAMES_SET) {
-      if (secondPart.includes(fieldName) || fieldName.includes(secondPart)) return true;
-      if (title.includes(fieldName) || fieldName.includes(title)) return true;
+    // בדיקה: האם secondPart מכיל שם תחום מה-set (כולל חלקים)
+    for (const fn of FIELD_NAMES_SET) {
+      if (fn.length < 4) continue; // דלג על ערכים קצרים מדי
+      if (secondPart.includes(fn) || titleRaw.includes(fn)) return true;
     }
     return false;
   };
