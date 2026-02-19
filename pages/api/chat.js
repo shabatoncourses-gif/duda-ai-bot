@@ -1059,7 +1059,7 @@ function formatResults(results, studyField, region, query = '') {
   }
 
   // ── קישור למידה מרחוק — תמיד בסוף כשמבקשים מרחוק ──
-  const isOnlineQuery = (message || '').includes('מרחוק') || (message || '').includes('זום') || (message || '').includes('online');
+  const isOnlineQuery = (query || '').includes('מרחוק') || (query || '').includes('זום') || (query || '').toLowerCase().includes('online');
   if (isOnlineQuery) {
     const onlineUrl = `https://www.shabaton.online/results-all/${encodeURIComponent('קורסים בלמידה מרחוק')}`;
     response += `\n🌐 **כל הקורסים בלמידה מרחוק:** [לכל הקורסים](${onlineUrl})\n`;
