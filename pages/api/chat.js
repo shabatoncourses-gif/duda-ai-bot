@@ -1051,18 +1051,25 @@ function formatResults(results, studyField, region, query = '') {
 
   // ── דף קטגוריה ──
   const intentCategoryUrl = studyField?._intentCategoryUrl || null;
-  const categoryUrl = intentCategoryUrl || (!isIntentBased ? findCategoryUrlFromResults() : null);
+  const isOnlineQuery = (query || '').includes('מרחוק') || (query || '').includes('זום') || (query || '').toLowerCase().includes('online');
+
+  let categoryUrl;
+  if (isOnlineQuery) {
+    // למידה מרחוק — תמיד results-all עם שם התחום
+    categoryUrl = `https://www.shabaton.online/results-all/${encodeURIComponent(studyField?.slug || fieldName)}`;
+  } else {
+    categoryUrl = intentCategoryUrl || (!isIntentBased ? findCategoryUrlFromResults() : null);
+  }
+
   if (categoryUrl) {
     response += `\n🔍 **לכל הקורסים ב${fieldName}`;
-    if (region) response += ` ב${regionName}`;
+    if (!isOnlineQuery && region) response += ` ב${regionName}`;
     response += `:** [לכל הקורסים](${categoryUrl})\n`;
   }
 
-  // ── קישור למידה מרחוק — תמיד בסוף כשמבקשים מרחוק ──
-  const isOnlineQuery = (query || '').includes('מרחוק') || (query || '').includes('זום') || (query || '').toLowerCase().includes('online');
+  // ── קישור "כל הקורסים בלמידה מרחוק" — בסוף, תמיד כשמבקשים מרחוק ──
   if (isOnlineQuery) {
-    const onlineUrl = `https://www.shabaton.online/results-all/${encodeURIComponent('קורסים בלמידה מרחוק')}`;
-    response += `\n🌐 **כל הקורסים בלמידה מרחוק:** [לכל הקורסים](${onlineUrl})\n`;
+    response += `\n🌐 **כל הקורסים בלמידה מרחוק:** [לכל הקורסים](https://www.shabaton.online/results-all)\n`;
   }
 
   return response;
