@@ -248,13 +248,13 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
     return isBound(text[idx - 1]) && isBound(text[idx + t.length]);
   };
 
-  // STRICT: ביטוי מרובה מילים — חיפוש בכל השדות (כרצף!) אבל לא מילים בודדות
+  // STRICT: ביטוי מרובה מילים — title + description + headers בלבד
+  // ה-text מכיל תפריטי ניווט שמפרטים כל הקורסים → false positives
   const searchStrict = (term) => {
-    if (!term || !term.includes(' ')) return { found: false }; // רק ביטויים
+    if (!term || !term.includes(' ')) return { found: false };
     if (matches(titleLower, term)) return { found: true, location: 'title', score: 150 };
     if (matches(descLower, term)) return { found: true, location: 'description', score: 80 };
     if (matches(h2h3Lower, term)) return { found: true, location: 'headers', score: 60 };
-    if (matches(textLower, term)) return { found: true, location: 'text', score: 40 };
     return { found: false };
   };
 
