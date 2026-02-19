@@ -285,18 +285,21 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
     if (r.found) { console.log(`    [FIELD] name-part "${part}" in ${r.location} (+${r.score})`); return r; }
   }
 
-  // ── שלב 3: keywords — STRICT: רק ביטויים מרובי מילים ──
-  const tooGeneric = new Set(['למידה', 'לימוד', 'קורס', 'קורסים', 'השתלמות', 'תואר', 'חינוך', 'הוראה', 'טיפול', 'ניהול']);
-  const keywords = (studyField.keywords || []).filter(kw => {
-    if (!kw || nameParts.includes(kw) || kw === studyField.specificKeyword) return false;
-    if (tooGeneric.has(kw.toLowerCase())) return false;
-    if (strictMode) return isMultiWord(kw); // STRICT: רק ביטויים
-    return isMultiWord(kw) || kw.length > 8; // NORMAL: ביטוי או מילה ארוכה
-  });
+  // ── שלב 3: keywords — STRICT: רק שמות התחום בלבד (לא keywords כלליים!)
+  // בSTRICT MODE keywords כמו "חינוך מיוחד" מופיעים בדפים גנריים רבים → false positives
+  // בSTRICT MODE השלבים 1+2 (שם התחום) מספיקים
+  if (!strictMode) {
+    const tooGeneric = new Set(['למידה', 'לימוד', 'קורס', 'קורסים', 'השתלמות', 'תואר', 'חינוך', 'הוראה', 'טיפול', 'ניהול']);
+    const keywords = (studyField.keywords || []).filter(kw => {
+      if (!kw || nameParts.includes(kw) || kw === studyField.specificKeyword) return false;
+      if (tooGeneric.has(kw.toLowerCase())) return false;
+      return isMultiWord(kw) || kw.length > 8;
+    });
 
-  for (const kw of keywords) {
-    const r = search(kw);
-    if (r.found) { console.log(`    [FIELD] keyword "${kw}" in ${r.location} (+${r.score})`); return r; }
+    for (const kw of keywords) {
+      const r = searchNormal(kw);
+      if (r.found) { console.log(`    [FIELD] keyword "${kw}" in ${r.location} (+${r.score})`); return r; }
+    }
   }
 
   return { found: false, location: null, score: 0 };
@@ -758,12 +761,20 @@ function formatResults(results, studyField, region, query = '') {
     if (parts.length !== 2) return false;
     const firstPart = decodeURIComponent(parts[0]).toLowerCase();
     if (!(REGIONS || []).some(reg => reg.slug && firstPart === reg.slug.toLowerCase())) return false;
-    // בדוק שהחלק השני הוא שם תחום — אחרת זה דף מוסד
     const secondPart = decodeURIComponent(parts[1]).toLowerCase()
       .replace(/^(קורסי|לימודי|קורסים ב|קורסים ל)\s+/i, '').trim();
     const title = (r.title || r.h1 || '').toLowerCase()
       .replace(/^(קורסי|לימודי|קורסים ב|קורסים ל)\s+/i, '').trim();
-    return FIELD_NAMES_SET.has(secondPart) || FIELD_NAMES_SET.has(title);
+
+    // בדיקה ישירה
+    if (FIELD_NAMES_SET.has(secondPart) || FIELD_NAMES_SET.has(title)) return true;
+
+    // בדיקה חלקית — "הוראה מתקנת - מותאמת" מכיל "הוראה מתקנת"
+    for (const fieldName of FIELD_NAMES_SET) {
+      if (secondPart.includes(fieldName) || fieldName.includes(secondPart)) return true;
+      if (title.includes(fieldName) || fieldName.includes(title)) return true;
+    }
+    return false;
   };
 
   // ── URLs קבועים לתחומים מיוחדים ──
@@ -1039,6 +1050,13 @@ function formatResults(results, studyField, region, query = '') {
     response += `\n🔍 **לכל הקורסים ב${fieldName}`;
     if (region) response += ` ב${regionName}`;
     response += `:** [לכל הקורסים](${categoryUrl})\n`;
+  }
+
+  // ── קישור למידה מרחוק — תמיד בסוף כשמבקשים מרחוק ──
+  const isOnlineQuery = (message || '').includes('מרחוק') || (message || '').includes('זום') || (message || '').includes('online');
+  if (isOnlineQuery) {
+    const onlineUrl = `https://www.shabaton.online/results-all/${encodeURIComponent('קורסים בלמידה מרחוק')}`;
+    response += `\n🌐 **כל הקורסים בלמידה מרחוק:** [לכל הקורסים](${onlineUrl})\n`;
   }
 
   return response;
