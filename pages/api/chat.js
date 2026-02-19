@@ -274,14 +274,16 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
 
   // ── שלב 1: specificKeyword ──
   if (studyField.specificKeyword) {
-    const r = search(studyField.specificKeyword);
+    const r = strictMode
+      ? searchStrict(studyField.specificKeyword)
+      : searchNormal(studyField.specificKeyword);
     if (r.found) { console.log(`    [FIELD] "${studyField.specificKeyword}" in ${r.location} (+${r.score})`); return r; }
   }
 
-  // ── שלב 2: שם תחום וchלקים שלו (לפני מקף) ──
+  // ── שלב 2: שם תחום וחלקים שלו (לפני מקף) ──
   const nameParts = [studyField.name, ...studyField.name.split(/\s*[-–—]\s*/).map(p => p.trim())].filter(Boolean);
   for (const part of nameParts) {
-    const r = search(part);
+    const r = strictMode ? searchStrict(part) : searchNormal(part);
     if (r.found) { console.log(`    [FIELD] name-part "${part}" in ${r.location} (+${r.score})`); return r; }
   }
 
