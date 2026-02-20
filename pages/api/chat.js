@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_18_v169_NO_REGION_ASK
+// VERSION: FEB_19_v199_CITIES_CHECK
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -455,7 +455,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_18_v169_NO_REGION_ASK`);
+  console.log(`🚀 VERSION: FEB_19_v199_CITIES_CHECK`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1208,7 +1208,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_18_v169_NO_REGION_ASK');
+  console.log('🚀 VERSION: FEB_19_v199_CITIES_CHECK');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1416,9 +1416,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_18_v169_NO_REGION_ASK' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_19_v199_CITIES_CHECK' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_18_v169_NO_REGION_ASK' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_19_v199_CITIES_CHECK' });
   }
 }
