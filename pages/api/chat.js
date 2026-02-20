@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_20_v201_PHOTOTHERAPY
+// VERSION: FEB_20_v202_REQUIRED_KEYWORDS
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -258,6 +258,20 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
     return { found: false };
   };
 
+  // ── requiredKeyword: כשמוגדר, הדף חייב להכיל אחד מהביטויים ──
+  // (למשל "פוטותרפיה" — לא מספיק שיש "תרפיה", חייב להיות הביטוי הספציפי)
+  if (studyField.requiredKeywords?.length) {
+    const synonyms = studyField.requiredKeywords;
+    const found = synonyms.some(kw => search(kw).found);
+    if (!found) {
+      console.log(`    [REQUIRED] ❌ None of [${synonyms.join(', ')}] found → skip`);
+      return { found: false, location: null, score: 0 };
+    }
+    const matched = synonyms.find(kw => search(kw).found);
+    console.log(`    [REQUIRED] ✅ "${matched}" found`);
+    return search(matched);
+  }
+
   // ── שלב 1: specificKeyword ──
   if (studyField.specificKeyword) {
     const r = search(studyField.specificKeyword);
@@ -325,7 +339,8 @@ function detectStudyField(message) {
     const therapyField = STUDY_FIELDS.find(f => f.name.includes('תרפיה') || f.name.includes('טיפול'));
     if (therapyField) {
       console.log(`✅ Priority field: "${therapyField.name}" (phototherapy)`);
-      return [{ ...therapyField, specificKeyword: 'פוטותרפיה' }];
+      return [{ ...therapyField, specificKeyword: 'פוטותרפיה',
+        requiredKeywords: ['פוטותרפיה', 'טיפול בצילום', 'תרפיה בצילום', 'צילום טיפולי', 'צילום ככלי טיפולי'] }];
     }
   }
 
@@ -465,7 +480,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_20_v201_PHOTOTHERAPY`);
+  console.log(`🚀 VERSION: FEB_20_v202_REQUIRED_KEYWORDS`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1216,7 +1231,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_20_v201_PHOTOTHERAPY');
+  console.log('🚀 VERSION: FEB_20_v202_REQUIRED_KEYWORDS');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1424,9 +1439,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v201_PHOTOTHERAPY' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v202_REQUIRED_KEYWORDS' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v201_PHOTOTHERAPY' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v202_REQUIRED_KEYWORDS' });
   }
 }
