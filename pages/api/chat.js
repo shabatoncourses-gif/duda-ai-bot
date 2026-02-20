@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_19_v200_SYNTAX_FIX
+// VERSION: FEB_20_v201_PHOTOTHERAPY
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -319,6 +319,16 @@ function detectStudyField(message) {
   const lm = message.toLowerCase();
   const expanded = expandQuerySemantically(message);
 
+  // ── עדיפות עליונה: פוטותרפיה וטיפול בצילום — לפני זיהוי "צילום" ──
+  const isPhototherapy = /פוטותרפיה|טיפול בצילום|תרפיה בצילום|צילום טיפולי|צילום ככלי טיפולי/.test(lm);
+  if (isPhototherapy) {
+    const therapyField = STUDY_FIELDS.find(f => f.name.includes('תרפיה') || f.name.includes('טיפול'));
+    if (therapyField) {
+      console.log(`✅ Priority field: "${therapyField.name}" (phototherapy)`);
+      return [{ ...therapyField, specificKeyword: 'פוטותרפיה' }];
+    }
+  }
+
   // ── עדיפות עליונה: הוראה מתקנת/מותאמת — חייבת להיזהות לפני "אופק חדש" ──
   const isRemedial = /הוראה מתקנת|הוראה מותאמת|מתקנת|מותאמת/.test(lm) &&
                      !/כתיבה יוצרת|סיפורי חיים/.test(lm);
@@ -455,7 +465,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_19_v200_SYNTAX_FIX`);
+  console.log(`🚀 VERSION: FEB_20_v201_PHOTOTHERAPY`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1206,7 +1216,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_19_v200_SYNTAX_FIX');
+  console.log('🚀 VERSION: FEB_20_v201_PHOTOTHERAPY');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1414,9 +1424,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_19_v200_SYNTAX_FIX' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v201_PHOTOTHERAPY' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_19_v200_SYNTAX_FIX' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v201_PHOTOTHERAPY' });
   }
 }
