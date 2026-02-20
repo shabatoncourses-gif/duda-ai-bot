@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_19_v199_CITIES_CHECK
+// VERSION: FEB_19_v200_SYNTAX_FIX
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -455,7 +455,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_19_v199_CITIES_CHECK`);
+  console.log(`🚀 VERSION: FEB_19_v200_SYNTAX_FIX`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -952,9 +952,7 @@ function formatResults(results, studyField, region, query = '') {
   const nationalResults = results.filter(r => r.regionMatch === 'none');
   const otherRegionResults = results.filter(r => r.regionMatch === 'other');
 
-  // מילות אזור שסותרות את האזור המבוקש
   // מילות אזור סותרות — לפי שם האזור המבוקש
-  const regionName = region?.name || '';
   const getConflictingKeywords = (rName) => {
     const n = rName.toLowerCase();
     if (n.includes('מרכז') || n.includes('תל אביב')) return ['צפון', 'גליל', 'עמקים', 'חיפה', 'ירושלים', 'דרום', 'נגב', 'באר שבע', 'אילת', 'מסד', 'גליל תחתון', 'גליל עליון'];
@@ -1208,7 +1206,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_19_v199_CITIES_CHECK');
+  console.log('🚀 VERSION: FEB_19_v200_SYNTAX_FIX');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1416,9 +1414,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_19_v199_CITIES_CHECK' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_19_v200_SYNTAX_FIX' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_19_v199_CITIES_CHECK' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_19_v200_SYNTAX_FIX' });
   }
 }
