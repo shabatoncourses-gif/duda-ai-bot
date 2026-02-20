@@ -953,17 +953,23 @@ function formatResults(results, studyField, region, query = '') {
   const otherRegionResults = results.filter(r => r.regionMatch === 'other');
 
   // מילות אזור שסותרות את האזור המבוקש
-  const REGION_KEYWORDS = {
-    'results-merkaz':     ['צפון', 'גליל', 'עמקים', 'חיפה', 'ירושלים', 'דרום', 'נגב', 'באר שבע', 'אילת'],
-    'results-sharon':     ['צפון', 'גליל', 'עמקים', 'חיפה', 'ירושלים', 'דרום', 'נגב'],
-    'results-heifa':      ['ירושלים', 'דרום', 'נגב', 'באר שבע', 'תל אביב', 'מרכז'],
-    'results-zafon':      ['ירושלים', 'דרום', 'נגב', 'באר שבע', 'תל אביב', 'מרכז'],
-    'results-jerusalem':  ['צפון', 'גליל', 'חיפה', 'תל אביב', 'מרכז', 'דרום'],
-    'results-darom':      ['צפון', 'גליל', 'חיפה', 'תל אביב', 'מרכז', 'ירושלים'],
+  // מילות אזור סותרות — לפי שם האזור המבוקש
+  const regionName = region?.name || '';
+  const getConflictingKeywords = (rName) => {
+    const n = rName.toLowerCase();
+    if (n.includes('מרכז') || n.includes('תל אביב')) return ['צפון', 'גליל', 'עמקים', 'חיפה', 'ירושלים', 'דרום', 'נגב', 'באר שבע', 'אילת', 'מסד', 'גליל תחתון', 'גליל עליון'];
+    if (n.includes('שרון'))    return ['צפון', 'גליל', 'עמקים', 'חיפה', 'ירושלים', 'דרום', 'נגב', 'באר שבע'];
+    if (n.includes('חיפה'))    return ['ירושלים', 'דרום', 'נגב', 'באר שבע', 'תל אביב', 'מרכז'];
+    if (n.includes('צפון'))    return ['ירושלים', 'דרום', 'נגב', 'באר שבע', 'תל אביב', 'מרכז'];
+    if (n.includes('ירושלים')) return ['צפון', 'גליל', 'חיפה', 'תל אביב', 'מרכז', 'דרום', 'באר שבע'];
+    if (n.includes('דרום') || n.includes('שפלה')) return ['צפון', 'גליל', 'חיפה', 'תל אביב', 'מרכז', 'ירושלים'];
+    return [];
   };
+  const conflictingKeywords = region ? getConflictingKeywords(regionName) : [];
+  // ערים של האזור המבוקש — דף national שמזכיר עיר של האזור → עדיפות גבוהה
+  const regionCities = (region?.cities || []).map(c => c.toLowerCase());
+  console.log(`  🗺️ Region: "${regionName}" | conflicting: [${conflictingKeywords.join(', ')}]`);
 
-  // סנן דפי "national" שמציינים במפורש אזור סותר ב-title
-  const conflictingKeywords = region ? (REGION_KEYWORDS[region.slug] || []) : [];
   const hasConflictingRegion = (r) => {
     if (!conflictingKeywords.length) return false;
     const searchText = [
@@ -971,6 +977,9 @@ function formatResults(results, studyField, region, query = '') {
       r.h1 || '',
       ...(r.h2 || [])
     ].join(' ').toLowerCase();
+    // אם הדף מזכיר עיר של האזור המבוקש — לא לסנן
+    if (regionCities.some(city => city.length > 3 && searchText.includes(city))) return false;
+    // אחרת — בדוק סתירה
     return conflictingKeywords.some(kw => {
       const idx = searchText.indexOf(kw.toLowerCase());
       if (idx === -1) return false;
