@@ -233,33 +233,23 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
   const titleLower = (page.title || page.h1 || '').toLowerCase();
   const descLower = (page.description || '').toLowerCase();
   const h2h3Lower = ((page.h2 || []).concat(page.h3 || []).join(' ')).toLowerCase();
+  // text = תוכן הדף: שמות קורסים, תיאורים, רשימות — ללא חיתוך
   const textLower = (page.text || '').toLowerCase();
 
-  const isMultiWord = (term) => term && term.trim().split(/\s+/).length >= 2;
-
-  // בדיקת גבולות מילה
+  // בדיקת גבולות מילה + phrase match
   const matches = (text, term) => {
     const t = term.toLowerCase().trim();
     if (!t || t.length < 2 || !text.includes(t)) return false;
-    if (t.includes(' ')) return true; // ביטוי — חיפוש ישיר
-    // מילה בודדת — גבולות
+    if (t.includes(' ')) return true; // ביטוי — חייב להיות כרצף
+    // מילה בודדת — גבולות מילה
     const idx = text.indexOf(t);
     const isBound = (c) => !c || /[\s,.\-\/()[\]"'!?:;]/.test(c);
     return isBound(text[idx - 1]) && isBound(text[idx + t.length]);
   };
 
-  // STRICT: ביטוי מרובה מילים — title + description + headers בלבד
-  // ה-text מכיל תפריטי ניווט שמפרטים כל הקורסים → false positives
-  const searchStrict = (term) => {
-    if (!term || !term.includes(' ')) return { found: false };
-    if (matches(titleLower, term)) return { found: true, location: 'title', score: 150 };
-    if (matches(descLower, term)) return { found: true, location: 'description', score: 80 };
-    if (matches(h2h3Lower, term)) return { found: true, location: 'headers', score: 60 };
-    return { found: false };
-  };
-
-  // NORMAL: title + desc + headers + text
-  const searchNormal = (term) => {
+  // חיפוש בכל השדות — title / desc / h2h3 / text
+  const search = (term) => {
+    if (!term) return { found: false };
     if (matches(titleLower, term)) return { found: true, location: 'title', score: 150 };
     if (matches(descLower, term)) return { found: true, location: 'description', score: 80 };
     if (matches(h2h3Lower, term)) return { found: true, location: 'headers', score: 60 };
@@ -268,40 +258,29 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
     return { found: false };
   };
 
-  // האם STRICT MODE?
-  const strictMode = isMultiWord(studyField.specificKeyword) || isMultiWord(studyField.name);
-  const search = (term) => strictMode ? searchStrict(term) : searchNormal(term);
-
   // ── שלב 1: specificKeyword ──
   if (studyField.specificKeyword) {
-    const r = strictMode
-      ? searchStrict(studyField.specificKeyword)
-      : searchNormal(studyField.specificKeyword);
+    const r = search(studyField.specificKeyword);
     if (r.found) { console.log(`    [FIELD] "${studyField.specificKeyword}" in ${r.location} (+${r.score})`); return r; }
   }
 
   // ── שלב 2: שם תחום וחלקים שלו (לפני מקף) ──
   const nameParts = [studyField.name, ...studyField.name.split(/\s*[-–—]\s*/).map(p => p.trim())].filter(Boolean);
   for (const part of nameParts) {
-    const r = strictMode ? searchStrict(part) : searchNormal(part);
+    const r = search(part);
     if (r.found) { console.log(`    [FIELD] name-part "${part}" in ${r.location} (+${r.score})`); return r; }
   }
 
-  // ── שלב 3: keywords — STRICT: רק שמות התחום בלבד (לא keywords כלליים!)
-  // בSTRICT MODE keywords כמו "חינוך מיוחד" מופיעים בדפים גנריים רבים → false positives
-  // בSTRICT MODE השלבים 1+2 (שם התחום) מספיקים
-  if (!strictMode) {
-    const tooGeneric = new Set(['למידה', 'לימוד', 'קורס', 'קורסים', 'השתלמות', 'תואר', 'חינוך', 'הוראה', 'טיפול', 'ניהול']);
-    const keywords = (studyField.keywords || []).filter(kw => {
-      if (!kw || nameParts.includes(kw) || kw === studyField.specificKeyword) return false;
-      if (tooGeneric.has(kw.toLowerCase())) return false;
-      return isMultiWord(kw) || kw.length > 8;
-    });
-
-    for (const kw of keywords) {
-      const r = searchNormal(kw);
-      if (r.found) { console.log(`    [FIELD] keyword "${kw}" in ${r.location} (+${r.score})`); return r; }
-    }
+  // ── שלב 3: keywords ──
+  const tooGeneric = new Set(['למידה', 'לימוד', 'קורס', 'קורסים', 'השתלמות', 'תואר', 'חינוך', 'הוראה', 'טיפול', 'ניהול']);
+  const keywords = (studyField.keywords || []).filter(kw => {
+    if (!kw || nameParts.includes(kw) || kw === studyField.specificKeyword) return false;
+    if (tooGeneric.has(kw.toLowerCase())) return false;
+    return kw.includes(' ') || kw.length > 8;
+  });
+  for (const kw of keywords) {
+    const r = search(kw);
+    if (r.found) { console.log(`    [FIELD] keyword "${kw}" in ${r.location} (+${r.score})`); return r; }
   }
 
   return { found: false, location: null, score: 0 };
