@@ -952,9 +952,36 @@ function formatResults(results, studyField, region, query = '') {
   const nationalResults = results.filter(r => r.regionMatch === 'none');
   const otherRegionResults = results.filter(r => r.regionMatch === 'other');
 
+  // מילות אזור שסותרות את האזור המבוקש
+  const REGION_KEYWORDS = {
+    'results-merkaz':     ['צפון', 'גליל', 'עמקים', 'חיפה', 'ירושלים', 'דרום', 'נגב', 'באר שבע', 'אילת'],
+    'results-sharon':     ['צפון', 'גליל', 'עמקים', 'חיפה', 'ירושלים', 'דרום', 'נגב'],
+    'results-heifa':      ['ירושלים', 'דרום', 'נגב', 'באר שבע', 'תל אביב', 'מרכז'],
+    'results-zafon':      ['ירושלים', 'דרום', 'נגב', 'באר שבע', 'תל אביב', 'מרכז'],
+    'results-jerusalem':  ['צפון', 'גליל', 'חיפה', 'תל אביב', 'מרכז', 'דרום'],
+    'results-darom':      ['צפון', 'גליל', 'חיפה', 'תל אביב', 'מרכז', 'ירושלים'],
+  };
+
+  // סנן דפי "national" שמציינים במפורש אזור סותר ב-title
+  const conflictingKeywords = region ? (REGION_KEYWORDS[region.slug] || []) : [];
+  const hasConflictingRegion = (r) => {
+    if (!conflictingKeywords.length) return false;
+    const searchText = [
+      r.title || '',
+      r.h1 || '',
+      ...(r.h2 || [])
+    ].join(' ').toLowerCase();
+    return conflictingKeywords.some(kw => {
+      const idx = searchText.indexOf(kw.toLowerCase());
+      if (idx === -1) return false;
+      const isBound = (c) => !c || /[\s,.\-\/()[\]"'!?:;]/.test(c);
+      return isBound(searchText[idx - 1]) && isBound(searchText[idx + kw.length]);
+    });
+  };
+
   let allInstitutions = [
     ...exactResults.filter(r => !isCategoryPage(r) && isRelevantInstitution(r)),
-    ...nationalResults.filter(r => !isCategoryPage(r) && isRelevantInstitution(r))
+    ...nationalResults.filter(r => !isCategoryPage(r) && !hasConflictingRegion(r) && isRelevantInstitution(r))
   ];
   const onlineCount = nationalResults.filter(r => (r.url||r.link||'').includes('results-all')).length;
   console.log(`  📊 exact:${exactResults.length} national:${nationalResults.length} (online:${onlineCount}) other:${otherRegionResults.length}`);
