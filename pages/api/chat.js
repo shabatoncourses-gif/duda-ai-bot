@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_20_v207_MA_AND_SPEC
+// VERSION: FEB_20_v208_MA_AND_ALL
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -262,17 +262,17 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
   if (studyField.requiredKeywords?.length) {
     const synonyms = studyField.requiredKeywords;
 
-    // מצב תואר שני: הדף חייב להכיל "תואר שני" + אחת ממילות ההתמחות
+    // מצב תואר שני: הדף חייב להכיל "תואר שני" + כל מילות ההתמחות
     if (studyField.maSpecialization) {
       const hasMaster = search('תואר שני').found;
-      const hasSpec = synonyms.some(kw => search(kw).found);
-      if (!hasMaster || !hasSpec) {
-        const missing = !hasMaster ? 'תואר שני' : `[${synonyms.join('/')}]`;
+      const hasAllSpec = synonyms.every(kw => search(kw).found); // AND — כל המילות
+      if (!hasMaster || !hasAllSpec) {
+        const missing = !hasMaster ? 'תואר שני' : `כל [${synonyms.join('+')}]`;
         console.log(`    [MA] ❌ Missing "${missing}" → skip`);
         return { found: false, location: null, score: 0 };
       }
       const matched = synonyms.find(kw => search(kw).found);
-      console.log(`    [MA] ✅ "תואר שני" + "${matched}" found`);
+      console.log(`    [MA] ✅ "תואר שני" + all [${synonyms.join('+')}] found`);
       return search(matched);
     }
 
@@ -534,7 +534,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_20_v207_MA_AND_SPEC`);
+  console.log(`🚀 VERSION: FEB_20_v208_MA_AND_ALL`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -853,6 +853,7 @@ function formatResults(results, studyField, region, query = '') {
     'עוז לתמורה': OFEK_CHADASH_URL,
     'אמנות ואומנויות': ART_URL,
     'אמנות': ART_URL,
+    'תואר שני': 'https://www.shabaton.online/results-all/לימודי תואר שני',
   };
 
   const findCategoryUrlFromResults = () => {
@@ -1295,7 +1296,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_20_v207_MA_AND_SPEC');
+  console.log('🚀 VERSION: FEB_20_v208_MA_AND_ALL');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1503,9 +1504,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v207_MA_AND_SPEC' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v208_MA_AND_ALL' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v207_MA_AND_SPEC' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v208_MA_AND_ALL' });
   }
 }
