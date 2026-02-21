@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_21_v222_MA_TEXT_SCORE
+// VERSION: FEB_21_v223_MA_CAT_FILTER
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -279,10 +279,20 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
       const maRegionPatterns = [
         /תואר שני.*בחיפה/, /תואר שני.*בצפון/, /תואר שני.*במרכז/, /תואר שני.*בשרון/,
         /תואר שני.*בירושלים/, /תואר שני.*בדרום/, /תואר שני.*בשפלה/,
-        /^לימודי תואר שני$/, /^אקדמי - תואר שני$/, /^תואר שני$/
+        /^לימודי תואר שני/, /^אקדמי - תואר שני/, /^תואר שני$/,
+        /^תואר שני בחיפה/, /^תואר שני בצפון/, /^תואר שני בדרום/,
+        /^תואר שני באזור/, /^תואר שני ב[א-ת]+ וב/,
+        // דפי קטגוריה של תחום (ללא שם מוסד) — כותרת קצרה ללא מקף
+        /^[א-ת ]{3,20}ומדעים/, /^[א-ת ]{3,20}ומדעים\s/,
       ];
       if (maRegionPatterns.some(p => p.test(titleLower))) {
         console.log(`    [MA] ❌ MA category page → skip: "${page.title}"`);
+        return { found: false, location: null, score: 0 };
+      }
+      // דפי תחום כלליים — כותרת ב-2 מילים בלבד (כמו "מתמטיקה ומדעים")
+      const titleWords = titleLower.trim().split(/\s+/);
+      if (titleWords.length <= 3 && !titleLower.includes('-') && !titleLower.includes('מכללת') && !titleLower.includes('אוניברסיטת')) {
+        console.log(`    [MA] ❌ Short generic title → skip: "${page.title}"`);
         return { found: false, location: null, score: 0 };
       }
 
@@ -599,7 +609,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_21_v222_MA_TEXT_SCORE`);
+  console.log(`🚀 VERSION: FEB_21_v223_MA_CAT_FILTER`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1475,7 +1485,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_21_v222_MA_TEXT_SCORE');
+  console.log('🚀 VERSION: FEB_21_v223_MA_CAT_FILTER');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1690,9 +1700,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v222_MA_TEXT_SCORE' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v223_MA_CAT_FILTER' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v222_MA_TEXT_SCORE' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v223_MA_CAT_FILTER' });
   }
 }
