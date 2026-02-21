@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_20_v211_MA_HE_PREFIX
+// VERSION: FEB_21_v213_MIN_SCORE
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -263,18 +263,40 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
     const synonyms = studyField.requiredKeywords;
 
     // מצב תואר שני: הדף חייב להכיל "תואר שני" + צירוף ההתמחות (כביטוי שלם)
+    // ההתמחות חייבת להיות בkותרת/תיאור/h2 בלבד (לא text — רועש מדי)
     if (studyField.maSpecialization) {
-      const hasMaster = search('תואר שני').found;
-      // בדוק כל גרסה של הצירוף (עם/ללא גרשיים)
-      const hasSpec = synonyms.some(kw => search(kw).found);
-      if (!hasMaster || !hasSpec) {
-        const missing = !hasMaster ? '"תואר שני"' : `"${synonyms[0]}"`;
-        console.log(`    [MA] ❌ Missing ${missing} → skip: "${page.title}"`);
+      // (1) בדוק שזה לא דף קטגוריה של תואר שני לפי כותרת
+      const maRegionPatterns = [
+        /תואר שני.*בחיפה/, /תואר שני.*בצפון/, /תואר שני.*במרכז/, /תואר שני.*בשרון/,
+        /תואר שני.*בירושלים/, /תואר שני.*בדרום/, /תואר שני.*בשפלה/,
+        /^לימודי תואר שני$/, /^אקדמי - תואר שני$/, /^תואר שני$/
+      ];
+      if (maRegionPatterns.some(p => p.test(titleLower))) {
+        console.log(`    [MA] ❌ MA category page → skip: "${page.title}"`);
         return { found: false, location: null, score: 0 };
       }
-      const matched = synonyms.find(kw => search(kw).found);
-      console.log(`    [MA] ✅ "תואר שני" + "${matched}" found`);
-      return search('תואר שני'); // החזר score של תואר שני
+
+      // (2) "תואר שני" חייב להיות בדף (בכל שדה)
+      const hasMaster = search('תואר שני').found;
+      if (!hasMaster) {
+        console.log(`    [MA] ❌ No "תואר שני" → skip: "${page.title}"`);
+        return { found: false, location: null, score: 0 };
+      }
+
+      // (3) הצירוף חייב להיות ב-title/desc/h2 בלבד (לא text)
+      const searchNoText = (term) => {
+        if (!term) return false;
+        return matches(titleLower, term) || matches(descLower, term) || matches(h2h3Lower, term);
+      };
+      const hasSpec = synonyms.some(kw => searchNoText(kw));
+      if (!hasSpec) {
+        console.log(`    [MA] ❌ Spec "${synonyms[0]}" not in title/desc/h2 → skip: "${page.title}"`);
+        return { found: false, location: null, score: 0 };
+      }
+
+      const matched = synonyms.find(kw => searchNoText(kw));
+      console.log(`    [MA] ✅ "תואר שני" + "${matched}" in title/desc/h2`);
+      return search('תואר שני');
     }
 
     // מצב רגיל: מספיק אחד מהביטויים
@@ -539,7 +561,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_20_v211_MA_HE_PREFIX`);
+  console.log(`🚀 VERSION: FEB_21_v213_MIN_SCORE`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -578,6 +600,21 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
         console.log(`    [FIELD] ❌ Not found`);
         continue;
       }
+
+      // ── ציון מינימלי לפי סוג השאילתה ──
+      // title=150, desc=80, h2h3=60, text=40
+      const minScore = (() => {
+        if (studyField.maSpecialization) return 80;        // תואר שני — חייב בכותרת/תיאור
+        if (studyField.requiredKeywords?.length) return 60; // צירוף ספציפי (תרפיה וכו') — לפחות h2
+        if (studyField.specificKeyword?.includes(' ')) return 60; // צירוף רב-מילי — לא רק text
+        return 40; // ברירת מחדל — text מספיק
+      })();
+
+      if (fieldMatch.score < minScore) {
+        console.log(`    [SCORE] ❌ Score ${fieldMatch.score} < min ${minScore} (${fieldMatch.location}) → skip: "${cleanTitle}"`);
+        continue;
+      }
+      console.log(`    [SCORE] ✅ Score ${fieldMatch.score} >= min ${minScore} (${fieldMatch.location})`);
 
       // ── שלב 2: בדיקת אזור לפי URL ──
       let regionScore = 0;
@@ -1301,7 +1338,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_20_v211_MA_HE_PREFIX');
+  console.log('🚀 VERSION: FEB_21_v213_MIN_SCORE');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1515,9 +1552,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v211_MA_HE_PREFIX' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v213_MIN_SCORE' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v211_MA_HE_PREFIX' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v213_MIN_SCORE' });
   }
 }
