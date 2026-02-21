@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_21_v216_MA_PREP_VARIANTS
+// VERSION: FEB_21_v217_INFO_QUESTION
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -578,7 +578,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_21_v216_MA_PREP_VARIANTS`);
+  console.log(`🚀 VERSION: FEB_21_v217_INFO_QUESTION`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1332,6 +1332,7 @@ function findInfoPageAnswer(message) {
     'חצי שבתון': ['חצי', 'שנה', 'שנת שבתון מלאה', 'כמה זמן'],
     'מוסדות מאושרים': ['אילו מוסדות', 'מוסד מוכר', 'מוסד מאושר', 'איפה ללמוד'],
     'חובות לימודים': ['כמה שעות', 'שעות לימוד', 'חייב ללמוד', 'מינימום שעות'],
+    'תוכנית לימודים': ['בונים תוכנית', 'בניית תוכנית', 'תכנית לימודים', 'תכנית שבתון', 'תוכנית שבתון', 'אישור תוכנית', 'לאשר תוכנית'],
     'לימודים בחו"ל': ['חו"ל', 'לימוד בחוץ לארץ', 'אוניברסיטה בחו"ל'],
   };
 
@@ -1392,7 +1393,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_21_v216_MA_PREP_VARIANTS');
+  console.log('🚀 VERSION: FEB_21_v217_INFO_QUESTION');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1422,7 +1423,8 @@ async function generateSmartResponse(message) {
   }
 
   // ── דפי מידע על שנת שבתון ── רק אם זו שאלת מידע, לא חיפוש קורסים
-  const isCourseQuery = /קורס|לימוד|השתלמות|תואר|מכללה|לימודים/.test(message);
+  const isInfoQuestion = /^(איך|כיצד|מה|האם|מתי|כמה|מי|למה|מדוע|מה זה|הסבר|ספר)/.test(message.trim());
+  const isCourseQuery = !isInfoQuestion && /קורס|לימוד|השתלמות|תואר|מכללה|לימודים/.test(message);
   if (!isCourseQuery) {
     const infoAnswer = findInfoPageAnswer(message);
     if (infoAnswer) { console.log('✅ Info page answer'); return infoAnswer; }
@@ -1606,9 +1608,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v216_MA_PREP_VARIANTS' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v217_INFO_QUESTION' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v216_MA_PREP_VARIANTS' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v217_INFO_QUESTION' });
   }
 }
