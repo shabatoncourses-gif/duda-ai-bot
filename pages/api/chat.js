@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_21_v214_MA_BLOCKED
+// VERSION: FEB_21_v215_MA_HEADER
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -561,7 +561,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_21_v214_MA_BLOCKED`);
+  console.log(`🚀 VERSION: FEB_21_v215_MA_HEADER`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1197,11 +1197,19 @@ function formatResults(results, studyField, region, query = '') {
   if (specificInstitutions.length === 0 && exactResults.length === 0 && nationalResults.length === 0) return '';
 
   const isIntentBased = !!studyField?._intentLabel;
-  // כותרת: עבור intent-based — שם התחום הראשון (לא שם ה-intent)
   const displayTitle = isIntentBased ? fieldName : fieldName;
   let response = ``;
-  if (region) response += `קורסים ב${displayTitle} ב${regionName}:\n\n`;
-  else response += `קורסים ב${displayTitle}:\n\n`;
+
+  // כותרת מודגשת
+  if (studyField?.maSpecialization && studyField?.specificKeyword) {
+    // תואר שני עם התמחות — כותרת ספציפית
+    const maTitle = studyField.specificKeyword.replace(/^תואר שני ב/, 'תואר שני ב');
+    response += `**${maTitle} ניתן למצוא במוסדות הבאים - פנו ליועצי הלימודים:**\n\n`;
+  } else if (region) {
+    response += `**קורסים ב${displayTitle} ב${regionName}:**\n\n`;
+  } else {
+    response += `**קורסים ב${displayTitle}:**\n\n`;
+  }
 
   for (const result of specificInstitutions) {
     let url = result.url || result.link;
@@ -1367,7 +1375,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_21_v214_MA_BLOCKED');
+  console.log('🚀 VERSION: FEB_21_v215_MA_HEADER');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1581,9 +1589,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v214_MA_BLOCKED' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v215_MA_HEADER' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v214_MA_BLOCKED' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v215_MA_HEADER' });
   }
 }
