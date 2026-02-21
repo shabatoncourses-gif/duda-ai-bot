@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_20_v202_REQUIRED_KEYWORDS
+// VERSION: FEB_20_v205_ONLINE_SYNONYMS
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -333,14 +333,36 @@ function detectStudyField(message) {
   const lm = message.toLowerCase();
   const expanded = expandQuerySemantically(message);
 
-  // ── עדיפות עליונה: פוטותרפיה וטיפול בצילום — לפני זיהוי "צילום" ──
-  const isPhototherapy = /פוטותרפיה|טיפול בצילום|תרפיה בצילום|צילום טיפולי|צילום ככלי טיפולי/.test(lm);
-  if (isPhototherapy) {
+  // ── עדיפות עליונה: צמדי מילים של תרפיה/טיפול ──
+  // כל אחד מהצמדים מחייב חיפוש ספציפי — "טיפול" לבד לא מספיק
+  const THERAPY_CLUSTERS = [
+    { triggers: ['פוטותרפיה', 'טיפול בצילום', 'תרפיה בצילום', 'צילום טיפולי', 'צילום ככלי טיפולי'],
+      requiredKeywords: ['פוטותרפיה', 'טיפול בצילום', 'תרפיה בצילום', 'צילום טיפולי', 'צילום ככלי טיפולי'] },
+    { triggers: ['טיפול באמנות', 'טיפול באומנות', 'תרפיה באמנות', 'תרפיה באומנות', 'אמנות טיפולית'],
+      requiredKeywords: ['טיפול באמנות', 'טיפול באומנות', 'תרפיה באמנות', 'תרפיה באומנות', 'אמנות טיפולית'] },
+    { triggers: ['ביבליותרפיה', 'טיפול בספרות', 'ספרות טיפולית'],
+      requiredKeywords: ['ביבליותרפיה', 'טיפול בספרות', 'ספרות טיפולית'] },
+    { triggers: ['טיפול בבעלי חיים', 'טיפול בכלבים', 'טיפול עם בעלי חיים'],
+      requiredKeywords: ['טיפול בבעלי חיים', 'טיפול בכלבים', 'טיפול עם בעלי חיים'] },
+    { triggers: ['ריפוי בעיסוק', 'occupational therapy'],
+      requiredKeywords: ['ריפוי בעיסוק', 'occupational therapy'] },
+    { triggers: ['קלינאות תקשורת', 'speech therapy'],
+      requiredKeywords: ['קלינאות תקשורת', 'speech therapy'] },
+    { triggers: ['טיפול דיאדי'],
+      requiredKeywords: ['טיפול דיאדי'] },
+    { triggers: ['גינון טיפולי', 'הורטיתרפיה'],
+      requiredKeywords: ['גינון טיפולי', 'הורטיתרפיה'] },
+  ];
+
+  const matchedCluster = THERAPY_CLUSTERS.find(c => c.triggers.some(t => lm.includes(t)));
+  if (matchedCluster) {
     const therapyField = STUDY_FIELDS.find(f => f.name.includes('תרפיה') || f.name.includes('טיפול'));
     if (therapyField) {
-      console.log(`✅ Priority field: "${therapyField.name}" (phototherapy)`);
-      return [{ ...therapyField, specificKeyword: 'פוטותרפיה',
-        requiredKeywords: ['פוטותרפיה', 'טיפול בצילום', 'תרפיה בצילום', 'צילום טיפולי', 'צילום ככלי טיפולי'] }];
+      const matchedTrigger = matchedCluster.triggers.find(t => lm.includes(t));
+      console.log(`✅ Priority field: "${therapyField.name}" (therapy cluster: "${matchedTrigger}")`);
+      return [{ ...therapyField,
+        specificKeyword: matchedTrigger,
+        requiredKeywords: matchedCluster.requiredKeywords }];
     }
   }
 
@@ -480,7 +502,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_20_v202_REQUIRED_KEYWORDS`);
+  console.log(`🚀 VERSION: FEB_20_v205_ONLINE_SYNONYMS`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1093,7 +1115,17 @@ function formatResults(results, studyField, region, query = '') {
 
   // ── דף קטגוריה ──
   const intentCategoryUrl = studyField?._intentCategoryUrl || null;
-  const isOnlineQuery = (query || '').includes('מרחוק') || (query || '').includes('זום') || (query || '').toLowerCase().includes('online');
+  const onlineSynonyms = [
+    'מרחוק', 'למידה מרחוק', 'למידה מהבית',
+    'זום', 'zoom', 'בזום', 'in zoom', 'by zoom',
+    'אונליין', 'online',
+    'מקוון', 'מתוקשב', 'מתוקשבים',
+    'וירטואלי',
+    'distance learning', 'e-learning',
+    'א-סינכרוני', 'אסינכרוני', 'א-סינכרוניים', 'סינכרוני',
+    'דיגיטלי'
+  ];
+  const isOnlineQuery = onlineSynonyms.some(s => (query || '').toLowerCase().includes(s));
 
   let categoryUrl;
   if (isOnlineQuery) {
@@ -1231,7 +1263,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_20_v202_REQUIRED_KEYWORDS');
+  console.log('🚀 VERSION: FEB_20_v205_ONLINE_SYNONYMS');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1439,9 +1471,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v202_REQUIRED_KEYWORDS' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v205_ONLINE_SYNONYMS' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v202_REQUIRED_KEYWORDS' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v205_ONLINE_SYNONYMS' });
   }
 }
