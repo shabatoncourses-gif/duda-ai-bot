@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_20_v208_MA_AND_ALL
+// VERSION: FEB_20_v209_MA_NORMALIZE
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -265,7 +265,14 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
     // מצב תואר שני: הדף חייב להכיל "תואר שני" + כל מילות ההתמחות
     if (studyField.maSpecialization) {
       const hasMaster = search('תואר שני').found;
-      const hasAllSpec = synonyms.every(kw => search(kw).found); // AND — כל המילות
+      // נרמול גרשיים — "תנ"ך" ↔ "תנך"
+      const normalize = (s) => s.replace(/['"״"]/g, '').trim();
+      const hasAllSpec = synonyms.every(kw => {
+        if (search(kw).found) return true;
+        // נסה ללא גרשיים
+        const norm = normalize(kw);
+        return norm !== kw && matches(titleLower + ' ' + descLower + ' ' + textLower, norm);
+      });
       if (!hasMaster || !hasAllSpec) {
         const missing = !hasMaster ? 'תואר שני' : `כל [${synonyms.join('+')}]`;
         console.log(`    [MA] ❌ Missing "${missing}" → skip`);
@@ -273,7 +280,7 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
       }
       const matched = synonyms.find(kw => search(kw).found);
       console.log(`    [MA] ✅ "תואר שני" + all [${synonyms.join('+')}] found`);
-      return search(matched);
+      return search(matched || synonyms[0]);
     }
 
     // מצב רגיל: מספיק אחד מהביטויים
@@ -534,7 +541,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_20_v208_MA_AND_ALL`);
+  console.log(`🚀 VERSION: FEB_20_v209_MA_NORMALIZE`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1296,7 +1303,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_20_v208_MA_AND_ALL');
+  console.log('🚀 VERSION: FEB_20_v209_MA_NORMALIZE');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1452,12 +1459,18 @@ async function generateSmartResponse(message) {
     if (fieldName) response += ` ל${fieldName}`;
     response += `.\n\n`;
 
-    // קישור לדף קטגוריה של האזור - תמיד
-    const categoryUrl = buildCategoryUrl(region, studyField);
+    // קישור לדף קטגוריה — עם תמיכה ב-FIXED_CATEGORY_URLS
+    const fixedUrls = {
+      'תואר שני': 'https://www.shabaton.online/results-all/לימודי תואר שני',
+      'אמנות ואומנויות': 'https://www.shabaton.online/results-all/קורסי אמנות ואומנויות',
+      'אופק חדש': 'https://www.shabaton.online/results-all/קורסי אופק חדש - עוז לתמורה',
+    };
+    const fixedKey = Object.keys(fixedUrls).find(k => fieldName.includes(k));
+    const categoryUrl = fixedKey ? fixedUrls[fixedKey] : buildCategoryUrl(region, studyField);
     if (categoryUrl) {
       response += `🔍 **חפש עוד אפשרויות ב${fieldName}`;
       if (regionName) response += ` ב${regionName}`;
-      response += `:**\n[לדף הקטגוריה](${categoryUrl})\n\n`;
+      response += `:** [לכל הקורסים](${categoryUrl})\n\n`;
     }
 
     // למידה מרחוק כאלטרנטיבה
@@ -1504,9 +1517,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v208_MA_AND_ALL' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v209_MA_NORMALIZE' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v208_MA_AND_ALL' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v209_MA_NORMALIZE' });
   }
 }
