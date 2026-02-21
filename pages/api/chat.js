@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_21_v218_DEDUP_FIX
+// VERSION: FEB_21_v219_SPECIFIC_REQUIRED
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -315,6 +315,14 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
   if (studyField.specificKeyword) {
     const r = search(studyField.specificKeyword);
     if (r.found) { console.log(`    [FIELD] "${studyField.specificKeyword}" in ${r.location} (+${r.score})`); return r; }
+
+    // אם specificKeyword הוא מונח ספציפי (לא שם התחום עצמו) — הדף חייב להכיל אותו
+    const isSpecificTerm = studyField.specificKeyword !== studyField.name &&
+      !studyField.name.toLowerCase().includes(studyField.specificKeyword.toLowerCase());
+    if (isSpecificTerm) {
+      console.log(`    [FIELD] ❌ Specific term "${studyField.specificKeyword}" not found → skip`);
+      return { found: false, location: null, score: 0 };
+    }
   }
 
   // ── שלב 2: שם תחום וחלקים שלו (לפני מקף) ──
@@ -579,7 +587,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_21_v218_DEDUP_FIX`);
+  console.log(`🚀 VERSION: FEB_21_v219_SPECIFIC_REQUIRED`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1399,7 +1407,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_21_v218_DEDUP_FIX');
+  console.log('🚀 VERSION: FEB_21_v219_SPECIFIC_REQUIRED');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1614,9 +1622,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v218_DEDUP_FIX' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v219_SPECIFIC_REQUIRED' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v218_DEDUP_FIX' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v219_SPECIFIC_REQUIRED' });
   }
 }
