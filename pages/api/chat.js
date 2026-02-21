@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_20_v209_MA_NORMALIZE
+// VERSION: FEB_20_v211_MA_HE_PREFIX
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -262,25 +262,19 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
   if (studyField.requiredKeywords?.length) {
     const synonyms = studyField.requiredKeywords;
 
-    // מצב תואר שני: הדף חייב להכיל "תואר שני" + כל מילות ההתמחות
+    // מצב תואר שני: הדף חייב להכיל "תואר שני" + צירוף ההתמחות (כביטוי שלם)
     if (studyField.maSpecialization) {
       const hasMaster = search('תואר שני').found;
-      // נרמול גרשיים — "תנ"ך" ↔ "תנך"
-      const normalize = (s) => s.replace(/['"״"]/g, '').trim();
-      const hasAllSpec = synonyms.every(kw => {
-        if (search(kw).found) return true;
-        // נסה ללא גרשיים
-        const norm = normalize(kw);
-        return norm !== kw && matches(titleLower + ' ' + descLower + ' ' + textLower, norm);
-      });
-      if (!hasMaster || !hasAllSpec) {
-        const missing = !hasMaster ? 'תואר שני' : `כל [${synonyms.join('+')}]`;
-        console.log(`    [MA] ❌ Missing "${missing}" → skip`);
+      // בדוק כל גרסה של הצירוף (עם/ללא גרשיים)
+      const hasSpec = synonyms.some(kw => search(kw).found);
+      if (!hasMaster || !hasSpec) {
+        const missing = !hasMaster ? '"תואר שני"' : `"${synonyms[0]}"`;
+        console.log(`    [MA] ❌ Missing ${missing} → skip: "${page.title}"`);
         return { found: false, location: null, score: 0 };
       }
       const matched = synonyms.find(kw => search(kw).found);
-      console.log(`    [MA] ✅ "תואר שני" + all [${synonyms.join('+')}] found`);
-      return search(matched || synonyms[0]);
+      console.log(`    [MA] ✅ "תואר שני" + "${matched}" found`);
+      return search('תואר שני'); // החזר score של תואר שני
     }
 
     // מצב רגיל: מספיק אחד מהביטויים
@@ -391,17 +385,21 @@ function detectStudyField(message) {
   // ── עדיפות עליונה: "תואר שני ב..." — חייב לחפש את הצירוף המלא ──
   const masterMatch = lm.match(/תואר שני\s+ב([\u05d0-\u05ea"'\-\s]{2,25})/);
   if (masterMatch) {
-    const fullPhrase = masterMatch[0].trim();           // "תואר שני בהוראת תנ"ך"
-    const specialization = masterMatch[1].trim();       // "הוראת תנ"ך"
-    // חלץ מילות מפתח מההתמחות (כל מילה מעל 2 תווים)
-    const specializationWords = specialization.split(/\s+/).filter(w => w.replace(/['"]/g,'').length > 2);
+    const fullPhrase = masterMatch[0].trim();     // "תואר שני בהוראת תנ"ך"
+    const specialization = masterMatch[1].trim(); // "הוראת תנ"ך"
+    // נרמול גרשיים — "תנ"ך" → "תנך"
+    const normalizeQ = (s) => s.replace(/['"״"]/g, '').trim();
+    const specNorm = normalizeQ(specialization);  // "הוראת תנך"
+    // גרסה עם ה' הידיעה על המילה האחרונה — "הוראת תנך" → "הוראת התנך"
+    const addHe = (s) => { const w = s.split(/\s+/); w[w.length-1] = 'ה' + w[w.length-1]; return w.join(' '); };
+    const specWithHe = addHe(specNorm); // "הוראת התנך"
     const maField = STUDY_FIELDS.find(f => f.name.includes('תואר שני'));
     if (maField) {
-      console.log(`✅ Priority field: "${maField.name}" (MA: "${fullPhrase}", spec words: [${specializationWords.join(', ')}])`);
-      // requiredKeywords: הצירוף המלא OR כל מילת התמחות (לפחות אחת) + "תואר שני"
+      const reqKws = [...new Set([specialization, specNorm, specWithHe])];
+      console.log(`✅ Priority field: "${maField.name}" (MA: "${fullPhrase}", req: [${reqKws.join(', ')}])`);
       return [{ ...maField,
         specificKeyword: fullPhrase,
-        requiredKeywords: specializationWords,
+        requiredKeywords: reqKws,
         maSpecialization: true
       }];
     }
@@ -541,7 +539,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_20_v209_MA_NORMALIZE`);
+  console.log(`🚀 VERSION: FEB_20_v211_MA_HE_PREFIX`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1303,7 +1301,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_20_v209_MA_NORMALIZE');
+  console.log('🚀 VERSION: FEB_20_v211_MA_HE_PREFIX');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1517,9 +1515,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v209_MA_NORMALIZE' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v211_MA_HE_PREFIX' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v209_MA_NORMALIZE' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v211_MA_HE_PREFIX' });
   }
 }
