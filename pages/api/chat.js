@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_21_v217_INFO_QUESTION
+// VERSION: FEB_21_v218_DEDUP_FIX
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -283,20 +283,21 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
         return { found: false, location: null, score: 0 };
       }
 
-      // (3) הצירוף חייב להיות ב-title/desc/h2 בלבד (לא text)
+      // (3) הצירוף חייב להיות ב-title/desc/h2 — או ב-text (score נמוך יותר)
       const searchNoText = (term) => {
         if (!term) return false;
         return matches(titleLower, term) || matches(descLower, term) || matches(h2h3Lower, term);
       };
-      const hasSpec = synonyms.some(kw => searchNoText(kw));
-      if (!hasSpec) {
-        console.log(`    [MA] ❌ Spec "${synonyms[0]}" not in title/desc/h2 → skip: "${page.title}"`);
+      const hasSpecInMain = synonyms.some(kw => searchNoText(kw));
+      const hasSpecInText = !hasSpecInMain && allowTextSearch && synonyms.some(kw => matches(textLower, kw));
+      if (!hasSpecInMain && !hasSpecInText) {
+        console.log(`    [MA] ❌ Spec "${synonyms[0]}" not found → skip: "${page.title}"`);
         return { found: false, location: null, score: 0 };
       }
-
-      const matched = synonyms.find(kw => searchNoText(kw));
-      console.log(`    [MA] ✅ "תואר שני" + "${matched}" in title/desc/h2`);
-      return search('תואר שני');
+      const matched = synonyms.find(kw => searchNoText(kw) || matches(textLower, kw));
+      const scoreVal = hasSpecInMain ? 80 : 42; // text only → score מינימלי (מעל min 40)
+      console.log(`    [MA] ✅ "תואר שני" + "${matched}" (${hasSpecInMain ? 'title/desc/h2' : 'text'}, score=${scoreVal})`);
+      return { found: true, location: hasSpecInMain ? 'title/desc' : 'text', score: scoreVal };
     }
 
     // מצב רגיל: מספיק אחד מהביטויים
@@ -578,7 +579,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_21_v217_INFO_QUESTION`);
+  console.log(`🚀 VERSION: FEB_21_v218_DEDUP_FIX`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -841,10 +842,15 @@ function buildCategoryUrl(region, studyField) {
 
 // מחלץ שם מוסד מכותרת הדף (לדדופ לפי מוסד)
 function extractInstitutionName(title) {
-  // הסר תיאורים אחרי מקף/נקודה — שמור רק שם המוסד
-  const clean = title.replace(/[-–—|]/g, '|').split('|')[0].trim();
-  // הסר מילות קישור נפוצות
-  return clean.replace(/^(קורס|קורסי|לימודי|השתלמות|מרכז)\s+/i, '').substring(0, 40);
+  // נסה למצוא שם מוסד אחרי המקף האחרון
+  const parts = title.replace(/[-–—|]/g, '|').split('|').map(p => p.trim()).filter(p => p.length > 2);
+  // העדף חלק שמכיל מילים כמו "מכללת", "אוניברסיטת", "מכון", "המכללה"
+  const institutionMarkers = ['מכללת', 'אוניברסיטת', 'מכון', 'המכללה', 'האקדמית', 'הקריה', 'בית-הספר', 'מרכז'];
+  for (const part of parts.slice().reverse()) {
+    if (institutionMarkers.some(m => part.includes(m))) return part.substring(0, 50);
+  }
+  // fallback — החלק הראשון
+  return parts[0]?.replace(/^(קורס|קורסי|לימודי|השתלמות|תואר שני ב)\s+/i, '').substring(0, 40) || title.substring(0, 40);
 }
 
 /**
@@ -1393,7 +1399,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_21_v217_INFO_QUESTION');
+  console.log('🚀 VERSION: FEB_21_v218_DEDUP_FIX');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1608,9 +1614,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v217_INFO_QUESTION' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v218_DEDUP_FIX' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v217_INFO_QUESTION' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v218_DEDUP_FIX' });
   }
 }
