@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_21_v219_SPECIFIC_REQUIRED
+// VERSION: FEB_21_v220_MULTI_QA
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -31,6 +31,7 @@ let SEMANTIC_DATA = null;
 let WORD_GRAPH = null;
 let SHABATON_INFO = null;
 let INTENT_MAPPINGS = null;
+let BTL_QA = null;
 
 const WHATSAPP_LINK = 'https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME';
 const SITE_BASE = 'https://www.shabaton.online';
@@ -55,11 +56,20 @@ function loadConfigs() {
     }
     if (!COURSES_QA) {
       COURSES_QA = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'courses-qa.json'), 'utf8'));
-      console.log(`✅ courses-qa.json: ${COURSES_QA.questions?.length || 0} questions`);
+      const qCount = COURSES_QA.categories
+        ? COURSES_QA.categories.reduce((s, c) => s + (c.questions?.length || 0), 0)
+        : (COURSES_QA.questions?.length || 0);
+      console.log(`✅ courses-qa.json: ${qCount} questions`);
     }
     if (!PAYMENTS_QA) {
       PAYMENTS_QA = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'payments-qa.json'), 'utf8'));
       console.log(`✅ payments-qa.json`);
+    }
+    if (!BTL_QA) {
+      try {
+        BTL_QA = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'btl-qa.json'), 'utf8'));
+        console.log(`✅ btl-qa.json`);
+      } catch(e) { console.log(`⚠️ btl-qa.json not found`); BTL_QA = {}; }
     }
     if (!SHABATON_INFO) {
       SHABATON_INFO = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'shabaton-info.json'), 'utf8')).infoPages;
@@ -587,7 +597,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_21_v219_SPECIFIC_REQUIRED`);
+  console.log(`🚀 VERSION: FEB_21_v220_MULTI_QA`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -791,28 +801,85 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
 // QA SYSTEM
 // ================================================================
 
+// חלץ כל השאלות מ-QA file בכל פורמט
+function extractAllQuestions(qaData) {
+  if (!qaData) return [];
+  const questions = [];
+  // פורמט: categories[].questions[]
+  if (qaData.categories) {
+    for (const cat of qaData.categories) {
+      for (const q of (cat.questions || [])) {
+        questions.push({ ...q, _category: cat.name, _fallback: qaData.fallbackMessage });
+      }
+    }
+  }
+  // פורמט: questions[] ישירות
+  if (qaData.questions) {
+    for (const q of qaData.questions) {
+      questions.push({ ...q, _fallback: qaData.fallbackMessage });
+    }
+  }
+  return questions;
+}
+
 function findQAAnswer(message) {
   loadConfigs();
   const lm = message.toLowerCase();
-  if (COURSES_QA?.questions) {
-    for (const q of COURSES_QA.questions) {
-      if (q.question && lm.includes(q.question.toLowerCase())) return { answer: q.answer };
-      for (const v of (q.variations || [])) if (lm.includes(v.toLowerCase())) return { answer: q.answer };
-      if (q.keywords) {
-        const hits = q.keywords.filter(k => lm.includes(k.toLowerCase()));
-        if (hits.length >= 2) return { answer: q.answer };
+
+  // כל מאגרי ה-QA
+  const allQASources = [
+    { name: 'courses-qa', data: COURSES_QA, topKeywords: COURSES_QA?.keywords || [] },
+    { name: 'payments-qa', data: PAYMENTS_QA, topKeywords: PAYMENTS_QA?.keywords || [] },
+    { name: 'btl-qa', data: BTL_QA, topKeywords: BTL_QA?.keywords || [] },
+  ];
+
+  let bestMatch = null;
+  let bestScore = 0;
+
+  for (const source of allQASources) {
+    if (!source.data) continue;
+
+    // בדוק קודם אם השאלה בכלל רלוונטית למאגר (top-level keywords)
+    const topHits = source.topKeywords.filter(k => lm.includes(k.toLowerCase())).length;
+    if (source.topKeywords.length > 0 && topHits === 0) continue; // מאגר לא רלוונטי
+
+    const questions = extractAllQuestions(source.data);
+    for (const q of questions) {
+      let score = 0;
+
+      // התאמה מדויקת לשאלה
+      if (q.question && lm.includes(q.question.toLowerCase())) score = 100;
+      // התאמה לגרסה
+      else if ((q.variations || []).some(v => lm.includes(v.toLowerCase()))) score = 90;
+      else {
+        // ניקוד לפי keywords של השאלה
+        const hits = (q.keywords || []).filter(k => lm.includes(k.toLowerCase()));
+        if (hits.length >= 2) score = 50 + hits.length * 5;
+        else if (hits.length === 1 && hits[0].length > 5) score = 30; // מילת מפתח ארוכה אחת
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = { answer: q.answer, relatedLinks: q.relatedLinks, fallback: q._fallback, score };
       }
     }
   }
-  if (PAYMENTS_QA?.categories) {
-    for (const cat of PAYMENTS_QA.categories) {
-      for (const q of (cat.questions || [])) {
-        if (q.question && lm.includes(q.question.toLowerCase())) return { answer: q.answer };
-        for (const v of (q.variations || [])) if (lm.includes(v.toLowerCase())) return { answer: q.answer };
+
+  if (bestScore >= 30) {
+    console.log(`✅ QA match (score=${bestScore}): "${message.substring(0, 40)}"`);
+    // הוסף relatedLinks לתשובה
+    let answer = bestMatch.answer;
+    if (bestMatch.relatedLinks?.length) {
+      answer += '\n\n';
+      for (const link of bestMatch.relatedLinks) {
+        answer += `📎 [${link.text}](${link.url})\n`;
       }
     }
+    return { answer };
   }
+
   return null;
+}
 }
 
 function classifyIntent(message) {
@@ -1407,7 +1474,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_21_v219_SPECIFIC_REQUIRED');
+  console.log('🚀 VERSION: FEB_21_v220_MULTI_QA');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1622,9 +1689,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v219_SPECIFIC_REQUIRED' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v220_MULTI_QA' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v219_SPECIFIC_REQUIRED' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v220_MULTI_QA' });
   }
 }
