@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_21_v213_MIN_SCORE
+// VERSION: FEB_21_v214_MA_BLOCKED
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -561,7 +561,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_21_v213_MIN_SCORE`);
+  console.log(`🚀 VERSION: FEB_21_v214_MA_BLOCKED`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -955,6 +955,35 @@ function formatResults(results, studyField, region, query = '') {
       return false;
     }
 
+    // סינון דפי תואר שני כלליים (קטגוריות וסיכומים)
+    const blockedMAPaths = [
+      'shabaton.online/master-degree',
+      'shabaton.online/master-degree-by-area',
+      'shabaton.online/ma_edu_merkaz',
+      'shabaton.online/ma_edu_jerusalem',
+      'shabaton.online/ma_edu_sharon',
+      'shabaton.online/ma_edu_north',
+      'shabaton.online/ma_edu_darom',
+    ];
+    if (blockedMAPaths.some(p => cleanUrl.toLowerCase() === p)) {
+      console.log(`    [FILTER] ❌ MA category page → skip`);
+      return false;
+    }
+
+    // סינון דפי תואר שני כשיש "תואר שני" רק כדרישת קבלה (לא כמה שמציע)
+    if (studyField?.maSpecialization) {
+      const admissionPhrases = ['בעלי תואר שני', 'בעל תואר שני', 'בעלות תואר שני',
+        'מחייב תואר שני', 'נדרש תואר שני', 'דרישות קבלה', 'תנאי קבלה'];
+      const titleAndDesc = title + ' ' + desc;
+      // אם המסר הוא "לעוסקים בעלי תואר שני" ואין "תואר שני ב..." בכותרת
+      const hasAdmissionOnly = admissionPhrases.some(p => titleAndDesc.includes(p)) &&
+        !title.includes('תואר שני ב') && !title.includes('לימודי תואר שני');
+      if (hasAdmissionOnly) {
+        console.log(`    [FILTER] ❌ תואר שני as admission req only → skip: "${r.title}"`);
+        return false;
+      }
+    }
+
     // סינון דפי גמלאים/גימלאים כלליים (אלא אם חיפשו גמלאים)
     const isGimalaiQuery = /גמלא|גימלא|פנסיה|פנסיונר/.test(query);
     if (!isGimalaiQuery) {
@@ -1338,7 +1367,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_21_v213_MIN_SCORE');
+  console.log('🚀 VERSION: FEB_21_v214_MA_BLOCKED');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1552,9 +1581,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v213_MIN_SCORE' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v214_MA_BLOCKED' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v213_MIN_SCORE' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v214_MA_BLOCKED' });
   }
 }
