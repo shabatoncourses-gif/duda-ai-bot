@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_21_v221_SYNTAX_FIX
+// VERSION: FEB_21_v222_MA_TEXT_SCORE
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -452,7 +452,9 @@ function detectStudyField(message) {
         ...prepVariants(specialization),
         ...prepVariants(specNorm),
         specWithHe,
-        addHe(specialization)
+        addHe(specialization),
+        // מילות הנושא בלבד (ללא "הוראת/לימוד") — כגיבוי לדפים שמציינים רק "מתמטיקה"
+        ...specNorm.split(/\s+/).filter(w => w.length > 4 && !['הוראת','לימוד','לימודי','חינוך','מחקר'].includes(w))
       ])];
       console.log(`✅ Priority field: "${maField.name}" (MA: "${fullPhrase}", variants: [${allVariants.join(', ')}])`);
       return [{ ...maField,
@@ -597,7 +599,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_21_v221_SYNTAX_FIX`);
+  console.log(`🚀 VERSION: FEB_21_v222_MA_TEXT_SCORE`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -640,7 +642,7 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
       // ── ציון מינימלי לפי סוג השאילתה ──
       // title=150, desc=80, h2h3=60, text=40
       const minScore = (() => {
-        if (studyField.maSpecialization) return 80;        // תואר שני — חייב בכותרת/תיאור
+        if (studyField.maSpecialization) return 42;         // תואר שני — פילטרים קשים כבר ב-pageMatchesField
         if (studyField.requiredKeywords?.length) return 60; // צירוף ספציפי (תרפיה וכו') — לפחות h2
         if (studyField.specificKeyword?.includes(' ')) return 60; // צירוף רב-מילי — לא רק text
         return 40; // ברירת מחדל — text מספיק
@@ -1473,7 +1475,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_21_v221_SYNTAX_FIX');
+  console.log('🚀 VERSION: FEB_21_v222_MA_TEXT_SCORE');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1688,9 +1690,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v221_SYNTAX_FIX' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v222_MA_TEXT_SCORE' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v221_SYNTAX_FIX' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v222_MA_TEXT_SCORE' });
   }
 }
