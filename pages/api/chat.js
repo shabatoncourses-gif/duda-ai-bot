@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_21_v215_MA_HEADER
+// VERSION: FEB_21_v216_MA_PREP_VARIANTS
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -417,11 +417,28 @@ function detectStudyField(message) {
     const specWithHe = addHe(specNorm); // "הוראת התנך"
     const maField = STUDY_FIELDS.find(f => f.name.includes('תואר שני'));
     if (maField) {
-      const reqKws = [...new Set([specialization, specNorm, specWithHe])];
-      console.log(`✅ Priority field: "${maField.name}" (MA: "${fullPhrase}", req: [${reqKws.join(', ')}])`);
+      // בנה גרסאות מילות יחס: "חינוך לגיל הרך" → גם "חינוך בגיל הרך", "חינוך לגיל-הרך"
+      const prepVariants = (s) => {
+        const variants = new Set([s]);
+        // החלף מילת יחס ראשונה ב-ל/ב/של
+        const withPreps = s.replace(/^([\u05d0-\u05ea]+)\s+(ל|ב|של|ה)/, (m, word, prep) => {
+          ['ל', 'ב', 'של'].filter(p => p !== prep).forEach(p => variants.add(`${word} ${p}${s.slice(word.length + 1 + prep.length)}`));
+          return m;
+        });
+        // גרסה עם מקף במקום רווח
+        variants.add(s.replace(/\s+/g, '-'));
+        return [...variants];
+      };
+      const allVariants = [...new Set([
+        ...prepVariants(specialization),
+        ...prepVariants(specNorm),
+        specWithHe,
+        addHe(specialization)
+      ])];
+      console.log(`✅ Priority field: "${maField.name}" (MA: "${fullPhrase}", variants: [${allVariants.join(', ')}])`);
       return [{ ...maField,
         specificKeyword: fullPhrase,
-        requiredKeywords: reqKws,
+        requiredKeywords: allVariants,
         maSpecialization: true
       }];
     }
@@ -561,7 +578,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_21_v215_MA_HEADER`);
+  console.log(`🚀 VERSION: FEB_21_v216_MA_PREP_VARIANTS`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1375,7 +1392,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_21_v215_MA_HEADER');
+  console.log('🚀 VERSION: FEB_21_v216_MA_PREP_VARIANTS');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1589,9 +1606,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v215_MA_HEADER' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v216_MA_PREP_VARIANTS' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v215_MA_HEADER' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v216_MA_PREP_VARIANTS' });
   }
 }
