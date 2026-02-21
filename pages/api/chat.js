@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_20_v205_ONLINE_SYNONYMS
+// VERSION: FEB_20_v206_MA_PHRASE
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -366,7 +366,19 @@ function detectStudyField(message) {
     }
   }
 
-  // ── עדיפות עליונה: הוראה מתקנת/מותאמת — חייבת להיזהות לפני "אופק חדש" ──
+  // ── עדיפות עליונה: "תואר שני ב..." — חייב לחפש את הצירוף המלא ──
+  const masterMatch = lm.match(/תואר שני\s+ב[\w\u05d0-\u05ea"'\-\s]{2,30}/);
+  if (masterMatch) {
+    const fullPhrase = masterMatch[0].trim(); // "תואר שני בחינוך מיוחד"
+    const maField = STUDY_FIELDS.find(f => f.name.includes('תואר שני'));
+    if (maField) {
+      console.log(`✅ Priority field: "${maField.name}" (MA phrase: "${fullPhrase}")`);
+      // requiredKeywords: הצירוף המלא + "תואר שני" סתם כגיבוי
+      return [{ ...maField,
+        specificKeyword: fullPhrase,
+        requiredKeywords: [fullPhrase, 'תואר שני'] }];
+    }
+  }
   const isRemedial = /הוראה מתקנת|הוראה מותאמת|מתקנת|מותאמת/.test(lm) &&
                      !/כתיבה יוצרת|סיפורי חיים/.test(lm);
   if (isRemedial) {
@@ -502,7 +514,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_20_v205_ONLINE_SYNONYMS`);
+  console.log(`🚀 VERSION: FEB_20_v206_MA_PHRASE`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1263,7 +1275,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_20_v205_ONLINE_SYNONYMS');
+  console.log('🚀 VERSION: FEB_20_v206_MA_PHRASE');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1471,9 +1483,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v205_ONLINE_SYNONYMS' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v206_MA_PHRASE' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v205_ONLINE_SYNONYMS' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v206_MA_PHRASE' });
   }
 }
