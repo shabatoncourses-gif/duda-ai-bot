@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_20_v206_MA_PHRASE
+// VERSION: FEB_20_v207_MA_AND_SPEC
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -258,10 +258,25 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
     return { found: false };
   };
 
-  // ── requiredKeyword: כשמוגדר, הדף חייב להכיל אחד מהביטויים ──
-  // (למשל "פוטותרפיה" — לא מספיק שיש "תרפיה", חייב להיות הביטוי הספציפי)
+  // ── requiredKeywords: הדף חייב להכיל אחד מהביטויים ──
   if (studyField.requiredKeywords?.length) {
     const synonyms = studyField.requiredKeywords;
+
+    // מצב תואר שני: הדף חייב להכיל "תואר שני" + אחת ממילות ההתמחות
+    if (studyField.maSpecialization) {
+      const hasMaster = search('תואר שני').found;
+      const hasSpec = synonyms.some(kw => search(kw).found);
+      if (!hasMaster || !hasSpec) {
+        const missing = !hasMaster ? 'תואר שני' : `[${synonyms.join('/')}]`;
+        console.log(`    [MA] ❌ Missing "${missing}" → skip`);
+        return { found: false, location: null, score: 0 };
+      }
+      const matched = synonyms.find(kw => search(kw).found);
+      console.log(`    [MA] ✅ "תואר שני" + "${matched}" found`);
+      return search(matched);
+    }
+
+    // מצב רגיל: מספיק אחד מהביטויים
     const found = synonyms.some(kw => search(kw).found);
     if (!found) {
       console.log(`    [REQUIRED] ❌ None of [${synonyms.join(', ')}] found → skip`);
@@ -367,16 +382,21 @@ function detectStudyField(message) {
   }
 
   // ── עדיפות עליונה: "תואר שני ב..." — חייב לחפש את הצירוף המלא ──
-  const masterMatch = lm.match(/תואר שני\s+ב[\w\u05d0-\u05ea"'\-\s]{2,30}/);
+  const masterMatch = lm.match(/תואר שני\s+ב([\u05d0-\u05ea"'\-\s]{2,25})/);
   if (masterMatch) {
-    const fullPhrase = masterMatch[0].trim(); // "תואר שני בחינוך מיוחד"
+    const fullPhrase = masterMatch[0].trim();           // "תואר שני בהוראת תנ"ך"
+    const specialization = masterMatch[1].trim();       // "הוראת תנ"ך"
+    // חלץ מילות מפתח מההתמחות (כל מילה מעל 2 תווים)
+    const specializationWords = specialization.split(/\s+/).filter(w => w.replace(/['"]/g,'').length > 2);
     const maField = STUDY_FIELDS.find(f => f.name.includes('תואר שני'));
     if (maField) {
-      console.log(`✅ Priority field: "${maField.name}" (MA phrase: "${fullPhrase}")`);
-      // requiredKeywords: הצירוף המלא + "תואר שני" סתם כגיבוי
+      console.log(`✅ Priority field: "${maField.name}" (MA: "${fullPhrase}", spec words: [${specializationWords.join(', ')}])`);
+      // requiredKeywords: הצירוף המלא OR כל מילת התמחות (לפחות אחת) + "תואר שני"
       return [{ ...maField,
         specificKeyword: fullPhrase,
-        requiredKeywords: [fullPhrase, 'תואר שני'] }];
+        requiredKeywords: specializationWords,
+        maSpecialization: true
+      }];
     }
   }
   const isRemedial = /הוראה מתקנת|הוראה מותאמת|מתקנת|מותאמת/.test(lm) &&
@@ -514,7 +534,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_20_v206_MA_PHRASE`);
+  console.log(`🚀 VERSION: FEB_20_v207_MA_AND_SPEC`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1275,7 +1295,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_20_v206_MA_PHRASE');
+  console.log('🚀 VERSION: FEB_20_v207_MA_AND_SPEC');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1483,9 +1503,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v206_MA_PHRASE' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_20_v207_MA_AND_SPEC' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v206_MA_PHRASE' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_20_v207_MA_AND_SPEC' });
   }
 }
