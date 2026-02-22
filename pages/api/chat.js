@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_21_v224_MA_SUBJECT_FIX
+// VERSION: FEB_22_v225_MA_SUBJECTWORDS
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -311,14 +311,15 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
       };
       const hasSpecInMain = synonyms.some(kw => searchNoText(kw));
       // גיבוי: מילת נושא לבד — חייבת להיות בכותרת/תיאור בלבד (לא h2/text)
-      const hasSpecInTitleDesc = !hasSpecInMain && subjectWords.some(w =>
+      const sw = studyField.maSubjectWords || [];
+      const hasSpecInTitleDesc = !hasSpecInMain && sw.some(w =>
         matches(titleLower, w) || matches(descLower, w));
-      const hasSpecInText = !hasSpecInMain && !hasSpecInTitleDesc && allowTextSearch && subjectWords.some(w => matches(textLower, w) || matches(h2h3Lower, w));
+      const hasSpecInText = !hasSpecInMain && !hasSpecInTitleDesc && allowTextSearch && sw.some(w => matches(textLower, w) || matches(h2h3Lower, w));
       if (!hasSpecInMain && !hasSpecInTitleDesc && !hasSpecInText) {
         console.log(`    [MA] ❌ Spec "${synonyms[0]}" not found → skip: "${page.title}"`);
         return { found: false, location: null, score: 0 };
       }
-      const matched = synonyms.find(kw => searchNoText(kw)) || subjectWords.find(w => matches(titleLower,w) || matches(descLower,w) || matches(h2h3Lower,w) || matches(textLower,w));
+      const matched = synonyms.find(kw => searchNoText(kw)) || sw.find(w => matches(titleLower,w) || matches(descLower,w) || matches(h2h3Lower,w) || matches(textLower,w));
       const scoreVal = hasSpecInMain ? 80 : hasSpecInTitleDesc ? 80 : 42;
       console.log(`    [MA] ✅ "תואר שני" + "${matched}" (${hasSpecInMain?'variants':hasSpecInTitleDesc?'title/desc-subject':'text/h2-subject'}, score=${scoreVal})`);
       return { found: true, location: hasSpecInMain ? 'title/desc' : 'text', score: scoreVal };
@@ -474,7 +475,8 @@ function detectStudyField(message) {
       return [{ ...maField,
         specificKeyword: fullPhrase,
         requiredKeywords: allVariants,
-        maSpecialization: true
+        maSpecialization: true,
+        maSubjectWords: subjectWords,
       }];
     }
   }
@@ -613,7 +615,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_21_v224_MA_SUBJECT_FIX`);
+  console.log(`🚀 VERSION: FEB_22_v225_MA_SUBJECTWORDS`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1489,7 +1491,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_21_v224_MA_SUBJECT_FIX');
+  console.log('🚀 VERSION: FEB_22_v225_MA_SUBJECTWORDS');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1704,9 +1706,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_21_v224_MA_SUBJECT_FIX' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_22_v225_MA_SUBJECTWORDS' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_21_v224_MA_SUBJECT_FIX' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_22_v225_MA_SUBJECTWORDS' });
   }
 }
