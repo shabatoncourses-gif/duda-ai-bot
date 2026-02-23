@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_22_v225_MA_SUBJECTWORDS
+// VERSION: FEB_22_v226_MA_TITLE_FILTER
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -615,7 +615,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_22_v225_MA_SUBJECTWORDS`);
+  console.log(`🚀 VERSION: FEB_22_v226_MA_TITLE_FILTER`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1085,6 +1085,20 @@ function formatResults(results, studyField, region, query = '') {
       return false;
     }
 
+    // סינון דפי תואר שני אזוריים/כלליים לפי כותרת — כשחיפוש הוא MA עם התמחות
+    if (studyField?.maSpecialization) {
+      const maGenericTitlePatterns = [
+        /^תואר שני ב[א-ת]/, /^לימודי תואר שני/, /^אקדמי - תואר שני/,
+        /תואר שני.*בחיפה/, /תואר שני.*בצפון/, /תואר שני.*במרכז/,
+        /תואר שני.*בשרון/, /תואר שני.*בירושלים/, /תואר שני.*בדרום/,
+        /תואר שני.*בשפלה/, /תואר שני.*באזור/, /תואר שני.*וב[א-ת]/,
+      ];
+      if (maGenericTitlePatterns.some(p => p.test(title))) {
+        console.log(`    [FILTER] ❌ MA regional/generic title → skip: "${r.title}"`);
+        return false;
+      }
+    }
+
     // סינון דפי תואר שני כשיש "תואר שני" רק כדרישת קבלה (לא כמה שמציע)
     if (studyField?.maSpecialization) {
       const admissionPhrases = ['בעלי תואר שני', 'בעל תואר שני', 'בעלות תואר שני',
@@ -1491,7 +1505,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_22_v225_MA_SUBJECTWORDS');
+  console.log('🚀 VERSION: FEB_22_v226_MA_TITLE_FILTER');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1706,9 +1720,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_22_v225_MA_SUBJECTWORDS' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_22_v226_MA_TITLE_FILTER' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_22_v225_MA_SUBJECTWORDS' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_22_v226_MA_TITLE_FILTER' });
   }
 }
