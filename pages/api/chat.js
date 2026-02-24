@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_22_v226_MA_TITLE_FILTER
+// VERSION: FEB_22_v228_MA_SYNONYMS
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -471,12 +471,35 @@ function detectStudyField(message) {
       ])];
       // מילות נושא לבד (כגיבוי) — רק אם לא נמצא צירוף מלא
       const subjectWords = specNorm.split(/\s+/).filter(w => w.length > 4 && !['הוראת','לימוד','לימודי','חינוך','מחקר'].includes(w));
-      console.log(`✅ Priority field: "${maField.name}" (MA: "${fullPhrase}", variants: [${allVariants.join(', ')}])`);
+
+      // מפה של synonyms לפי נושא — גרסאות שונות לאותו תחום
+      const SUBJECT_SYNONYMS = {
+        'מתמטיקה': ['מתמטי', 'מתמטית', 'חינוך מתמטי', 'הוראת מתמטיקה', 'הוראת המתמטיקה', 'מחלקה לחינוך מתמטי', 'M.Ed בהוראת המתמטיקה', 'מ.א בהוראת מתמטיקה'],
+        'מדעים': ['מדעי', 'הוראת מדעים', 'חינוך מדעי', 'מדעי הטבע'],
+        'אנגלית': ['הוראת אנגלית', 'שפה אנגלית', 'אנגלית כשפה זרה', 'EFL', 'TEFL'],
+        'ספרות': ['הוראת ספרות', 'חינוך לשוני', 'ספרות עברית'],
+        'היסטוריה': ['הוראת היסטוריה', 'חינוך היסטורי'],
+        'גיאוגרפיה': ['הוראת גיאוגרפיה', 'מדעי הסביבה'],
+        'תנך': ['הוראת תנך', 'הוראת התנך', 'מקרא', 'הוראת מקרא', 'תנ"ך'],
+        'ייעוץ': ['ייעוץ חינוכי', 'יועץ חינוכי', 'counseling'],
+      };
+
+      const extraVariants = [];
+      for (const [subject, synonyms] of Object.entries(SUBJECT_SYNONYMS)) {
+        if (subjectWords.some(sw => sw.includes(subject) || subject.includes(sw))) {
+          extraVariants.push(...synonyms);
+        }
+      }
+
+      const finalVariants = [...new Set([...allVariants, ...extraVariants])];
+      const finalSubjectWords = [...new Set([...subjectWords, ...extraVariants.filter(v => !v.includes(' ')).slice(0, 3)])];
+
+      console.log(`✅ Priority field: "${maField.name}" (MA: "${fullPhrase}", variants: ${finalVariants.length}, subjects: [${finalSubjectWords.join(', ')}])`);
       return [{ ...maField,
         specificKeyword: fullPhrase,
-        requiredKeywords: allVariants,
+        requiredKeywords: finalVariants,
         maSpecialization: true,
-        maSubjectWords: subjectWords,
+        maSubjectWords: finalSubjectWords,
       }];
     }
   }
@@ -615,7 +638,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_22_v226_MA_TITLE_FILTER`);
+  console.log(`🚀 VERSION: FEB_22_v228_MA_SYNONYMS`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1088,13 +1111,23 @@ function formatResults(results, studyField, region, query = '') {
     // סינון דפי תואר שני אזוריים/כלליים לפי כותרת — כשחיפוש הוא MA עם התמחות
     if (studyField?.maSpecialization) {
       const maGenericTitlePatterns = [
-        /^תואר שני ב[א-ת]/, /^לימודי תואר שני/, /^אקדמי - תואר שני/,
+        /^תואר שני ב/, /^לימודי תואר שני/, /^אקדמי - תואר שני/, /^אקדמי - תואר/,
         /תואר שני.*בחיפה/, /תואר שני.*בצפון/, /תואר שני.*במרכז/,
         /תואר שני.*בשרון/, /תואר שני.*בירושלים/, /תואר שני.*בדרום/,
-        /תואר שני.*בשפלה/, /תואר שני.*באזור/, /תואר שני.*וב[א-ת]/,
+        /תואר שני.*בשפלה/, /תואר שני.*באזור/, /תואר שני.*וב/,
+        /תואר שני.*כל המכללות/, /תואר שני.*כל הארץ/,
       ];
       if (maGenericTitlePatterns.some(p => p.test(title))) {
         console.log(`    [FILTER] ❌ MA regional/generic title → skip: "${r.title}"`);
+        return false;
+      }
+      // חסימה לפי URL — דפי אזור+תואר שני
+      const maRegionalUrlPatterns = [
+        /\/(results-heifa|results-merkaz|results-sharon|results-darom|results-jerusalem|results-zafon|heifa|merkaz|sharon|darom|jerusalm|jerusalem|zafon|north|south|tel-aviv)\/(ma|master|תואר)/i,
+        /\/(ma|master)-degree/,
+      ];
+      if (maRegionalUrlPatterns.some(p => p.test(url))) {
+        console.log(`    [FILTER] ❌ MA regional URL → skip: "${r.title}"`);
         return false;
       }
     }
@@ -1505,7 +1538,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_22_v226_MA_TITLE_FILTER');
+  console.log('🚀 VERSION: FEB_22_v228_MA_SYNONYMS');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1720,9 +1753,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_22_v226_MA_TITLE_FILTER' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_22_v228_MA_SYNONYMS' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_22_v226_MA_TITLE_FILTER' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_22_v228_MA_SYNONYMS' });
   }
 }
