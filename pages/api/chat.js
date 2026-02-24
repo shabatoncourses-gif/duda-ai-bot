@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_22_v232_MA_PHRASE_SEARCH
+// VERSION: FEB_24_v233_SUBJECTWORDS_FIX
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -510,7 +510,7 @@ function detectStudyField(message) {
 
       const extraVariants = [];
       for (const [subject, synonyms] of Object.entries(SUBJECT_SYNONYMS)) {
-        if (subjectWords.some(sw => sw.includes(subject) || subject.includes(sw))) {
+        if (specWords.some(sw => sw.includes(subject) || subject.includes(sw))) {
           extraVariants.push(...synonyms);
         }
       }
@@ -663,7 +663,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_22_v232_MA_PHRASE_SEARCH`);
+  console.log(`🚀 VERSION: FEB_24_v233_SUBJECTWORDS_FIX`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1563,7 +1563,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_22_v232_MA_PHRASE_SEARCH');
+  console.log('🚀 VERSION: FEB_24_v233_SUBJECTWORDS_FIX');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1778,9 +1778,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_22_v232_MA_PHRASE_SEARCH' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_24_v233_SUBJECTWORDS_FIX' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_22_v232_MA_PHRASE_SEARCH' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_24_v233_SUBJECTWORDS_FIX' });
   }
 }
