@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_22_v229_MA_TEXT_FULL
+// VERSION: FEB_22_v232_MA_PHRASE_SEARCH
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -310,24 +310,36 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
         return matches(titleLower, term) || matches(descLower, term) || matches(h2h3Lower, term);
       };
       const hasSpecInMain = synonyms.some(kw => searchNoText(kw));
-      // גיבוי: אם h2 לא קיים באינדקס — חפש synonyms מלאים גם ב-text
-      const sw = studyField.maSubjectWords || [];
-      const hasSpecInTitleDesc = !hasSpecInMain && sw.some(w =>
-        matches(titleLower, w) || matches(descLower, w));
+
+      // גיבוי ב-text: רק ביטויים מרובי מילים כרצף (לא מילה בודדת)
+      const sw = (studyField.maSubjectWords || []);
+      // synonyms מרובי-מילים — מחפש כרצף ב-text
+      const phraseVariants = synonyms.filter(kw => kw.trim().split(/\s+/).length >= 2);
+      const singleVariants = synonyms.filter(kw => kw.trim().split(/\s+/).length === 1);
+
+      const hasSpecInTitleDesc = !hasSpecInMain && (
+        singleVariants.some(kw => matches(titleLower, kw) || matches(descLower, kw)) ||
+        sw.some(w => matches(titleLower, w) || matches(descLower, w))
+      );
+      // ב-text: רק צירופים מלאים כרצף
       const hasSpecInTextFull = !hasSpecInMain && !hasSpecInTitleDesc && allowTextSearch &&
-        synonyms.some(kw => matches(textLower, kw));
+        phraseVariants.some(kw => matches(textLower, kw) || matches(h2h3Lower, kw));
+      // מילה בודדת ב-text — רק למילה ייחודית כמו "מתמטיקה"
+      const isMultiWordSpec = studyField.maUseSubjectWordFallback === false;
       const hasSpecInTextSW = !hasSpecInMain && !hasSpecInTitleDesc && !hasSpecInTextFull &&
-        allowTextSearch && sw.some(w => matches(textLower, w) || matches(h2h3Lower, w));
+        !isMultiWordSpec && allowTextSearch &&
+        singleVariants.concat(sw).some(w => w.length > 5 && (matches(textLower, w) || matches(h2h3Lower, w)));
+
       if (!hasSpecInMain && !hasSpecInTitleDesc && !hasSpecInTextFull && !hasSpecInTextSW) {
         console.log(`    [MA] ❌ Spec "${synonyms[0]}" not found → skip: "${page.title}"`);
         return { found: false, location: null, score: 0 };
       }
       const matched = synonyms.find(kw => searchNoText(kw) || matches(textLower, kw))
-        || sw.find(w => matches(titleLower,w) || matches(descLower,w) || matches(h2h3Lower,w) || matches(textLower,w));
+        || sw.find(w => matches(titleLower,w)||matches(descLower,w)||matches(textLower,w));
       const scoreVal = hasSpecInMain ? 80 : hasSpecInTitleDesc ? 80 : hasSpecInTextFull ? 60 : 42;
-      const location = hasSpecInMain ? 'title/desc/h2' : hasSpecInTitleDesc ? 'title/desc-sw' : hasSpecInTextFull ? 'text-variants' : 'text-sw';
-      console.log(`    [MA] ✅ "תואר שני" + "${matched}" (${location}, score=${scoreVal})`);
-      return { found: true, location, score: scoreVal };
+      const loc = hasSpecInMain?'main':hasSpecInTitleDesc?'title/desc':hasSpecInTextFull?'text-phrase':'text-word';
+      console.log(`    [MA] ✅ "${matched}" (${loc}, score=${scoreVal})`);
+      return { found: true, location: loc, score: scoreVal };
     }
 
     // מצב רגיל: מספיק אחד מהביטויים
@@ -474,8 +486,15 @@ function detectStudyField(message) {
         specWithHe,
         addHe(specialization),
       ])];
-      // מילות נושא לבד (כגיבוי) — רק אם לא נמצא צירוף מלא
-      const subjectWords = specNorm.split(/\s+/).filter(w => w.length > 4 && !['הוראת','לימוד','לימודי','חינוך','מחקר'].includes(w));
+      // מילות נושא לבד (כגיבוי) — רק למילה בודדת ייחודית (לא לצירופים כמו "ייעוץ ארגוני")
+      const specWords = specNorm.split(/\s+/).filter(w =>
+        w.length > 5 &&
+        !['הוראת','לימוד','לימודי','חינוך','מחקר','תחום'].includes(w)
+      );
+      // צירוף דו-מילי (כמו "ייעוץ ארגוני") → חובה title/desc/h2 בלבד
+      // מילה בודדת (כמו "מתמטיקה") → מותר גם text כגיבוי
+      const isMultiWordSpec = specNorm.trim().split(/\s+/).length >= 2;
+      const useSubjectWordFallback = !isMultiWordSpec;
 
       // מפה של synonyms לפי נושא — גרסאות שונות לאותו תחום
       const SUBJECT_SYNONYMS = {
@@ -497,14 +516,15 @@ function detectStudyField(message) {
       }
 
       const finalVariants = [...new Set([...allVariants, ...extraVariants])];
-      const finalSubjectWords = [...new Set([...subjectWords, ...extraVariants.filter(v => !v.includes(' ')).slice(0, 3)])];
+      const finalSubjectWords = [...new Set([...specWords, ...extraVariants.filter(v => !v.includes(' ')).slice(0, 3)])];
 
-      console.log(`✅ Priority field: "${maField.name}" (MA: "${fullPhrase}", variants: ${finalVariants.length}, subjects: [${finalSubjectWords.join(', ')}])`);
+      console.log(`✅ Priority field: "${maField.name}" (MA: "${fullPhrase}", variants: ${finalVariants.length}, multiWord: ${isMultiWordSpec})`);
       return [{ ...maField,
         specificKeyword: fullPhrase,
         requiredKeywords: finalVariants,
         maSpecialization: true,
         maSubjectWords: finalSubjectWords,
+        maUseSubjectWordFallback: useSubjectWordFallback,
       }];
     }
   }
@@ -643,7 +663,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_22_v229_MA_TEXT_FULL`);
+  console.log(`🚀 VERSION: FEB_22_v232_MA_PHRASE_SEARCH`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1543,7 +1563,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_22_v229_MA_TEXT_FULL');
+  console.log('🚀 VERSION: FEB_22_v232_MA_PHRASE_SEARCH');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1758,9 +1778,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_22_v229_MA_TEXT_FULL' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_22_v232_MA_PHRASE_SEARCH' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_22_v229_MA_TEXT_FULL' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_22_v232_MA_PHRASE_SEARCH' });
   }
 }
