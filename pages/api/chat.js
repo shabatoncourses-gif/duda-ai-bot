@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_22_v228_MA_SYNONYMS
+// VERSION: FEB_22_v229_MA_TEXT_FULL
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -310,19 +310,24 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
         return matches(titleLower, term) || matches(descLower, term) || matches(h2h3Lower, term);
       };
       const hasSpecInMain = synonyms.some(kw => searchNoText(kw));
-      // גיבוי: מילת נושא לבד — חייבת להיות בכותרת/תיאור בלבד (לא h2/text)
+      // גיבוי: אם h2 לא קיים באינדקס — חפש synonyms מלאים גם ב-text
       const sw = studyField.maSubjectWords || [];
       const hasSpecInTitleDesc = !hasSpecInMain && sw.some(w =>
         matches(titleLower, w) || matches(descLower, w));
-      const hasSpecInText = !hasSpecInMain && !hasSpecInTitleDesc && allowTextSearch && sw.some(w => matches(textLower, w) || matches(h2h3Lower, w));
-      if (!hasSpecInMain && !hasSpecInTitleDesc && !hasSpecInText) {
+      const hasSpecInTextFull = !hasSpecInMain && !hasSpecInTitleDesc && allowTextSearch &&
+        synonyms.some(kw => matches(textLower, kw));
+      const hasSpecInTextSW = !hasSpecInMain && !hasSpecInTitleDesc && !hasSpecInTextFull &&
+        allowTextSearch && sw.some(w => matches(textLower, w) || matches(h2h3Lower, w));
+      if (!hasSpecInMain && !hasSpecInTitleDesc && !hasSpecInTextFull && !hasSpecInTextSW) {
         console.log(`    [MA] ❌ Spec "${synonyms[0]}" not found → skip: "${page.title}"`);
         return { found: false, location: null, score: 0 };
       }
-      const matched = synonyms.find(kw => searchNoText(kw)) || sw.find(w => matches(titleLower,w) || matches(descLower,w) || matches(h2h3Lower,w) || matches(textLower,w));
-      const scoreVal = hasSpecInMain ? 80 : hasSpecInTitleDesc ? 80 : 42;
-      console.log(`    [MA] ✅ "תואר שני" + "${matched}" (${hasSpecInMain?'variants':hasSpecInTitleDesc?'title/desc-subject':'text/h2-subject'}, score=${scoreVal})`);
-      return { found: true, location: hasSpecInMain ? 'title/desc' : 'text', score: scoreVal };
+      const matched = synonyms.find(kw => searchNoText(kw) || matches(textLower, kw))
+        || sw.find(w => matches(titleLower,w) || matches(descLower,w) || matches(h2h3Lower,w) || matches(textLower,w));
+      const scoreVal = hasSpecInMain ? 80 : hasSpecInTitleDesc ? 80 : hasSpecInTextFull ? 60 : 42;
+      const location = hasSpecInMain ? 'title/desc/h2' : hasSpecInTitleDesc ? 'title/desc-sw' : hasSpecInTextFull ? 'text-variants' : 'text-sw';
+      console.log(`    [MA] ✅ "תואר שני" + "${matched}" (${location}, score=${scoreVal})`);
+      return { found: true, location, score: scoreVal };
     }
 
     // מצב רגיל: מספיק אחד מהביטויים
@@ -638,7 +643,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_22_v228_MA_SYNONYMS`);
+  console.log(`🚀 VERSION: FEB_22_v229_MA_TEXT_FULL`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1538,7 +1543,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_22_v228_MA_SYNONYMS');
+  console.log('🚀 VERSION: FEB_22_v229_MA_TEXT_FULL');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1753,9 +1758,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_22_v228_MA_SYNONYMS' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_22_v229_MA_TEXT_FULL' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_22_v228_MA_SYNONYMS' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_22_v229_MA_TEXT_FULL' });
   }
 }
