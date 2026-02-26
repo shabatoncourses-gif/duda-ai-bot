@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_24_v233_SUBJECTWORDS_FIX
+// VERSION: FEB_24_v234_MGMT_SYNONYMS
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -505,13 +505,22 @@ function detectStudyField(message) {
         'היסטוריה': ['הוראת היסטוריה', 'חינוך היסטורי'],
         'גיאוגרפיה': ['הוראת גיאוגרפיה', 'מדעי הסביבה'],
         'תנך': ['הוראת תנך', 'הוראת התנך', 'מקרא', 'הוראת מקרא', 'תנ"ך'],
+        // ניהול — חייב להופיע רק עם ניהול/מנהל, לא עם ייעוץ
+        'ניהול': ['מנהל חינוכי', 'ניהול חינוכי', 'ניהול וארגון מערכות חינוך', 'מנהל בית ספר', 'מנהיגות חינוכית', 'ניהול מוסד חינוכי', 'מנהל חינוך'],
+        'מנהל': ['מנהל חינוכי', 'ניהול חינוכי', 'ניהול וארגון מערכות חינוך', 'מנהיגות חינוכית'],
+        // ייעוץ — נפרד מניהול
         'ייעוץ': ['ייעוץ חינוכי', 'יועץ חינוכי', 'counseling'],
       };
 
       const extraVariants = [];
-      for (const [subject, synonyms] of Object.entries(SUBJECT_SYNONYMS)) {
+      for (const [subject, synonymsList] of Object.entries(SUBJECT_SYNONYMS)) {
         if (specWords.some(sw => sw.includes(subject) || subject.includes(sw))) {
-          extraVariants.push(...synonyms);
+          // הימנע מ-conflict: ניהול ≠ ייעוץ
+          const isManagement = ['ניהול','מנהל','מנהיג'].some(k => specNorm.includes(k));
+          const isCounseling = ['ייעוץ','יועץ'].some(k => specNorm.includes(k));
+          if (isManagement && subject === 'ייעוץ') continue; // ניהול לא יביא ייעוץ
+          if (isCounseling && (subject === 'ניהול' || subject === 'מנהל')) continue; // ייעוץ לא יביא ניהול
+          extraVariants.push(...synonymsList);
         }
       }
 
@@ -663,7 +672,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_24_v233_SUBJECTWORDS_FIX`);
+  console.log(`🚀 VERSION: FEB_24_v234_MGMT_SYNONYMS`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1563,7 +1572,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_24_v233_SUBJECTWORDS_FIX');
+  console.log('🚀 VERSION: FEB_24_v234_MGMT_SYNONYMS');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1778,9 +1787,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_24_v233_SUBJECTWORDS_FIX' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_24_v234_MGMT_SYNONYMS' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_24_v233_SUBJECTWORDS_FIX' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_24_v234_MGMT_SYNONYMS' });
   }
 }
