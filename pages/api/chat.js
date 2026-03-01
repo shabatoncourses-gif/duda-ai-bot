@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: MAR_01_v237_CONFLICT_TITLE_ONLY
+// VERSION: MAR_01_v239_FIELD_KEYWORDS
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -275,72 +275,56 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
     // מצב תואר שני: הדף חייב להכיל "תואר שני" + צירוף ההתמחות (כביטוי שלם)
     // ההתמחות חייבת להיות בkותרת/תיאור/h2 בלבד (לא text — רועש מדי)
     if (studyField.maSpecialization) {
-      // (1) בדוק שזה לא דף קטגוריה של תואר שני לפי כותרת
+      // (1) סינון דפי קטגוריה אזוריים לפי כותרת
       const maRegionPatterns = [
-        /תואר שני.*בחיפה/, /תואר שני.*בצפון/, /תואר שני.*במרכז/, /תואר שני.*בשרון/,
-        /תואר שני.*בירושלים/, /תואר שני.*בדרום/, /תואר שני.*בשפלה/,
-        /תואר שני.*חיפה.*הצפון/, /תואר שני.*שרון/, /תואר שני.*אזור/,
-        /^לימודי תואר שני/, /^אקדמי - תואר שני/, /^תואר שני$/,
-        /^תואר שני בחיפה/, /^תואר שני בצפון/, /^תואר שני בדרום/,
-        /^תואר שני באזור/, /^תואר שני ב[א-ת]+ וב/, /^תואר שני ב[א-ת]+ה/,
-        // דפי קטגוריה של תחום (ללא שם מוסד) — כותרת קצרה ללא מקף
-        /^[א-ת ]{3,20}ומדעים/, /^[א-ת ]{3,20}ומדעים\s/,
+        /^תואר שני ב/, /^לימודי תואר שני/, /^אקדמי - תואר/,
+        /תואר שני.*(בחיפה|בצפון|במרכז|בשרון|בירושלים|בדרום|בשפלה|באזור|הצפון)/,
+        /תואר שני.*וב[א-ת]/,
       ];
       if (maRegionPatterns.some(p => p.test(titleLower))) {
         console.log(`    [MA] ❌ MA category page → skip: "${page.title}"`);
         return { found: false, location: null, score: 0 };
       }
-      // דפי תחום כלליים — כותרת ב-2 מילים בלבד (כמו "מתמטיקה ומדעים")
+      // כותרת קצרה (≤3 מילים) ללא שם מוסד — דף קטגוריה
       const titleWords = titleLower.trim().split(/\s+/);
-      if (titleWords.length <= 3 && !titleLower.includes('-') && !titleLower.includes('מכללת') && !titleLower.includes('אוניברסיטת')) {
+      const hasInstitutionMarker = /מכללת|אוניברסיטת|מכון|סמינר|המכללה|האוניברסיטה|בית.?ספר|הקריה|אקדמית/.test(titleLower);
+      if (titleWords.length <= 3 && !titleLower.includes('-') && !hasInstitutionMarker) {
         console.log(`    [MA] ❌ Short generic title → skip: "${page.title}"`);
         return { found: false, location: null, score: 0 };
       }
 
-      // (2) "תואר שני" חייב להיות בדף (בכל שדה)
-      const hasMaster = search('תואר שני').found;
-      if (!hasMaster) {
+      // (2) "תואר שני" חייב להיות בדף
+      if (!search('תואר שני').found) {
         console.log(`    [MA] ❌ No "תואר שני" → skip: "${page.title}"`);
         return { found: false, location: null, score: 0 };
       }
 
-      // (3) הצירוף חייב להיות ב-title/desc/h2 — או ב-text (score נמוך יותר)
-      const searchNoText = (term) => {
-        if (!term) return false;
-        return matches(titleLower, term) || matches(descLower, term) || matches(h2h3Lower, term);
-      };
-      const hasSpecInMain = synonyms.some(kw => searchNoText(kw));
+      // (3) חיפוש הצירוף — תמיד כצירוף שלם, לא מילים נפרדות
+      // phrase variants = כל הvariant שגדולים מ-1 מילה
+      // single variants = רק מילה יחידה ממש ייחודית (כגון "מתמטיקה")
+      const synonyms = studyField.requiredKeywords || [];
+      const phraseVars = synonyms.filter(v => v.trim().split(/\s+/).length >= 2);
+      const singleVars = synonyms.filter(v => v.trim().split(/\s+/).length === 1 && v.length >= 5);
 
-      // גיבוי ב-text: רק ביטויים מרובי מילים כרצף (לא מילה בודדת)
-      const sw = (studyField.maSubjectWords || []);
-      const TOO_GENERIC = new Set(['חינוכי','ארגוני','אישי','חינוך','לימוד','טיפולי','מקצועי']);
-      // synonyms מרובי-מילים — מחפש כרצף ב-text
-      const phraseVariants = synonyms.filter(kw => kw.trim().split(/\s+/).length >= 2);
-      // מילים בודדות — רק אם לא גנריות
-      const singleVariants = synonyms.filter(kw => kw.trim().split(/\s+/).length === 1 && !TOO_GENERIC.has(kw));
+      const searchNoText = (term) => term && (matches(titleLower, term) || matches(descLower, term) || matches(h2h3Lower, term));
 
-      const hasSpecInTitleDesc = !hasSpecInMain && (
-        singleVariants.some(kw => matches(titleLower, kw) || matches(descLower, kw)) ||
-        sw.some(w => matches(titleLower, w) || matches(descLower, w))
-      );
-      // ב-text: רק צירופים מלאים כרצף
-      const hasSpecInTextFull = !hasSpecInMain && !hasSpecInTitleDesc && allowTextSearch &&
-        phraseVariants.some(kw => matches(textLower, kw) || matches(h2h3Lower, kw));
-      // מילה בודדת ב-text — רק למילה ייחודית כמו "מתמטיקה"
-      const isMultiWordSpec = studyField.maUseSubjectWordFallback === false;
-      const hasSpecInTextSW = !hasSpecInMain && !hasSpecInTitleDesc && !hasSpecInTextFull &&
-        !isMultiWordSpec && allowTextSearch &&
-        singleVariants.concat(sw).some(w => w.length > 5 && (matches(textLower, w) || matches(h2h3Lower, w)));
+      // (א) חיפוש בכותרת/תיאור/h2 — כל הvariant
+      const inMain = synonyms.some(v => searchNoText(v));
+      // (ב) חיפוש ב-text כרצף — רק phrases (לא מילים בודדות)
+      const inText = !inMain && allowTextSearch && phraseVars.some(v => matches(textLower, v) || matches(h2h3Lower, v));
+      // (ג) מילה בודדת ייחודית ב-title/desc בלבד
+      const inSingleMain = !inMain && !inText && singleVars.some(v => matches(titleLower, v) || matches(descLower, v));
 
-      if (!hasSpecInMain && !hasSpecInTitleDesc && !hasSpecInTextFull && !hasSpecInTextSW) {
-        console.log(`    [MA] ❌ Spec "${synonyms[0]}" not found → skip: "${page.title}"`);
+      if (!inMain && !inText && !inSingleMain) {
+        const specNormStr = studyField.maSpecNorm || (studyField.requiredKeywords?.[0] ?? '');
+        console.log(`    [MA] ❌ Spec not found for "${specNormStr}" → skip: "${page.title}"`);
         return { found: false, location: null, score: 0 };
       }
-      const matched = synonyms.find(kw => searchNoText(kw) || matches(textLower, kw))
-        || sw.find(w => matches(titleLower,w)||matches(descLower,w)||matches(textLower,w));
-      const scoreVal = hasSpecInMain ? 80 : hasSpecInTitleDesc ? 80 : hasSpecInTextFull ? 60 : 42;
-      const loc = hasSpecInMain?'main':hasSpecInTitleDesc?'title/desc':hasSpecInTextFull?'text-phrase':'text-word';
-      console.log(`    [MA] ✅ "${matched}" (${loc}, score=${scoreVal})`);
+
+      const scoreVal = inMain ? 80 : inText ? 60 : 42;
+      const loc = inMain ? 'main' : inText ? 'text-phrase' : 'title-single';
+      const matched = synonyms.find(v => searchNoText(v) || matches(textLower, v));
+      console.log(`    [MA] ✅ "${matched}" (${loc}, score=${scoreVal}) → "${page.title}"`);
       return { found: true, location: loc, score: scoreVal };
     }
 
@@ -355,7 +339,38 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
     return search(matched);
   }
 
-  // ── שלב 1: specificKeyword ──
+  // ── שלב 1: requiredKeywords (כשיש — OR על כל הרשימה) ──
+  if (studyField.requiredKeywords?.length && !studyField.maSpecialization) {
+    // עבור קורסים רגילים: אחד מהkeywords צריך להיות בדף
+    // phrases ≥2 מילים → מחפש כרצף; מילה בודדת → חייב title/desc
+    const rKws = studyField.requiredKeywords;
+    const phraseRKws = rKws.filter(k => k.trim().split(/\s+/).length >= 2);
+    const singleRKws = rKws.filter(k => k.trim().split(/\s+/).length === 1 && k.length >= 4);
+    const foundPhrase = phraseRKws.some(k => search(k).found);
+    const foundSingle = !foundPhrase && singleRKws.some(k => {
+      const r = search(k);
+      return r.found && r.location !== 'text'; // מילה בודדת: רק title/desc/h2
+    });
+    if (foundPhrase || foundSingle) {
+      const matched = rKws.find(k => search(k).found);
+      const r = search(matched);
+      console.log(`    [FIELD] requiredKw "${matched}" in ${r.location} (+${r.score})`);
+      return r;
+    }
+    // אם specificKeyword עצמו נמצא — עובר
+    if (studyField.specificKeyword) {
+      const r = search(studyField.specificKeyword);
+      if (r.found) {
+        console.log(`    [FIELD] specificKw "${studyField.specificKeyword}" in ${r.location} (+${r.score})`);
+        return r;
+      }
+    }
+    // אף keyword לא נמצא → דף לא רלוונטי
+    console.log(`    [FIELD] ❌ None of requiredKeywords found → skip`);
+    return { found: false, location: null, score: 0 };
+  }
+
+  // ── שלב 2: specificKeyword (כשאין requiredKeywords) ──
   if (studyField.specificKeyword) {
     const r = search(studyField.specificKeyword);
     if (r.found) { console.log(`    [FIELD] "${studyField.specificKeyword}" in ${r.location} (+${r.score})`); return r; }
@@ -458,85 +473,106 @@ function detectStudyField(message) {
   }
 
   // ── עדיפות עליונה: "תואר שני ב..." — חייב לחפש את הצירוף המלא ──
-  const masterMatch = lm.match(/תואר שני\s+ב([\u05d0-\u05ea"'\-\s]{2,25})/);
+  const masterMatch = lm.match(/תואר שני\s+ב([\u05d0-\u05ea"'\-\s]{2,30})/);
   if (masterMatch) {
-    const fullPhrase = masterMatch[0].trim();     // "תואר שני בהוראת תנ"ך"
-    const specialization = masterMatch[1].trim(); // "הוראת תנ"ך"
-    // נרמול גרשיים — "תנ"ך" → "תנך"
-    const normalizeQ = (s) => s.replace(/['"״"]/g, '').trim();
-    const specNorm = normalizeQ(specialization);  // "הוראת תנך"
-    // גרסה עם ה' הידיעה על המילה האחרונה — "הוראת תנך" → "הוראת התנך"
-    const addHe = (s) => { const w = s.split(/\s+/); w[w.length-1] = 'ה' + w[w.length-1]; return w.join(' '); };
-    const specWithHe = addHe(specNorm); // "הוראת התנך"
+    const fullPhrase = masterMatch[0].trim();
+    const specialization = masterMatch[1].trim();
+    const normalizeQ = (s) => s.replace(/['"״"]/g, '').replace(/\s+/g, ' ').trim();
+    const specNorm = normalizeQ(specialization);
     const maField = STUDY_FIELDS.find(f => f.name.includes('תואר שני'));
     if (maField) {
-      // בנה גרסאות מילות יחס: "חינוך לגיל הרך" → גם "חינוך בגיל הרך", "חינוך לגיל-הרך"
-      const prepVariants = (s) => {
-        const variants = new Set([s]);
-        // החלף מילת יחס ראשונה ב-ל/ב/של
-        const withPreps = s.replace(/^([\u05d0-\u05ea]+)\s+(ל|ב|של|ה)/, (m, word, prep) => {
-          ['ל', 'ב', 'של'].filter(p => p !== prep).forEach(p => variants.add(`${word} ${p}${s.slice(word.length + 1 + prep.length)}`));
-          return m;
-        });
-        // גרסה עם מקף במקום רווח
-        variants.add(s.replace(/\s+/g, '-'));
-        return [...variants];
-      };
-      const allVariants = [...new Set([
-        ...prepVariants(specialization),
-        ...prepVariants(specNorm),
-        specWithHe,
-        addHe(specialization),
-      ])];
-      // מילות נושא לבד (כגיבוי) — רק למילה בודדת ייחודית (לא לצירופים כמו "ייעוץ ארגוני")
-      const specWords = specNorm.split(/\s+/).filter(w =>
-        w.length >= 4 &&  // הורד סף מ-5 ל-4 כדי לכלול "ניהול", "מנהל"
-        !['הוראת','לימוד','לימודי','חינוך','מחקר','תחום','חינוכי','ארגוני','אישי'].includes(w)
-      );
-      // חפש SUBJECT_SYNONYMS גם לפי specNorm שלם (לא רק מילים בודדות)
-      const isMultiWordSpec = specNorm.trim().split(/\s+/).length >= 2;
-      const useSubjectWordFallback = !isMultiWordSpec;
+      // ── גנרציית variants שיטתית ──
+      const variantSet = new Set();
 
-      // מפה של synonyms לפי נושא — גרסאות שונות לאותו תחום
-      const SUBJECT_SYNONYMS = {
-        'מתמטיקה': ['מתמטי', 'מתמטית', 'חינוך מתמטי', 'הוראת מתמטיקה', 'הוראת המתמטיקה', 'מחלקה לחינוך מתמטי', 'M.Ed בהוראת המתמטיקה', 'מ.א בהוראת מתמטיקה'],
-        'מדעים': ['מדעי', 'הוראת מדעים', 'חינוך מדעי', 'מדעי הטבע'],
-        'אנגלית': ['הוראת אנגלית', 'שפה אנגלית', 'אנגלית כשפה זרה', 'EFL', 'TEFL'],
-        'ספרות': ['הוראת ספרות', 'חינוך לשוני', 'ספרות עברית'],
-        'היסטוריה': ['הוראת היסטוריה', 'חינוך היסטורי'],
-        'גיאוגרפיה': ['הוראת גיאוגרפיה', 'מדעי הסביבה'],
-        'תנך': ['הוראת תנך', 'הוראת התנך', 'מקרא', 'הוראת מקרא', 'תנ"ך'],
-        // ניהול — חייב להופיע רק עם ניהול/מנהל, לא עם ייעוץ
-        'ניהול': ['מנהל חינוכי', 'ניהול חינוכי', 'ניהול וארגון מערכות חינוך', 'ארגון וניהול מערכות חינוך', 'מנהל בית ספר', 'מנהיגות חינוכית', 'ניהול מוסד חינוכי', 'מנהל חינוך', 'מנהל בית-ספר', 'ניהול בית ספר'],
-        'מנהל': ['מנהל חינוכי', 'ניהול חינוכי', 'ניהול וארגון מערכות חינוך', 'ארגון וניהול מערכות חינוך', 'מנהיגות חינוכית', 'מנהל בית ספר', 'ניהול בית ספר'],
-        // ייעוץ — נפרד מניהול
-        'ייעוץ': ['ייעוץ חינוכי', 'יועץ חינוכי', 'counseling'],
+      // (א) וריאנטים בסיסיים של הצירוף עצמו
+      const addPhrase = (s) => {
+        if (!s || s.length < 2) return;
+        const n = normalizeQ(s);
+        variantSet.add(n);
+        // עם ה' ידיעה על המילה האחרונה
+        const w = n.split(/\s+/);
+        if (w.length >= 1) {
+          const withHe = [...w.slice(0,-1), 'ה'+w[w.length-1]].join(' ');
+          variantSet.add(withHe);
+          // בלי ה' על המילה האחרונה
+          if (w[w.length-1].startsWith('ה') && w[w.length-1].length > 2) {
+            variantSet.add([...w.slice(0,-1), w[w.length-1].slice(1)].join(' '));
+          }
+        }
+        // וריאנטים של מילת יחס ראשונה (ל/ב/של)
+        const prepMatch = n.match(/^([\u05d0-\u05ea]+)\s+(ל|ב|של|ה)([\u05d0-\u05ea].*)$/);
+        if (prepMatch) {
+          const [,word,,rest] = prepMatch;
+          for (const p of ['ל','ב','של']) variantSet.add(`${word} ${p}${rest}`);
+          variantSet.add(`${word} ${rest}`); // בלי מילת יחס
+        }
+        // גרסת מקף
+        variantSet.add(n.replace(/\s+/g,'-'));
       };
+      addPhrase(specialization);
+      addPhrase(specNorm);
 
-      const extraVariants = [];
-      for (const [subject, synonymsList] of Object.entries(SUBJECT_SYNONYMS)) {
-        // התאמה לפי מילה בודדת מ-specWords או לפי הצירוף המלא
-        const matchesByWord = specWords.some(sw => sw.includes(subject) || subject.includes(sw));
-        const matchesByPhrase = specNorm.includes(subject);
-        if (matchesByWord || matchesByPhrase) {
-          const isManagement = ['ניהול','מנהל','מנהיג'].some(k => specNorm.includes(k));
-          const isCounseling = ['ייעוץ','יועץ'].some(k => specNorm.includes(k));
-          if (isManagement && subject === 'ייעוץ') continue;
-          if (isCounseling && (subject === 'ניהול' || subject === 'מנהל')) continue;
-          extraVariants.push(...synonymsList);
+      // (ב) חיפוש בכל שדות הלימוד — מציאת התחום התואם + keywords שלו
+      const specLower = specNorm.toLowerCase();
+      const STOP_WORDS = new Set(['הוראת','לימוד','לימודי','מחקר','תחום','קורסי','לימודים','קורס']);
+      const specCoreWords = specLower.split(/\s+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+
+      for (const field of STUDY_FIELDS) {
+        if (field.name === 'תואר שני בחינוך ובהוראה') continue; // שדה ה-MA עצמו
+        const fieldNameNorm = normalizeQ(field.name).toLowerCase();
+        const fieldKws = (field.keywords || []).map(k => normalizeQ(k).toLowerCase());
+
+        // מילות תוכן של השדה (בלי stop words וסיומות)
+        const STOP_FIELD = new Set(['קורסי','לימודי','לימודים','קורס','קורסים','וטיפול','ואבחון','ומדעים']);
+        const fieldCore = fieldNameNorm.split(/[\s,\-ו]+/).filter(w => w.length >= 4 && !STOP_FIELD.has(w));
+
+        // התאמה חזקה: לפחות מילת תוכן אחת מהspec חייבת להתאים לfield CONTENT (לא stop word)
+        const strongMatch = fieldCore.some(fw =>
+          specCoreWords.some(sw => (sw === fw || sw.includes(fw) || fw.includes(sw)) && fw.length >= 4)
+        );
+        // התאמה לפי keyword מלא שנמצא ב-spec
+        const kwMatch = fieldKws.some(kw =>
+          kw.split(/\s+/).length >= 2 && kw.length >= 6 && (specLower.includes(kw) || kw.includes(specLower))
+        );
+
+        if (strongMatch || kwMatch) {
+          // הוסף כל keyword מרובה-מילים של השדה כvariant (כצירוף שלם)
+          for (const kw of (field.keywords || [])) {
+            const kwNorm = normalizeQ(kw);
+            if (kwNorm.split(/\s+/).length >= 2) {
+              addPhrase(kwNorm);
+            }
+          }
+          // הוסף את שם השדה
+          addPhrase(field.name);
+          console.log(`  [MA-VARIANTS] Matched field: "${field.name}" (core: ${fieldCore.filter(fw=>specCoreWords.some(sw=>sw.includes(fw)||fw.includes(sw))).join(',')})`);
         }
       }
 
-      const finalVariants = [...new Set([...allVariants, ...extraVariants])];
-      const finalSubjectWords = [...new Set([...specWords, ...extraVariants.filter(v => !v.includes(' ')).slice(0, 3)])];
+      const finalVariants = [...variantSet].filter(v => v.length >= 2);
 
-      console.log(`✅ Priority field: "${maField.name}" (MA: "${fullPhrase}", variants: ${finalVariants.length}, multiWord: ${isMultiWordSpec})`);
+      // (ג) זיהוי שדה מתחרה — לסינון בהמשך
+      // שדה הנמצא ב-STUDY_FIELDS ששמו מכיל מילים של specNorm אבל מצד שני שונה ממנו
+      const competingFields = STUDY_FIELDS
+        .filter(f => f.name !== 'תואר שני בחינוך ובהוראה')
+        .filter(f => {
+          const fn = normalizeQ(f.name).toLowerCase();
+          const specWords2 = specLower.split(/\s+/).filter(w => w.length >= 3);
+          const fieldWords2 = fn.split(/[\s,\-]+/).filter(w => w.length >= 3);
+          // שדה מתחרה: יש חפיפה חלקית אבל לא מלאה
+          const overlap = fieldWords2.filter(fw => specWords2.some(sw => sw.includes(fw) || fw.includes(sw)));
+          const fullMatch = specLower.includes(fn) || fn.includes(specLower);
+          return overlap.length > 0 && !fullMatch;
+        })
+        .map(f => normalizeQ(f.name));
+
+      console.log(`✅ MA: "${specNorm}" | variants(${finalVariants.length}) | competing: [${competingFields.slice(0,3).join(', ')}]`);
       return [{ ...maField,
         specificKeyword: fullPhrase,
         requiredKeywords: finalVariants,
         maSpecialization: true,
-        maSubjectWords: finalSubjectWords,
-        maUseSubjectWordFallback: useSubjectWordFallback,
+        maSpecNorm: specNorm,
+        maCompetingFields: competingFields,
       }];
     }
   }
@@ -562,7 +598,6 @@ function detectStudyField(message) {
       let specificKeyword = null;
 
       if (semantic) {
-        // v108: חיפוש מילה מקורית מהמסר
         const words = lm.split(/\s+/);
         for (const et of expanded) {
           if (et.toLowerCase() === fl || et === message) continue;
@@ -576,7 +611,6 @@ function detectStudyField(message) {
           }
           if (specificKeyword) break;
         }
-        // fallback לkeywords
         if (!specificKeyword) {
           for (const kw of (field.keywords || [])) {
             for (const w of lm.split(/\s+/)) {
@@ -591,12 +625,19 @@ function detectStudyField(message) {
           }
         }
       } else {
-        // v110: גם direct match מקבל specificKeyword = שם התחום
         specificKeyword = fl;
         console.log(`  🎯 Direct match → specificKeyword: "${specificKeyword}"`);
       }
 
-      return [{ ...field, specificKeyword }];
+      // בנה requiredKeywords מ-keywords של השדה (phrases ≥2 מילים) + synonyms מהשאילתה
+      const fieldPhraseKws = (field.keywords || []).filter(k => k.trim().split(/\s+/).length >= 2 && k.length >= 4);
+      const semanticPhrases = expanded.filter(t => t.trim().split(/\s+/).length >= 2 && t.length >= 4);
+      const requiredKeywords = fieldPhraseKws.length > 0
+        ? [...new Set([...(specificKeyword ? [specificKeyword] : []), ...fieldPhraseKws, ...semanticPhrases])]
+        : null;
+      console.log(`  📋 requiredKeywords: ${requiredKeywords ? requiredKeywords.slice(0,4).join(', ') : 'none'}`);
+
+      return [{ ...field, specificKeyword, requiredKeywords }];
     }
   }
 
@@ -618,13 +659,20 @@ function detectStudyField(message) {
 
   if (best) {
     console.log(`✅ Keyword: "${best.keyword}" → "${best.field.name}" (via: ${best.via})`);
-    // מצא את המילה המקורית מהמסר
     let fullWord = best.keyword;
     for (const w of lm.split(/\s+/)) {
       const cw = w.replace(/[,\.!\?;:]/g, '');
       if (cw.length > 2 && cw.includes(best.keyword.toLowerCase())) { fullWord = cw; break; }
     }
-    return [{ ...best.field, specificKeyword: fullWord }];
+    // requiredKeywords: הmatch keyword + phrases מהשדה + semanticPhrases
+    const field = best.field;
+    const fieldPhraseKws = (field.keywords || []).filter(k => k.trim().split(/\s+/).length >= 2 && k.length >= 4);
+    const semanticPhrases = expanded.filter(t => t.trim().split(/\s+/).length >= 2 && t.length >= 4);
+    const requiredKeywords = fieldPhraseKws.length > 0
+      ? [...new Set([fullWord, ...fieldPhraseKws, ...semanticPhrases])]
+      : null;
+    console.log(`  📋 requiredKeywords: ${requiredKeywords ? requiredKeywords.slice(0,4).join(', ') : 'none'}`);
+    return [{ ...field, specificKeyword: fullWord, requiredKeywords }];
   }
 
   console.log('❌ No field detected');
@@ -675,7 +723,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: MAR_01_v237_CONFLICT_TITLE_ONLY`);
+  console.log(`🚀 VERSION: MAR_01_v239_FIELD_KEYWORDS`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1181,23 +1229,12 @@ function formatResults(results, studyField, region, query = '') {
         return false;
       }
 
-      // סינון conflict: דף שכותרתו/תיאורו מייצגים התמחות **אחרת** מהמבוקש
-      const specKw = studyField.specificKeyword?.toLowerCase() || '';
-      const COMPETING_SPECIALIZATIONS = [
-        { trigger: ['ניהול', 'מנהל', 'מנהיג'], conflicts: ['ייעוץ חינוכי', 'יועץ חינוכי', 'ייעוץ ארגוני'] },
-        { trigger: ['ייעוץ חינוכי', 'יועץ חינוכי'], conflicts: ['ניהול חינוכי', 'מנהל חינוכי', 'ניהול וארגון'] },
-        { trigger: ['חינוך מיוחד'], conflicts: ['ייעוץ חינוכי', 'ניהול חינוכי'] },
-        { trigger: ['מתמטיקה', 'מתמטי'], conflicts: ['ייעוץ חינוכי', 'ניהול חינוכי', 'חינוך מיוחד'] },
-      ];
-      for (const comp of COMPETING_SPECIALIZATIONS) {
-        const queryMatchesTrigger = comp.trigger.some(t => specKw.includes(t));
-        if (queryMatchesTrigger) {
-          // בדוק רק בכותרת — דפים שכותרתם היא ההתמחות המתחרה (לא דפים שמציעים שתי התמחויות)
-          const hasConflict = comp.conflicts.some(c => title.includes(c));
-          if (hasConflict) {
-            console.log(`    [FILTER] ❌ Competing specialization in title → skip: "${r.title}"`);
-            return false;
-          }
+      // סינון conflict: אם כותרת הדף מציינת התמחות אחרת מהמבוקשת
+      if (studyField?.maSpecialization && studyField?.maCompetingFields?.length) {
+        const competingInTitle = studyField.maCompetingFields.some(cf => title.includes(cf.toLowerCase()));
+        if (competingInTitle) {
+          console.log(`    [FILTER] ❌ Competing specialization in title → skip: "${r.title}"`);
+          return false;
         }
       }
     }
@@ -1594,7 +1631,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: MAR_01_v237_CONFLICT_TITLE_ONLY');
+  console.log('🚀 VERSION: MAR_01_v239_FIELD_KEYWORDS');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1809,9 +1846,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_01_v237_CONFLICT_TITLE_ONLY' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_01_v239_FIELD_KEYWORDS' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_01_v237_CONFLICT_TITLE_ONLY' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_01_v239_FIELD_KEYWORDS' });
   }
 }
