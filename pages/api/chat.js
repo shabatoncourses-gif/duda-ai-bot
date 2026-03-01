@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: MAR_01_v236_SPECWORDS_FIX
+// VERSION: MAR_01_v237_CONFLICT_TITLE_ONLY
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -675,7 +675,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: MAR_01_v236_SPECWORDS_FIX`);
+  console.log(`🚀 VERSION: MAR_01_v237_CONFLICT_TITLE_ONLY`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1192,11 +1192,10 @@ function formatResults(results, studyField, region, query = '') {
       for (const comp of COMPETING_SPECIALIZATIONS) {
         const queryMatchesTrigger = comp.trigger.some(t => specKw.includes(t));
         if (queryMatchesTrigger) {
-          // אם כותרת+תיאור מכילים ביטוי מתחרה — חסום
-          const pageTitleDesc = (title + ' ' + desc);
-          const hasConflict = comp.conflicts.some(c => pageTitleDesc.includes(c));
+          // בדוק רק בכותרת — דפים שכותרתם היא ההתמחות המתחרה (לא דפים שמציעים שתי התמחויות)
+          const hasConflict = comp.conflicts.some(c => title.includes(c));
           if (hasConflict) {
-            console.log(`    [FILTER] ❌ Competing specialization in title/desc → skip: "${r.title}"`);
+            console.log(`    [FILTER] ❌ Competing specialization in title → skip: "${r.title}"`);
             return false;
           }
         }
@@ -1595,7 +1594,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: MAR_01_v236_SPECWORDS_FIX');
+  console.log('🚀 VERSION: MAR_01_v237_CONFLICT_TITLE_ONLY');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1810,9 +1809,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_01_v236_SPECWORDS_FIX' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_01_v237_CONFLICT_TITLE_ONLY' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_01_v236_SPECWORDS_FIX' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_01_v237_CONFLICT_TITLE_ONLY' });
   }
 }
