@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: MAR_01_v240_SHABATON_QA
+// VERSION: MAR_01_v241_QA_FALLBACK
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -717,7 +717,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: MAR_01_v240_SHABATON_QA`);
+  console.log(`🚀 VERSION: MAR_01_v241_QA_FALLBACK`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1000,12 +1000,93 @@ function findQAAnswer(message) {
   return null;
 }
 
+// ================================================================
+// SHABATON PAGE FALLBACK — כשאין תשובה ב-QA, מסרוקים דף רלוונטי
+// ================================================================
+
+// מיפוי נושאים לדפים רלוונטיים
+const SHABATON_PAGE_MAP = [
+  { keywords: ['ביטוח לאומי','בטל','ביטוח'],          url: '/btl_shabaton',                 name: 'ביטוח לאומי בשבתון' },
+  { keywords: ['מענק','כמה מקבלים','תשלום','שכר'],     url: '/shabaton-maanak',               name: 'מענק שבתון' },
+  { keywords: ['תשלומים','פנסיה','קרן'],                url: '/Payments_shabaton',             name: 'תשלומים בשנת שבתון' },
+  { keywords: ['לידה','יולדת','הריון','דמי לידה'],      url: '/birth_shabatgon',               name: 'לידה בשבתון' },
+  { keywords: ['תוכנית לימודים','מה ללמוד','שעות'],     url: '/learning_programs_shabaton',    name: 'תוכניות לימודים' },
+  { keywords: ['חובת לימודים','לימודי חובה','השלמה'],   url: '/shabaton-hova-hashlama',        name: 'לימודי חובה' },
+  { keywords: ['לוח זמנים','מועדים','מתי להגיש'],       url: '/luz_shabaton',                  name: 'לוח הזמנים' },
+  { keywords: ['סוף שבתון','חזרה','סיום'],               url: '/end_shabaton',                  name: 'סוף שבתון' },
+  { keywords: ['טפסים','מסמכים'],                        url: '/forms_shabaton',                name: 'טפסים ומסמכים' },
+  { keywords: ['בקשת שבתון','הגשת בקשה'],               url: '/shabaton_request',              name: 'בקשת שבתון' },
+  { keywords: ['חצי שבתון','שבתון מלא'],                 url: '/halforfull_shabaton',           name: 'שבתון מלא או חצי' },
+  { keywords: ['טלפון','לפנות','כתובת'],                 url: '/phones_shabaton',               name: 'טלפונים וכתובות' },
+  { keywords: ['קבלות','החזר שכר לימוד','ארגון המורים'], url: '/shabaton-kabalot-irgun',       name: 'קבלות - ארגון המורים' },
+  { keywords: ['קבלות','החזר שכר לימוד','הסתדרות'],     url: '/shabaton-kabalot-histadrut',    name: 'קבלות - הסתדרות' },
+  { keywords: ['תלוש','תלושים'],                          url: '/tlush_maanak_shabaton',         name: 'תלושי מענק' },
+  { keywords: ['דוקטורט','תואר שלישי','phd'],            url: '/toar_shlishi_edu',              name: 'דוקטורט בשבתון' },
+  { keywords: ['שינוי תוכנית','לשנות'],                  url: '/change_prog_shabaton',          name: 'שינוי תוכנית לימודים' },
+  { keywords: ['רשימת משימות','checklist'],               url: '/shabaton_checklist',            name: 'רשימת משימות' },
+];
+
+async function fetchShabatonPage(url) {
+  try {
+    const https = await import('https');
+    const fullUrl = `https://www.shabaton.online${url}`;
+    return new Promise((resolve) => {
+      const req = https.get(fullUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ShabatonBot/1.0)' },
+        timeout: 8000
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          // חלץ טקסט נקי
+          let text = data
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+            .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+          // חלץ 2000 תווים רלוונטיים (דלג על תפריט)
+          const idx = Math.min(800, Math.floor(text.length * 0.15));
+          resolve(text.substring(idx, idx + 2500));
+        });
+      });
+      req.on('error', () => resolve(null));
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+    });
+  } catch(e) { return null; }
+}
+
+async function findShabatonPageFallback(message) {
+  const lm = message.toLowerCase();
+  // מצא דף רלוונטי
+  let best = null;
+  let bestScore = 0;
+  for (const page of SHABATON_PAGE_MAP) {
+    const hits = page.keywords.filter(k => lm.includes(k)).length;
+    if (hits > bestScore) { bestScore = hits; best = page; }
+  }
+  if (!best || bestScore === 0) return null;
+
+  console.log(`🔍 Shabaton fallback: fetching ${best.url} for "${message.substring(0,30)}"`);
+  const content = await fetchShabatonPage(best.url);
+  if (!content || content.length < 100) return null;
+
+  return {
+    answer: `המידע מדף **${best.name}** באתר שבתון:\n\n${content.substring(0, 800)}\n\n📎 [לכל המידע: ${best.name}](https://www.shabaton.online${best.url})\n💬 [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)`,
+    _fromFallback: true
+  };
+}
+
 function classifyIntent(message) {
   const lm = message.toLowerCase();
   const qaKw = ['כמה', 'מתי', 'איך', 'מה זה', 'האם', 'מי', 'למה', 'איפה', 'מה'];
   if (qaKw.some(k => lm.includes(k))) {
     const qa = findQAAnswer(message);
     if (qa) return { intent: 'qa', data: qa };
+    // בדוק אם שאלה על שבתון — סמן לfallback
+    const shabatonKw = ['שבתון','ביטוח לאומי','מענק','לידה','תוכנית לימודים','קרן','טפסים','מסמכים','חצי שבתון'];
+    if (shabatonKw.some(k => lm.includes(k))) return { intent: 'qa_fallback' };
   }
   const searchKw = ['קורס', 'לימוד', 'השתלמות', 'תואר', 'מכללה', 'לימודים'];
   if (searchKw.some(k => lm.includes(k))) return { intent: 'search' };
@@ -1624,7 +1705,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: MAR_01_v240_SHABATON_QA');
+  console.log('🚀 VERSION: MAR_01_v241_QA_FALLBACK');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1711,6 +1792,19 @@ async function generateSmartResponse(message) {
 
   const intent = classifyIntent(message);
   console.log(`🎯 Intent: ${intent.intent}`);
+
+  // ── QA: תשובה ממאגר ──
+  if (intent.intent === 'qa') {
+    return intent.data.answer;
+  }
+
+  // ── QA Fallback: סריקת דף שבתון חיה ──
+  if (intent.intent === 'qa_fallback') {
+    const fallback = await findShabatonPageFallback(message);
+    if (fallback) return fallback.answer;
+    // אם גם fallback נכשל — הפנה ל-important
+    return `למידע על שאלה זו:\n\n📎 [חשוב בשבתון - כל המידע](https://www.shabaton.online/important)\n\n💬 [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)`;
+  }
 
   // ── אם יש תחום אבל אין אזור — חפש בכל הארץ (אין זיכרון בין הודעות) ──
   // לא שואלים על אזור כי הבוט שוכח את התחום בהודעה הבאה
@@ -1810,7 +1904,7 @@ async function generateSmartResponse(message) {
   }
 
   // General
-  return `היי! 👋\n\nאני כאן לעזור לך למצוא קורסים והשתלמויות למורים בשבתון.\n\n**לדוגמה:**\n• "קורס הנחיית קבוצות במרכז"\n• "קורס צילום בצפון"\n• "כמה עולה קורס?"\n\n💬 [קבוצת ווטסאפ שבתון](${WHATSAPP_LINK})`;
+  return `היי! 👋\n\nאני כאן לעזור לך למצוא קורסים והשתלמויות למורים בשבתון.\n\n**לדוגמה:**\n• "קורס הנחיית קבוצות במרכז"\n• "קורס צילום בצפון"\n• "כמה עולה קורס?"\n\n💬 [קבוצת ווטסאפ שבתון](${WHATSAPP_LINK})\n\n---\n_הצ'אט מבוסס AI ומספק מידע כללי בלבד. אין לראות בתשובות תחליף לייעוץ מקצועי._`;
 }
 
 // ================================================================
@@ -1839,9 +1933,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_01_v240_SHABATON_QA' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_01_v241_QA_FALLBACK' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_01_v240_SHABATON_QA' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_01_v241_QA_FALLBACK' });
   }
 }
