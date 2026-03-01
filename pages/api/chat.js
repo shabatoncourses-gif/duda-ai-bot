@@ -793,18 +793,21 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
         continue;
       }
 
-      // ── ציון מינימלי לפי סוג השאילתה ──
+  // ── ציון מינימלי לפי סוג השאילתה ──
       // title=150, desc=80, h2h3=60, text=40
       // מילות מפתח שמופיעות ברשימות קורסים (לא ככותרת דף) — מספיק text
       const LIST_FORMAT_KEYWORDS = new Set([
         'בינה מלאכותית', 'ai', 'chatgpt', 'chat gpt', 'canva', 'קאנבה',
         'משחקולוגיה', 'גיימיפיקציה', 'מציאות מדומה', 'מציאות רבודה',
         'פודקאסט', 'יוטיוב', 'youtube', 'tikto', 'tiktok',
-        'מיינדפולנס', 'מיינדפולנס', 'מדיטציה', 'יוגה', 'מיינד',
+        'מיינדפולנס', 'מדיטציה', 'יוגה', 'מיינד',
         'NLP', 'nlp', 'נלפ', 'CBT', 'cbt', 'EMDR', 'emdr',
       ]);
       const kwLower = (studyField.specificKeyword || '').toLowerCase();
       const isListFormat = [...LIST_FORMAT_KEYWORDS].some(k => kwLower.includes(k.toLowerCase()));
+
+      // עבור list-format: שומר על requiredKeywords — "בינה מלאכותית" חייב להופיע בדף
+      // ההבדל היחיד: מספיק ב-text (minScore=40) ולא חייב בכותרת/h2
 
       const minScore = (() => {
         if (studyField.maSpecialization) return 42;
