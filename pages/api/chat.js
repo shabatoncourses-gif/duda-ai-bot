@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_24_v235_MGMT_CONFLICT
+// VERSION: MAR_01_v236_SPECWORDS_FIX
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -313,9 +313,11 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
 
       // גיבוי ב-text: רק ביטויים מרובי מילים כרצף (לא מילה בודדת)
       const sw = (studyField.maSubjectWords || []);
+      const TOO_GENERIC = new Set(['חינוכי','ארגוני','אישי','חינוך','לימוד','טיפולי','מקצועי']);
       // synonyms מרובי-מילים — מחפש כרצף ב-text
       const phraseVariants = synonyms.filter(kw => kw.trim().split(/\s+/).length >= 2);
-      const singleVariants = synonyms.filter(kw => kw.trim().split(/\s+/).length === 1);
+      // מילים בודדות — רק אם לא גנריות
+      const singleVariants = synonyms.filter(kw => kw.trim().split(/\s+/).length === 1 && !TOO_GENERIC.has(kw));
 
       const hasSpecInTitleDesc = !hasSpecInMain && (
         singleVariants.some(kw => matches(titleLower, kw) || matches(descLower, kw)) ||
@@ -488,11 +490,10 @@ function detectStudyField(message) {
       ])];
       // מילות נושא לבד (כגיבוי) — רק למילה בודדת ייחודית (לא לצירופים כמו "ייעוץ ארגוני")
       const specWords = specNorm.split(/\s+/).filter(w =>
-        w.length > 5 &&
-        !['הוראת','לימוד','לימודי','חינוך','מחקר','תחום'].includes(w)
+        w.length >= 4 &&  // הורד סף מ-5 ל-4 כדי לכלול "ניהול", "מנהל"
+        !['הוראת','לימוד','לימודי','חינוך','מחקר','תחום','חינוכי','ארגוני','אישי'].includes(w)
       );
-      // צירוף דו-מילי (כמו "ייעוץ ארגוני") → חובה title/desc/h2 בלבד
-      // מילה בודדת (כמו "מתמטיקה") → מותר גם text כגיבוי
+      // חפש SUBJECT_SYNONYMS גם לפי specNorm שלם (לא רק מילים בודדות)
       const isMultiWordSpec = specNorm.trim().split(/\s+/).length >= 2;
       const useSubjectWordFallback = !isMultiWordSpec;
 
@@ -514,12 +515,14 @@ function detectStudyField(message) {
 
       const extraVariants = [];
       for (const [subject, synonymsList] of Object.entries(SUBJECT_SYNONYMS)) {
-        if (specWords.some(sw => sw.includes(subject) || subject.includes(sw))) {
-          // הימנע מ-conflict: ניהול ≠ ייעוץ
+        // התאמה לפי מילה בודדת מ-specWords או לפי הצירוף המלא
+        const matchesByWord = specWords.some(sw => sw.includes(subject) || subject.includes(sw));
+        const matchesByPhrase = specNorm.includes(subject);
+        if (matchesByWord || matchesByPhrase) {
           const isManagement = ['ניהול','מנהל','מנהיג'].some(k => specNorm.includes(k));
           const isCounseling = ['ייעוץ','יועץ'].some(k => specNorm.includes(k));
-          if (isManagement && subject === 'ייעוץ') continue; // ניהול לא יביא ייעוץ
-          if (isCounseling && (subject === 'ניהול' || subject === 'מנהל')) continue; // ייעוץ לא יביא ניהול
+          if (isManagement && subject === 'ייעוץ') continue;
+          if (isCounseling && (subject === 'ניהול' || subject === 'מנהל')) continue;
           extraVariants.push(...synonymsList);
         }
       }
@@ -672,7 +675,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_24_v235_MGMT_CONFLICT`);
+  console.log(`🚀 VERSION: MAR_01_v236_SPECWORDS_FIX`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1592,7 +1595,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_24_v235_MGMT_CONFLICT');
+  console.log('🚀 VERSION: MAR_01_v236_SPECWORDS_FIX');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1807,9 +1810,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_24_v235_MGMT_CONFLICT' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_01_v236_SPECWORDS_FIX' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_24_v235_MGMT_CONFLICT' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_01_v236_SPECWORDS_FIX' });
   }
 }
