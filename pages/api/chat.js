@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: FEB_24_v234_MGMT_SYNONYMS
+// VERSION: FEB_24_v235_MGMT_CONFLICT
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -506,8 +506,8 @@ function detectStudyField(message) {
         'גיאוגרפיה': ['הוראת גיאוגרפיה', 'מדעי הסביבה'],
         'תנך': ['הוראת תנך', 'הוראת התנך', 'מקרא', 'הוראת מקרא', 'תנ"ך'],
         // ניהול — חייב להופיע רק עם ניהול/מנהל, לא עם ייעוץ
-        'ניהול': ['מנהל חינוכי', 'ניהול חינוכי', 'ניהול וארגון מערכות חינוך', 'מנהל בית ספר', 'מנהיגות חינוכית', 'ניהול מוסד חינוכי', 'מנהל חינוך'],
-        'מנהל': ['מנהל חינוכי', 'ניהול חינוכי', 'ניהול וארגון מערכות חינוך', 'מנהיגות חינוכית'],
+        'ניהול': ['מנהל חינוכי', 'ניהול חינוכי', 'ניהול וארגון מערכות חינוך', 'ארגון וניהול מערכות חינוך', 'מנהל בית ספר', 'מנהיגות חינוכית', 'ניהול מוסד חינוכי', 'מנהל חינוך', 'מנהל בית-ספר', 'ניהול בית ספר'],
+        'מנהל': ['מנהל חינוכי', 'ניהול חינוכי', 'ניהול וארגון מערכות חינוך', 'ארגון וניהול מערכות חינוך', 'מנהיגות חינוכית', 'מנהל בית ספר', 'ניהול בית ספר'],
         // ייעוץ — נפרד מניהול
         'ייעוץ': ['ייעוץ חינוכי', 'יועץ חינוכי', 'counseling'],
       };
@@ -672,7 +672,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: FEB_24_v234_MGMT_SYNONYMS`);
+  console.log(`🚀 VERSION: FEB_24_v235_MGMT_CONFLICT`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1171,12 +1171,32 @@ function formatResults(results, studyField, region, query = '') {
       const admissionPhrases = ['בעלי תואר שני', 'בעל תואר שני', 'בעלות תואר שני',
         'מחייב תואר שני', 'נדרש תואר שני', 'דרישות קבלה', 'תנאי קבלה'];
       const titleAndDesc = title + ' ' + desc;
-      // אם המסר הוא "לעוסקים בעלי תואר שני" ואין "תואר שני ב..." בכותרת
       const hasAdmissionOnly = admissionPhrases.some(p => titleAndDesc.includes(p)) &&
         !title.includes('תואר שני ב') && !title.includes('לימודי תואר שני');
       if (hasAdmissionOnly) {
         console.log(`    [FILTER] ❌ תואר שני as admission req only → skip: "${r.title}"`);
         return false;
+      }
+
+      // סינון conflict: דף שכותרתו/תיאורו מייצגים התמחות **אחרת** מהמבוקש
+      const specKw = studyField.specificKeyword?.toLowerCase() || '';
+      const COMPETING_SPECIALIZATIONS = [
+        { trigger: ['ניהול', 'מנהל', 'מנהיג'], conflicts: ['ייעוץ חינוכי', 'יועץ חינוכי', 'ייעוץ ארגוני'] },
+        { trigger: ['ייעוץ חינוכי', 'יועץ חינוכי'], conflicts: ['ניהול חינוכי', 'מנהל חינוכי', 'ניהול וארגון'] },
+        { trigger: ['חינוך מיוחד'], conflicts: ['ייעוץ חינוכי', 'ניהול חינוכי'] },
+        { trigger: ['מתמטיקה', 'מתמטי'], conflicts: ['ייעוץ חינוכי', 'ניהול חינוכי', 'חינוך מיוחד'] },
+      ];
+      for (const comp of COMPETING_SPECIALIZATIONS) {
+        const queryMatchesTrigger = comp.trigger.some(t => specKw.includes(t));
+        if (queryMatchesTrigger) {
+          // אם כותרת+תיאור מכילים ביטוי מתחרה — חסום
+          const pageTitleDesc = (title + ' ' + desc);
+          const hasConflict = comp.conflicts.some(c => pageTitleDesc.includes(c));
+          if (hasConflict) {
+            console.log(`    [FILTER] ❌ Competing specialization in title/desc → skip: "${r.title}"`);
+            return false;
+          }
+        }
       }
     }
 
@@ -1572,7 +1592,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: FEB_24_v234_MGMT_SYNONYMS');
+  console.log('🚀 VERSION: FEB_24_v235_MGMT_CONFLICT');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1787,9 +1807,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_24_v234_MGMT_SYNONYMS' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'FEB_24_v235_MGMT_CONFLICT' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_24_v234_MGMT_SYNONYMS' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'FEB_24_v235_MGMT_CONFLICT' });
   }
 }
