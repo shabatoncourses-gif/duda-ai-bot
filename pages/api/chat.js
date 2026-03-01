@@ -795,11 +795,23 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
 
       // ── ציון מינימלי לפי סוג השאילתה ──
       // title=150, desc=80, h2h3=60, text=40
+      // מילות מפתח שמופיעות ברשימות קורסים (לא ככותרת דף) — מספיק text
+      const LIST_FORMAT_KEYWORDS = new Set([
+        'בינה מלאכותית', 'ai', 'chatgpt', 'chat gpt', 'canva', 'קאנבה',
+        'משחקולוגיה', 'גיימיפיקציה', 'מציאות מדומה', 'מציאות רבודה',
+        'פודקאסט', 'יוטיוב', 'youtube', 'tikto', 'tiktok',
+        'מיינדפולנס', 'מיינדפולנס', 'מדיטציה', 'יוגה', 'מיינד',
+        'NLP', 'nlp', 'נלפ', 'CBT', 'cbt', 'EMDR', 'emdr',
+      ]);
+      const kwLower = (studyField.specificKeyword || '').toLowerCase();
+      const isListFormat = [...LIST_FORMAT_KEYWORDS].some(k => kwLower.includes(k.toLowerCase()));
+
       const minScore = (() => {
-        if (studyField.maSpecialization) return 42;         // תואר שני — פילטרים קשים כבר ב-pageMatchesField
-        if (studyField.requiredKeywords?.length) return 60; // צירוף ספציפי (תרפיה וכו') — לפחות h2
-        if (studyField.specificKeyword?.includes(' ')) return 60; // צירוף רב-מילי — לא רק text
-        return 40; // ברירת מחדל — text מספיק
+        if (studyField.maSpecialization) return 42;
+        if (isListFormat) return 40;                            // מילות רשימה — text מספיק
+        if (studyField.requiredKeywords?.length) return 60;    // צירוף ספציפי (תרפיה וכו')
+        if (studyField.specificKeyword?.includes(' ')) return 60; // צירוף רב-מילי כללי
+        return 40;
       })();
 
       if (fieldMatch.score < minScore) {
@@ -1546,16 +1558,30 @@ function formatResults(results, studyField, region, query = '') {
   }
 
   // dedup לפי מוסד — מקסימום דף אחד לכל מוסד
-  const seenInstitutions = new Set();
-  const dedupedInstitutions = [];
+  // dedup לפי מוסד — מקסימום דף אחד, עדיפות לדף שמכיל specificKeyword בכותרת/תיאור
+  const specificKw = (studyField?.specificKeyword || '').toLowerCase()
+    .replace(/^תואר שני\s+ב?/, '').trim(); // הסר "תואר שני ב" לחיפוש ב-title
+
+  const seenInstitutions = new Map(); // institution → best result
   for (const r of allInstitutions) {
     const institution = extractInstitutionName(r.title || r.h1 || '');
+    const titleDesc = ((r.title || '') + ' ' + (r.description || '')).toLowerCase();
+    const isSpecific = specificKw && titleDesc.includes(specificKw);
+
     if (!seenInstitutions.has(institution)) {
-      seenInstitutions.add(institution);
-      dedupedInstitutions.push(r);
+      seenInstitutions.set(institution, { result: r, isSpecific });
+    } else {
+      // החלף אם הדף הנוכחי יותר ספציפי
+      const existing = seenInstitutions.get(institution);
+      if (isSpecific && !existing.isSpecific) {
+        seenInstitutions.set(institution, { result: r, isSpecific });
+      }
     }
-    if (dedupedInstitutions.length >= 20) break; // מקסימום 20, אך לא ממלאים בכוח
   }
+
+  const dedupedInstitutions = [...seenInstitutions.values()]
+    .map(v => v.result)
+    .slice(0, 20);
 
   const specificInstitutions = dedupedInstitutions;
 
@@ -1945,7 +1971,7 @@ async function generateSmartResponse(message) {
   }
 
   // General
-  return `היי! 👋\n\nאני כאן לעזור לך למצוא קורסים והשתלמויות למורים בשבתון.\n\n**לדוגמה:**\n• "קורס הנחיית קבוצות במרכז"\n• "קורס צילום בצפון"\n• "כמה עולה קורס?"\n\n💬 [קבוצת ווטסאפ שבתון](${WHATSAPP_LINK})\n\n---\n_הצ'אט מבוסס AI . אין לראות בתשובות תחליף לייעוץ מקצועי._`;
+  return `היי! 👋\n\nאני כאן לעזור לך למצוא קורסים והשתלמויות למורים בשבתון.\n\n**לדוגמה:**\n• "קורס הנחיית קבוצות במרכז"\n• "קורס צילום בצפון"\n• "כמה עולה קורס?"\n\n💬 [קבוצת ווטסאפ שבתון](${WHATSAPP_LINK})\n\n---\n_הצ'אט מבוסס AI ומספק מידע כללי בלבד. אין לראות בתשובות תחליף לייעוץ מקצועי._`;
 }
 
 // ================================================================
