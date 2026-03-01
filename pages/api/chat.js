@@ -466,9 +466,13 @@ function detectStudyField(message) {
     }
   }
 
-  // ── עדיפות עליונה: "תואר שני ב..." — חייב לחפש את הצירוף המלא ──
-  const masterMatch = lm.match(/תואר שני\s+ב([\u05d0-\u05ea"'\-\s]{2,30})/);
-  if (masterMatch) {
+  // ── עדיפות עליונה: "תואר שני ב..." או "תואר שני X" — חיפוש התמחות ──
+  const masterMatch = lm.match(/תואר שני\s+ב?([\u05d0-\u05ea"'\-\s]{2,30})/);
+  // וידוא: המילה שאחרי "תואר שני" לא תהיה מילת קישור בלבד
+  const masterSpec = masterMatch?.[1]?.trim();
+  const isMeaningfulSpec = masterSpec && masterSpec.length >= 2 &&
+    !['ב','ל','מ','ה','ו','כ','של','על','עם','את'].includes(masterSpec);
+  if (masterMatch && isMeaningfulSpec) {
     const fullPhrase = masterMatch[0].trim();
     const specialization = masterMatch[1].trim();
     const normalizeQ = (s) => s.replace(/['"״"]/g, '').replace(/\s+/g, ' ').trim();
@@ -508,7 +512,7 @@ function detectStudyField(message) {
 
       // (ב) חיפוש בכל שדות הלימוד — מציאת התחום התואם + keywords שלו
       const specLower = specNorm.toLowerCase();
-      const STOP_WORDS = new Set(['הוראת','לימוד','לימודי','מחקר','תחום','קורסי','לימודים','קורס']);
+      const STOP_WORDS = new Set(['הוראת','לימוד','לימודי','למידה','מחקר','תחום','קורסי','לימודים','קורס']);
       const specCoreWords = specLower.split(/\s+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
 
       for (const field of STUDY_FIELDS) {
