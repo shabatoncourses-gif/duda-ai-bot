@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: MAR_01_v239_FIELD_KEYWORDS
+// VERSION: MAR_01_v240_SHABATON_QA
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -26,12 +26,11 @@ let REGIONS = null;
 let STUDY_FIELDS = null;
 let REQUIRED_PHRASES = null;
 let COURSES_QA = null;
-let PAYMENTS_QA = null;
+let SHABATON_QA = null;   // מחליף את payments-qa.json + btl-qa.json
 let SEMANTIC_DATA = null;
 let WORD_GRAPH = null;
 let SHABATON_INFO = null;
 let INTENT_MAPPINGS = null;
-let BTL_QA = null;
 
 const WHATSAPP_LINK = 'https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME';
 const SITE_BASE = 'https://www.shabaton.online';
@@ -61,15 +60,10 @@ function loadConfigs() {
         : (COURSES_QA.questions?.length || 0);
       console.log(`✅ courses-qa.json: ${qCount} questions`);
     }
-    if (!PAYMENTS_QA) {
-      PAYMENTS_QA = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'payments-qa.json'), 'utf8'));
-      console.log(`✅ payments-qa.json`);
-    }
-    if (!BTL_QA) {
-      try {
-        BTL_QA = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'btl-qa.json'), 'utf8'));
-        console.log(`✅ btl-qa.json`);
-      } catch(e) { console.log(`⚠️ btl-qa.json not found`); BTL_QA = {}; }
+    if (!SHABATON_QA) {
+      SHABATON_QA = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'shabaton-qa.json'), 'utf8'));
+      const qCount = (SHABATON_QA.categories || []).reduce((s, c) => s + (c.questions?.length || 0), 0);
+      console.log(`✅ shabaton-qa.json: ${qCount} questions`);
     }
     if (!SHABATON_INFO) {
       SHABATON_INFO = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'shabaton-info.json'), 'utf8')).infoPages;
@@ -723,7 +717,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: MAR_01_v239_FIELD_KEYWORDS`);
+  console.log(`🚀 VERSION: MAR_01_v240_SHABATON_QA`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -954,9 +948,8 @@ function findQAAnswer(message) {
 
   // כל מאגרי ה-QA
   const allQASources = [
-    { name: 'courses-qa', data: COURSES_QA, topKeywords: COURSES_QA?.keywords || [] },
-    { name: 'payments-qa', data: PAYMENTS_QA, topKeywords: PAYMENTS_QA?.keywords || [] },
-    { name: 'btl-qa', data: BTL_QA, topKeywords: BTL_QA?.keywords || [] },
+    { name: 'courses-qa',  data: COURSES_QA,  topKeywords: COURSES_QA?.keywords  || [] },
+    { name: 'shabaton-qa', data: SHABATON_QA, topKeywords: SHABATON_QA?.keywords || [] },
   ];
 
   let bestMatch = null;
@@ -1631,7 +1624,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: MAR_01_v239_FIELD_KEYWORDS');
+  console.log('🚀 VERSION: MAR_01_v240_SHABATON_QA');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -1846,9 +1839,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_01_v239_FIELD_KEYWORDS' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_01_v240_SHABATON_QA' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_01_v239_FIELD_KEYWORDS' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_01_v240_SHABATON_QA' });
   }
 }
