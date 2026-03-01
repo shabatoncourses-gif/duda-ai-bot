@@ -717,20 +717,52 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: MAR_01_v241_QA_FALLBACK`);
+  console.log(`🚀 VERSION: MAR_01_v242_BLOCKLIST`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
+
+  // ── URL Blocklist: דפים שמופיעים בתחום הלא נכון ──
+  const URL_BLOCKLIST = {
+    // תחום → רשימת URL slugs שיש לחסום
+    'הוראה מתקנת - הוראה מותאמת': ['kishurei-lemida', 'trump-institute', 'beit-issie-shapiro'],
+    'תרפיה וטיפול':                ['kishurei-lemida'],
+    'פסיכולוגיה וייעוץ':           ['kishurei-lemida'],
+  };
+
+  // כותרות חסומות לפי תחום
+  const TITLE_BLOCKLIST = {
+    'הוראה מתקנת - הוראה מותאמת': [
+      'פסיכותרפיה הומניסטית',
+      'נכויות התפתחותיות',
+      'לימודי המשך בנכויות',
+      'מכון טראמפ',
+      'בית איזי שפירא',
+    ],
+  };
 
   const pages = loadAllPages();
   const results = [];
   const specificCity = detectSpecificCity(query, region);
 
+  // slugs וכותרות חסומות לתחום הנוכחי
+  const blockedSlugs  = studyField ? (URL_BLOCKLIST[studyField.name]  || []) : [];
+  const blockedTitles = studyField ? (TITLE_BLOCKLIST[studyField.name] || []) : [];
+
   for (const page of pages) {
     const url = page.url || page.link || '';
     const rawTitle = page.title || page.h1 || '';
 
-    // ── בסיסי: חייב URL ──
-    if (!url || url.length < 10) continue;
+    // ── URL Blocklist ──
+    if (blockedSlugs.some(slug => url.includes(slug))) {
+      console.log(`  🚫 BLOCKED URL: "${url}"`);
+      continue;
+    }
+
+    // ── Title Blocklist ──
+    if (blockedTitles.some(t => rawTitle.includes(t))) {
+      console.log(`  🚫 BLOCKED TITLE: "${rawTitle}"`);
+      continue;
+    }
 
     // ── ניקוי כותרת ──
     // פטרני זבל: מחקו רק כשהם כותרת עצמאית (פריטי carousel/ניווט)
@@ -1919,6 +1951,14 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // GET — מחזיר מידע כללי כולל disclaimer
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      disclaimer: 'הצ\'אט מבוסס AI ומספק מידע כללי בלבד. אין לראות בתשובות תחליף לייעוץ מקצועי.',
+      version: 'MAR_01_v242_BLOCKLIST'
+    });
+  }
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
