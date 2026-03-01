@@ -1576,8 +1576,13 @@ function formatResults(results, studyField, region, query = '') {
     let url = result.url || result.link;
     if (!url) continue;
     const title = result.title || 'ללא שם';
-    // דף למידה מרחוק - תמיד URL קבוע
-    if (title.includes('למידה מרחוק') || title.includes('לימוד מרחוק')) {
+    // דף למידה מרחוק גנרי (לא דף מוסד ספציפי) — URL קבוע
+    // מוסד ספציפי שמלמד מרחוק שומר על ה-URL המקורי שלו
+    const isGenericOnlinePage = (title.includes('למידה מרחוק') || title.includes('לימוד מרחוק'))
+      && !url.includes('shabaton.co.il/')   // דף מוסד אמיתי
+      && !url.includes('shabaton.online/') // דף שבתון אמיתי (לא results-all)
+      && (url.includes('results-all') || url === ONLINE_LEARNING_URL);
+    if (isGenericOnlinePage) {
       url = 'https://www.shabaton.online/results-all/למידה מרחוק';
     }
     const summary = buildPageSummary(result);
