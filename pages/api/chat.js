@@ -599,15 +599,34 @@ function detectStudyField(message) {
         const words = lm.split(/\s+/);
         for (const et of expanded) {
           if (et.toLowerCase() === fl || et === message) continue;
+          const etL = et.toLowerCase();
           for (const w of words) {
             const cw = w.replace(/[,\.!\?;:]/g, '');
-            if (cw.length > 2 && (cw.includes(et.toLowerCase()) || et.toLowerCase().includes(cw))) {
-              specificKeyword = cw;
-              console.log(`  🎯 Semantic keyword preserved: "${specificKeyword}"`);
+            if (cw.length > 2 && (cw.includes(etL) || etL.includes(cw))) {
+              // אם ה-expanded term הוא phrase (מרובה מילים) שמכיל את המילה מהשאילתה —
+              // העדף את ה-phrase המלא כ-specificKeyword, לא את המילה הבודדת
+              if (etL.includes(cw) && etL.includes(' ') && lm.includes(etL)) {
+                specificKeyword = etL;
+                console.log(`  🎯 Semantic phrase preserved: "${specificKeyword}"`);
+              } else {
+                specificKeyword = cw;
+                console.log(`  🎯 Semantic keyword preserved: "${specificKeyword}"`);
+              }
               break;
             }
           }
           if (specificKeyword) break;
+        }
+        if (!specificKeyword) {
+          // חפש phrase מלא מה-keywords של השדה שנמצא בהודעה
+          for (const kw of (field.keywords || [])) {
+            const kwL = kw.toLowerCase();
+            if (kwL.includes(' ') && lm.includes(kwL)) {
+              specificKeyword = kwL;
+              console.log(`  🎯 Keyword phrase fallback: "${specificKeyword}"`);
+              break;
+            }
+          }
         }
         if (!specificKeyword) {
           for (const kw of (field.keywords || [])) {
