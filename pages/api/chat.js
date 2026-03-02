@@ -335,9 +335,28 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
 
   // ── שלב 1: requiredKeywords (כשיש — OR על כל הרשימה) ──
   if (studyField.requiredKeywords?.length && !studyField.maSpecialization) {
+    const rKws = studyField.requiredKeywords;
+
+    // כשה-specificKeyword הוא list-format keyword (כגון "בינה מלאכותית") —
+    // הדף חייב להכיל אותו ספציפית, לא סתם phrase אחר מהשדה
+    const LIST_FORMAT_KWS = ['בינה מלאכותית','ai','chatgpt','chat gpt','canva','קאנבה',
+      'משחקולוגיה','גיימיפיקציה','מציאות מדומה','מציאות רבודה',
+      'פודקאסט','מיינדפולנס','מדיטציה','יוגה','nlp','נלפ','cbt','emdr'];
+    const spKwL = (studyField.specificKeyword || '').toLowerCase();
+    const isListKw = LIST_FORMAT_KWS.some(k => spKwL.includes(k));
+
+    if (isListKw && studyField.specificKeyword) {
+      const r = search(studyField.specificKeyword);
+      if (r.found) {
+        console.log(`    [FIELD] list-kw "${studyField.specificKeyword}" in ${r.location} (+${r.score})`);
+        return r;
+      }
+      console.log(`    [FIELD] ❌ list-kw "${studyField.specificKeyword}" not found → skip`);
+      return { found: false, location: null, score: 0 };
+    }
+
     // עבור קורסים רגילים: אחד מהkeywords צריך להיות בדף
     // phrases ≥2 מילים → מחפש כרצף; מילה בודדת → חייב title/desc
-    const rKws = studyField.requiredKeywords;
     const phraseRKws = rKws.filter(k => k.trim().split(/\s+/).length >= 2);
     const singleRKws = rKws.filter(k => k.trim().split(/\s+/).length === 1 && k.length >= 4);
     const foundPhrase = phraseRKws.some(k => search(k).found);
