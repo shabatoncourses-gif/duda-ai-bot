@@ -1167,13 +1167,23 @@ function buildCategoryUrl(region, studyField) {
 
 // מחלץ שם מוסד מכותרת הדף (לדדופ לפי מוסד)
 function extractInstitutionName(title) {
-  // נסה למצוא שם מוסד אחרי המקף האחרון
   const parts = title.replace(/[-–—|]/g, '|').split('|').map(p => p.trim()).filter(p => p.length > 2);
-  // העדף חלק שמכיל מילים כמו "מכללת", "אוניברסיטת", "מכון", "המכללה"
   const institutionMarkers = ['מכללת', 'אוניברסיטת', 'מכון', 'המכללה', 'האקדמית', 'הקריה', 'בית-הספר', 'מרכז'];
+
+  // עדיפות לחלק שמכיל מילת מוסד
   for (const part of parts.slice().reverse()) {
     if (institutionMarkers.some(m => part.includes(m))) return part.substring(0, 50);
   }
+
+  // הכותרת מתחילה בתיאור גנרי ("השתלמויות מורים", "קורסים", "לימודי תעודה") —
+  // העדף את החלקים הלא-גנריים מחוברים כשם המוסד הספציפי
+  const genericPrefixes = ['השתלמויות מורים', 'השתלמויות', 'קורסים', 'קורסי', 'לימודי תעודה',
+    'לימודי', 'פיתוח מקצועי', 'לימודים לתואר', 'תואר שני'];
+  if (parts.length >= 2 && genericPrefixes.some(p => parts[0].includes(p))) {
+    const nonGeneric = parts.filter(p => !genericPrefixes.some(g => p === g || p.startsWith(g)));
+    if (nonGeneric.length > 0) return nonGeneric.join(' ').substring(0, 60);
+  }
+
   // fallback — החלק הראשון
   return parts[0]?.replace(/^(קורס|קורסי|לימודי|השתלמות|תואר שני ב)\s+/i, '').substring(0, 40) || title.substring(0, 40);
 }
