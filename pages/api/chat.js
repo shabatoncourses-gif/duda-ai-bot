@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: MAR_02_v244_LIST_KW
+// VERSION: MAR_02_v245_GENERIC_BLOCK
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -668,7 +668,7 @@ function detectStudyField(message) {
           for (const kw of (field.keywords || [])) {
             for (const w of lm.split(/\s+/)) {
               const cw = w.replace(/[,\.!\?;:]/g, '');
-              if (cw.length > 2 && (cw.includes(kw.toLowerCase()) || kw.toLowerCase().includes(cw))) {
+              if (cw.length > 2 && !["פיתוח","ניהול","לימוד","לימודי","קורס","שיפור","עבודה","הכשרה","תהליך","יצירה"].includes(cw) && (cw.includes(kw.toLowerCase()) || kw.toLowerCase().includes(cw))) {
                 specificKeyword = cw;
                 console.log(`  🎯 Keyword fallback: "${specificKeyword}"`);
                 break;
@@ -776,7 +776,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: MAR_02_v244_LIST_KW`);
+  console.log(`🚀 VERSION: MAR_02_v245_GENERIC_BLOCK`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1840,7 +1840,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: MAR_02_v244_LIST_KW');
+  console.log('🚀 VERSION: MAR_02_v245_GENERIC_BLOCK');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -2059,7 +2059,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     return res.status(200).json({
       disclaimer: 'הצ\'אט מבוסס AI ומספק מידע כללי בלבד. אין לראות בתשובות תחליף לייעוץ מקצועי.',
-      version: 'MAR_02_v244_LIST_KW'
+      version: 'MAR_02_v245_GENERIC_BLOCK'
     });
   }
 
@@ -2076,9 +2076,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_02_v244_LIST_KW' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_02_v245_GENERIC_BLOCK' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_02_v244_LIST_KW' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_02_v245_GENERIC_BLOCK' });
   }
 }
