@@ -323,9 +323,26 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
     }
 
     // מצב רגיל: מספיק אחד מהביטויים
+    // אבל אם specificKeyword הוא list-format (כגון "בינה מלאכותית") — הדף חייב להכיל אותו ספציפית
+    const LIST_FORMAT_KWS_PRE = ["בינה מלאכותית","ai","chatgpt","canva","קאנבה",
+      "משחקולוגיה","גיימיפיקציה","מציאות מדומה","מציאות רבודה",
+      "פודקאסט","מיינדפולנס","מדיטציה","יוגה","nlp","נלפ","cbt","emdr"];
+    const spKwLPre = (studyField.specificKeyword || "").toLowerCase();
+    const isListKwPre = LIST_FORMAT_KWS_PRE.some(k => spKwLPre.includes(k));
+
+    if (isListKwPre && studyField.specificKeyword) {
+      const r = search(studyField.specificKeyword);
+      if (r.found) {
+        console.log(`    [REQUIRED] ✅ list-kw "${studyField.specificKeyword}" found (${r.location})`);
+        return r;
+      }
+      console.log(`    [REQUIRED] ❌ list-kw "${studyField.specificKeyword}" not found → skip`);
+      return { found: false, location: null, score: 0 };
+    }
+
     const found = synonyms.some(kw => search(kw).found);
     if (!found) {
-      console.log(`    [REQUIRED] ❌ None of [${synonyms.join(', ')}] found → skip`);
+      console.log(`    [REQUIRED] ❌ None of [${synonyms.join(", ")}] found → skip`);
       return { found: false, location: null, score: 0 };
     }
     const matched = synonyms.find(kw => search(kw).found);
