@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: MAR_02_v245_GENERIC_BLOCK
+// VERSION: MAR_02_v246_MUSIC_BLOCK
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -471,6 +471,16 @@ function detectStudyField(message) {
 
   // ── עדיפות עליונה: צמדי מילים של תרפיה/טיפול ──
   // כל אחד מהצמדים מחייב חיפוש ספציפי — "טיפול" לבד לא מספיק
+  // ── מוזיקה / קול / שירה — אין שדה ספציפי → מניעת זיהוי שגוי של שדה טכנולוגיה ──
+  // ("פיתוח קול" אינו "פיתוח" טכנולוגי — חזור ריק → fallback לוואטסאפ)
+  const MUSIC_VOICE_TERMS = ['פיתוח קול', 'שירה', 'קול ושירה', 'מוזיקה', 'כלי נגינה',
+    'פסנתר', 'גיטרה', 'חליל', 'כינור', 'תופים', 'חצוצרה', 'ויולינה', 'מקהלה',
+    'ניצוח', 'תזמורת', 'אופרה', 'ג"ז', 'jazz'];
+  if (MUSIC_VOICE_TERMS.some(t => lm.includes(t)) && !/טכנולוג|דיגיטל|מחשב|AI|בינה מלאכותית/.test(lm)) {
+    console.log('🎵 Music/voice query → no matching field in system → return []');
+    return [];
+  }
+
   const THERAPY_CLUSTERS = [
     { triggers: ['פוטותרפיה', 'טיפול בצילום', 'תרפיה בצילום', 'צילום טיפולי', 'צילום ככלי טיפולי'],
       requiredKeywords: ['פוטותרפיה', 'טיפול בצילום', 'תרפיה בצילום', 'צילום טיפולי', 'צילום ככלי טיפולי'] },
@@ -776,7 +786,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: MAR_02_v245_GENERIC_BLOCK`);
+  console.log(`🚀 VERSION: MAR_02_v246_MUSIC_BLOCK`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1840,7 +1850,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: MAR_02_v245_GENERIC_BLOCK');
+  console.log('🚀 VERSION: MAR_02_v246_MUSIC_BLOCK');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -2059,7 +2069,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     return res.status(200).json({
       disclaimer: 'הצ\'אט מבוסס AI ומספק מידע כללי בלבד. אין לראות בתשובות תחליף לייעוץ מקצועי.',
-      version: 'MAR_02_v245_GENERIC_BLOCK'
+      version: 'MAR_02_v246_MUSIC_BLOCK'
     });
   }
 
@@ -2076,9 +2086,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_02_v245_GENERIC_BLOCK' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_02_v246_MUSIC_BLOCK' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_02_v245_GENERIC_BLOCK' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_02_v246_MUSIC_BLOCK' });
   }
 }
