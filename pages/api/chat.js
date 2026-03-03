@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: MAR_02_v246_MUSIC_BLOCK
+// VERSION: MAR_02_v247_MUSIC_CAT
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -477,8 +477,16 @@ function detectStudyField(message) {
     'פסנתר', 'גיטרה', 'חליל', 'כינור', 'תופים', 'חצוצרה', 'ויולינה', 'מקהלה',
     'ניצוח', 'תזמורת', 'אופרה', 'ג"ז', 'jazz'];
   if (MUSIC_VOICE_TERMS.some(t => lm.includes(t)) && !/טכנולוג|דיגיטל|מחשב|AI|בינה מלאכותית/.test(lm)) {
-    console.log('🎵 Music/voice query → no matching field in system → return []');
-    return [];
+    const detectedMusicTerm = MUSIC_VOICE_TERMS.find(t => lm.includes(t)) || 'מוסיקה';
+    console.log('🎵 Music/voice query → synthetic music field, term: "' + detectedMusicTerm + '"');
+    return [{ 
+      name: 'מוסיקה',
+      slug: 'מוסיקה',
+      specificKeyword: null,
+      requiredKeywords: null,
+      keywords: ['מוסיקה','שירה','פיתוח קול','כלי נגינה','גיטרה','פסנתר','קונצרט'],
+      _musicQuery: true
+    }];
   }
 
   const THERAPY_CLUSTERS = [
@@ -786,7 +794,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: MAR_02_v246_MUSIC_BLOCK`);
+  console.log(`🚀 VERSION: MAR_02_v247_MUSIC_CAT`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1592,9 +1600,10 @@ function formatResults(results, studyField, region, query = '') {
     });
   };
 
+  const allowCatPages = !!(studyField && studyField._musicQuery);
   let allInstitutions = [
-    ...exactResults.filter(r => !isCategoryPage(r) && isRelevantInstitution(r)),
-    ...nationalResults.filter(r => !isCategoryPage(r) && !hasConflictingRegion(r) && isRelevantInstitution(r))
+    ...exactResults.filter(r => (allowCatPages || !isCategoryPage(r)) && isRelevantInstitution(r)),
+    ...nationalResults.filter(r => (allowCatPages || !isCategoryPage(r)) && !hasConflictingRegion(r) && isRelevantInstitution(r))
   ];
   const onlineCount = nationalResults.filter(r => (r.url||r.link||'').includes('results-all')).length;
   console.log(`  📊 exact:${exactResults.length} national:${nationalResults.length} (online:${onlineCount}) other:${otherRegionResults.length}`);
@@ -1850,7 +1859,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: MAR_02_v246_MUSIC_BLOCK');
+  console.log('🚀 VERSION: MAR_02_v247_MUSIC_CAT');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -2069,7 +2078,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     return res.status(200).json({
       disclaimer: 'הצ\'אט מבוסס AI ומספק מידע כללי בלבד. אין לראות בתשובות תחליף לייעוץ מקצועי.',
-      version: 'MAR_02_v246_MUSIC_BLOCK'
+      version: 'MAR_02_v247_MUSIC_CAT'
     });
   }
 
@@ -2086,9 +2095,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_02_v246_MUSIC_BLOCK' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_02_v247_MUSIC_CAT' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_02_v246_MUSIC_BLOCK' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_02_v247_MUSIC_CAT' });
   }
 }
