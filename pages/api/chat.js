@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: MAR_02_v248_MUSIC_STRICT
+// VERSION: MAR_02_v249_MUSIC_URL
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -794,7 +794,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: MAR_02_v248_MUSIC_STRICT`);
+  console.log(`🚀 VERSION: MAR_02_v249_MUSIC_URL`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1327,6 +1327,7 @@ function formatResults(results, studyField, region, query = '') {
     'אמנות ואומנויות': ART_URL,
     'אמנות': ART_URL,
     'תואר שני': 'https://www.shabaton.online/results-all/לימודי תואר שני',
+    'מוסיקה': 'https://www.shabaton.online/results-all/קורסי מוסיקה - קונצרטים מודרכים',
   };
 
   const findCategoryUrlFromResults = () => {
@@ -1865,7 +1866,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: MAR_02_v248_MUSIC_STRICT');
+  console.log('🚀 VERSION: MAR_02_v249_MUSIC_URL');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -2084,7 +2085,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     return res.status(200).json({
       disclaimer: 'הצ\'אט מבוסס AI ומספק מידע כללי בלבד. אין לראות בתשובות תחליף לייעוץ מקצועי.',
-      version: 'MAR_02_v248_MUSIC_STRICT'
+      version: 'MAR_02_v249_MUSIC_URL'
     });
   }
 
@@ -2101,9 +2102,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_02_v248_MUSIC_STRICT' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_02_v249_MUSIC_URL' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_02_v248_MUSIC_STRICT' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_02_v249_MUSIC_URL' });
   }
 }
