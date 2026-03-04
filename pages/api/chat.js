@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: MAR_02_v247_MUSIC_CAT
+// VERSION: MAR_02_v248_MUSIC_STRICT
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -482,8 +482,8 @@ function detectStudyField(message) {
     return [{ 
       name: 'מוסיקה',
       slug: 'מוסיקה',
-      specificKeyword: null,
-      requiredKeywords: null,
+      specificKeyword: detectedMusicTerm,
+      requiredKeywords: [detectedMusicTerm],
       keywords: ['מוסיקה','שירה','פיתוח קול','כלי נגינה','גיטרה','פסנתר','קונצרט'],
       _musicQuery: true
     }];
@@ -794,7 +794,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: MAR_02_v247_MUSIC_CAT`);
+  console.log(`🚀 VERSION: MAR_02_v248_MUSIC_STRICT`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -1601,9 +1601,15 @@ function formatResults(results, studyField, region, query = '') {
   };
 
   const allowCatPages = !!(studyField && studyField._musicQuery);
+  const isMusicCatPage = (r) => {
+    if (!allowCatPages) return false;
+    const t = (r.title || r.h1 || '').toLowerCase();
+    const u = (r.url || r.link || '').toLowerCase();
+    return t.includes('מוסיקה') || u.includes('%d7%9e%d7%95%d7%a1%d7%99%d7%a7%d7%94') || u.includes('מוסיקה');
+  };
   let allInstitutions = [
-    ...exactResults.filter(r => (allowCatPages || !isCategoryPage(r)) && isRelevantInstitution(r)),
-    ...nationalResults.filter(r => (allowCatPages || !isCategoryPage(r)) && !hasConflictingRegion(r) && isRelevantInstitution(r))
+    ...exactResults.filter(r => (isMusicCatPage(r) || !isCategoryPage(r)) && isRelevantInstitution(r)),
+    ...nationalResults.filter(r => (isMusicCatPage(r) || !isCategoryPage(r)) && !hasConflictingRegion(r) && isRelevantInstitution(r))
   ];
   const onlineCount = nationalResults.filter(r => (r.url||r.link||'').includes('results-all')).length;
   console.log(`  📊 exact:${exactResults.length} national:${nationalResults.length} (online:${onlineCount}) other:${otherRegionResults.length}`);
@@ -1859,7 +1865,7 @@ function findInfoPageAnswer(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: MAR_02_v247_MUSIC_CAT');
+  console.log('🚀 VERSION: MAR_02_v248_MUSIC_STRICT');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -2078,7 +2084,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     return res.status(200).json({
       disclaimer: 'הצ\'אט מבוסס AI ומספק מידע כללי בלבד. אין לראות בתשובות תחליף לייעוץ מקצועי.',
-      version: 'MAR_02_v247_MUSIC_CAT'
+      version: 'MAR_02_v248_MUSIC_STRICT'
     });
   }
 
@@ -2095,9 +2101,9 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_02_v247_MUSIC_CAT' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_02_v248_MUSIC_STRICT' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_02_v247_MUSIC_CAT' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_02_v248_MUSIC_STRICT' });
   }
 }
