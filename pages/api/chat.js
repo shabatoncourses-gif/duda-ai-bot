@@ -1110,12 +1110,15 @@ function findQAAnswer(message) {
 
   if (bestScore >= 30) {
     console.log(`✅ QA match (score=${bestScore}): "${message.substring(0, 40)}"`);
-    // הוסף relatedLinks לתשובה
+    // הוסף relatedLinks לתשובה — רק אם ה-URL עוד לא מופיע בתשובה
     let answer = bestMatch.answer;
     if (bestMatch.relatedLinks?.length) {
-      answer += '\n\n';
-      for (const link of bestMatch.relatedLinks) {
-        answer += `📎 [${link.text}](${link.url})\n`;
+      const extraLinks = bestMatch.relatedLinks.filter(link => !answer.includes(link.url));
+      if (extraLinks.length) {
+        answer += '\n\n';
+        for (const link of extraLinks) {
+          answer += `📎 [${link.text}](${link.url})\n`;
+        }
       }
     }
     return { answer };
