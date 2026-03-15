@@ -2084,7 +2084,11 @@ const ZAPIER_WEBHOOK_URL = process.env.ZAPIER_WEBHOOK_URL || '';
  * נרשם ב-Google Sheets: תאריך, שאלה, תשובה, האם נמצאה תשובה ✅/❌
  */
 async function logToZapier(message, response, answered) {
-  if (!ZAPIER_WEBHOOK_URL) return; // לא מוגדר — לא שולח
+  console.log('🔔 logToZapier called | URL:', ZAPIER_WEBHOOK_URL ? 'SET ✅' : 'MISSING ❌');
+  if (!ZAPIER_WEBHOOK_URL) {
+    console.warn('⚠️ ZAPIER_WEBHOOK_URL is empty — skipping');
+    return;
+  }
   try {
     const now = new Date();
     const dateStr = now.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' });
@@ -2099,11 +2103,15 @@ async function logToZapier(message, response, answered) {
       answered: answered ? 'כן' : 'לא',
       answer_length: String(response.length)
     });
+    console.log('📤 Sending to Zapier:', ZAPIER_WEBHOOK_URL.substring(0,50) + '...');
+    console.log('📦 Payload:', payload.substring(0, 200));
     fetch(ZAPIER_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: payload
-    }).catch(err => console.warn('⚠️ Zapier log failed:', err.message));
+    })
+    .then(r => console.log('✅ Zapier response:', r.status))
+    .catch(err => console.warn('⚠️ Zapier log failed:', err.message));
   } catch (e) {
     console.warn('⚠️ Zapier log error:', e.message);
   }
@@ -2145,8 +2153,10 @@ export default async function handler(req, res) {
     console.log(`✅ ${response.length} chars | ${ms}ms`);
 
     // שליחה ל-Zapier — background, לא מעכב את התשובה לגולש
+    console.log('🔔 About to call logToZapier...');
     const isFallback = response.includes('חשוב בשבתון') && response.length < 300;
     logToZapier(message, response, !isFallback);
+    console.log('🔔 logToZapier called (async, not awaited)');
 
     return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_02_v249_MUSIC_URL' });
   } catch (e) {
