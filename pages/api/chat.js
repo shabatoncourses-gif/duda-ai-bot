@@ -2099,7 +2099,7 @@ async function logToZapier(message, response, answered) {
       date: dateStr,
       time: timeStr,
       question: message,
-      answer: response.substring(0, 500),
+      answer: response, // תשובה מלאה
       answered: answered ? 'כן' : 'לא',
       answer_length: String(response.length)
     });
