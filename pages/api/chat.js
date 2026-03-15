@@ -2090,8 +2090,7 @@ async function logToZapier(message, response, answered) {
     const dateStr = now.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' });
     const timeStr = now.toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' });
 
-    // שולח בלי await — לא מחכה לתגובה
-    // Zapier CORS fix: אין Content-Type header → אין preflight → עובד מהדפדפן
+    // שולח כ-form-urlencoded — עובד בלי CORS preflight וגם מזוהה כ-body ב-Zapier
     const params = new URLSearchParams({
       date: dateStr,
       time: timeStr,
@@ -2100,8 +2099,9 @@ async function logToZapier(message, response, answered) {
       answered: answered ? 'כן' : 'לא',
       answer_length: String(response.length)
     });
-    fetch(`${ZAPIER_WEBHOOK_URL}?${params.toString()}`, {
-      method: 'POST'
+    fetch(ZAPIER_WEBHOOK_URL, {
+      method: 'POST',
+      body: params.toString()
     }).catch(err => console.warn('⚠️ Zapier log failed:', err.message));
   } catch (e) {
     console.warn('⚠️ Zapier log error:', e.message);
