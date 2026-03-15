@@ -958,13 +958,25 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
           }
 
           if (!regionCityFound) {
+            // בדוק אם מוזכרת עיר מהאזור המבוקש (גם ברמת כל ערי האזור)
+            const hasAnyRequestedCity = (region.cities || []).some(rc =>
+              rc.length > 3 && combined.includes(rc.toLowerCase().replace(/-/g, ' '))
+            );
+            if (hasAnyRequestedCity) {
+              regionCityFound = true;
+              regionScore = 30;
+              console.log(`    [REGION] 🏙️ Region city found in combined text (+30) — multi-city institution`);
+            }
+          }
+
+          if (!regionCityFound) {
             // בדוק אם מוזכרת עיר מאזור אחר (ייתכן שהדף שייך לאזור אחר)
             for (const otherR of (REGIONS || [])) {
               if (otherR.name === region.name) continue;
               for (const city of (otherR.cities || [])) {
                 const cl = city.toLowerCase().replace(/-/g, ' ');
                 if (cl.length > 3 && combined.includes(cl)) {
-                  // בדוק שלא מופיעה גם עיר מהאזור המבוקש
+                  // בדוק שלא מופיעה גם עיר מהאזור המבוקש — מוסד רב-עירוני
                   const hasRequestedCity = (region.cities || []).some(rc =>
                     rc.length > 3 && combined.includes(rc.toLowerCase().replace(/-/g, ' '))
                   );
@@ -1600,14 +1612,15 @@ function formatResults(results, studyField, region, query = '') {
 
   const hasConflictingRegion = (r) => {
     if (!conflictingKeywords.length) return false;
+    // בדיקה רק בכותרת ו-H1 — לא H2 שמכיל תפריט ניווט עם ערים מכל האזורים
     const searchText = [
       r.title || '',
-      r.h1 || '',
-      ...(r.h2 || [])
+      r.h1 || ''
     ].join(' ').toLowerCase();
-    // אם הדף מזכיר עיר של האזור המבוקש — לא לסנן
-    if (regionCities.some(city => city.length > 3 && searchText.includes(city))) return false;
-    // אחרת — בדוק סתירה
+    // מוסד רב-עירוני: אם עיר האזור המבוקש מופיעה בטקסט המלא — לא לסנן
+    const fullText = ((r.text || '') + ' ' + (r.description || '')).toLowerCase();
+    if (regionCities.some(city => city.length > 3 && (searchText.includes(city) || fullText.includes(city)))) return false;
+    // אחרת — בדוק סתירה רק בכותרת/H1
     return conflictingKeywords.some(kw => {
       const idx = searchText.indexOf(kw.toLowerCase());
       if (idx === -1) return false;
@@ -1753,9 +1766,16 @@ function formatResults(results, studyField, region, query = '') {
   }
 
   if (categoryUrl) {
+    const noInstitutionsFound = specificInstitutions.length === 0;
     response += `\n🔍 **לכל הקורסים ב${fieldName}`;
     if (!isOnlineQuery && region) response += ` ב${regionName}`;
+    if (noInstitutionsFound && !isOnlineQuery) response += ` ובלמידה מרחוק`;
     response += `:** [לכל הקורסים](${categoryUrl})\n`;
+    // כשאין מוסדות — הוסף קישור ללמידה מרחוק בנפרד
+    if (noInstitutionsFound && !isOnlineQuery && studyField?.slug) {
+      const onlineUrl = `https://www.shabaton.online/results-all/${encodeURIComponent(studyField.slug)}`;
+      response += `🌐 **למידה מרחוק ב${fieldName}:** [לכל הקורסים](${onlineUrl})\n`;
+    }
   }
 
   // ── קישור "כל הקורסים בלמידה מרחוק" — בסוף, תמיד כשמבקשים מרחוק ──
