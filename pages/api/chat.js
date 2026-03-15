@@ -2072,6 +2072,43 @@ async function generateSmartResponse(message) {
 }
 
 // ================================================================
+// ================================================================
+// ZAPIER WEBHOOK — צבירת שאלות ב-Google Sheets
+// ================================================================
+
+// 🔧 הגדר כאן את ה-URL מ-Zapier (Webhooks by Zapier → Catch Hook)
+const ZAPIER_WEBHOOK_URL = process.env.ZAPIER_WEBHOOK_URL || '';
+
+/**
+ * שולח את השאלה והתשובה ל-Zapier — ב-background, לא חוסם את התשובה לגולש
+ * נרשם ב-Google Sheets: תאריך, שאלה, תשובה, האם נמצאה תשובה ✅/❌
+ */
+async function logToZapier(message, response, answered) {
+  if (!ZAPIER_WEBHOOK_URL) return; // לא מוגדר — לא שולח
+  try {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' });
+    const timeStr = now.toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' });
+
+    // שולח בלי await — לא מחכה לתגובה
+    // Zapier CORS fix: אין Content-Type header → אין preflight → עובד מהדפדפן
+    const params = new URLSearchParams({
+      date: dateStr,
+      time: timeStr,
+      question: message,
+      answer: response.substring(0, 500),
+      answered: answered ? 'כן' : 'לא',
+      answer_length: String(response.length)
+    });
+    fetch(`${ZAPIER_WEBHOOK_URL}?${params.toString()}`, {
+      method: 'POST'
+    }).catch(err => console.warn('⚠️ Zapier log failed:', err.message));
+  } catch (e) {
+    console.warn('⚠️ Zapier log error:', e.message);
+  }
+}
+
+// ================================================================
 // VERCEL HANDLER
 // ================================================================
 
@@ -2105,6 +2142,11 @@ export default async function handler(req, res) {
     const response = await generateSmartResponse(message);
     const ms = Date.now() - start;
     console.log(`✅ ${response.length} chars | ${ms}ms`);
+
+    // שליחה ל-Zapier — background, לא מעכב את התשובה לגולש
+    const isFallback = response.includes('חשוב בשבתון') && response.length < 300;
+    logToZapier(message, response, !isFallback);
+
     return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_02_v249_MUSIC_URL' });
   } catch (e) {
     console.error('❌ ERROR:', e);
