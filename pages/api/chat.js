@@ -885,7 +885,7 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
       const minScore = (() => {
         if (studyField.maSpecialization) return 42;
         if (isListFormat) return 40;                            // מילות רשימה — text מספיק
-        if (studyField.requiredKeywords?.length) return 60;    // צירוף ספציפי (תרפיה וכו')
+        if (studyField.requiredKeywords?.length) return 80;    // חייב בכותרת/תיאור — לא רק H2 ניווט
         if (studyField.specificKeyword?.includes(' ')) return 60; // צירוף רב-מילי כללי
         return 40;
       })();
@@ -1553,7 +1553,19 @@ function formatResults(results, studyField, region, query = '') {
     if (isOfekChadash && (title.includes('למידה מרחוק') || title.includes('לימוד מרחוק'))) return false;
     // דף "שנת שבתון מורים" הכללי — לא מוסד
     if (isOfekChadash && title === 'שנת שבתון מורים') return false;
-    if (!isOfekChadash) return true;
+    if (!isOfekChadash) {
+      // ── סינון גנרי לכל תחום: specificKeyword חייב להופיע בכותרת או תיאור ──
+      // מונע מוסדות שמזכירים את הנושא רק בטקסט הארוך (לא רלוונטיים)
+      const spKw = (studyField?.specificKeyword || '').toLowerCase();
+      if (spKw && spKw.length >= 3) {
+        const titleDescText = (title + ' ' + desc).toLowerCase();
+        if (!titleDescText.includes(spKw)) {
+          console.log(`    [SPECIFIC_KW] ❌ "${spKw}" not in title/desc → skip: "${r.title}"`);
+          return false;
+        }
+      }
+      return true;
+    }
     // לאופק חדש: חייב להזכיר "אופק חדש" או "עוז לתמורה" ב-description או ב-text המלא
     const fullText = (r.text || '').toLowerCase();
     const mentionsOfek = ['אופק חדש', 'עוז לתמורה'].some(k =>
