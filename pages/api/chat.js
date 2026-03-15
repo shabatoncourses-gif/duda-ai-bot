@@ -2090,8 +2090,8 @@ async function logToZapier(message, response, answered) {
     const dateStr = now.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' });
     const timeStr = now.toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' });
 
-    // שולח כ-form-urlencoded — עובד בלי CORS preflight וגם מזוהה כ-body ב-Zapier
-    const params = new URLSearchParams({
+    // רץ על שרת Vercel — אין CORS, שולח JSON מלא
+    const payload = JSON.stringify({
       date: dateStr,
       time: timeStr,
       question: message,
@@ -2101,7 +2101,8 @@ async function logToZapier(message, response, answered) {
     });
     fetch(ZAPIER_WEBHOOK_URL, {
       method: 'POST',
-      body: params.toString()
+      headers: { 'Content-Type': 'application/json' },
+      body: payload
     }).catch(err => console.warn('⚠️ Zapier log failed:', err.message));
   } catch (e) {
     console.warn('⚠️ Zapier log error:', e.message);
