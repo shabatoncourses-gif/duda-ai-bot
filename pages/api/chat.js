@@ -1899,6 +1899,141 @@ function findInfoPageAnswer(message) {
 // MAIN RESPONSE GENERATOR
 // ================================================================
 
+
+// ================================================================
+// חיפוש קורסים לפי ש"ש (שעות שבועיות)
+// ================================================================
+
+function findByShaashot(message) {
+  const msg = message.toLowerCase().trim();
+
+  // זיהוי שאילתות ש"ש
+  const shaashPatterns = [
+    /([0-9]+(?:[.,][05])?)\s*ש["']ש/,
+    /ש["']ש\s+([0-9]+(?:[.,][05])?)/,
+    /([0-9]+(?:[.,][05])?)\s*שעות\s*שבועיות/,
+  ];
+
+  const generalShaash = /כמה\s*ש["']ש|ש["']ש.*קורס|קורס.*ש["']ש|רשימת.*ש["']ש|היקף.*ש["']ש|שעות.*שבועיות/i;
+
+  let requestedHours = null;
+  for (const pat of shaashPatterns) {
+    const m = msg.match(pat);
+    if (m && m[1]) {
+      requestedHours = parseFloat(m[1].replace(',', '.'));
+      if (!isNaN(requestedHours)) break;
+    }
+  }
+
+  const isGeneralShaash = generalShaash.test(message);
+  if (!requestedHours && !isGeneralShaash) return null;
+
+  console.log(`🕐 ש"ש query | requested: ${requestedHours ?? 'general'}`);
+
+  const region = detectRegion(message);
+  const fields = detectStudyField(message);
+  const studyField = fields.length > 0 ? fields[0] : null;
+
+  const pages = loadAllPages();
+  const results = [];
+
+  for (const page of pages) {
+    const url = (page.url || page.link || '');
+    const urlLower = url.toLowerCase();
+    const title = (page.title || page.h1 || '');
+    const desc = (page.description || '');
+    const text = (page.text || '');
+    const combined = (title + ' ' + desc + ' ' + text);
+
+    // רק דפי מוסדות
+    if (!urlLower.includes('shabaton.co.il/') && !urlLower.includes('shabaton.online/')) continue;
+    if (urlLower.includes('/important') || urlLower.includes('/luz_') || urlLower.includes('/forms_') || urlLower.includes('/Payments_')) continue;
+    if (!desc && !text) continue;
+
+    // חיפוש ש"ש בתוכן
+    let shaashFound = false;
+    if (requestedHours) {
+      // חיפוש מספר ספציפי
+      const hStr = String(requestedHours);
+      const patterns = [
+        hStr + ' ש"ש', hStr + 'ש"ש',
+        hStr + " ש'ש", hStr + " ש''ש",
+        hStr + ' שעות שבועיות',
+      ];
+      shaashFound = patterns.some(p => combined.includes(p));
+    } else {
+      // חיפוש כללי — דף שמזכיר ש"ש בכלל
+      shaashFound = combined.includes('ש"ש') || combined.includes("ש'ש") || combined.includes('שעות שבועיות');
+    }
+    if (!shaashFound) continue;
+
+    // סינון אזור
+    if (region) {
+      const urlRegion = detectRegionFromUrl(urlLower, region);
+      const hasRegionCity = (region.cities || []).some(c => c.length > 3 && combined.toLowerCase().includes(c.toLowerCase()));
+      if (urlRegion.match === 'other' && !hasRegionCity) continue;
+    }
+
+    // סינון תחום
+    if (studyField) {
+      const fieldMatch = pageMatchesField(page, studyField, true);
+      if (!fieldMatch.found) continue;
+    }
+
+    results.push({ title, url, desc, text });
+    if (results.length >= 15) break;
+  }
+
+  console.log(`🕐 ש"ש results: ${results.length}`);
+
+  // רוטציה אקראית — סדר שונה בכל שאילתה
+  for (let i = results.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [results[i], results[j]] = [results[j], results[i]];
+  }
+
+  if (results.length === 0) {
+    const hoursStr = requestedHours ? `${requestedHours} ש"ש` : 'ש"ש';
+    const suffix = studyField ? ` ב${studyField.name}` : '';
+    const regionStr = region ? ` ב${region.name}` : '';
+    return `לא נמצאו קורסים של ${hoursStr}${suffix}${regionStr} באינדקס כרגע.
+
+📎 [חיפוש קורסים באתר שבתון](https://www.shabaton.co.il/items_list.asp)
+💬 [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)`;
+  }
+
+  const hoursTitle = requestedHours ? `${requestedHours} ש"ש` : 'ש"ש';
+  const fieldTitle = studyField ? ` ב${studyField.name}` : '';
+  const regionTitle = region ? ` ב${region.name}` : '';
+  let response = `**קורסים של ${hoursTitle}${fieldTitle}${regionTitle}:**
+
+`;
+
+  const seen = new Set();
+  let shown = 0;
+  for (const r of results) {
+    const inst = extractInstitutionName(r.title);
+    if (seen.has(inst)) continue;
+    seen.add(inst);
+    response += `📚 **${r.title}**
+`;
+    if (r.desc) response += `${r.desc.substring(0, 130)}
+`;
+    response += `[פנו למידע ולייעוץ אישי](${r.url})
+
+`;
+    if (++shown >= 15) break;
+  }
+
+  response += `
+🔍 [לכל הקורסים באתר שבתון](https://www.shabaton.co.il/items_list.asp)`;
+  response += `
+📩 [הרשמו לעלון שבתון](https://www.shabaton.online/shabaton)`;
+  response += `
+💬 [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)`;
+  return response;
+}
+
 async function generateSmartResponse(message) {
   console.log('\n========================================');
   console.log('🚀 VERSION: MAR_02_v249_MUSIC_URL');
@@ -1909,6 +2044,10 @@ async function generateSmartResponse(message) {
   // QA קודם
   const qa = findQAAnswer(message);
   if (qa) { console.log('✅ QA answer'); return qa.answer; }
+
+  // ── חיפוש לפי ש"ש ──
+  const shaashAnswer = findByShaashot(message);
+  if (shaashAnswer) { console.log('✅ ש"ש answer'); return shaashAnswer; }
 
   // ── "קורס רשות/חובה" ── 
   const hasReshutOrHova = /קורס רשות|קורסי רשות|קורס חובה|קורסי חובה/.test(message);
