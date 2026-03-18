@@ -1945,10 +1945,34 @@ function findByShaashot(message) {
     const text = (page.text || '');
     const combined = (title + ' ' + desc + ' ' + text);
 
-    // רק דפי מוסדות
-    if (!urlLower.includes('shabaton.co.il/') && !urlLower.includes('shabaton.online/')) continue;
-    if (urlLower.includes('/important') || urlLower.includes('/luz_') || urlLower.includes('/forms_') || urlLower.includes('/Payments_')) continue;
-    if (!desc && !text) continue;
+    // ── רק דפי מוסדות אמיתיים מ-shabaton.online ──
+    // URL חייב להכיל slug של מוסד — לא דפי קטגוריה/ניווט/מידע כללי
+    if (!urlLower.includes('shabaton.online/')) continue;
+
+    // חסימת דפי קטגוריה ותוכן כללי
+    const blockedPaths = [
+      '/important', '/luz_', '/forms_', '/Payments_', '/shabaton-video',
+      '/learning_programs', '/halforfull', '/phones_', '/master-degree',
+      '/results-', '/search-courses', '/knassim', '/bekarov',
+      '/tel-aviv', '/heifa', '/sharon', '/darom', '/jerusalm',
+      '/shabaton_checklist', '/shabaton-maanak', '/btl_shabaton',
+      '/back_from_shabaton', '/end_shabaton', '/change_prog',
+      '/tlush_maanak', '/shabaton-kabalot', '/shabaton_request',
+      '/toar_shlishi', '/shabaton-plan', '/shabaton-hova',
+      '/luz_shabaton', '/shabaton_schedule',
+    ];
+    if (blockedPaths.some(p => urlLower.includes(p))) continue;
+
+    // חסימת דפי results-all (קטגוריות כלליות)
+    if (urlLower.includes('/results-all')) continue;
+
+    // חייב שם מוסד בכותרת (לא "ינואר 2026", לא "close carousel")
+    const junkTitle = /^(ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)\s+20\d\d$/i;
+    const navigationTitle = /^(close carousel|carousel|next|prev|menu|navigation|שבתון - קורסים)$/i;
+    if (junkTitle.test(title.trim()) || navigationTitle.test(title.trim())) continue;
+
+    // חייב תיאור אמיתי (לא ריק)
+    if (!desc || desc.length < 30) continue;
 
     // חיפוש ש"ש בתוכן
     let shaashFound = false;
