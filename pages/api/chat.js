@@ -1500,6 +1500,18 @@ function formatResults(results, studyField, region, query = '') {
       const descLower = (r.description || '').toLowerCase();
       const textFull = (r.text || '').toLowerCase();
 
+      // אם המשתמש חיפש תת-תחום ספציפי (ציור, פיסול, קרמיקה...) — חייב להופיע בכותרת/תיאור
+      const artSubFields = ['ציור', 'פיסול', 'קרמיקה', 'קדרות', 'חימר', 'פסיפס', 'ויטראז', 'רקמה',
+        'סריגה', 'צורפות', 'תכשיטנות', 'מנדלה', 'נגרות', 'גילוף', 'הדפס', 'טקסטיל'];
+      const spKwArt = (studyField?.specificKeyword || '').toLowerCase();
+      const isArtSubSearch = artSubFields.some(sf => spKwArt.includes(sf));
+      if (isArtSubSearch) {
+        if (!titleLower.includes(spKwArt) && !descLower.includes(spKwArt)) {
+          console.log(`    [ART_SUB] ❌ "${spKwArt}" not in title/desc → skip: "${r.title}"`);
+          return false;
+        }
+      }
+
       // חסימה לפי כותרת/תיאור — תחומים לא-אמנותיים
       const nonArtTitles = [
         'עיצוב הסביבה', 'עיצוב פנים', 'עיצוב אופנה', 'עיצוב גרפי',
@@ -1599,8 +1611,8 @@ function formatResults(results, studyField, region, query = '') {
     const n = rName.toLowerCase();
     if (n.includes('מרכז') || n.includes('תל אביב')) return ['צפון', 'גליל', 'עמקים', 'חיפה', 'ירושלים', 'דרום', 'נגב', 'באר שבע', 'אילת', 'מסד', 'גליל תחתון', 'גליל עליון'];
     if (n.includes('שרון'))    return ['צפון', 'גליל', 'עמקים', 'חיפה', 'ירושלים', 'דרום', 'נגב', 'באר שבע'];
-    if (n.includes('חיפה'))    return ['ירושלים', 'דרום', 'נגב', 'באר שבע', 'תל אביב', 'מרכז'];
-    if (n.includes('צפון'))    return ['ירושלים', 'דרום', 'נגב', 'באר שבע', 'תל אביב', 'מרכז'];
+    if (n.includes('חיפה'))    return ['ירושלים', 'דרום', 'נגב', 'באר שבע', 'תל אביב', 'מרכז', 'שרון', 'רחובות', 'נס ציונה', 'ראשון לציון', 'פתח תקווה', 'בני ברק', 'גבעתיים', 'הרצליה', 'נתניה', 'רעננה', 'כפר סבא'];
+    if (n.includes('צפון'))    return ['ירושלים', 'דרום', 'נגב', 'באר שבע', 'תל אביב', 'מרכז', 'שרון', 'רחובות', 'נס ציונה', 'ראשון לציון', 'פתח תקווה', 'בני ברק', 'גבעתיים', 'הרצליה', 'נתניה', 'רעננה', 'כפר סבא'];
     if (n.includes('ירושלים')) return ['צפון', 'גליל', 'חיפה', 'תל אביב', 'מרכז', 'דרום', 'באר שבע'];
     if (n.includes('דרום') || n.includes('שפלה')) return ['צפון', 'גליל', 'חיפה', 'תל אביב', 'מרכז', 'ירושלים'];
     return [];
@@ -1708,6 +1720,14 @@ function formatResults(results, studyField, region, query = '') {
   const specificInstitutions = dedupedInstitutions;
 
   if (specificInstitutions.length === 0 && exactResults.length === 0 && nationalResults.length === 0) return '';
+
+  // כשאין מוסדות ספציפיים אחרי סינון — הצג הודעה ידידותית (חל על כל תחום ואזור)
+  if (specificInstitutions.length === 0) {
+    const subField = studyField?.specificKeyword || fieldName;
+    const regionStr = region ? ` ב${regionName}` : '';
+    const catLink = categoryUrl ? `\n\n🔍 [לכל הקורסים ב${fieldName}${regionStr}](${categoryUrl})` : '';
+    return `מוזמן/ת למצוא קורס **${subField}** מתאים${regionStr} במגוון הקורסים באתר שבתון:${catLink}\n💬 יש שאלות? [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) תשמח לעזור!\n📩 [הרשמו לעלון שבתון](https://www.shabaton.online/shabaton)`;
+  }
 
   const isIntentBased = !!studyField?._intentLabel;
   const displayTitle = isIntentBased ? fieldName : fieldName;
