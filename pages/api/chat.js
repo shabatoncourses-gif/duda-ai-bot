@@ -958,14 +958,15 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
           }
 
           if (!regionCityFound) {
-            // בדוק אם מוזכרת עיר מהאזור המבוקש (גם ברמת כל ערי האזור)
+            // בדוק עיר האזור המבוקש — רק בכותרת ותיאור (לא טקסט ניווט!)
+            const titleDescOnly = (cleanTitle + ' ' + desc).toLowerCase();
             const hasAnyRequestedCity = (region.cities || []).some(rc =>
-              rc.length > 3 && combined.includes(rc.toLowerCase().replace(/-/g, ' '))
+              rc.length > 3 && titleDescOnly.includes(rc.toLowerCase().replace(/-/g, ' '))
             );
             if (hasAnyRequestedCity) {
               regionCityFound = true;
               regionScore = 30;
-              console.log(`    [REGION] 🏙️ Region city found in combined text (+30) — multi-city institution`);
+              console.log(`    [REGION] 🏙️ Region city in title/desc (+30) — multi-city institution`);
             }
           }
 
@@ -1639,9 +1640,10 @@ function formatResults(results, studyField, region, query = '') {
       r.title || '',
       r.h1 || ''
     ].join(' ').toLowerCase();
-    // מוסד רב-עירוני: אם עיר האזור המבוקש מופיעה בטקסט המלא — לא לסנן
-    const fullText = ((r.text || '') + ' ' + (r.description || '')).toLowerCase();
-    if (regionCities.some(city => city.length > 3 && (searchText.includes(city) || fullText.includes(city)))) return false;
+    // מוסד רב-עירוני: אם עיר האזור המבוקש מופיעה בכותרת/תיאור — לא לסנן
+    // (לא בודקים text מלא — מכיל ניווט עם כל הערים)
+    const titleDescText = ((r.title || '') + ' ' + (r.h1 || '') + ' ' + (r.description || '')).toLowerCase();
+    if (regionCities.some(city => city.length > 3 && titleDescText.includes(city))) return false;
     // אחרת — בדוק סתירה רק בכותרת/H1
     return conflictingKeywords.some(kw => {
       const idx = searchText.indexOf(kw.toLowerCase());
