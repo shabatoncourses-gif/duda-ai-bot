@@ -1645,11 +1645,15 @@ function formatResults(results, studyField, region, query = '') {
     const titleDescText = ((r.title || '') + ' ' + (r.h1 || '') + ' ' + (r.description || '')).toLowerCase();
     if (regionCities.some(city => city.length > 3 && titleDescText.includes(city))) return false;
     // אחרת — בדוק סתירה רק בכותרת/H1
+    // כולל עברית: "ברחובות", "בתל-אביב" — ב/כ/ל/מ נחשבים גבול מילה
     return conflictingKeywords.some(kw => {
-      const idx = searchText.indexOf(kw.toLowerCase());
-      if (idx === -1) return false;
-      const isBound = (c) => !c || /[\s,.\-\/()[\]"'!?:;]/.test(c);
-      return isBound(searchText[idx - 1]) && isBound(searchText[idx + kw.length]);
+      const kwLower = kw.toLowerCase();
+      if (!searchText.includes(kwLower)) return false;
+      const idx = searchText.indexOf(kwLower);
+      const charBefore = searchText[idx - 1] || '';
+      // גבול מילה: רווח, פיסוק, או אות מחוברת עברית (ב,כ,ל,מ,ה,ו,ש)
+      const isBound = (c) => !c || /[\s,.\-\/()[\]"'!?:;]/.test(c) || /^[בכלמהושד]$/.test(c);
+      return isBound(charBefore) && isBound(searchText[idx + kwLower.length] || '');
     });
   };
 
