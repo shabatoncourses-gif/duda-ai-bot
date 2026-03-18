@@ -1607,15 +1607,25 @@ function formatResults(results, studyField, region, query = '') {
   const otherRegionResults = results.filter(r => r.regionMatch === 'other');
 
   // מילות אזור סותרות — לפי שם האזור המבוקש
+  // getConflictingKeywords — מבוסס על regions.json: כל ערי האזורים האחרים = מילים סותרות
   const getConflictingKeywords = (rName) => {
-    const n = rName.toLowerCase();
-    if (n.includes('מרכז') || n.includes('תל אביב')) return ['צפון', 'גליל', 'עמקים', 'חיפה', 'ירושלים', 'דרום', 'נגב', 'באר שבע', 'אילת', 'מסד', 'גליל תחתון', 'גליל עליון'];
-    if (n.includes('שרון'))    return ['צפון', 'גליל', 'עמקים', 'חיפה', 'ירושלים', 'דרום', 'נגב', 'באר שבע'];
-    if (n.includes('חיפה'))    return ['ירושלים', 'דרום', 'נגב', 'באר שבע', 'תל אביב', 'מרכז', 'שרון', 'רחובות', 'נס ציונה', 'ראשון לציון', 'פתח תקווה', 'בני ברק', 'גבעתיים', 'הרצליה', 'נתניה', 'רעננה', 'כפר סבא'];
-    if (n.includes('צפון'))    return ['ירושלים', 'דרום', 'נגב', 'באר שבע', 'תל אביב', 'מרכז', 'שרון', 'רחובות', 'נס ציונה', 'ראשון לציון', 'פתח תקווה', 'בני ברק', 'גבעתיים', 'הרצליה', 'נתניה', 'רעננה', 'כפר סבא'];
-    if (n.includes('ירושלים')) return ['צפון', 'גליל', 'חיפה', 'תל אביב', 'מרכז', 'דרום', 'באר שבע'];
-    if (n.includes('דרום') || n.includes('שפלה')) return ['צפון', 'גליל', 'חיפה', 'תל אביב', 'מרכז', 'ירושלים'];
-    return [];
+    if (!REGIONS || !REGIONS.length) return [];
+    // מצא את האזור המבוקש
+    const requestedRegion = REGIONS.find(r => r.name === rName);
+    if (!requestedRegion) return [];
+    // אסוף ערים של כל האזורים האחרים + שמות האזורים עצמם
+    const conflicting = new Set();
+    for (const r of REGIONS) {
+      if (r.name === rName) continue;
+      // שם האזור (כינויים)
+      const regionKeywords = r.name.split(/[/,\s]+/).filter(w => w.length > 2);
+      regionKeywords.forEach(k => conflicting.add(k));
+      // ערי האזור
+      (r.cities || []).forEach(city => {
+        if (city.length > 2) conflicting.add(city);
+      });
+    }
+    return [...conflicting];
   };
   const conflictingKeywords = region ? getConflictingKeywords(regionName) : [];
   // ערים של האזור המבוקש — דף national שמזכיר עיר של האזור → עדיפות גבוהה
