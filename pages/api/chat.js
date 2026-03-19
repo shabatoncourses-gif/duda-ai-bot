@@ -1610,23 +1610,24 @@ function formatResults(results, studyField, region, query = '') {
   // מילות אזור סותרות — לפי שם האזור המבוקש
   // getConflictingKeywords — מבוסס על regions.json: כל ערי האזורים האחרים = מילים סותרות
   const getConflictingKeywords = (rName) => {
-    if (!REGIONS || !REGIONS.length) return [];
-    // מצא את האזור המבוקש
-    const requestedRegion = REGIONS.find(r => r.name === rName);
-    if (!requestedRegion) return [];
-    // אסוף ערים של כל האזורים האחרים + שמות האזורים עצמם
-    const conflicting = new Set();
-    for (const r of REGIONS) {
-      if (r.name === rName) continue;
-      // שם האזור (כינויים)
-      const regionKeywords = r.name.split(/[/,\s]+/).filter(w => w.length > 2);
-      regionKeywords.forEach(k => conflicting.add(k));
-      // ערי האזור
-      (r.cities || []).forEach(city => {
-        if (city.length > 2) conflicting.add(city);
-      });
+    try {
+      if (!REGIONS || !REGIONS.length) return [];
+      const requestedRegion = REGIONS.find(r => r.name === rName);
+      if (!requestedRegion) return [];
+      const conflicting = new Set();
+      for (const r of REGIONS) {
+        if (r.name === rName) continue;
+        const regionKeywords = r.name.split(/[\/,\s]+/).filter(w => w.length > 2);
+        regionKeywords.forEach(k => conflicting.add(k.toLowerCase()));
+        (r.cities || []).forEach(city => {
+          if (city.length > 2) conflicting.add(city.toLowerCase());
+        });
+      }
+      return [...conflicting];
+    } catch(e) {
+      console.warn('⚠️ getConflictingKeywords error:', e.message);
+      return [];
     }
-    return [...conflicting];
   };
   const conflictingKeywords = region ? getConflictingKeywords(regionName) : [];
   // ערים של האזור המבוקש — דף national שמזכיר עיר של האזור → עדיפות גבוהה
@@ -2100,6 +2101,24 @@ async function generateSmartResponse(message) {
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
+
+  // ── זיהוי מוקדם של מונחים מקצועיים ספציפיים לפני הסמנטיקה ──
+  // מניעת זיהוי שגוי של מונחים כגון לוגותרפיה, ביבליותרפיה וכו'
+  const THERAPY_TERMS = ['לוגותרפיה', 'ביבליותרפיה', 'פוטותרפיה', 'הידרותרפיה',
+    'היפותרפיה', 'הורטיתרפיה', 'מוזיקותרפיה', 'ארט תרפיה', 'דרמה תרפיה',
+    'ריפוי בעיסוק', 'קלינאות תקשורת', 'פיזיותרפיה'];
+  const msgLower = message.toLowerCase();
+  const isTherapyQuery = THERAPY_TERMS.some(t => msgLower.includes(t.toLowerCase()));
+  if (isTherapyQuery) {
+    console.log('🩺 Therapy term detected — forcing תרפיה וטיפול field');
+    const therapyField = (STUDY_FIELDS || []).find(f => f.name === 'תרפיה וטיפול');
+    if (therapyField) {
+      const region = detectRegion(message);
+      const results = await searchPages(message, region, therapyField, true);
+      const formatted = formatResults(results, therapyField, region, message);
+      if (formatted) return formatted;
+    }
+  }
 
   // QA קודם
   const qa = findQAAnswer(message);
