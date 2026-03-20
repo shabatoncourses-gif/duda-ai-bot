@@ -885,7 +885,11 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
       const minScore = (() => {
         if (studyField.maSpecialization) return 42;
         if (isListFormat) return 40;                            // מילות רשימה — text מספיק
-        if (studyField.requiredKeywords?.length) return 80;    // חייב בכותרת/תיאור — לא רק H2 ניווט
+        if (studyField.requiredKeywords?.length) {
+          // כאשר text search מופעל — מאפשרים תוצאות מ-text (score=40)
+          // אחרת חייב בכותרת/תיאור (score>=80) למניעת H2 ניווט
+          return allowTextSearch ? 40 : 80;
+        }
         if (studyField.specificKeyword?.includes(' ')) return 60; // צירוף רב-מילי כללי
         return 40;
       })();
@@ -1585,8 +1589,13 @@ function formatResults(results, studyField, region, query = '') {
       if (spKw && spKw.length >= 3) {
         const titleDescText = (title + ' ' + desc).toLowerCase();
         if (!titleDescText.includes(spKw)) {
-          console.log(`    [SPECIFIC_KW] ❌ "${spKw}" not in title/desc → skip: "${r.title}"`);
-          return false;
+          // בדוק גם בטקסט המלא — מונחים מקצועיים עשויים להופיע רק שם
+          const fullText = (r.text || '').toLowerCase();
+          if (!fullText.includes(spKw)) {
+            console.log(`    [SPECIFIC_KW] ❌ "${spKw}" not in title/desc/text → skip: "${r.title}"`);
+            return false;
+          }
+          console.log(`    [SPECIFIC_KW] ✅ "${spKw}" found in full text: "${r.title}"`);
         }
       }
       return true;
@@ -2119,24 +2128,45 @@ async function generateSmartResponse(message) {
 
       // ── סינון קשיח: רק דפים שמזכירים את המונח הספציפי בכותרת או תיאור ──
       const termLower = matchedTherapyTerm.toLowerCase();
+      // בדיקה: האם המונח מופיע בכותרת, תיאור, או טקסט המלא של הדף
+      const therapyTermInPage = (r) => {
+        const haystack = ((r.title || '') + ' ' + (r.description || '') + ' ' + (r.text || '')).toLowerCase();
+        return haystack.includes(termLower);
+      };
       const filteredResults = {
-        exactResults: (allResults.exactResults || []).filter(r =>
-          ((r.title || '') + ' ' + (r.description || '')).toLowerCase().includes(termLower)
-        ),
-        specificInstitutions: (allResults.specificInstitutions || []).filter(r =>
-          ((r.title || '') + ' ' + (r.description || '')).toLowerCase().includes(termLower)
-        ),
-        nationalResults: (allResults.nationalResults || []).filter(r =>
-          ((r.title || '') + ' ' + (r.description || '')).toLowerCase().includes(termLower)
-        ),
+        exactResults: (allResults.exactResults || []).filter(therapyTermInPage),
+        specificInstitutions: (allResults.specificInstitutions || []).filter(therapyTermInPage),
+        nationalResults: (allResults.nationalResults || []).filter(therapyTermInPage),
         categoryUrl: allResults.categoryUrl,
         categoryTitle: allResults.categoryTitle,
       };
 
       console.log(`🔬 After "${matchedTherapyTerm}" filter: exact=${filteredResults.exactResults.length} specific=${filteredResults.specificInstitutions.length} national=${filteredResults.nationalResults.length}`);
 
+      const totalFound = filteredResults.exactResults.length + filteredResults.specificInstitutions.length + filteredResults.nationalResults.length;
+
+      if (totalFound === 0) {
+        // לא נמצאו קורסים ספציפיים באינדקס — הודעה ידידותית
+        const regionStr = region ? ` ב${region.name}` : '';
+        const catUrl = filteredResults.categoryUrl || 'https://www.shabaton.online/results-all/לימודי%20תרפיה%20וטיפול';
+        return `מוזמן/ת למצוא קורסי **${matchedTherapyTerm}**${regionStr} במגוון הקורסים באתר שבתון:
+
+🔍 [לכל קורסי תרפיה וטיפול${regionStr}](${catUrl})
+💬 יש שאלות? [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) תשמח לעזור!
+📩 [הרשמו לעלון שבתון](https://www.shabaton.online/shabaton)`;
+      }
+
       const formatted = formatResults(filteredResults, specificTherapyField, region, message);
       if (formatted) return formatted;
+
+      // formatResults החזיר ריק — fallback
+      const regionStr2 = region ? ` ב${region.name}` : '';
+      const catUrl2 = filteredResults.categoryUrl || 'https://www.shabaton.online/results-all/לימודי%20תרפיה%20וטיפול';
+      return `מוזמן/ת למצוא קורסי **${matchedTherapyTerm}**${regionStr2} במגוון הקורסים באתר שבתון:
+
+🔍 [לכל קורסי תרפיה וטיפול${regionStr2}](${catUrl2})
+💬 יש שאלות? [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) תשמח לעזור!
+📩 [הרשמו לעלון שבתון](https://www.shabaton.online/shabaton)`;
     }
   }
 
