@@ -2139,17 +2139,14 @@ async function generateSmartResponse(message) {
         const haystack = ((r.title || '') + ' ' + (r.description || '') + ' ' + (r.text || '')).toLowerCase();
         return haystack.includes(termLower);
       };
-      const filteredResults = {
-        exactResults: (allResults.exactResults || []).filter(therapyTermInPage),
-        specificInstitutions: (allResults.specificInstitutions || []).filter(therapyTermInPage),
-        nationalResults: (allResults.nationalResults || []).filter(therapyTermInPage),
-        categoryUrl: allResults.categoryUrl,
-        categoryTitle: allResults.categoryTitle,
-      };
+      // allResults היא מערך רגיל — מסננים ומעבירים ישירות ל-formatResults
+      const filteredResults = Array.isArray(allResults)
+        ? allResults.filter(therapyTermInPage)
+        : [];
 
-      console.log(`🔬 After "${matchedTherapyTerm}" filter: exact=${filteredResults.exactResults.length} specific=${filteredResults.specificInstitutions.length} national=${filteredResults.nationalResults.length}`);
+      console.log(`🔬 After "${matchedTherapyTerm}" filter: ${filteredResults.length} results`);
 
-      const totalFound = filteredResults.exactResults.length + filteredResults.specificInstitutions.length + filteredResults.nationalResults.length;
+      const totalFound = filteredResults.length;
 
       if (totalFound === 0) {
         // לא נמצאו קורסים ספציפיים באינדקס — הודעה ידידותית
