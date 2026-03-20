@@ -1437,7 +1437,7 @@ function formatResults(results, studyField, region, query = '') {
       }
       // חסימה לפי URL — דפי אזור+תואר שני
       const maRegionalUrlPatterns = [
-        /\/(results-heifa|results-merkaz|results-sharon|results-darom|results-jerusalem|results-zafon|heifa|merkaz|sharon|darom|jerusalm|jerusalem|zafon|north|south|tel-aviv)\/(ma|master|תואר)/i,
+        /\/(search-results-merkaz|results-merkaz|results-Zafon|results-heifa|results-Sharon|results-sharon|results-shfea-darom|results-darom|results-jerusalem|heifa|merkaz|sharon|darom|jerusalm|jerusalem|zafon|north|south|tel-aviv)\/(ma|master|תואר)/i,
         /\/(ma|master)-degree/,
       ];
       if (maRegionalUrlPatterns.some(p => p.test(url))) {
@@ -1683,12 +1683,17 @@ function formatResults(results, studyField, region, query = '') {
 
   // מיפוי אזורים סמוכים — fallback חכם
   const NEARBY_REGIONS = {
-    'results-merkaz':   ['results-sharon'],          // מרכז → שרון
-    'results-sharon':   ['results-merkaz'],          // שרון → מרכז
-    'results-heifa':    ['results-sharon'],          // חיפה → שרון
-    'results-zafon':    ['results-heifa'],           // צפון → חיפה
-    'results-darom':    [],                          // דרום → אין סמוכים
-    'results-jerusalem': [],                         // ירושלים → אין סמוכים
+    // slugs מתוך regions.json
+    'search-results-merkaz': ['results-Sharon'],
+    'results-Zafon':         ['results-Sharon'],
+    'results-Sharon':        ['search-results-merkaz'],
+    'results-shfea-darom':   [],
+    'results-jerusalem':     [],
+    // תאימות לאחור (slugs ישנים שעלולים להופיע באינדקס)
+    'results-merkaz':        ['results-Sharon'],
+    'results-heifa':         ['results-Sharon'],
+    'results-sharon':        ['search-results-merkaz'],
+    'results-darom':         [],                         // ירושלים → אין סמוכים
     'results-shfea-darom': [],
   };
 
@@ -2151,7 +2156,11 @@ async function generateSmartResponse(message) {
       if (totalFound === 0) {
         // לא נמצאו קורסים ספציפיים באינדקס — הודעה ידידותית
         const regionStr = region ? ` ב${region.name}` : '';
-        const catUrl = filteredResults.categoryUrl || 'https://www.shabaton.online/results-all/לימודי%20תרפיה%20וטיפול';
+        // מחפש דף קטגוריה אמיתי מהאינדקס (כמו שאר הקוד עושה)
+        const therapySlug = encodeURIComponent('לימודי תרפיה וטיפול');
+        const therapyCatPage = allResults.find(r => isCategoryPage && isCategoryPage(r));
+        const catUrl = (therapyCatPage && (therapyCatPage.url || therapyCatPage.link))
+          || `https://www.shabaton.online/results-all/${therapySlug}`;
         return `מוזמן/ת למצוא קורסי **${matchedTherapyTerm}**${regionStr} במגוון הקורסים באתר שבתון:
 
 🔍 [לכל קורסי תרפיה וטיפול${regionStr}](${catUrl})
@@ -2164,7 +2173,10 @@ async function generateSmartResponse(message) {
 
       // formatResults החזיר ריק — fallback
       const regionStr2 = region ? ` ב${region.name}` : '';
-      const catUrl2 = filteredResults.categoryUrl || 'https://www.shabaton.online/results-all/לימודי%20תרפיה%20וטיפול';
+      const therapySlug2 = encodeURIComponent('לימודי תרפיה וטיפול');
+      const therapyCatPage2 = filteredResults.find(r => isCategoryPage && isCategoryPage(r));
+      const catUrl2 = (therapyCatPage2 && (therapyCatPage2.url || therapyCatPage2.link))
+        || `https://www.shabaton.online/results-all/${therapySlug2}`;
       return `מוזמן/ת למצוא קורסי **${matchedTherapyTerm}**${regionStr2} במגוון הקורסים באתר שבתון:
 
 🔍 [לכל קורסי תרפיה וטיפול${regionStr2}](${catUrl2})
