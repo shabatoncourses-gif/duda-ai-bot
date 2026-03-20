@@ -2108,14 +2108,34 @@ async function generateSmartResponse(message) {
     'היפותרפיה', 'הורטיתרפיה', 'מוזיקותרפיה', 'ארט תרפיה', 'דרמה תרפיה',
     'ריפוי בעיסוק', 'קלינאות תקשורת', 'פיזיותרפיה'];
   const msgLower = message.toLowerCase();
-  const isTherapyQuery = THERAPY_TERMS.some(t => msgLower.includes(t.toLowerCase()));
-  if (isTherapyQuery) {
-    console.log('🩺 Therapy term detected — forcing תרפיה וטיפול field');
+  const matchedTherapyTerm = THERAPY_TERMS.find(t => msgLower.includes(t.toLowerCase()));
+  if (matchedTherapyTerm) {
+    console.log(`🩺 Therapy term "${matchedTherapyTerm}" detected — forcing תרפיה וטיפול`);
     const therapyField = (STUDY_FIELDS || []).find(f => f.name === 'תרפיה וטיפול');
     if (therapyField) {
+      const specificTherapyField = { ...therapyField, specificKeyword: matchedTherapyTerm };
       const region = detectRegion(message);
-      const results = await searchPages(message, region, therapyField, true);
-      const formatted = formatResults(results, therapyField, region, message);
+      const allResults = await searchPages(message, region, specificTherapyField, true);
+
+      // ── סינון קשיח: רק דפים שמזכירים את המונח הספציפי בכותרת או תיאור ──
+      const termLower = matchedTherapyTerm.toLowerCase();
+      const filteredResults = {
+        exactResults: (allResults.exactResults || []).filter(r =>
+          ((r.title || '') + ' ' + (r.description || '')).toLowerCase().includes(termLower)
+        ),
+        specificInstitutions: (allResults.specificInstitutions || []).filter(r =>
+          ((r.title || '') + ' ' + (r.description || '')).toLowerCase().includes(termLower)
+        ),
+        nationalResults: (allResults.nationalResults || []).filter(r =>
+          ((r.title || '') + ' ' + (r.description || '')).toLowerCase().includes(termLower)
+        ),
+        categoryUrl: allResults.categoryUrl,
+        categoryTitle: allResults.categoryTitle,
+      };
+
+      console.log(`🔬 After "${matchedTherapyTerm}" filter: exact=${filteredResults.exactResults.length} specific=${filteredResults.specificInstitutions.length} national=${filteredResults.nationalResults.length}`);
+
+      const formatted = formatResults(filteredResults, specificTherapyField, region, message);
       if (formatted) return formatted;
     }
   }
