@@ -1752,7 +1752,7 @@ function formatResults(results, studyField, region, query = '') {
     const subField = studyField?.specificKeyword || fieldName;
     const regionStr = region ? ` ב${regionName}` : '';
     const catLink = categoryUrl ? `\n\n🔍 [לכל הקורסים ב${fieldName}${regionStr}](${categoryUrl})` : '';
-    return `מוזמן/ת למצוא קורס **${subField}** מתאים${regionStr} במגוון הקורסים באתר שבתון:${catLink}\n💬 יש שאלות? [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) תשמח לעזור!\n📩 [הרשמו לעלון שבתון](https://www.shabaton.online/shabaton)`;
+    return `מוזמן/ת למצוא קורס **${subField}** מתאים${regionStr} במגוון הקורסים באתר שבתון:${catLink}\n💬 יש שאלות? [הצטרפו לקבוצת שבתון בוואטסאפ](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n📩 [הרשמו לעלון שבתון](https://www.shabaton.online/shabaton)`;
   }
 
   const isIntentBased = !!studyField?._intentLabel;
@@ -2122,7 +2122,13 @@ async function generateSmartResponse(message) {
     console.log(`🩺 Therapy term "${matchedTherapyTerm}" detected — forcing תרפיה וטיפול`);
     const therapyField = (STUDY_FIELDS || []).find(f => f.name === 'תרפיה וטיפול');
     if (therapyField) {
-      const specificTherapyField = { ...therapyField, specificKeyword: matchedTherapyTerm };
+      // מבטל את requiredKeywords הכלליים ומשתמש רק במונח הספציפי
+      // כך שדף שמזכיר "לוגותרפיה" בטקסט יעבור את בדיקת [REQUIRED]
+      const specificTherapyField = {
+        ...therapyField,
+        specificKeyword: matchedTherapyTerm,
+        requiredKeywords: [matchedTherapyTerm],  // רק המונח הספציפי כ-required
+      };
       const region = detectRegion(message);
       const allResults = await searchPages(message, region, specificTherapyField, true);
 
@@ -2152,7 +2158,7 @@ async function generateSmartResponse(message) {
         return `מוזמן/ת למצוא קורסי **${matchedTherapyTerm}**${regionStr} במגוון הקורסים באתר שבתון:
 
 🔍 [לכל קורסי תרפיה וטיפול${regionStr}](${catUrl})
-💬 יש שאלות? [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) תשמח לעזור!
+💬 יש שאלות? [הצטרפו לקבוצת שבתון בוואטסאפ](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)
 📩 [הרשמו לעלון שבתון](https://www.shabaton.online/shabaton)`;
       }
 
@@ -2165,7 +2171,7 @@ async function generateSmartResponse(message) {
       return `מוזמן/ת למצוא קורסי **${matchedTherapyTerm}**${regionStr2} במגוון הקורסים באתר שבתון:
 
 🔍 [לכל קורסי תרפיה וטיפול${regionStr2}](${catUrl2})
-💬 יש שאלות? [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) תשמח לעזור!
+💬 יש שאלות? [הצטרפו לקבוצת שבתון בוואטסאפ](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)
 📩 [הרשמו לעלון שבתון](https://www.shabaton.online/shabaton)`;
     }
   }
@@ -2405,13 +2411,12 @@ async function logToZapier(message, response, answered) {
     });
     console.log('📤 Sending to Zapier:', ZAPIER_WEBHOOK_URL.substring(0,50) + '...');
     console.log('📦 Payload:', payload.substring(0, 200));
-    fetch(ZAPIER_WEBHOOK_URL, {
+    const zapierRes = await fetch(ZAPIER_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: payload
-    })
-    .then(r => console.log('✅ Zapier response:', r.status))
-    .catch(err => console.warn('⚠️ Zapier log failed:', err.message));
+    });
+    console.log('✅ Zapier response:', zapierRes.status);
   } catch (e) {
     console.warn('⚠️ Zapier log error:', e.message);
   }
@@ -2454,9 +2459,10 @@ export default async function handler(req, res) {
 
     // שליחה ל-Zapier — background, לא מעכב את התשובה לגולש
     console.log('🔔 About to call logToZapier...');
-    const isFallback = response.includes('חשוב בשבתון') && response.length < 300;
-    logToZapier(message, response, !isFallback);
-    console.log('🔔 logToZapier called (async, not awaited)');
+    const safeResponse = response || 'תשובה לא זמינה';
+    const isFallback = safeResponse.includes('חשוב בשבתון') && safeResponse.length < 300;
+    // ממתינים לזאפייר לפני שסוגרים את הפונקציה (Vercel מפסיק execution אחרי res.json)
+    await logToZapier(message, safeResponse, !isFallback);
 
     return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_02_v249_MUSIC_URL' });
   } catch (e) {
