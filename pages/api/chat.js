@@ -1660,15 +1660,20 @@ function formatResults(results, studyField, region, query = '') {
     const titleDescText = ((r.title || '') + ' ' + (r.h1 || '') + ' ' + (r.description || '')).toLowerCase();
     if (regionCities.some(city => city.length > 3 && titleDescText.includes(city))) return false;
     // בדוק סתירה בכותרת/H1 — כולל אותיות מחוברות עברית (ב,כ,ל,מ,ה,ו,ש)
-    return conflictingKeywords.some(kw => {
+    const hasConflict = conflictingKeywords.some(kw => {
       const kwLower = kw.toLowerCase();
       if (!searchText.includes(kwLower)) return false;
-      const idx = searchText.indexOf(kwLower);
-      const charBefore = searchText[idx - 1] || '';
-      const charAfter = searchText[idx + kwLower.length] || '';
+      const idx2 = searchText.indexOf(kwLower);
+      const cb = searchText[idx2 - 1] || '';
+      const ca = searchText[idx2 + kwLower.length] || '';
       const isBound = (c) => !c || /[\s,.\-\/()[\]"'!?:;]/.test(c) || /^[בכלמהושד]$/.test(c);
-      return isBound(charBefore) && isBound(charAfter);
+      return isBound(cb) && isBound(ca);
     });
+    if (searchText.includes('רחובות')) {
+      const matchedCity = regionCities.find(city => city.length > 3 && titleDescText.includes(city));
+      console.log('[RCHOVOT] title="' + (r.title||'').substring(0,60) + '" cityMatch=' + (matchedCity||'none') + ' conflict=' + hasConflict);
+    }
+    return hasConflict;
   };
 
   const allowCatPages = !!(studyField && studyField._musicQuery);
