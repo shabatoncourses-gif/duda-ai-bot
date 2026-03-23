@@ -1656,20 +1656,31 @@ function formatResults(results, studyField, region, query = '') {
       r.title || '',
       r.h1 || ''
     ].join(' ').toLowerCase();
-    // מוסד רב-עירוני: אם עיר האזור המבוקש מופיעה בכותרת/H1/תיאור — לא לסנן
-    const titleDescText = ((r.title || '') + ' ' + (r.h1 || '') + ' ' + (r.description || '')).toLowerCase();
-    if (regionCities.some(city => city.length > 3 && titleDescText.includes(city))) return false;
-    // אחרת — בדוק סתירה רק בכותרת/H1
-    // כולל עברית: "ברחובות", "בתל-אביב" — ב/כ/ל/מ נחשבים גבול מילה
-    return conflictingKeywords.some(kw => {
+    // שלב 1: אם הכותרת עצמה מכילה עיר סותרת — דחה מיד (גובר על הכל)
+    // כולל עברית: "ברחובות" — ב/כ/ל/מ נחשבים גבול מילה
+    const isBoundHebrew = (c) => !c || /[\s,.\-\/()[\]"'!?:;]/.test(c) || /^[בכלמהושד]$/.test(c);
+    const titleConflicts = conflictingKeywords.some(kw => {
       const kwLower = kw.toLowerCase();
       if (!searchText.includes(kwLower)) return false;
       const idx = searchText.indexOf(kwLower);
-      const charBefore = searchText[idx - 1] || '';
-      // גבול מילה: רווח, פיסוק, או אות מחוברת עברית (ב,כ,ל,מ,ה,ו,ש)
-      const isBound = (c) => !c || /[\s,.\-\/()[\]"'!?:;]/.test(c) || /^[בכלמהושד]$/.test(c);
-      return isBound(charBefore) && isBound(searchText[idx + kwLower.length] || '');
+      const cb = searchText[idx - 1] || '';
+      const ca = searchText[idx + kwLower.length] || '';
+      const match = isBoundHebrew(cb) && isBoundHebrew(ca);
+      if (match && (r.title||'').includes('רחובות')) {
+        console.log(`    [CONFLICT_DEBUG] kw="${kwLower}" charBefore="${cb}" charAfter="${ca}" → conflict=true`);
+      }
+      return match;
     });
+    if ((r.title||'').includes('רחובות')) {
+      console.log(`    [CONFLICT_DEBUG] title="${r.title}" titleConflicts=${titleConflicts} searchText="${searchText.substring(0,80)}"`);
+    }
+    if (titleConflicts) return true; // יש סתירה בכותרת → לסנן
+
+    // שלב 2: אם עיר האזור המבוקש מופיעה בכותרת/תיאור → מוסד רב-עירוני, לא לסנן
+    const titleDescText = ((r.title || '') + ' ' + (r.h1 || '') + ' ' + (r.description || '')).toLowerCase();
+    if (regionCities.some(city => city.length > 3 && titleDescText.includes(city))) return false;
+
+    return false; // ללא עיר סותרת ברורה → לא לסנן
   };
 
   const allowCatPages = !!(studyField && studyField._musicQuery);
