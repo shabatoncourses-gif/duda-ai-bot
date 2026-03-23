@@ -1656,8 +1656,7 @@ function formatResults(results, studyField, region, query = '') {
       r.title || '',
       r.h1 || ''
     ].join(' ').toLowerCase();
-    // מוסד רב-עירוני: אם עיר האזור המבוקש מופיעה בכותרת/תיאור — לא לסנן
-    // (לא בודקים text מלא — מכיל ניווט עם כל הערים)
+    // מוסד רב-עירוני: אם עיר האזור המבוקש מופיעה בכותרת/H1/תיאור — לא לסנן
     const titleDescText = ((r.title || '') + ' ' + (r.h1 || '') + ' ' + (r.description || '')).toLowerCase();
     if (regionCities.some(city => city.length > 3 && titleDescText.includes(city))) return false;
     // אחרת — בדוק סתירה רק בכותרת/H1
