@@ -1395,6 +1395,17 @@ function formatResults(results, studyField, region, query = '') {
       return false;
     }
 
+    // סינון כותרות שאינן מוסדות לימוד
+    const blockedTitleKeywords = [
+      'וואטסאפ', 'ווטסאפ', 'whatsapp', 'קבוצת שבתון', 'עלון שבתון',
+      'הרשמה לעלון', 'ניוזלטר', 'newsletter', 'קבוצת ווטסאפ',
+      'הצטרפו לקבוצה', 'שלחו לי', 'מספר טלפון', 'יצירת קשר'
+    ];
+    if (blockedTitleKeywords.some(kw => title.includes(kw))) {
+      console.log(\`    [FILTER] ❌ Non-institution title → skip: "\${r.title}"\`);
+      return false;
+    }
+
     // סינון עמוד הבית של שבתון
     if (cleanUrl === 'shabaton.online') {
       console.log(`    [FILTER] ❌ Homepage → skip`);
@@ -1657,20 +1668,17 @@ function formatResults(results, studyField, region, query = '') {
       r.h1 || '',
       r.description || ''
     ].join(' ').toLowerCase();
-    // הכנה לחיפוש בטקסט המלא (גיבוי כשהאינדקס לא מעודכן)
+
     // מוסד רב-עירוני: אם עיר האזור המבוקש מופיעה בכותרת/H1/תיאור — לא לסנן
     const titleDescText = ((r.title || '') + ' ' + (r.h1 || '') + ' ' + (r.description || '')).toLowerCase();
     if (regionCities.some(city => city.length > 3 && titleDescText.includes(city))) return false;
     // בדוק סתירה בכותרת/H1 — כולל אותיות מחוברות עברית (ב,כ,ל,מ,ה,ו,ש)
     const hasConflict = conflictingKeywords.some(kw => {
       const kwLower = kw.toLowerCase();
-      const inSearch = searchText.includes(kwLower);
-      const inFullText = !inSearch && fullText.includes(kwLower);
-      if (!inSearch && !inFullText) return false;
-      const haystack = inSearch ? searchText : fullText;
-      const idx2 = haystack.indexOf(kwLower);
-      const cb = haystack[idx2 - 1] || '';
-      const ca = haystack[idx2 + kwLower.length] || '';
+      if (!searchText.includes(kwLower)) return false;
+      const idx2 = searchText.indexOf(kwLower);
+      const cb = searchText[idx2 - 1] || '';
+      const ca = searchText[idx2 + kwLower.length] || '';
       const isBound = (c) => !c || /[\s,.\-\/()[\]"'!?:;]/.test(c) || /^[בכלמהושד]$/.test(c);
       return isBound(cb) && isBound(ca);
     });
