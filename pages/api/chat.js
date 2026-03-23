@@ -1654,26 +1654,27 @@ function formatResults(results, studyField, region, query = '') {
     // בדיקה רק בכותרת ו-H1 — לא H2 שמכיל תפריט ניווט עם ערים מכל האזורים
     const searchText = [
       r.title || '',
-      r.h1 || ''
+      r.h1 || '',
+      r.description || ''
     ].join(' ').toLowerCase();
+    // הכנה לחיפוש בטקסט המלא (גיבוי כשהאינדקס לא מעודכן)
     // מוסד רב-עירוני: אם עיר האזור המבוקש מופיעה בכותרת/H1/תיאור — לא לסנן
     const titleDescText = ((r.title || '') + ' ' + (r.h1 || '') + ' ' + (r.description || '')).toLowerCase();
     if (regionCities.some(city => city.length > 3 && titleDescText.includes(city))) return false;
     // בדוק סתירה בכותרת/H1 — כולל אותיות מחוברות עברית (ב,כ,ל,מ,ה,ו,ש)
     const hasConflict = conflictingKeywords.some(kw => {
       const kwLower = kw.toLowerCase();
-      if (!searchText.includes(kwLower)) return false;
-      const idx2 = searchText.indexOf(kwLower);
-      const cb = searchText[idx2 - 1] || '';
-      const ca = searchText[idx2 + kwLower.length] || '';
+      const inSearch = searchText.includes(kwLower);
+      const inFullText = !inSearch && fullText.includes(kwLower);
+      if (!inSearch && !inFullText) return false;
+      const haystack = inSearch ? searchText : fullText;
+      const idx2 = haystack.indexOf(kwLower);
+      const cb = haystack[idx2 - 1] || '';
+      const ca = haystack[idx2 + kwLower.length] || '';
       const isBound = (c) => !c || /[\s,.\-\/()[\]"'!?:;]/.test(c) || /^[בכלמהושד]$/.test(c);
       return isBound(cb) && isBound(ca);
     });
-    const fullPageText = (r.title||'') + ' ' + (r.h1||'') + ' ' + (r.description||'');
-    if (fullPageText.includes('רחובות') || fullPageText.includes('רותי קליין')) {
-      const matchedCity = regionCities.find(city => city.length > 3 && titleDescText.includes(city));
-      console.log('[RCHOVOT] title="' + (r.title||'').substring(0,60) + '" desc="' + (r.description||'').substring(0,60) + '" cityMatch=' + (matchedCity||'none') + ' conflict=' + hasConflict);
-    }
+
     return hasConflict;
   };
 
