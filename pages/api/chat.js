@@ -1669,9 +1669,10 @@ function formatResults(results, studyField, region, query = '') {
       const isBound = (c) => !c || /[\s,.\-\/()[\]"'!?:;]/.test(c) || /^[בכלמהושד]$/.test(c);
       return isBound(cb) && isBound(ca);
     });
-    if (searchText.includes('רחובות')) {
+    const fullPageText = (r.title||'') + ' ' + (r.h1||'') + ' ' + (r.description||'');
+    if (fullPageText.includes('רחובות') || fullPageText.includes('רותי קליין')) {
       const matchedCity = regionCities.find(city => city.length > 3 && titleDescText.includes(city));
-      console.log('[RCHOVOT] title="' + (r.title||'').substring(0,60) + '" cityMatch=' + (matchedCity||'none') + ' conflict=' + hasConflict);
+      console.log('[RCHOVOT] title="' + (r.title||'').substring(0,60) + '" desc="' + (r.description||'').substring(0,60) + '" cityMatch=' + (matchedCity||'none') + ' conflict=' + hasConflict);
     }
     return hasConflict;
   };
