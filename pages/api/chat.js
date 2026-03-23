@@ -1337,8 +1337,14 @@ function formatResults(results, studyField, region, query = '') {
   // ── URLs קבועים לתחומים מיוחדים ──
   const ONLINE_LEARNING_URL = 'https://www.shabaton.online/results-all/למידה מרחוק';
   const OFEK_CHADASH_URL = 'https://www.shabaton.online/results-all/קורסי אופק חדש - עוז לתמורה';
-  const ART_URL = 'https://www.shabaton.online/results-all/קורסי אמנות ואומנויות';
+  // ART_URL — תלוי באזור
+  const artSlug = encodeURIComponent('קורסי אמנות ואומנויות');
+  const ART_URL = region?.slug
+    ? `${SITE_BASE}/${region.slug}/${artSlug}`
+    : `${SITE_BASE}/results-all/${artSlug}`;
 
+  // FIXED_CATEGORY_URLS — רק לתחומים שה-URL שלהם אינו תלוי אזור
+  // תחומים תלויי-אזור (כמו אמנות) — בונים URL דינמי ב-findCategoryUrlFromResults
   const FIXED_CATEGORY_URLS = {
     'למידה מרחוק': ONLINE_LEARNING_URL,
     'אופק חדש - עוז לתמורה': OFEK_CHADASH_URL,
@@ -1347,7 +1353,7 @@ function formatResults(results, studyField, region, query = '') {
     'אמנות ואומנויות': ART_URL,
     'אמנות': ART_URL,
     'תואר שני': 'https://www.shabaton.online/results-all/לימודי תואר שני',
-    'מוסיקה': 'https://www.shabaton.online/results-all/קורסי מוסיקה - קונצרטים מודרכים',
+    'מוסיקה': `${SITE_BASE}/${region?.slug ? region.slug + '/' : 'results-all/'}${encodeURIComponent('קורסי מוסיקה - קונצרטים מודרכים')}`,
   };
 
   const findCategoryUrlFromResults = () => {
@@ -1675,7 +1681,7 @@ function formatResults(results, studyField, region, query = '') {
     return t.includes('מוסיקה') || u.includes('%d7%9e%d7%95%d7%a1%d7%99%d7%a7%d7%94') || u.includes('מוסיקה');
   };
   let allInstitutions = [
-    ...exactResults.filter(r => (isMusicCatPage(r) || !isCategoryPage(r)) && isRelevantInstitution(r)),
+    ...exactResults.filter(r => (isMusicCatPage(r) || !isCategoryPage(r)) && !hasConflictingRegion(r) && isRelevantInstitution(r)),
     ...nationalResults.filter(r => (isMusicCatPage(r) || !isCategoryPage(r)) && !hasConflictingRegion(r) && isRelevantInstitution(r))
   ];
   const onlineCount = nationalResults.filter(r => (r.url||r.link||'').includes('results-all')).length;
@@ -1711,7 +1717,7 @@ function formatResults(results, studyField, region, query = '') {
   // fallback: אם פחות מ-10 תוצאות — הוסף אזורים סמוכים ולמידה מרחוק (לא צפון/דרום/ירושלים)
   if (allInstitutions.length < 10 && region) {
     const nearbyFiltered = otherRegionResults
-      .filter(r => isNearbyOrOnline(r) && !isCategoryPage(r) && isRelevantInstitution(r));
+      .filter(r => isNearbyOrOnline(r) && !isCategoryPage(r) && !hasConflictingRegion(r) && isRelevantInstitution(r));
     allInstitutions = [...allInstitutions, ...nearbyFiltered];
     console.log(`  📍 Fallback nearby: +${nearbyFiltered.length} (total: ${allInstitutions.length})`);
   }
