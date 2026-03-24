@@ -1402,7 +1402,7 @@ function formatResults(results, studyField, region, query = '') {
       'הצטרפו לקבוצה', 'שלחו לי', 'מספר טלפון', 'יצירת קשר'
     ];
     if (blockedTitleKeywords.some(kw => title.includes(kw))) {
-      console.log(\`    [FILTER] ❌ Non-institution title → skip: "\${r.title}"\`);
+      console.log(`    [FILTER] ❌ Non-institution title → skip: "${r.title}"`);
       return false;
     }
 
