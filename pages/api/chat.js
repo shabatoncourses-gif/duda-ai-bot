@@ -182,7 +182,6 @@ function detectRegionFromUrl(pageUrl, requestedRegion) {
     if (!r.slug) continue;
     if (r.slug === requestedRegion?.slug) continue;
     if (urlLower.includes(r.slug.toLowerCase())) {
-      console.log(`    [URL] ❌ URL contains OTHER region slug "${r.slug}" → reject`);
       return { match: 'other', region: r };
     }
   }
@@ -336,13 +335,11 @@ function pageMatchesField(page, studyField, allowTextSearch = false) {
         console.log(`    [REQUIRED] ✅ list-kw "${studyField.specificKeyword}" found (${r.location})`);
         return r;
       }
-      console.log(`    [REQUIRED] ❌ list-kw "${studyField.specificKeyword}" not found → skip`);
       return { found: false, location: null, score: 0 };
     }
 
     const found = synonyms.some(kw => search(kw).found);
     if (!found) {
-      console.log(`    [REQUIRED] ❌ None of [${synonyms.join(", ")}] found → skip`);
       return { found: false, location: null, score: 0 };
     }
     const matched = synonyms.find(kw => search(kw).found);
@@ -862,7 +859,6 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
     if (studyField) {
       const fieldMatch = pageMatchesField(page, studyField, allowTextSearch);
       if (!fieldMatch.found) {
-        console.log(`    [FIELD] ❌ Not found`);
         continue;
       }
 
@@ -925,7 +921,6 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
 
         } else if (urlRegion.match === 'other') {
           // URL שייך לאזור אחר - דחייה
-          console.log(`    [REGION] ❌ Wrong region in URL → skip`);
           continue;
 
         } else {
@@ -987,7 +982,6 @@ async function searchPages(query, region = null, studyField = null, allowTextSea
                   );
                   if (!hasRequestedCity) {
                     otherRegionCityFound = true;
-                    console.log(`    [REGION] ❌ Only other-region city "${city}" found → skip`);
                     break;
                   }
                 }
@@ -2362,7 +2356,15 @@ async function generateSmartResponse(message) {
 
     if (mergedResults.length > 0) {
       // תמיד העבר את studyField כמו שהוא — שם התחום האמיתי יוצג
-      return formatResults(mergedResults, studyField, region, message);
+      console.log(`🎨 Calling formatResults: ${mergedResults?.length} results, field=${studyField?.name}, region=${region?.name}`);
+      try {
+        const fmt = formatResults(mergedResults, studyField, region, message);
+        console.log(`🎨 formatResults OK: ${fmt?.length || 0} chars`);
+        return fmt;
+      } catch(fmtErr) {
+        console.error(`❌ formatResults CRASH: ${fmtErr.message}\n${fmtErr.stack?.split('\n')[1]}`);
+        throw fmtErr;
+      }
     }
 
     // ── Fallback: אין תוצאות ──
