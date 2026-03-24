@@ -1,6 +1,6 @@
 // ================================================================
 // chat.js v111
-// VERSION: MAR_02_v249_MUSIC_URL
+// VERSION: MAR_24_v280_FIX
 // ================================================================
 //
 // ארכיטקטורה חדשה:
@@ -794,7 +794,7 @@ function detectSpecificCity(query, region) {
 
 async function searchPages(query, region = null, studyField = null, allowTextSearch = false) {
   console.log('\n========== [searchPages] START ==========');
-  console.log(`🚀 VERSION: MAR_02_v249_MUSIC_URL`);
+  console.log(`🚀 VERSION: MAR_24_v280_FIX`);
   console.log(`Query: "${query}" | Region: ${region?.name || 'any'} | Field: ${studyField?.name || 'any'} | Keyword: "${studyField?.specificKeyword || 'none'}"`);
   console.log('==========================================');
 
@@ -2130,7 +2130,7 @@ function findByShaashot(message) {
 
 async function generateSmartResponse(message) {
   console.log('\n========================================');
-  console.log('🚀 VERSION: MAR_02_v249_MUSIC_URL');
+  console.log('🚀 VERSION: MAR_24_v280_FIX');
   console.log(`📝 "${message}"`);
   console.log('========================================');
   loadConfigs();
@@ -2467,7 +2467,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     return res.status(200).json({
       disclaimer: 'הצ\'אט מבוסס AI ומספק מידע כללי בלבד. אין לראות בתשובות תחליף לייעוץ מקצועי.',
-      version: 'MAR_02_v249_MUSIC_URL'
+      version: 'MAR_24_v280_FIX'
     });
   }
 
@@ -2492,9 +2492,9 @@ export default async function handler(req, res) {
     // ממתינים לזאפייר לפני שסוגרים את הפונקציה (Vercel מפסיק execution אחרי res.json)
     await logToZapier(message, safeResponse, !isFallback);
 
-    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_02_v249_MUSIC_URL' });
+    return res.status(200).json({ reply: response, processingTime: ms, version: 'MAR_24_v280_FIX' });
   } catch (e) {
     console.error('❌ ERROR:', e);
-    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_02_v249_MUSIC_URL' });
+    return res.status(500).json({ error: 'Internal server error', message: e.message, version: 'MAR_24_v280_FIX' });
   }
 }
