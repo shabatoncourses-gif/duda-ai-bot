@@ -1,13 +1,12 @@
 {
   "version": 2,
-
   "builds": [
     { "src": "pages/api/chat.js", "use": "@vercel/node" },
     { "src": "pages/api/reindex.js", "use": "@vercel/node" },
     { "src": "pages/api/status.js", "use": "@vercel/node" },
+    { "src": "pages/api/ai_chat_v2.js", "use": "@vercel/node" },
     { "src": "index.html", "use": "@vercel/static" }
   ],
-
   "routes": [
     {
       "src": "/api/chat",
@@ -20,6 +19,10 @@
     {
       "src": "/api/status",
       "dest": "/pages/api/status.js"
+    },
+    {
+      "src": "/api/ai_chat_v2",
+      "dest": "/pages/api/ai_chat_v2.js"
     },
     {
       "src": "/(.*)",
