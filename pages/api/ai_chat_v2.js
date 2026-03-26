@@ -3,8 +3,8 @@
 // VERSION: AI_v2_smart_search
 // ================================================================
 
-import fs from 'fs';
-import path from 'path';
+const fs = require('fs');
+const path = require('path');
 
 const ANTHROPIC_API_KEY  = process.env.ANTHROPIC_API_KEY || '';
 const ZAPIER_WEBHOOK_URL = process.env.ZAPIER_WEBHOOK_URL || '';
@@ -12,41 +12,43 @@ const HAIKU_MODEL  = 'claude-haiku-4-5-20251001';
 const SONNET_MODEL = 'claude-sonnet-4-6';
 
 // ── System prompt ──
-const SYSTEM_PROMPT = `אתה עוזר וירטואלי של שבתון — האתר המוביל לקורסים והשתלמויות למורים וגננות בשנת שבתון.
-
-חוקים חשובים:
-- ענה תמיד בעברית, בשפה חמה וידידותית
-- השתמש רק במידע שסופק לך — אל תמציא קורסים, מחירים, תאריכים
-- אל תציע "לארגן קורסים" — אתה מוצא קורסים קיימים בלבד
-- אם מצאת קורסים — הצג אותם עם קישורים ישירים
-- אם לא מצאת — הפנה לאתר עם קישור ספציפי לתחום ולאזור
-
-פורמט הצגת קורסים (חובה):
-- אל תמספר קורסים (אל תכתוב 1. 2. 3.)
-- כל קורס בפורמט הזה בדיוק:
-### שם המוסד
-📍 מיקום | 🎓 תיאור קצר בשחור
-[טקסט כפתור רלוונטי לשאלה](URL)
-
-- טקסט הכפתור חייב להיות **בהתאם לשאלה**. דוגמאות:
-  - שאלה על הדרכת הורים → [לפרטים על קורס הדרכת הורים](URL)
-  - שאלה על ציור → [לפרטים על קורס ציור](URL)
-  - שאלה על לוגותרפיה → [לפרטים על קורס לוגותרפיה](URL)
-  - שאלה כללית → [לפרטים על הקורס](URL)
-
-- בסוף הרשימה הוסף תמיד (כל קישור בשורה נפרדת):
----
-📌 [כל הקורסים בתחום באזור](URL לאזור)
-💌 [הצטרף לעלון שבתון](https://www.shabaton.online/shabaton)
-💬 [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)
-
-קישורים לאזורים:
-- קורסים בצפון: https://www.shabaton.online/results-Zafon
-- קורסים במרכז: https://www.shabaton.online/search-results-merkaz
-- קורסים בירושלים: https://www.shabaton.online/results-jerusalem
-- קורסים בדרום: https://www.shabaton.online/results-shfea-darom
-- קורסים בשרון: https://www.shabaton.online/results-Sharon
-- כל הקורסים: https://www.shabaton.online/results-all\`;
+const SYSTEM_PROMPT = [
+  'אתה עוזר וירטואלי של שבתון — האתר המוביל לקורסים והשתלמויות למורים וגננות בשנת שבתון.\n' +
+  '\n' +
+  'חוקים חשובים:\n' +
+  '- ענה תמיד בעברית, בשפה חמה וידידותית\n' +
+  '- השתמש רק במידע שסופק לך — אל תמציא קורסים, מחירים, תאריכים\n' +
+  '- אל תציע "לארגן קורסים" — אתה מוצא קורסים קיימים בלבד\n' +
+  '- אם מצאת קורסים — הצג אותם עם קישורים ישירים\n' +
+  '- אם לא מצאת — הפנה לאתר עם קישור ספציפי לתחום ולאזור\n' +
+  '\n' +
+  'פורמט הצגת קורסים (חובה):\n' +
+  '- אל תמספר קורסים (אל תכתוב 1. 2. 3.)\n' +
+  '- כל קורס בפורמט הזה בדיוק:\n' +
+  '### שם המוסד\n' +
+  '📍 מיקום | 🎓 תיאור קצר בשחור\n' +
+  '[טקסט כפתור רלוונטי לשאלה](URL)\n' +
+  '\n' +
+  '- טקסט הכפתור חייב להיות **בהתאם לשאלה**. דוגמאות:\n' +
+  '  - שאלה על הדרכת הורים → [לפרטים על קורס הדרכת הורים](URL)\n' +
+  '  - שאלה על ציור → [לפרטים על קורס ציור](URL)\n' +
+  '  - שאלה על לוגותרפיה → [לפרטים על קורס לוגותרפיה](URL)\n' +
+  '  - שאלה כללית → [לפרטים על הקורס](URL)\n' +
+  '\n' +
+  '- בסוף הרשימה הוסף תמיד (כל קישור בשורה נפרדת):\n' +
+  '---\n' +
+  '📌 [כל הקורסים בתחום באזור](URL לאזור)\n' +
+  '💌 [הצטרף לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
+  '💬 [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
+  '\n' +
+  'קישורים לאזורים:\n' +
+  '- קורסים בצפון: https://www.shabaton.online/results-Zafon\n' +
+  '- קורסים במרכז: https://www.shabaton.online/search-results-merkaz\n' +
+  '- קורסים בירושלים: https://www.shabaton.online/results-jerusalem\n' +
+  '- קורסים בדרום: https://www.shabaton.online/results-shfea-darom\n' +
+  '- קורסים בשרון: https://www.shabaton.online/results-Sharon\n' +
+  '- כל הקורסים: https://www.shabaton.online/results-all\\`;\n'
+].join('')
 
 // ── Cache ──
 const _cache = {};
@@ -55,9 +57,9 @@ function loadJSON(filename) {
   try {
     const p = path.join(process.cwd(), 'data', filename);
     _cache[filename] = JSON.parse(fs.readFileSync(p, 'utf8'));
-    console.log(`✅ ${filename}`);
+    console.log("Loaded: " + filename);
   } catch(e) {
-    console.warn(`⚠️ ${filename}: ${e.message}`);
+    console.warn("Could not load: " + filename + " - " + e.message);
     _cache[filename] = null;
   }
   return _cache[filename];
@@ -170,7 +172,7 @@ function buildContext(question, site) {
       relevant.forEach(item => {
         const q = item.question || item.q || '';
         const a = item.answer   || item.a || '';
-        if (q && a) parts.push(`ש: ${q}\nת: ${a}`);
+        if (q && a) parts.push("ש: " + q + "\nת: " + a);
       });
     }
   }
@@ -180,19 +182,19 @@ function buildContext(question, site) {
   if (courses.length > 0) {
     parts.push('\n=== קורסים ומוסדות שנמצאו ===');
     courses.forEach(c => {
-      parts.push(`שם: ${c.title}\nקישור: ${c.url}${c.description ? '\nתיאור: ' + c.description.substring(0,120) : ''}`);
+      parts.push('שם: ' + c.title + '\nקישור: ' + c.url + (c.description ? '\nתיאור: ' + c.description.substring(0,120) : ''));
     });
   } else {
     // אין תוצאות — ספר לClaude ותן לו להפנות
-    const regionStr = region ? ` ב${region.name}` : '';
-    parts.push(`\n=== תוצאות חיפוש ===\nלא נמצאו קורסים ספציפיים לשאלה${regionStr}.`);
+    var regionStr = region ? ' ב' + region.name : '';
+    parts.push('\n=== תוצאות חיפוש ===\nלא נמצאו קורסים ספציפיים לשאלה' + regionStr + '.');
     if (region) {
-      parts.push(`קישור לכל הקורסים${regionStr}: https://www.shabaton.online/${region.slug}`);
+      parts.push('קישור לכל הקורסים' + regionStr + ': https://www.shabaton.online/' + region.slug);
     }
   }
 
   if (region) {
-    parts.push(`\nאזור שזוהה: ${region.name}`);
+    parts.push('\nאזור שזוהה: ' + region.name);
   }
 
   return parts.join('\n\n');
@@ -208,10 +210,10 @@ function chooseModel(question) {
 async function callClaude(question, context, history) {
   const model = chooseModel(question);
   const userContent = context
-    ? `${context}\n\n---\nשאלת הגולש: ${question}`
+    ? context + '\n\n---\nשאלת הגולש: ' + question
     : question;
 
-  console.log(`🤖 Calling Claude: model=${model} msgLen=${userContent.length}`);
+  console.log("Calling Claude: model=" + model + " len=" + userContent.length);
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -230,7 +232,7 @@ async function callClaude(question, context, history) {
   if (!response.ok) {
     let errText = '';
     try { errText = await response.text(); } catch(te) { errText = 'unknown'; }
-    throw new Error(`Claude API ${response.status}: ${errText}`);
+    throw new Error('Claude API ' + response.status + ': ' + errText);
   }
   const data = await response.json();
   return { reply: data.content?.[0]?.text || '', model };
@@ -251,13 +253,13 @@ async function logToZapier(question, reply, site, model) {
         answer_length: String(reply.length)
       })
     });
-  } catch(e) { console.warn('⚠️ Zapier:', e.message); }
+  } catch(e) { console.warn('Zapier error:', e.message); }
 }
 
 // ── Handler ──
-export const config = { api: { bodyParser: true } };
 
-export default async function handler(req, res) {
+
+module.exports = async function handler(req, res) {
   // CORS — חייב להיות ראשון
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -275,14 +277,14 @@ export default async function handler(req, res) {
 
   const { message, history = [], site = 'shabaton' } = req.body || {};
   if (!message) return res.status(400).json({ error: 'message required' });
-  console.log(`🔑 API key present: ${!!ANTHROPIC_API_KEY} | key prefix: ${ANTHROPIC_API_KEY.substring(0,10)}...`);
+  console.log("API key present: " + !!ANTHROPIC_API_KEY);
 
   try {
     const region = detectRegion(message);
-    console.log(`📨 [${site}] "${message.substring(0,60)}" | region: ${region?.name || 'none'}`);
+    console.log("POST [" + site + "] | region: " + (region && region.name ? region.name : "none"));
     const context = buildContext(message, site);
     const { reply, model } = await callClaude(message, context, history);
-    console.log(`✅ ${model} | ${reply.length} chars`);
+    console.log("Reply OK: " + model + " | " + reply.length + " chars");
     await logToZapier(message, reply, site, model);
     return res.status(200).json({ reply, model });
   } catch(e) {
