@@ -8,16 +8,6 @@
     { "src": "index.html", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/api/ai_chat_v2",
-      "methods": ["OPTIONS"],
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
-      },
-      "continue": true
-    },
     { "src": "/api/ai_chat_v2", "dest": "/pages/api/ai_chat_v2.js" },
     { "src": "/api/chat", "dest": "/pages/api/chat.js" },
     { "src": "/api/reindex", "dest": "/pages/api/reindex.js" },
