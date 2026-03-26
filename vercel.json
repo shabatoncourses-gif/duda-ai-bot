@@ -8,7 +8,7 @@
     { "src": "index.html", "use": "@vercel/static" }
   ],
   "routes": [
-    { "src": "/api/ai_chat_v2", "methods": ["OPTIONS", "POST", "GET"], "dest": "/pages/api/ai_chat_v2.js" },
+    { "src": "/api/ai_chat_v2", "dest": "/pages/api/ai_chat_v2.js" },
     { "src": "/api/chat", "dest": "/pages/api/chat.js" },
     { "src": "/api/reindex", "dest": "/pages/api/reindex.js" },
     { "src": "/api/status", "dest": "/pages/api/status.js" },
