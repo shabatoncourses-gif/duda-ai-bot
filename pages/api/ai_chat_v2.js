@@ -14,26 +14,73 @@ const SYSTEM_PROMPT = 'שמך שבי, העוזר החכם והלומד של שב
   '- שואל שאלות הבהרה כדי לדייק את העזרה\n' +
   '- מציע אפשרויות שהגולש לא חשב עליהן\n' +
   '- זוכר מה נאמר בשיחה ומתייחס לזה\n\n' +
+  'שים לב לשפה:\n' +
+  '- אסור להשתמש במילים או תווים בשפות זרות (לא אנגלית, לא קוריאנית, לא כלום)\n' +
+  '- לימודים פנים אל פנים = "לימודים פרונטליים" (לא "לימודים פנים")\n' +
+  '- למידה מרחוק = "למידה מרחוק" או "זום"\n\n' +
   'כללי הלמידה:\n' +
   '- אם הגולש שאל שאלה כללית — שאל אזור, תחום, העדפות\n' +
   '- אם מצאת קורסים — הצע גם קורסים בלמידה מרחוק בתחום\n' +
   '- אם לא מצאת — אל תוותר, הצע תחומים קרובים\n' +
-  '- בסוף כל תשובה — שאל שאלה אחת שתעמיק את העזרה\n' +
-  '  לדוגמה: "האם יש תחום ספציפי שמעניין אותך?" / "רוצה שאחפש גם בלמידה מרחוק?"\n\n' +
+  '- בסוף כל תשובה — שאל שאלה אחת שתעמיק את העזרה\n\n' +
   'אל תמציא קורסים. השתמש רק במידע שסופק.\n\n' +
-  'פורמט קורסים:\n' +
+  'פורמט קורסים (חובה):\n' +
   '### שם המוסד\n' +
   'תיאור חם וקצר\n' +
   '[מידע על הקורס](URL)\n\n' +
-  'footer תמיד (ללא ---):\n' +
-  '[כל הקורסים ב[תחום] ב[אזור]](URL תחום+אזור מקודד)\n' +
+  'footer — מיד אחרי הקורסים, לפני השאלה:\n' +
+  '---\n' +
+  '[כל קורסי [שם-תחום] ב[אזור]](השתמש ב-URL שסופק בהקשר תחת URL לכל הקורסים בתחום)\n' +
   '[הצטרף לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
   '[קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
-  'URL לפי אזור+תחום: https://www.shabaton.online/[slug]/[שם-מקודד]\n' +
-  'slug: צפון=results-Zafon | מרכז=search-results-merkaz | ירושלים=results-jerusalem | דרום=results-shfea-darom | שרון=results-Sharon | כל הארץ=results-all';
+  
+  'slug לפי אזור:\n' +
+  'צפון=results-Zafon | מרכז=search-results-merkaz | ירושלים=results-jerusalem | דרום=results-shfea-darom | שרון=results-Sharon | כל הארץ=results-all\n\n' +
+  'אחרי ה-footer — שאל שאלה אחת ממוקדת לגולש (ללא קישורים בשאלה).';
 
 // Cache
 var _cache = {};
+var _studyFields = null;
+
+function loadStudyFields() {
+  if (_studyFields) return _studyFields;
+  var data = loadJSON('study-fields.json');
+  _studyFields = (data && data.studyFields) ? data.studyFields : [];
+  return _studyFields;
+}
+
+// מצא slug תחום לפי מילות מפתח
+function findFieldSlug(question) {
+  var fields = loadStudyFields();
+  var qL = question.toLowerCase();
+  var best = null, bestScore = 0;
+  for (var i = 0; i < fields.length; i++) {
+    var f = fields[i];
+    var score = 0;
+    var name = (f.name || '').toLowerCase();
+    var kws = f.keywords || [];
+    // בדוק שם התחום
+    if (qL.indexOf(name) !== -1) score += 10;
+    // בדוק מילות מפתח
+    for (var k = 0; k < kws.length; k++) {
+      if (qL.indexOf(kws[k].toLowerCase()) !== -1) score += 3;
+    }
+    if (score > bestScore) { bestScore = score; best = f; }
+  }
+  return best && bestScore > 0 ? best : null;
+}
+
+// בנה URL נכון לתחום+אזור
+function buildFieldUrl(question, region) {
+  var field = findFieldSlug(question);
+  var baseSlug = region ? region.slug : 'results-all';
+  var base = 'https://www.shabaton.online/' + baseSlug;
+  if (field && field.slug) {
+    return base + '/' + encodeURIComponent(field.slug);
+  }
+  return base;
+}
+
 function loadJSON(filename) {
   if (_cache[filename] !== undefined) return _cache[filename];
   try {
@@ -43,6 +90,44 @@ function loadJSON(filename) {
     _cache[filename] = null;
   }
   return _cache[filename];
+}
+
+// זיהוי תחום לימוד מדויק לפי study-fields.json
+function detectField(question) {
+  var data = loadJSON('study-fields.json');
+  if (!data) return null;
+  var fields = data.studyFields || data;
+  if (!Array.isArray(fields)) return null;
+
+  var qL = question.toLowerCase();
+  var bestField = null;
+  var bestScore = 0;
+
+  for (var i = 0; i < fields.length; i++) {
+    var field = fields[i];
+    var keywords = field.keywords || [];
+    var score = 0;
+    for (var j = 0; j < keywords.length; j++) {
+      var kw = (keywords[j] || '').toLowerCase();
+      if (kw.length > 2 && qL.indexOf(kw) !== -1) {
+        score += kw.length; // ยิ่งמילה ארוכה — ניקוד גבוה יותר
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestField = field;
+    }
+  }
+  return bestScore > 0 ? bestField : null;
+}
+
+// בניית URL נכון לתחום + אזור
+function buildFieldUrl(field, region) {
+  var base = 'https://www.shabaton.online/';
+  var slug = region ? region.slug : 'results-all';
+  var fieldSlug = field ? field.slug : '';
+  if (!fieldSlug) return base + slug;
+  return base + slug + '/' + encodeURIComponent(fieldSlug);
 }
 
 // זיהוי אזור
@@ -139,15 +224,26 @@ function buildContext(question, site) {
   }
 
   var courses = searchIndex(question, region);
+  var fieldUrl = buildFieldUrl(question, region);
   if (courses.length > 0) {
     parts.push('\n=== קורסים ומוסדות שנמצאו ===');
     courses.forEach(function(c) {
       parts.push('שם: ' + c.title + '\nקישור: ' + c.url + (c.description ? '\nתיאור: ' + c.description.substring(0,120) : ''));
     });
+    parts.push('\nURL לכל הקורסים בתחום: ' + fieldUrl);
   } else {
     var regionStr = region ? ' ב' + region.name : '';
+    var fieldUrl = buildFieldUrl(question, region);
     parts.push('\n=== תוצאות חיפוש ===\nלא נמצאו קורסים ספציפיים לשאלה' + regionStr + '.');
-    if (region) parts.push('קישור לכל הקורסים' + regionStr + ': https://www.shabaton.online/' + region.slug);
+    parts.push('קישור לחיפוש: ' + fieldUrl);
+  }
+
+  // העבר לClaude את URL הנכון לתחום+אזור
+  var detectedField = detectField(question);
+  if (detectedField) {
+    var correctUrl = buildFieldUrl(detectedField, region);
+    parts.push('\n=== URL נכון לקישור footer ===\n' +
+      'כל הקורסים בתחום "' + detectedField.slug + '": ' + correctUrl);
   }
 
   if (region) parts.push('\nאזור שזוהה: ' + region.name);
