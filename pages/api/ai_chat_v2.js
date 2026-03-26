@@ -205,6 +205,7 @@ async function callClaude(question, context, history) {
     ? `${context}\n\n---\nשאלת הגולש: ${question}`
     : question;
 
+  console.log(`🤖 Calling Claude: model=${model} msgLen=${userContent.length}`);
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -220,7 +221,11 @@ async function callClaude(question, context, history) {
     })
   });
 
-  if (!response.ok) throw new Error(`Claude API ${response.status}: ${await response.text()}`);
+  if (!response.ok) {
+    let errText = '';
+    try { errText = await response.text(); } catch(te) { errText = 'unknown'; }
+    throw new Error(`Claude API ${response.status}: ${errText}`);
+  }
   const data = await response.json();
   return { reply: data.content?.[0]?.text || '', model };
 }
@@ -256,6 +261,7 @@ export default async function handler(req, res) {
 
   const { message, history = [], site = 'shabaton' } = req.body || {};
   if (!message) return res.status(400).json({ error: 'message required' });
+  console.log(`🔑 API key present: ${!!ANTHROPIC_API_KEY} | key prefix: ${ANTHROPIC_API_KEY.substring(0,10)}...`);
 
   try {
     const region = detectRegion(message);
@@ -266,7 +272,7 @@ export default async function handler(req, res) {
     await logToZapier(message, reply, site, model);
     return res.status(200).json({ reply, model });
   } catch(e) {
-    console.error('❌', e.message);
+    console.error('❌ FULL ERROR:', e.message, e.stack?.split('\n')[1]);
     return res.status(500).json({ error: e.message });
   }
 }
