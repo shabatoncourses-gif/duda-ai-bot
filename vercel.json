@@ -1,5 +1,15 @@
 {
   "version": 2,
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+      ]
+    }
+  ],
   "builds": [
     { "src": "pages/api/chat.js", "use": "@vercel/node" },
     { "src": "pages/api/reindex.js", "use": "@vercel/node" },
@@ -8,25 +18,10 @@
     { "src": "index.html", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/api/chat",
-      "dest": "/pages/api/chat.js"
-    },
-    {
-      "src": "/api/reindex",
-      "dest": "/pages/api/reindex.js"
-    },
-    {
-      "src": "/api/status",
-      "dest": "/pages/api/status.js"
-    },
-    {
-      "src": "/api/ai_chat_v2",
-      "dest": "/pages/api/ai_chat_v2.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+    { "src": "/api/chat", "dest": "/pages/api/chat.js" },
+    { "src": "/api/reindex", "dest": "/pages/api/reindex.js" },
+    { "src": "/api/status", "dest": "/pages/api/status.js" },
+    { "src": "/api/ai_chat_v2", "dest": "/pages/api/ai_chat_v2.js" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
