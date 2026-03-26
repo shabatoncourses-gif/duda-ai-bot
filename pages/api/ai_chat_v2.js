@@ -1,220 +1,174 @@
-// ================================================================
-// ai_chat_v2.js — Shabaton + Morim AI Chatbot
-// VERSION: AI_v2_smart_search
-// ================================================================
+// ai_chat_v2.js — CommonJS — Shabaton AI Bot
+'use strict';
 
-const fs = require('fs');
+const fs   = require('fs');
 const path = require('path');
 
-const ANTHROPIC_API_KEY  = process.env.ANTHROPIC_API_KEY || '';
+const ANTHROPIC_API_KEY  = process.env.ANTHROPIC_API_KEY  || '';
 const ZAPIER_WEBHOOK_URL = process.env.ZAPIER_WEBHOOK_URL || '';
-const HAIKU_MODEL  = 'claude-haiku-4-5-20251001';
-const SONNET_MODEL = 'claude-sonnet-4-6';
+const HAIKU_MODEL        = 'claude-haiku-4-5-20251001';
+const SONNET_MODEL       = 'claude-sonnet-4-6';
 
-// ── System prompt ──
-const SYSTEM_PROMPT = [
-  'אתה עוזר וירטואלי של שבתון — האתר המוביל לקורסים והשתלמויות למורים וגננות בשנת שבתון.\n' +
-  '\n' +
+const SYSTEM_PROMPT = 'אתה עוזר וירטואלי של שבתון — האתר המוביל לקורסים והשתלמויות למורים וגננות בשנת שבתון.\n\n' +
   'חוקים חשובים:\n' +
   '- ענה תמיד בעברית, בשפה חמה וידידותית\n' +
   '- השתמש רק במידע שסופק לך — אל תמציא קורסים, מחירים, תאריכים\n' +
-  '- אל תציע "לארגן קורסים" — אתה מוצא קורסים קיימים בלבד\n' +
+  '- אל תציע לארגן קורסים — אתה מוצא קורסים קיימים בלבד\n' +
   '- אם מצאת קורסים — הצג אותם עם קישורים ישירים\n' +
-  '- אם לא מצאת — הפנה לאתר עם קישור ספציפי לתחום ולאזור\n' +
-  '\n' +
+  '- אם לא מצאת — הפנה לאתר עם קישור ספציפי לתחום ולאזור\n\n' +
   'פורמט הצגת קורסים (חובה):\n' +
-  '- אל תמספר קורסים (אל תכתוב 1. 2. 3.)\n' +
-  '- כל קורס בפורמט הזה בדיוק:\n' +
+  '- אל תמספר קורסים\n' +
+  '- כל קורס בפורמט:\n' +
   '### שם המוסד\n' +
-  '📍 מיקום | 🎓 תיאור קצר בשחור\n' +
-  '[טקסט כפתור רלוונטי לשאלה](URL)\n' +
-  '\n' +
-  '- טקסט הכפתור חייב להיות **בהתאם לשאלה**. דוגמאות:\n' +
-  '  - שאלה על הדרכת הורים → [לפרטים על קורס הדרכת הורים](URL)\n' +
-  '  - שאלה על ציור → [לפרטים על קורס ציור](URL)\n' +
-  '  - שאלה על לוגותרפיה → [לפרטים על קורס לוגותרפיה](URL)\n' +
-  '  - שאלה כללית → [לפרטים על הקורס](URL)\n' +
-  '\n' +
-  '- בסוף הרשימה הוסף תמיד (כל קישור בשורה נפרדת):\n' +
+  'תיאור קצר\n' +
+  '[מידע על הקורס](URL)\n\n' +
+  '- בסוף הרשימה הוסף תמיד:\n' +
   '---\n' +
-  '📌 [כל הקורסים בתחום באזור](URL לאזור)\n' +
-  '💌 [הצטרף לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
-  '💬 [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
-  '\n' +
+  '[כל הקורסים בתחום באזור](URL לאזור)\n' +
+  '[הצטרף לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
+  '[קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
   'קישורים לאזורים:\n' +
-  '- קורסים בצפון: https://www.shabaton.online/results-Zafon\n' +
-  '- קורסים במרכז: https://www.shabaton.online/search-results-merkaz\n' +
-  '- קורסים בירושלים: https://www.shabaton.online/results-jerusalem\n' +
-  '- קורסים בדרום: https://www.shabaton.online/results-shfea-darom\n' +
-  '- קורסים בשרון: https://www.shabaton.online/results-Sharon\n' +
-  '- כל הקורסים: https://www.shabaton.online/results-all\\`;\n'
-].join('')
+  '- צפון: https://www.shabaton.online/results-Zafon\n' +
+  '- מרכז: https://www.shabaton.online/search-results-merkaz\n' +
+  '- ירושלים: https://www.shabaton.online/results-jerusalem\n' +
+  '- דרום: https://www.shabaton.online/results-shfea-darom\n' +
+  '- שרון: https://www.shabaton.online/results-Sharon\n' +
+  '- כל הארץ: https://www.shabaton.online/results-all';
 
-// ── Cache ──
-const _cache = {};
+// Cache
+var _cache = {};
 function loadJSON(filename) {
   if (_cache[filename] !== undefined) return _cache[filename];
   try {
-    const p = path.join(process.cwd(), 'data', filename);
+    var p = path.join(process.cwd(), 'data', filename);
     _cache[filename] = JSON.parse(fs.readFileSync(p, 'utf8'));
-    console.log("Loaded: " + filename);
   } catch(e) {
-    console.warn("Could not load: " + filename + " - " + e.message);
     _cache[filename] = null;
   }
   return _cache[filename];
 }
 
-// ── זיהוי אזור מהשאלה ──
+// זיהוי אזור
 function detectRegion(q) {
-  const qL = q.toLowerCase();
+  var qL = q.toLowerCase();
   if (/צפון|חיפה|עכו|נצרת|טבריה|נהריה|קריות|עפולה|גליל|כרמל/.test(qL))
-    return { name: 'חיפה והצפון', slug: 'results-Zafon', cities: ['חיפה','נצרת','עכו','טבריה','נהריה','עפולה','קריות','גליל'] };
-  if (/מרכז|תל.?אביב|רמת.?גן|גבעתיים|פתח.?תקווה|ראשון|רחובות|נס.?ציונה|חולון|בת.?ים|רמלה|לוד/.test(qL))
-    return { name: 'מרכז', slug: 'search-results-merkaz', cities: ['תל אביב','רמת גן','פתח תקווה','ראשון לציון','רחובות'] };
+    return { name: 'צפון', slug: 'results-Zafon', cities: ['חיפה','נצרת','עכו','טבריה','נהריה','עפולה','קריות','גליל','כרמל','טירת'] };
+  if (/מרכז|תל.?אביב|רמת.?גן|פתח.?תקווה|ראשון|רחובות|חולון|בת.?ים|רמלה|לוד/.test(qL))
+    return { name: 'מרכז', slug: 'search-results-merkaz', cities: ['תל אביב','רמת גן','פתח תקווה','ראשון לציון','רחובות','חולון'] };
   if (/ירושלים|בית.?שמש/.test(qL))
     return { name: 'ירושלים', slug: 'results-jerusalem', cities: ['ירושלים','בית שמש'] };
-  if (/דרום|באר.?שבע|אשדוד|אשקלון|קרית.?גת/.test(qL))
+  if (/דרום|באר.?שבע|אשדוד|אשקלון/.test(qL))
     return { name: 'דרום', slug: 'results-shfea-darom', cities: ['באר שבע','אשדוד','אשקלון'] };
-  if (/שרון|נתניה|הרצליה|כפר.?סבא|רעננה|הוד.?השרון/.test(qL))
+  if (/שרון|נתניה|הרצליה|כפר.?סבא|רעננה/.test(qL))
     return { name: 'שרון', slug: 'results-Sharon', cities: ['נתניה','הרצליה','כפר סבא','רעננה'] };
   return null;
 }
 
-// ── חיפוש חכם באינדקסים ──
+// חיפוש באינדקסים
 function searchIndex(question, region) {
-  const qL = question.toLowerCase();
-  
-  // מילות חיפוש משמעותיות (ללא מילות עזר)
-  const stopWords = new Set(['את','של','על','עם','אל','לי','לו','לה','הם','הן','כל','גם','רק','כבר','אבל','אם','כי','שם','פה','זה','זו','זאת','היה','הוא','היא','אני','אתה','אנחנו','כן','לא','מה','מי','איך','מתי','איפה','בצפון','בדרום','במרכז','בירושלים','בשרון']);
-  const searchWords = qL.split(/\s+/)
-    .map(w => w.replace(/['"?,!.]/g,''))
-    .filter(w => w.length > 2 && !stopWords.has(w));
+  var qL = question.toLowerCase();
+  var stopWords = { 'את':1,'של':1,'על':1,'עם':1,'אל':1,'לי':1,'הם':1,'כל':1,'גם':1,'רק':1,'אבל':1,'אם':1,'זה':1,'זו':1,'הוא':1,'היא':1,'אני':1,'כן':1,'לא':1,'מה':1,'מי':1,'איך':1,'בצפון':1,'בדרום':1,'במרכז':1,'בירושלים':1,'בשרון':1 };
+  var words = qL.split(/\s+/).filter(function(w){ return w.length > 2 && !stopWords[w]; });
 
-  const results = [];
-  const seen = new Set();
-  
-  const allIndexes = [
-    'shabaton_index_part1.json',
-    'shabaton_index_part2.json', 
-    'shabaton_index.json',
-    'morim_index.json',
-    'morim_index_part1.json'
-  ];
+  var results = [];
+  var seen = {};
+  var indexes = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json','morim_index_part1.json'];
 
-  for (const fname of allIndexes) {
-    const data = loadJSON(fname);
+  for (var fi = 0; fi < indexes.length; fi++) {
+    var data = loadJSON(indexes[fi]);
     if (!data) continue;
-    const pages = Array.isArray(data) ? data : (data.pages || []);
+    var pages = Array.isArray(data) ? data : (data.pages || []);
 
-    for (const page of pages) {
-      const url = page.url || page.link || '';
-      if (seen.has(url)) continue;
+    for (var pi = 0; pi < pages.length; pi++) {
+      var page = pages[pi];
+      var url = page.url || page.link || '';
+      if (seen[url]) continue;
+      if (url.indexOf('/results-') !== -1 || url.indexOf('/search-results') !== -1) continue;
+      if (url.indexOf('/end_shabaton') !== -1) continue;
 
-      const title = (page.title || '').toLowerCase();
-      const desc  = (page.description || '').toLowerCase();
-      const text  = (page.text || '').toLowerCase();
-      const combined = title + ' ' + desc + ' ' + text;
+      var title = (page.title || '').toLowerCase();
+      var desc  = (page.description || '').toLowerCase();
+      var text  = (page.text || '').toLowerCase();
+      var combined = title + ' ' + desc + ' ' + text;
 
-      // סנן דפי קטגוריה גנריים (results-)
-      if (url.includes('/results-') || url.includes('/search-results')) continue;
-      // סנן דפי מידע כלליים
-      if (url.includes('/end_shabaton') || url.includes('/shabaton-maanak')) continue;
-
-      // חשב ציון
-      let score = 0;
-      for (const w of searchWords) {
-        if (title.includes(w)) score += 3;
-        else if (desc.includes(w)) score += 2;
-        else if (text.includes(w)) score += 1;
+      var score = 0;
+      for (var wi = 0; wi < words.length; wi++) {
+        var w = words[wi];
+        if (title.indexOf(w) !== -1) score += 3;
+        else if (desc.indexOf(w) !== -1) score += 2;
+        else if (text.indexOf(w) !== -1) score += 1;
       }
       if (score === 0) continue;
 
-      // בדיקת אזור
       if (region) {
-        const hasRegion = region.cities.some(c => combined.includes(c.toLowerCase()));
-        const hasWrongRegion = combined.includes('ירושלים') && region.name !== 'ירושלים' ||
-          combined.includes('באר שבע') && region.name !== 'דרום' ||
-          combined.includes('תל אביב') && region.name !== 'מרכז';
-        
-        if (!hasRegion && hasWrongRegion) continue;
-        if (hasRegion) score += 5;
+        for (var ci = 0; ci < region.cities.length; ci++) {
+          if (combined.indexOf(region.cities[ci].toLowerCase()) !== -1) { score += 5; break; }
+        }
       }
 
-      seen.add(url);
-      results.push({ title: page.title, url, description: page.description || '', score });
+      seen[url] = 1;
+      results.push({ title: page.title, url: url, description: page.description || '', score: score });
     }
+    if (results.length >= 30) break;
   }
 
-  return results
-    .sort((a,b) => b.score - a.score)
-    .slice(0, 6);
+  results.sort(function(a,b){ return b.score - a.score; });
+  return results.slice(0, 6);
 }
 
-// ── בניית context לClaude ──
+// בניית context
 function buildContext(question, site) {
-  const region = detectRegion(question);
-  const parts  = [];
+  var region = detectRegion(question);
+  var parts = [];
 
-  // מידע מ-QA
-  const qa = loadJSON('shabaton-qa.json');
+  var qa = loadJSON('shabaton-qa.json');
   if (qa) {
-    const items = qa.qaItems || qa;
-    const qL = question.toLowerCase();
-    const relevant = (Array.isArray(items) ? items : [])
-      .filter(item => {
-        const t = ((item.question||item.q||'') + ' ' + (item.answer||item.a||'')).toLowerCase();
-        return question.split(/\s+/).filter(w=>w.length>3).some(w=>t.includes(w.toLowerCase()));
+    var items = qa.qaItems || qa;
+    if (Array.isArray(items)) {
+      var qWords = question.split(/\s+/).filter(function(w){ return w.length > 3; });
+      var relevant = items.filter(function(item) {
+        var t = ((item.question || item.q || '') + ' ' + (item.answer || item.a || '')).toLowerCase();
+        return qWords.some(function(w){ return t.indexOf(w.toLowerCase()) !== -1; });
       }).slice(0, 3);
-
-    if (relevant.length > 0) {
-      parts.push('=== מידע רלוונטי על שבתון ===');
-      relevant.forEach(item => {
-        const q = item.question || item.q || '';
-        const a = item.answer   || item.a || '';
-        if (q && a) parts.push("ש: " + q + "\nת: " + a);
-      });
+      if (relevant.length > 0) {
+        parts.push('=== מידע רלוונטי על שבתון ===');
+        relevant.forEach(function(item) {
+          var q = item.question || item.q || '';
+          var a = item.answer   || item.a || '';
+          if (q && a) parts.push('ש: ' + q + '\nת: ' + a);
+        });
+      }
     }
   }
 
-  // חיפוש קורסים באינדקס
-  const courses = searchIndex(question, region);
+  var courses = searchIndex(question, region);
   if (courses.length > 0) {
     parts.push('\n=== קורסים ומוסדות שנמצאו ===');
-    courses.forEach(c => {
+    courses.forEach(function(c) {
       parts.push('שם: ' + c.title + '\nקישור: ' + c.url + (c.description ? '\nתיאור: ' + c.description.substring(0,120) : ''));
     });
   } else {
-    // אין תוצאות — ספר לClaude ותן לו להפנות
     var regionStr = region ? ' ב' + region.name : '';
     parts.push('\n=== תוצאות חיפוש ===\nלא נמצאו קורסים ספציפיים לשאלה' + regionStr + '.');
-    if (region) {
-      parts.push('קישור לכל הקורסים' + regionStr + ': https://www.shabaton.online/' + region.slug);
-    }
+    if (region) parts.push('קישור לכל הקורסים' + regionStr + ': https://www.shabaton.online/' + region.slug);
   }
 
-  if (region) {
-    parts.push('\nאזור שזוהה: ' + region.name);
-  }
-
+  if (region) parts.push('\nאזור שזוהה: ' + region.name);
   return parts.join('\n\n');
 }
 
-// ── בחירת מודל ──
+// בחירת מודל
 function chooseModel(question) {
-  const complex = /הסבר|מה ההבדל|השוואה|למה|תהליך|זכאות|תנאים|חישוב|מסלול|כמה שעות|ש"ש|אופק חדש|עוז לתמורה|תואר/;
-  return complex.test(question) ? SONNET_MODEL : HAIKU_MODEL;
+  return /הסבר|מה ההבדל|השוואה|תהליך|זכאות|תנאים|חישוב|מסלול|שעות|ש"ש|אופק חדש|תואר/.test(question)
+    ? SONNET_MODEL : HAIKU_MODEL;
 }
 
-// ── קריאה ל-Claude ──
+// קריאה ל-Claude
 async function callClaude(question, context, history) {
-  const model = chooseModel(question);
-  const userContent = context
-    ? context + '\n\n---\nשאלת הגולש: ' + question
-    : question;
+  var model = chooseModel(question);
+  var userContent = context ? context + '\n\n---\nשאלת הגולש: ' + question : question;
 
-  console.log("Calling Claude: model=" + model + " len=" + userContent.length);
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  var response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -222,73 +176,65 @@ async function callClaude(question, context, history) {
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
-      model,
+      model: model,
       max_tokens: 800,
       system: SYSTEM_PROMPT,
-      messages: [...history.slice(-6), { role: 'user', content: userContent }]
+      messages: history.slice(-6).concat([{ role: 'user', content: userContent }])
     })
   });
 
   if (!response.ok) {
-    let errText = '';
-    try { errText = await response.text(); } catch(te) { errText = 'unknown'; }
+    var errText = await response.text().catch(function(){ return 'unknown'; });
     throw new Error('Claude API ' + response.status + ': ' + errText);
   }
-  const data = await response.json();
-  return { reply: data.content?.[0]?.text || '', model };
+  var data = await response.json();
+  return { reply: data.content && data.content[0] ? data.content[0].text : '', model: model };
 }
 
-// ── Zapier ──
+// Zapier
 async function logToZapier(question, reply, site, model) {
   if (!ZAPIER_WEBHOOK_URL) return;
   try {
-    const now = new Date();
+    var now = new Date();
     await fetch(ZAPIER_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         date: now.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' }),
         time: now.toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' }),
-        site, question, answer: reply, model,
-        answer_length: String(reply.length)
+        site: site, question: question, answer: reply, model: model
       })
     });
-  } catch(e) { console.warn('Zapier error:', e.message); }
+  } catch(e) {}
 }
 
-// ── Handler ──
-
-
+// Handler
 module.exports = async function handler(req, res) {
-  // CORS — חייב להיות ראשון
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Max-Age', '86400');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Preflight
-  if (req.method === 'OPTIONS') {
-    res.status(204).end();
-    return;
-  }
-  if (req.method === 'GET') return res.status(200).json({ status: 'ok', version: 'AI_v2' });
-  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
-  if (!ANTHROPIC_API_KEY) return res.status(500).json({ error: 'Missing ANTHROPIC_API_KEY' });
+  if (req.method === 'OPTIONS') { res.status(204).end(); return; }
+  if (req.method === 'GET')     { res.status(200).json({ status: 'ok' }); return; }
+  if (req.method !== 'POST')    { res.status(405).json({ error: 'POST only' }); return; }
+  if (!ANTHROPIC_API_KEY)       { res.status(500).json({ error: 'Missing API key' }); return; }
 
-  const { message, history = [], site = 'shabaton' } = req.body || {};
-  if (!message) return res.status(400).json({ error: 'message required' });
-  console.log("API key present: " + !!ANTHROPIC_API_KEY);
+  var body = req.body || {};
+  var message = body.message;
+  var history = body.history || [];
+  var site    = body.site    || 'shabaton';
+
+  if (!message) { res.status(400).json({ error: 'message required' }); return; }
 
   try {
-    const region = detectRegion(message);
-    console.log("POST [" + site + "] | region: " + (region && region.name ? region.name : "none"));
-    const context = buildContext(message, site);
-    const { reply, model } = await callClaude(message, context, history);
-    console.log("Reply OK: " + model + " | " + reply.length + " chars");
-    await logToZapier(message, reply, site, model);
-    return res.status(200).json({ reply, model });
+    console.log('POST [' + site + '] ' + message.substring(0,60));
+    var context = buildContext(message, site);
+    var result  = await callClaude(message, context, history);
+    console.log('OK: ' + result.model + ' | ' + result.reply.length + ' chars');
+    await logToZapier(message, result.reply, site, result.model);
+    res.status(200).json({ reply: result.reply, model: result.model });
   } catch(e) {
-    console.error('❌ FULL ERROR:', e.message, e.stack?.split('\n')[1]);
-    return res.status(500).json({ error: e.message });
+    console.error('ERROR:', e.message);
+    res.status(500).json({ error: e.message });
   }
-}
+};
