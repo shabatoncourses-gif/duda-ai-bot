@@ -1,8 +1,6 @@
 // ai_chat_v2.js — CommonJS — Shabaton AI Bot
-'use strict';
-
-const fs   = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 const ANTHROPIC_API_KEY  = process.env.ANTHROPIC_API_KEY  || '';
 const ZAPIER_WEBHOOK_URL = process.env.ZAPIER_WEBHOOK_URL || '';
@@ -209,7 +207,9 @@ async function logToZapier(question, reply, site, model) {
 }
 
 // Handler
-module.exports = async function handler(req, res) {
+export const config = { api: { bodyParser: true } };
+
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
