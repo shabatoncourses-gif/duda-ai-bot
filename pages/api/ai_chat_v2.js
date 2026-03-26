@@ -308,9 +308,7 @@ async function logToZapier(question, reply, site, model) {
 }
 
 // Handler
-export const config = { api: { bodyParser: true } };
-
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -320,7 +318,11 @@ export default async function handler(req, res) {
   if (req.method !== 'POST')    { res.status(405).json({ error: 'POST only' }); return; }
   if (!ANTHROPIC_API_KEY)       { res.status(500).json({ error: 'Missing API key' }); return; }
 
+  // תמיכה ב-text/plain וב-application/json
   var body = req.body || {};
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch(e) { body = {}; }
+  }
   var message = body.message;
   var history = body.history || [];
   var site    = body.site    || 'shabaton';
