@@ -17,6 +17,14 @@ module.exports = async function handler(req, res) {
 
   if (!ANTHROPIC_API_KEY) return res.status(500).json({ error: 'Missing API key' });
 
+  // בדוק זמינות fetch
+  var _fetch = typeof fetch !== 'undefined' ? fetch : null;
+  if (!_fetch) {
+    try { _fetch = require('node-fetch'); } catch(e) {
+      return res.status(500).json({ error: 'fetch not available: ' + e.message });
+    }
+  }
+
   try {
     var body = req.body || {};
     if (typeof body === 'string') { try { body = JSON.parse(body); } catch(e) { body = {}; } }
@@ -54,7 +62,7 @@ module.exports = async function handler(req, res) {
 
     var userContent = context ? context + '\n\n---\nשאלת הגולש: ' + message : message;
 
-    var claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+    var claudeRes = await _fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -81,7 +89,7 @@ module.exports = async function handler(req, res) {
     if (ZAPIER_WEBHOOK_URL) {
       try {
         var now = new Date();
-        await fetch(ZAPIER_WEBHOOK_URL, {
+        await _fetch(ZAPIER_WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
