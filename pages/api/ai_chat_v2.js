@@ -42,39 +42,41 @@ export default async function handler(req, res) {
       'אל תמציא קורסים או תיאורים - השתמש אך ורק במידע שסופק מהאינדקס.\n' +
       'אם מוסד לא מופיע ברשימה שסופקה - אל תציג אותו.\n' +
       'אסור לשאול שאלות אישיות. שאל שאלות מקצועיות בלבד.\n' +
-      'הצג את המוסדות בסדר אקראי בכל תשובה.\n' +
+      'הצג תמיד בסדר אקראי - כל תשובה בסדר שונה.\n' +
+      'הצג עד 5 מוסדות בכל תשובה עם תיאור לכל אחד - לא יותר.\n' +
+      'כל מוסד חייב לקבל תיאור קצר ומדויק מהמידע שסופק.\n' +
       'אסור להתנצל, אסור לאמר כמה מוסדות יש, אסור לאמר שהמערכת מוגבלת.\n' +
-      'אם מחפשים פנים אל פנים בצפון - הצג מה שיש, והוסף גם מוסדות למידה מרחוק ברשימה נפרדת.\n' +
+      'אם מחפשים פנים אל פנים - הצג 2-3 פרונטליים + 2-3 מרחוק, כל אחד עם תיאור.\n' +
       'אם הגולש מחפש למידה מרחוק - אל תציין אזור גיאוגרפי.\n' +
       'אסור -- או --- בכל מקום.\n' +
-      'שאלה בסוף: טקסט רגיל עם אייקון קטן. לא ###.\n' +
+      'שאלה בסוף: טקסט רגיל קצר עם אייקון קטן. לא ###. לא לקטוע משפט.\n' +
       'כל הטקסט באותו גודל פונט.\n\n' +
-      'פורמט:\n' +
+      'פורמט לכל מוסד:\n' +
       '### שם המוסד\n' +
-      'תיאור מדויק מהאינדקס בלבד\n' +
+      'תיאור קצר מדויק מהמידע שסופק\n' +
       '[מידע על הקורס](URL)\n\n' +
       'footer:\n' +
       '📚 [כל קורסי [תחום] ב[אזור]](URL)\n' +
       '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
       '💬 [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
-      'מוסדות הדרכת הורים בצפון - פרונטלי וגם מרחוק:\n' +
-      'בית לצמיחה - אודי ויעל רט | https://www.shabaton.online/yaelrath\n' +
-      'בית איזי שפירא | https://www.shabaton.online/beitissie\n' +
-      'מכון איתן - דנה קינד | https://www.shabaton.online/danak\n' +
-      'אורנים | https://www.shabaton.online/oranim-morim\n' +
-      'מכללת יוזמות | https://www.shabaton.online/yozmot\n' +
-      'לוינסקי-וינגייט | https://www.shabaton.online/wingate_morim\n' +
-      'דוד ילין | https://www.shabaton.online/dyellin\n' +
-      'מרכז י.נ.ר | https://www.shabaton.online/ynr\n' +
-      'שפר | https://www.morim.boutique/merkaz-shefer\n' +
-      'מכללת השכל | https://www.shabaton.online/haskel\n' +
-      'מרכז הפעוט | https://www.shabaton.online/hapaotcenter\n' +
-      'תלפיות | https://www.shabaton.online/talpiot_edu\n' +
-      'ניצן | https://www.shabaton.online/nitzan-israel\n' +
-      'האוניברסיטה הפתוחה | https://www.shabaton.online/openu_teachers\n' +
-      'אוניברסיטת חיפה | https://www.shabaton.online/haifa-ma-edu\n\n' +
+      'מוסדות הדרכת הורים - עם תיאורים:\n' +
+      'בית לצמיחה - אודי ויעל רט | להיות מגדלור, קפיצת גדילה, המסע לכיבוד הורים | https://www.shabaton.online/yaelrath\n' +
+      'בית איזי שפירא | קורסים לאנשי חינוך ומשפחות לילדים עם מוגבלות | https://www.shabaton.online/beitissie\n' +
+      'מכון איתן - דנה קינד | הכשרת מנחי הורים, אימון קוגניטיבי, קשב, מיומנויות חברתיות - למידה מרחוק | https://www.shabaton.online/danak\n' +
+      'אורנים | מקצועות הורות ומשפחה, הכשרת מדריכי הורים, הנקה | https://www.shabaton.online/oranim-morim\n' +
+      'מכללת יוזמות | הכשרת מדריכי הורים, ייעוץ זוגי CBT | https://www.shabaton.online/yozmot\n' +
+      'לוינסקי-וינגייט | ליווי התפתחותי לתינוקות בשיטת שלהב | https://www.shabaton.online/wingate_morim\n' +
+      'דוד ילין | הדרכת הורים מקוון, הכשרת מנחי קבוצות הורים | https://www.shabaton.online/dyellin\n' +
+      'מרכז י.נ.ר | טיפול זוגי ומשפחתי, הכשרת מנחי הורים, גישור - ניתן ללמוד מרחוק | https://www.shabaton.online/ynr\n' +
+      'שפר | להתחיל מבראשית - ריסטרט לחיים, קבוצות נפרדות לגברים ונשים | https://www.morim.boutique/merkaz-shefer\n' +
+      'מכללת השכל | הכשרת מדריכי הורים - קורס מקוון | https://www.shabaton.online/haskel\n' +
+      'מרכז הפעוט | הדרכת הורים לגיל הרך בטירת כרמל ובזום, חשיבה יזמית | https://www.shabaton.online/hapaotcenter\n' +
+      'תלפיות | הנחיית הורים, אימון קוגניטיבי, קשב, מיינדפולנס - מרחוק | https://www.shabaton.online/talpiot_edu\n' +
+      'ניצן | אימון הורים ECC בשיטה קוגניטיבית-רגשית - קורס מקוון | https://www.shabaton.online/nitzan-israel\n' +
+      'האוניברסיטה הפתוחה | הדרכת הורים לילדים עם צרכים ייחודיים - היברידי | https://www.shabaton.online/openu_teachers\n' +
+      'אוניברסיטת חיפה | תואר שני - ייעוץ והדרכת הורים | https://www.shabaton.online/haifa-ma-edu\n\n' +
       'slug: צפון=results-Zafon | מרכז=search-results-merkaz | ירושלים=results-jerusalem | דרום=results-shfea-darom | שרון=results-Sharon\n' +
-      'slug תחום: קורסי הדרכת הורים, זוגיות ומשפחה'
+      'slug תחום הדרכת הורים: קורסי הדרכת הורים, זוגיות ומשפחה'
 
     const model = /הסבר|ההבדל|השוואה|תהליך|זכאות|תנאים|חישוב|מסלול|שעות|אופק|תואר/.test(message)
       ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
