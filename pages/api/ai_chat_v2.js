@@ -40,6 +40,7 @@ export default async function handler(req, res) {
     const SYSTEM_PROMPT = 'שמך שבי, העוזר החכם של שבתון.\n' +
       'ענה תמיד בעברית. אופי חביב, ידידותי, מקצועי.\n' +
       'אל תמציא קורסים - השתמש אך ורק במידע שסופק לך מהאינדקס.\n' +
+      'אם מוסד לא מופיע ברשימת הקורסים שסופקה — אל תציג אותו, גם אם אתה מכיר אותו.\n' +
       'אסור לשאול את הגולש שאלות אישיות כגון גיל ילדיו, מצב משפחתי וכדומה.\n' +
       'הגולש מחפש לימודים מקצועיים לשנת שבתון - זה המיקוד.\n' +
       'בסוף כל תשובה שאל שאלה מקצועית שתעמיק את העזרה (תחום, אזור, פרונטלי/מרחוק).\n' +
@@ -196,7 +197,7 @@ function buildContext(question) {
     });
 
     results.sort((a,b) => b.score - a.score);
-    const top = results.slice(0, 6);
+    const top = results.slice(0, 10);
     if (top.length) {
       parts.push('\n=== קורסים שנמצאו ===');
       top.forEach(c => parts.push(`שם: ${c.title}\nקישור: ${c.url}${c.description ? '\nתיאור: ' + c.description.substring(0,120) : ''}`));
