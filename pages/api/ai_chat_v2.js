@@ -1,9 +1,14 @@
-'use strict';
+// שבי - עוזר שבתון AI
+// ESM format (package.json has "type": "module")
 
-var _cache = {};
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-module.exports = async function handler(req, res) {
-  // CORS - חייב להיות השורה הראשונה
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _cache = {};
+
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -12,36 +17,27 @@ module.exports = async function handler(req, res) {
   if (req.method === 'GET')     return res.status(200).json({ status: 'ok', bot: 'shabi' });
   if (req.method !== 'POST')    return res.status(405).json({ error: 'POST only' });
 
-  var ANTHROPIC_API_KEY  = process.env.ANTHROPIC_API_KEY  || '';
-  var ZAPIER_WEBHOOK_URL = process.env.ZAPIER_WEBHOOK_URL || '';
+  const ANTHROPIC_API_KEY  = process.env.ANTHROPIC_API_KEY  || '';
+  const ZAPIER_WEBHOOK_URL = process.env.ZAPIER_WEBHOOK_URL || '';
 
   if (!ANTHROPIC_API_KEY) return res.status(500).json({ error: 'Missing API key' });
 
-  // בדוק זמינות fetch
-  var _fetch = typeof fetch !== 'undefined' ? fetch : null;
-  if (!_fetch) {
-    try { _fetch = require('node-fetch'); } catch(e) {
-      return res.status(500).json({ error: 'fetch not available: ' + e.message });
-    }
-  }
-
   try {
-    var body = req.body || {};
+    let body = req.body || {};
     if (typeof body === 'string') { try { body = JSON.parse(body); } catch(e) { body = {}; } }
 
-    var message = body.message || '';
-    var history = body.history || [];
-    var site    = body.site    || 'shabaton';
+    const message = body.message || '';
+    const history = body.history || [];
+    const site    = body.site    || 'shabaton';
 
     if (!message) return res.status(400).json({ error: 'message required' });
 
-    console.log('POST [' + site + ']: ' + message.substring(0, 60));
+    console.log(`POST [${site}]: ${message.substring(0, 60)}`);
 
-    // בניית context
-    var context = '';
-    try { context = buildContext(message); } catch(e) { console.warn('context err:', e.message); }
+    let context = '';
+    try { context = buildContext(message); } catch(e) { console.warn('context:', e.message); }
 
-    var SYSTEM_PROMPT = 'שמך שבי, העוזר החכם של שבתון.\n' +
+    const SYSTEM_PROMPT = 'שמך שבי, העוזר החכם של שבתון.\n' +
       'ענה תמיד בעברית. אופי חביב, ידידותי, לומד.\n' +
       'אל תמציא קורסים. השתמש רק במידע שסופק.\n' +
       'בסוף כל תשובה שאל שאלה שתעמיק את העזרה.\n' +
@@ -57,12 +53,12 @@ module.exports = async function handler(req, res) {
       '[קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
       'slug: צפון=results-Zafon | מרכז=search-results-merkaz | ירושלים=results-jerusalem | דרום=results-shfea-darom | שרון=results-Sharon';
 
-    var model = /הסבר|ההבדל|השוואה|תהליך|זכאות|תנאים|חישוב|מסלול|שעות|אופק|תואר/.test(message)
+    const model = /הסבר|ההבדל|השוואה|תהליך|זכאות|תנאים|חישוב|מסלול|שעות|אופק|תואר/.test(message)
       ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
 
-    var userContent = context ? context + '\n\n---\nשאלת הגולש: ' + message : message;
+    const userContent = context ? `${context}\n\n---\nשאלת הגולש: ${message}` : message;
 
-    var claudeRes = await _fetch('https://api.anthropic.com/v1/messages', {
+    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -70,45 +66,45 @@ module.exports = async function handler(req, res) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: model,
+        model,
         max_tokens: 800,
         system: SYSTEM_PROMPT,
-        messages: history.slice(-6).concat([{ role: 'user', content: userContent }])
+        messages: [...history.slice(-6), { role: 'user', content: userContent }]
       })
     });
 
     if (!claudeRes.ok) {
-      var errText = await claudeRes.text();
-      throw new Error('Claude ' + claudeRes.status + ': ' + errText.substring(0, 100));
+      const errText = await claudeRes.text();
+      throw new Error(`Claude ${claudeRes.status}: ${errText.substring(0, 100)}`);
     }
 
-    var data = await claudeRes.json();
-    var reply = data.content && data.content[0] ? data.content[0].text : '';
-    console.log('OK ' + model + ' | ' + reply.length + ' chars');
+    const data = await claudeRes.json();
+    const reply = data.content?.[0]?.text || '';
+    console.log(`OK ${model} | ${reply.length} chars`);
 
     if (ZAPIER_WEBHOOK_URL) {
       try {
-        var now = new Date();
-        await _fetch(ZAPIER_WEBHOOK_URL, {
+        const now = new Date();
+        await fetch(ZAPIER_WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             date: now.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' }),
             time: now.toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' }),
-            site: site, question: message, answer: reply, model: model,
-            needs_learning: reply.indexOf('לא נמצאו') !== -1 ? 'YES' : 'OK'
+            site, question: message, answer: reply, model,
+            needs_learning: reply.includes('לא נמצאו') ? 'YES' : 'OK'
           })
         });
       } catch(ze) {}
     }
 
-    return res.status(200).json({ reply: reply, model: model });
+    return res.status(200).json({ reply, model });
 
   } catch(e) {
     console.error('ERROR:', e.message);
     return res.status(500).json({ error: e.message });
   }
-};
+}
 
 // ── פונקציות עזר ──
 
@@ -129,77 +125,73 @@ function detectRegion(q) {
 function loadJSON(filename) {
   if (_cache[filename] !== undefined) return _cache[filename];
   try {
-    var p = require('path').join(process.cwd(), 'data', filename);
-    _cache[filename] = JSON.parse(require('fs').readFileSync(p, 'utf8'));
+    const p = path.join(process.cwd(), 'data', filename);
+    _cache[filename] = JSON.parse(fs.readFileSync(p, 'utf8'));
   } catch(e) { _cache[filename] = null; }
   return _cache[filename];
 }
 
 function buildContext(question) {
-  var region = detectRegion(question);
-  var parts = [];
+  const region = detectRegion(question);
+  const parts = [];
 
   try {
-    var qa = loadJSON('shabaton-qa.json');
+    const qa = loadJSON('shabaton-qa.json');
     if (qa) {
-      var items = Array.isArray(qa) ? qa : (qa.qaItems || []);
-      var qw = question.split(/\s+/).filter(function(w){ return w.length > 3; });
-      var rel = items.filter(function(item) {
-        var t = ((item.question||item.q||'') + ' ' + (item.answer||item.a||'')).toLowerCase();
-        return qw.some(function(w){ return t.indexOf(w.toLowerCase()) !== -1; });
+      const items = Array.isArray(qa) ? qa : (qa.qaItems || []);
+      const qw = question.split(/\s+/).filter(w => w.length > 3);
+      const rel = items.filter(item => {
+        const t = ((item.question||item.q||'') + ' ' + (item.answer||item.a||'')).toLowerCase();
+        return qw.some(w => t.includes(w.toLowerCase()));
       }).slice(0, 3);
       if (rel.length) {
         parts.push('=== מידע על שבתון ===');
-        rel.forEach(function(item) {
-          var q = item.question||item.q||'', a = item.answer||item.a||'';
-          if (q && a) parts.push("ש: " + q + "\nת: " + a);
+        rel.forEach(item => {
+          const q = item.question||item.q||'', a = item.answer||item.a||'';
+          if (q && a) parts.push(`ש: ${q}\nת: ${a}`);
         });
       }
     }
   } catch(e) {}
 
   try {
-    var qL = question.toLowerCase();
-    var stop = {'את':1,'של':1,'על':1,'עם':1,'אל':1,'כל':1,'גם':1,'לא':1,'מה':1,'מי':1,'איך':1};
-    var words = qL.split(/\s+/).filter(function(w){ return w.length > 2 && !stop[w]; });
-    var results = [], seen = {};
-    ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json'].forEach(function(fname) {
-      var data = loadJSON(fname);
+    const qL = question.toLowerCase();
+    const stop = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך']);
+    const words = qL.split(/\s+/).filter(w => w.length > 2 && !stop.has(w));
+    const results = [], seen = new Set();
+
+    ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json'].forEach(fname => {
+      const data = loadJSON(fname);
       if (!data) return;
-      var pages = Array.isArray(data) ? data : (data.pages || []);
-      pages.forEach(function(page) {
-        var url = page.url || page.link || '';
-        if (seen[url] || url.indexOf('/results-') !== -1) return;
-        var title = (page.title || '').toLowerCase();
-        var desc = (page.description || '').toLowerCase();
-        var score = 0;
-        words.forEach(function(w) {
-          if (title.indexOf(w) !== -1) score += 3;
-          else if (desc.indexOf(w) !== -1) score += 2;
-          else if ((page.text||'').toLowerCase().indexOf(w) !== -1) score += 1;
+      const pages = Array.isArray(data) ? data : (data.pages || []);
+      pages.forEach(page => {
+        const url = page.url || page.link || '';
+        if (seen.has(url) || url.includes('/results-')) return;
+        const title = (page.title || '').toLowerCase();
+        const desc  = (page.description || '').toLowerCase();
+        let score = 0;
+        words.forEach(w => {
+          if (title.includes(w)) score += 3;
+          else if (desc.includes(w)) score += 2;
+          else if ((page.text||'').toLowerCase().includes(w)) score += 1;
         });
         if (!score) return;
-        if (region) {
-          region.cities.forEach(function(c) {
-            if ((title+desc).indexOf(c.toLowerCase()) !== -1) score += 5;
-          });
-        }
-        seen[url] = 1;
-        results.push({ title: page.title, url: url, description: page.description||'', score: score });
+        if (region) region.cities.forEach(c => { if ((title+desc).includes(c.toLowerCase())) score += 5; });
+        seen.add(url);
+        results.push({ title: page.title, url, description: page.description||'', score });
       });
     });
-    results.sort(function(a,b){ return b.score - a.score; });
-    var top = results.slice(0, 6);
+
+    results.sort((a,b) => b.score - a.score);
+    const top = results.slice(0, 6);
     if (top.length) {
       parts.push('\n=== קורסים שנמצאו ===');
-      top.forEach(function(c) {
-        parts.push('שם: ' + c.title + '\nקישור: ' + c.url + (c.description ? '\nתיאור: ' + c.description.substring(0,120) : ''));
-      });
+      top.forEach(c => parts.push(`שם: ${c.title}\nקישור: ${c.url}${c.description ? '\nתיאור: ' + c.description.substring(0,120) : ''}`));
     } else {
-      parts.push('\nלא נמצאו קורסים ספציפיים.' + (region ? '\nURL: https://www.shabaton.online/' + region.slug : ''));
+      parts.push(`\nלא נמצאו קורסים ספציפיים.${region ? '\nURL: https://www.shabaton.online/' + region.slug : ''}`);
     }
   } catch(e) {}
 
-  if (region) parts.push('\nאזור: ' + region.name + ' | slug: ' + region.slug);
+  if (region) parts.push(`\nאזור: ${region.name} | slug: ${region.slug}`);
   return parts.join('\n\n');
 }
