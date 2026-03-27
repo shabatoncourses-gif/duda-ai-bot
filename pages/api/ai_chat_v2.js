@@ -4,6 +4,9 @@
 // שבי - עוזר שבתון AI v3
 // =====================================
 
+// גדר ל-Vercel: קבל body כ-raw text
+module.exports.config = { api: { bodyParser: { sizeLimit: '1mb' } } };
+
 module.exports = async function handler(req, res) {
 
   // CORS - ראשון ותמיד
