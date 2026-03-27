@@ -49,10 +49,11 @@ export default async function handler(req, res) {
       '### שם המוסד\n' +
       'תיאור קצר\n' +
       '[מידע על הקורס](URL)\n\n' +
-      'footer - קישור לכל הקורסים חייב לכלול slug של התחום:\n' +
-      'URL לכל קורסי הדרכת הורים בצפון: https://www.shabaton.online/results-Zafon/קורסי הדרכת הורים, זוגיות ומשפחה\n' +
-      'URL לכל קורסי הדרכת הורים בכל הארץ: https://www.shabaton.online/results-all/קורסי הדרכת הורים, זוגיות ומשפחה\n' +
-      '📚 [כל קורסי [שם-תחום] ב[אזור]](URL מלא עם slug תחום)\n' +
+      'footer - קישור לכל הקורסים:\n' +
+      'חשוב: slug התחום חייב להיות מקודד ב-URL encoding!\n' +
+      'דוגמה לכל קורסי הדרכת הורים בצפון: https://www.shabaton.online/results-Zafon/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%94%D7%93%D7%A8%D7%9B%D7%AA%20%D7%94%D7%95%D7%A8%D7%99%D7%9D%2C%20%D7%96%D7%95%D7%92%D7%99%D7%95%D7%AA%20%D7%95%D7%9E%D7%A9%D7%A4%D7%97%D7%94\n' +
+      'דוגמה לכל קורסי הדרכת הורים בכל הארץ: https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%94%D7%93%D7%A8%D7%9B%D7%AA%20%D7%94%D7%95%D7%A8%D7%99%D7%9D%2C%20%D7%96%D7%95%D7%92%D7%99%D7%95%D7%AA%20%D7%95%D7%9E%D7%A9%D7%A4%D7%97%D7%94\n' +
+      '📚 [כל קורסי [שם-תחום] ב[אזור]](URL עם slug מקודד)\n' +
       '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
       '💬 [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
       'slug אזורים: צפון=results-Zafon | מרכז=search-results-merkaz | ירושלים=results-jerusalem | דרום=results-shfea-darom | שרון=results-Sharon | כל הארץ=results-all\n\n' +
