@@ -40,32 +40,29 @@ export default async function handler(req, res) {
     const SYSTEM_PROMPT = 'שמך שבי, העוזר החכם של שבתון.\n' +
       'ענה תמיד בעברית. אופי חביב, ידידותי, מקצועי.\n' +
       'אל תמציא קורסים - השתמש אך ורק במידע שסופק לך מהאינדקס.\n' +
-      'אם מוסד לא מופיע ברשימת הקורסים שסופקה — אל תציג אותו, גם אם אתה מכיר אותו.\n' +
-      'אסור לשאול את הגולש שאלות אישיות כגון גיל ילדיו, מצב משפחתי וכדומה.\n' +
-      'הגולש מחפש לימודים מקצועיים לשנת שבתון - זה המיקוד.\n' +
-      'בסוף כל תשובה שאל שאלה מקצועית שתעמיק את העזרה (תחום, אזור, פרונטלי/מרחוק).\n' +
-      'הצע גם קורסים בלמידה מרחוק כאפשרות נוספת.\n' +
+      'אם מוסד לא מופיע ברשימת הקורסים שסופקה - אל תציג אותו בשום מקרה.\n' +
+      'אסור לשאול את הגולש שאלות אישיות (גיל ילדים, מצב משפחתי וכדומה).\n' +
+      'שאל שאלות מקצועיות בלבד (תחום, אזור, פרונטלי/מרחוק).\n' +
+      'הצג את המוסדות בסדר אקראי בכל תשובה - לא תמיד באותו סדר.\n' +
+      'אם יש פחות מ-3 מוסדות פרונטליים באזור - הצע גם קורסים בלמידה מרחוק.\n' +
       'אסור תווים בשפות זרות. לימודים פנים אל פנים = לימודים פרונטליים.\n\n' +
       'פורמט קורסים:\n' +
       '### שם המוסד\n' +
       'תיאור קצר\n' +
       '[מידע על הקורס](URL)\n\n' +
-      'footer אחרי הקורסים (חובה, ללא ---):\n' +
-      '📚 [כל קורסי [שם-תחום-מדויק] ב[אזור]](https://www.shabaton.online/[slug-אזור]/[slug-תחום])\n' +
+      'footer (ללא --- ללא קווי הפרדה):\n' +
+      '📚 [כל קורסי [תחום] ב[אזור]](https://www.shabaton.online/[slug]/[תחום])\n' +
       '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
       '💬 [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
-      'שמות תחומים מדויקים לשימוש ב-URL:\n' +
-      'הדרכת הורים = קורסי הדרכת הורים, זוגיות ומשפחה\n' +
-      'הוראה מתקנת = קורסי הוראה מתקנת - קורסי הוראה מותאמת\n' +
-      'חינוך והוראה = קורסי חינוך והוראה\n' +
-      'אמנות = קורסי אמנות ואומנויות\n' +
-      'מוסיקה = קורסי מוסיקה - קונצרטים מודרכים\n' +
-      'פסיכולוגיה = קורסי פסיכולוגיה וייעוץ\n' +
-      'תרפיה = לימודי תרפיה וטיפול\n' +
-      'גיל רך = קורסים לגיל רך - חינוך קדם יסודי\n' +
-      'ניהול חינוכי = לימודי ניהול חינוכי\n' +
-      'התפתחות אישית = קורסי העצמה והתפתחות אישית\n\n' +
-      'slug לפי אזור: צפון=results-Zafon | מרכז=search-results-merkaz | ירושלים=results-jerusalem | דרום=results-shfea-darom | שרון=results-Sharon | כל הארץ=results-all';
+      'לאחר ה-footer - שאל שאלה מקצועית אחת.\n\n' +
+      'רשימת מוסדות הדרכת הורים בצפון (אלה בלבד!):\n' +
+      'בית לצמיחה (yaelrath) | בית איזי שפירא (beitissie) | מכון איתן-דנה קינד (danak)\n' +
+      'אורנים (oranim-morim) | מכללת יוזמות (yozmot) | לוינסקי-וינגייט (wingate_morim)\n' +
+      'דוד ילין (dyellin) | מרכז י.נ.ר (ynr) | שפר (merkaz-shefer)\n' +
+      'מכללת השכל (haskel) | מרכז הפעוט (hapaotcenter) | תלפיות (talpiot_edu)\n' +
+      'ניצן (nitzan-israel) | האוניברסיטה הפתוחה (openu_teachers) | אוניברסיטת חיפה (haifa-ma-edu)\n\n' +
+      'slug לפי אזור: צפון=results-Zafon | מרכז=search-results-merkaz | ירושלים=results-jerusalem | דרום=results-shfea-darom | שרון=results-Sharon\n' +
+      'slug תחום הדרכת הורים: קורסי הדרכת הורים, זוגיות ומשפחה'
 
     const model = /הסבר|ההבדל|השוואה|תהליך|זכאות|תנאים|חישוב|מסלול|שעות|אופק|תואר/.test(message)
       ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
@@ -190,6 +187,9 @@ function buildContext(question) {
           else if ((page.text||'').toLowerCase().includes(w)) score += 1;
         });
         if (!score) return;
+        // הסר דפים שלא קשורים ישירות לתחום (מניעת המצאות)
+        var titleCheck = title + desc;
+        if (words.some(function(w){ return w.length > 4; }) && score < 3 && !region) return;
         if (region) region.cities.forEach(c => { if ((title+desc).includes(c.toLowerCase())) score += 5; });
         seen.add(url);
         results.push({ title: page.title, url, description: page.description||'', score });
@@ -197,7 +197,14 @@ function buildContext(question) {
     });
 
     results.sort((a,b) => b.score - a.score);
-    const top = results.slice(0, 10);
+    // ערבב בין תוצאות בעלות ציון דומה
+    const topScored = results.filter(r => r.score >= results[0]?.score - 2);
+    const rest = results.filter(r => r.score < results[0]?.score - 2);
+    for (let i = topScored.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [topScored[i], topScored[j]] = [topScored[j], topScored[i]];
+    }
+    const top = [...topScored, ...rest].slice(0, 10);
     if (top.length) {
       parts.push('\n=== קורסים שנמצאו ===');
       top.forEach(c => parts.push(`שם: ${c.title}\nקישור: ${c.url}${c.description ? '\nתיאור: ' + c.description.substring(0,120) : ''}`));
