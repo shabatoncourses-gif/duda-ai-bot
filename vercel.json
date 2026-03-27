@@ -1,5 +1,15 @@
 {
   "version": 2,
+  "headers": [
+    {
+      "source": "/api/ai_chat_v2",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+      ]
+    }
+  ],
   "builds": [
     { "src": "pages/api/chat.js", "use": "@vercel/node" },
     { "src": "pages/api/reindex.js", "use": "@vercel/node" },
