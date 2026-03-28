@@ -48,6 +48,7 @@ const SYSTEM_PROMPT =
   '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
   '💬 [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
   'slug מקודד הדרכת הורים: %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%94%D7%93%D7%A8%D7%9B%D7%AA%20%D7%94%D7%95%D7%A8%D7%99%D7%9D%2C%20%D7%96%D7%95%D7%92%D7%99%D7%95%D7%AA%20%D7%95%D7%9E%D7%A9%D7%A4%D7%97%D7%94\n' +
+  'לוגותרפיה שייכת לתחום תרפיה וטיפול, slug מקודד: %D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%A8%D7%A4%D7%99%D7%94%20%D7%95%D7%98%D7%99%D7%A4%D7%95%D7%9C\n' +
   'slug אזורים: צפון=results-Zafon | מרכז=search-results-merkaz | ירושלים=results-jerusalem | דרום=results-shfea-darom | שרון=results-Sharon\n\n' +
   'מוסדות הדרכת הורים:\n' +
   'בית לצמיחה | להיות מגדלור, קפיצת גדילה, המסע לכיבוד הורים | https://www.shabaton.online/yaelrath\n' +
