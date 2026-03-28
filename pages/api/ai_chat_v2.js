@@ -268,7 +268,7 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model, max_tokens: 1500, system: SYSTEM_PROMPT,
+        model, max_tokens: 2500, system: SYSTEM_PROMPT,
         messages: [...history.slice(-6), { role: 'user', content: userContent }],
         ...(isInfoQuestion ? {
           tools: [{ type: 'web_search_20250305', name: 'web_search' }],
@@ -314,7 +314,7 @@ export default async function handler(req, res) {
       const nextRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model, max_tokens: 1500, system: SYSTEM_PROMPT, messages: loopMessages,
+        body: JSON.stringify({ model, max_tokens: 2500, system: SYSTEM_PROMPT, messages: loopMessages,
           tools: [{ type: 'web_search_20250305', name: 'web_search' }] })
       });
       if (!nextRes.ok) break;
