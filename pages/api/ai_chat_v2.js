@@ -91,6 +91,17 @@ function searchCourses(question, region) {
   return results.sort((a,b) => b.score - a.score).slice(0, 10);
 }
 
+// ── loadJSON ──
+const _jsonCache = {};
+function loadJSON(filename) {
+  if (_jsonCache[filename] !== undefined) return _jsonCache[filename];
+  try {
+    const p = path.join(process.cwd(), 'data', filename);
+    _jsonCache[filename] = JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch(e) { _jsonCache[filename] = null; }
+  return _jsonCache[filename];
+}
+
 function detectInfoPages(question) {
   const q = question.toLowerCase();
   const pages = [
