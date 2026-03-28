@@ -113,7 +113,8 @@ function detectInfoPages(question) {
     { kw: ['לידה','מענק לידה','דמי לידה','חופשת לידה','הריון'], url: 'https://www.shabaton.online/birth_shabatgon' },
     { kw: ['מענק','גובה המענק','חישוב מענק','תלוש מענק'], url: 'https://www.shabaton.online/shabaton-maanak' },
     { kw: ['ביטוח לאומי','ביטל'], url: 'https://www.shabaton.online/btl_shabaton' },
-    { kw: ['תוכנית לימודים','שעות','ש"ש','לימודי חובה','לימודי השלמה'], url: 'https://www.shabaton.online/learning_programs_shabaton' },
+    { kw: ['תוכנית לימודים','ש"ש','לימודי חובה','לימודי השלמה','שעות רשות','שעות חובה','שעות השלמה','שעות פנויות'], url: 'https://www.shabaton.online/shabaton-hova-hashlama' },
+    { kw: ['תוכנית לימודים','כמה שעות','שעות לימוד','מה לומדים'], url: 'https://www.shabaton.online/learning_programs_shabaton' },
     { kw: ['טפסים','מסמכים'], url: 'https://www.shabaton.online/forms_shabaton' },
     { kw: ['לוח זמנים','מועדים','תאריכים'], url: 'https://www.shabaton.online/luz_shabaton' },
     { kw: ['חצי שבתון','שבתון מלא','שבתון חלקי'], url: 'https://www.shabaton.online/halforfull_shabaton' },
@@ -240,11 +241,17 @@ export default async function handler(req, res) {
 
     const { context, isInfo } = await buildContext(message);
     const model   = chooseModel(message);
-    const userContent = context
+    let userContent = context
       ? `${context}\n\n---\nשאלת הגולש: ${message}`
       : message;
+    if (isInfoQuestion) {
+      userContent = `חפש באתר shabaton.online מידע על: ${message}\n\nאחרי החיפוש, ענה בעברית בצורה מפורטת ומדויקת לפי המידע שמצאת.`;
+    }
 
-    const isInfoQuestion = isInfo;
+    // הפעל web_search לכל שאלת מידע (לא שאלת קורסים)
+    const courseKW = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות','תואר'];
+    const isCourseQ = courseKW.some(k => message.includes(k));
+    const isInfoQuestion = !isCourseQ;
 
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -257,7 +264,7 @@ export default async function handler(req, res) {
         model, max_tokens: 900, system: SYSTEM_PROMPT,
         messages: [...history.slice(-6), { role: 'user', content: userContent }],
         tools: isInfoQuestion ? [{ type: 'web_search_20250305', name: 'web_search' }] : undefined,
-        tool_choice: isInfoQuestion ? { type: 'auto' } : undefined
+        tool_choice: isInfoQuestion ? { type: 'any' } : undefined
       })
     });
 
@@ -266,14 +273,47 @@ export default async function handler(req, res) {
       throw new Error('Claude ' + claudeRes.status + ': ' + t.substring(0,100));
     }
     const data = await claudeRes.json();
-    // אסוף טקסט מכל הblocks (כולל אחרי web_search)
+    // טיפול בתגובת web_search - agentic loop
     let reply = '';
-    if (data.content) {
-      for (const block of data.content) {
-        if (block.type === 'text') reply += block.text;
+    let loopData = data;
+    let loopMessages = [...history.slice(-6), { role: 'user', content: userContent }];
+    
+    for (let i = 0; i < 3; i++) {
+      // אסוף טקסט
+      if (loopData.content) {
+        for (const block of loopData.content) {
+          if (block.type === 'text') reply += block.text;
+        }
       }
+      // בדוק אם יש tool_use שצריך לטפל בו
+      const toolUseBlocks = loopData.content?.filter(b => b.type === 'tool_use') || [];
+      if (toolUseBlocks.length === 0) break;
+      
+      // בנה tool_results
+      const toolResults = toolUseBlocks.map(tu => ({
+        type: 'tool_result',
+        tool_use_id: tu.id,
+        content: tu.name === 'web_search' ? '(search results will be provided by API)' : ''
+      }));
+      
+      // שלח המשך
+      loopMessages = [...loopMessages,
+        { role: 'assistant', content: loopData.content },
+        { role: 'user', content: toolResults }
+      ];
+      
+      const nextRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model, max_tokens: 900, system: SYSTEM_PROMPT, messages: loopMessages,
+          tools: [{ type: 'web_search_20250305', name: 'web_search' }] })
+      });
+      if (!nextRes.ok) break;
+      loopData = await nextRes.json();
+      reply = ''; // reset - נשתמש בתשובה החדשה
     }
-    if (!reply) reply = data.content?.[0]?.text || '';
+    
+    if (!reply) reply = loopData.content?.[0]?.text || '';
     console.log(`OK ${model} | ${reply.length} chars`);
 
     if (ZAPIER_WEBHOOK_URL) {
