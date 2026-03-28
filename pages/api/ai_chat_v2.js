@@ -39,6 +39,58 @@ const SYSTEM_PROMPT =
   'אסור -- או ---. שאלה בסוף: ידידותית, ללא כוכביות.';
 
 
+// ── זיהוי אזור ──
+function detectRegion(q) {
+  if (/צפון|חיפה|עכו|נצרת|טבריה|נהריה|גליל|כרמל/.test(q))
+    return { name: 'צפון', slug: 'results-Zafon', cities: ['חיפה','נצרת','עכו','טבריה','גליל','כרמל','טירת'] };
+  if (/מרכז|תל.?אביב|רמת.?גן|פתח.?תקווה|ראשון|רחובות/.test(q))
+    return { name: 'מרכז', slug: 'search-results-merkaz', cities: ['תל אביב','רמת גן','פתח תקווה','ראשון לציון','רחובות'] };
+  if (/ירושלים|בית.?שמש/.test(q))
+    return { name: 'ירושלים', slug: 'results-jerusalem', cities: ['ירושלים'] };
+  if (/דרום|באר.?שבע|אשדוד/.test(q))
+    return { name: 'דרום', slug: 'results-shfea-darom', cities: ['באר שבע','אשדוד'] };
+  if (/שרון|נתניה|הרצליה|כפר.?סבא/.test(q))
+    return { name: 'שרון', slug: 'results-Sharon', cities: ['נתניה','הרצליה','כפר סבא'] };
+  return null;
+}
+
+// ── חיפוש קורסים ──
+function searchCourses(question, region) {
+  const results = [], seen = new Set();
+  const qL = question.toLowerCase();
+  const stop = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך']);
+  const words = qL.split(/\s+/).filter(w => w.length > 2 && !stop.has(w));
+
+  const indexes = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json'];
+  for (const fname of indexes) {
+    try {
+      const data = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', fname), 'utf8'));
+      const pages = Array.isArray(data) ? data : (data.pages || []);
+      for (const page of pages) {
+        const url = page.url || page.link || '';
+        if (seen.has(url) || url.includes('/results-')) continue;
+        const title = (page.title || '').toLowerCase();
+        const desc = (page.description || '').toLowerCase();
+        let score = 0;
+        for (const w of words) {
+          if (title.includes(w)) score += 3;
+          else if (desc.includes(w)) score += 2;
+          else if ((page.text||'').toLowerCase().includes(w)) score += 1;
+        }
+        if (!score) continue;
+        if (region) {
+          for (const c of region.cities) {
+            if ((title+desc).includes(c.toLowerCase())) { score += 5; break; }
+          }
+        }
+        seen.add(url);
+        results.push({ title: page.title, url, description: page.description||'', score });
+      }
+    } catch(e) {}
+  }
+  return results.sort((a,b) => b.score - a.score).slice(0, 10);
+}
+
 function detectInfoPages(question) {
   const q = question.toLowerCase();
   const pages = [
