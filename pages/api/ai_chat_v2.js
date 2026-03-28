@@ -30,83 +30,89 @@ function detectRegion(q) {
 }
 
 // חיפוש בQA - תומך במבנה categories
-function searchQA(question) {
-  const qa = loadJSON('shabaton-qa.json');
-  if (!qa) return [];
-  
-  const qL = question.toLowerCase();
-  const qWords = qL.split(/\s+/).filter(w => w.length > 2);
-  const results = [];
-  
-  // flat list מ-categories
-  const categories = qa.categories || [];
-  for (const cat of categories) {
-    for (const item of (cat.questions || [])) {
-      const qText = (item.question || '').toLowerCase();
-      const aText = (item.answer || '').toLowerCase();
-      const variations = (item.variations || []).map(v => v.toLowerCase());
-      const allText = qText + ' ' + aText + ' ' + variations.join(' ');
-      
-      let score = 0;
-      for (const w of qWords) {
-        if (qText.includes(w) || variations.some(v => v.includes(w))) score += 3;
-        else if (aText.includes(w)) score += 1;
-      }
-      if (score > 0) {
-        results.push({ question: item.question, answer: item.answer, score });
-      }
-    }
-  }
-  
-  results.sort((a,b) => b.score - a.score);
-  return results.slice(0, 4);
+function detectInfoPage(question) {
+  const q = question.toLowerCase();
+  const pages = [
+    { keywords: ['לידה','מענק לידה','דמי לידה','חופשת לידה'], url: 'https://www.shabaton.online/birth_shabatgon' },
+    { keywords: ['מענק','גובה המענק','חישוב מענק','תלוש'], url: 'https://www.shabaton.online/shabaton-maanak' },
+    { keywords: ['ביטוח לאומי','ביטל'], url: 'https://www.shabaton.online/btl_shabaton' },
+    { keywords: ['תוכנית לימודים','שעות','ש"ש','לימודי חובה','לימודי השלמה'], url: 'https://www.shabaton.online/learning_programs_shabaton' },
+    { keywords: ['טפסים','מסמכים'], url: 'https://www.shabaton.online/forms_shabaton' },
+    { keywords: ['לוח זמנים','מועדים'], url: 'https://www.shabaton.online/luz_shabaton' },
+    { keywords: ['חצי שבתון','שבתון מלא','שבתון חלקי'], url: 'https://www.shabaton.online/halforfull_shabaton' },
+    { keywords: ['בקשת שבתון','איך מבקשים','יציאה לשבתון'], url: 'https://www.shabaton.online/shabaton_request' },
+    { keywords: ['תשלומים','עלויות'], url: 'https://www.shabaton.online/Payments_shabaton' },
+    { keywords: ['חזרה משבתון','סיום שבתון'], url: 'https://www.shabaton.online/end_shabaton' },
+    { keywords: ['זכויות','זכאות','מי זכאי'], url: 'https://www.shabaton.online/important' },
+  ];
+  const matches = pages.filter(p => p.keywords.some(k => q.includes(k)));
+  return matches.map(p => p.url);
 }
 
-// חיפוש קורסים
-function searchCourses(question, region) {
-  const qL = question.toLowerCase();
-  const stop = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך']);
-  const words = qL.split(/\s+/).filter(w => w.length > 2 && !stop.has(w));
-  const results = [], seen = new Set();
-
-  ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json'].forEach(fname => {
-    const data = loadJSON(fname);
-    if (!data) return;
-    const pages = Array.isArray(data) ? data : (data.pages || []);
-    pages.forEach(page => {
-      const url = page.url || page.link || '';
-      if (seen.has(url) || url.includes('/results-')) return;
-      const title = (page.title || '').toLowerCase();
-      const desc  = (page.description || '').toLowerCase();
-      let score = 0;
-      words.forEach(w => {
-        if (title.includes(w)) score += 3;
-        else if (desc.includes(w)) score += 2;
-        else if ((page.text||'').toLowerCase().includes(w)) score += 1;
-      });
-      if (!score) return;
-      if (region) region.cities.forEach(c => { if ((title+desc).includes(c.toLowerCase())) score += 5; });
-      seen.add(url);
-      results.push({ title: page.title, url, description: page.description||'', score });
+async function fetchPageContent(url) {
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ShabatonBot/1.0)' },
+      signal: AbortSignal.timeout(5000)
     });
-  });
-
-  results.sort((a,b) => b.score - a.score);
-  return results.slice(0, 10);
+    if (!res.ok) return null;
+    const html = await res.text();
+    // חלץ טקסט מהתוכן הראשי - מחק תגי HTML
+    let text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+      .replace(/<header[\s\S]*?<\/header>/gi, '')
+      .replace(/<footer[\s\S]*?<\/footer>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    // קח רק 2000 תווים רלוונטיים
+    const mainStart = Math.max(0, text.indexOf('שבתון') - 200);
+    return text.substring(mainStart, mainStart + 2000);
+  } catch(e) {
+    return null;
+  }
 }
 
-function buildContext(message) {
+async function buildContext(message) {
   const region = detectRegion(message);
   const parts = [];
 
-  // חיפוש בQA
-  const qaResults = searchQA(message);
-  if (qaResults.length > 0) {
-    parts.push('=== מידע מאתר שבתון ===');
-    qaResults.forEach(item => {
-      parts.push(`ש: ${item.question}\nת: ${item.answer}`);
+  // סריקת דפי אתר רלוונטיים בזמן אמת
+  const infoUrls = detectInfoPage(message);
+  if (infoUrls.length > 0) {
+    const pageContents = await Promise.all(
+      infoUrls.slice(0, 2).map(url => fetchPageContent(url))
+    );
+    pageContents.forEach((content, i) => {
+      if (content) {
+        parts.push(`=== תוכן מדף ${infoUrls[i]} ===\n${content}`);
+      }
     });
   }
+
+  // חיפוש QA סטטי כגיבוי
+  try {
+    const qa = loadJSON('shabaton-qa.json');
+    if (qa) {
+      const items = qa.categories
+        ? qa.categories.flatMap(c => c.questions || [])
+        : (Array.isArray(qa) ? qa : (qa.qaItems || []));
+      const qWords = message.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      const rel = items.filter(item => {
+        const t = ((item.question||item.q||'') + ' ' + (item.answer||item.a||'')).toLowerCase();
+        return qWords.some(w => t.includes(w));
+      }).slice(0, 3);
+      if (rel.length) {
+        parts.push('=== מידע נוסף ===');
+        rel.forEach(item => {
+          const q = item.question||item.q||'', a = item.answer||item.a||'';
+          if (q && a) parts.push(`ש: ${q}\nת: ${a}`);
+        });
+      }
+    }
+  } catch(e) {}
 
   // חיפוש קורסים
   const courses = searchCourses(message, region);
@@ -115,55 +121,13 @@ function buildContext(message) {
     courses.forEach(c => {
       parts.push(`שם: ${c.title}\nקישור: ${c.url}${c.description ? '\nתיאור: '+c.description.substring(0,120) : ''}`);
     });
+  } else if (region) {
+    parts.push(`\nאזור: ${region.name} | slug: ${region.slug}`);
   }
 
-  if (region) parts.push(`\nאזור: ${region.name} | slug: ${region.slug}`);
   return parts.join('\n\n');
 }
 
-const SYSTEM_PROMPT =
-  'שמך שבי, העוזר החכם והנעים של שבתון.\n' +
-  'ענה תמיד בעברית בחום ובידידותיות.\n\n' +
-  'לשאלות מידע (מענק, זכויות, לידה, תשלומים, תהליכים):\n' +
-  '1. תן תשובה עניינית ומפורטת לפי המידע שסופק ב-QA\n' +
-  '2. שמר על כל הפרטים, המספרים, הטפסים והקישורים שבQA\n' +
-  '3. לאחר התשובה - הפנה לדף הרלוונטי באתר\n' +
-  '4. לעולם אל תאמר שאינך יכול לענות\n\n' +
-  'פורמט קישורי מידע:\n' +
-  '📋 **שם הדף**\n' +
-  'תיאור קצר\n' +
-  '[לפירוט ולמידע נוסף](URL)\n\n' +
-  'חשוב: "מידע וטיפים חשובים" תמיד אחרון\n\n' +
-  'לשאלות קורסים: הצג עד 5 מוסדות מהרשימה, בסדר אקראי, עם תיאור.\n' +
-  'אסור להציג מוסד שלא ברשימה. אסור שאלות אישיות. אסור -- או ---.\n' +
-  'שאלה בסוף: ידידותית, חמה, ללא כוכביות.\n\n' +
-  'פורמט קורסים (כפתור: פנו למידע ולייעוץ אישי):\n' +
-  '### שם המוסד\n' +
-  'תיאור קצר\n' +
-  '[פנו למידע ולייעוץ אישי](URL)\n\n' +
-  'footer לקורסים:\n' +
-  '📚 [כל קורסי [תחום] ב[אזור]](https://www.shabaton.online/[slug]/[encoded])\n' +
-  '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
-  '💬 [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
-  'slug מקודד: הדרכת הורים=%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%94%D7%93%D7%A8%D7%9B%D7%AA%20%D7%94%D7%95%D7%A8%D7%99%D7%9D%2C%20%D7%96%D7%95%D7%92%D7%99%D7%95%D7%AA%20%D7%95%D7%9E%D7%A9%D7%A4%D7%97%D7%94\n' +
-  'לוגותרפיה=תרפיה וטיפול: %D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%A8%D7%A4%D7%99%D7%94%20%D7%95%D7%98%D7%99%D7%A4%D7%95%D7%9C\n' +
-  'slug אזורים: צפון=results-Zafon | מרכז=search-results-merkaz | ירושלים=results-jerusalem | דרום=results-shfea-darom | שרון=results-Sharon\n\n' +
-  'מוסדות הדרכת הורים:\n' +
-  'בית לצמיחה | להיות מגדלור, קפיצת גדילה, המסע לכיבוד הורים | https://www.shabaton.online/yaelrath\n' +
-  'בית איזי שפירא | קורסים לאנשי חינוך ומשפחות לילדים עם מוגבלות | https://www.shabaton.online/beitissie\n' +
-  'מכון איתן - דנה קינד | הכשרת מנחי הורים, אימון קוגניטיבי, קשב - מרחוק | https://www.shabaton.online/danak\n' +
-  'אורנים | מקצועות הורות ומשפחה, הכשרת מדריכי הורים | https://www.shabaton.online/oranim-morim\n' +
-  'מכללת יוזמות | הכשרת מדריכי הורים, ייעוץ זוגי CBT | https://www.shabaton.online/yozmot\n' +
-  'לוינסקי-וינגייט | ליווי התפתחותי לתינוקות בשיטת שלהב | https://www.shabaton.online/wingate_morim\n' +
-  'דוד ילין | הדרכת הורים מקוון, הכשרת מנחי קבוצות הורים | https://www.shabaton.online/dyellin\n' +
-  'מרכז י.נ.ר | טיפול זוגי ומשפחתי, הכשרת מנחי הורים - גם מרחוק | https://www.shabaton.online/ynr\n' +
-  'שפר | ריסטרט לחיים, קבוצות נפרדות לגברים ונשים | https://www.morim.boutique/merkaz-shefer\n' +
-  'מכללת השכל | הכשרת מדריכי הורים - קורס מקוון | https://www.shabaton.online/haskel\n' +
-  'מרכז הפעוט | הדרכת הורים לגיל הרך בטירת כרמל ובזום | https://www.shabaton.online/hapaotcenter\n' +
-  'תלפיות | הנחיית הורים, אימון קוגניטיבי, קשב - מרחוק | https://www.shabaton.online/talpiot_edu\n' +
-  'ניצן | אימון הורים ECC קוגניטיבי-רגשי - מקוון | https://www.shabaton.online/nitzan-israel\n' +
-  'האוניברסיטה הפתוחה | הדרכת הורים לילדים עם צרכים ייחודיים - היברידי | https://www.shabaton.online/openu_teachers\n' +
-  'אוניברסיטת חיפה | תואר שני - ייעוץ והדרכת הורים | https://www.shabaton.online/haifa-ma-edu';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
