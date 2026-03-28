@@ -39,18 +39,23 @@ const SYSTEM_PROMPT =
   'אסור -- או ---. שאלה בסוף: ידידותית, ללא כוכביות.';
 
 
-// ── זיהוי אזור ──
+// ── זיהוי אזור מ-regions.json ──
 function detectRegion(q) {
-  if (/צפון|חיפה|עכו|נצרת|טבריה|נהריה|גליל|כרמל/.test(q))
-    return { name: 'צפון', slug: 'results-Zafon', cities: ['חיפה','נצרת','עכו','טבריה','גליל','כרמל','טירת'] };
-  if (/מרכז|תל.?אביב|רמת.?גן|פתח.?תקווה|ראשון|רחובות/.test(q))
-    return { name: 'מרכז', slug: 'search-results-merkaz', cities: ['תל אביב','רמת גן','פתח תקווה','ראשון לציון','רחובות'] };
-  if (/ירושלים|בית.?שמש/.test(q))
-    return { name: 'ירושלים', slug: 'results-jerusalem', cities: ['ירושלים'] };
-  if (/דרום|באר.?שבע|אשדוד/.test(q))
-    return { name: 'דרום', slug: 'results-shfea-darom', cities: ['באר שבע','אשדוד'] };
-  if (/שרון|נתניה|הרצליה|כפר.?סבא/.test(q))
-    return { name: 'שרון', slug: 'results-Sharon', cities: ['נתניה','הרצליה','כפר סבא'] };
+  try {
+    const data = loadJSON('regions.json');
+    if (!data || !data.regions) return null;
+    const qL = q.toLowerCase();
+    for (const region of data.regions) {
+      // בדוק keywords
+      if (region.keywords && region.keywords.some(k => qL.includes(k.toLowerCase()))) {
+        return { name: region.name, slug: region.slug, cities: region.cities || [] };
+      }
+      // בדוק cities
+      if (region.cities && region.cities.some(c => qL.includes(c.toLowerCase()))) {
+        return { name: region.name, slug: region.slug, cities: region.cities };
+      }
+    }
+  } catch(e) {}
   return null;
 }
 
@@ -61,7 +66,7 @@ function searchCourses(question, region) {
   const stop = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך']);
   const words = qL.split(/\s+/).filter(w => w.length > 2 && !stop.has(w));
 
-  const indexes = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json'];
+  const indexes = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json','morim_index_part1.json'];
   for (const fname of indexes) {
     try {
       const data = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', fname), 'utf8'));
@@ -200,7 +205,7 @@ async function buildContext(message) {
   }
 
   if (region) parts.push(`\nאזור: ${region.name} | slug: ${region.slug}`);
-  return parts.join('\n\n');
+  return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0 };
 }
 
 // ── בחירת מודל ────────────────────────────────────────
@@ -233,15 +238,13 @@ export default async function handler(req, res) {
 
     console.log(`POST [${site}]: ${message.substring(0,60)}`);
 
-    const context = await buildContext(message);
+    const { context, isInfo } = await buildContext(message);
     const model   = chooseModel(message);
     const userContent = context
       ? `${context}\n\n---\nשאלת הגולש: ${message}`
       : message;
 
-    // זיהוי שאלת מידע (לא קורסים) - להפעיל web search
-    const courseKeywords = ['קורס','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'];
-    const isInfoQuestion = !courseKeywords.some(k => message.includes(k)) && infoUrls.length > 0;
+    const isInfoQuestion = isInfo;
 
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
