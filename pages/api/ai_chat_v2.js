@@ -239,6 +239,10 @@ export default async function handler(req, res) {
       ? `${context}\n\n---\nשאלת הגולש: ${message}`
       : message;
 
+    // זיהוי שאלת מידע (לא קורסים) - להפעיל web search
+    const courseKeywords = ['קורס','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'];
+    const isInfoQuestion = !courseKeywords.some(k => message.includes(k)) && infoUrls.length > 0;
+
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -248,16 +252,25 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model, max_tokens: 900, system: SYSTEM_PROMPT,
-        messages: [...history.slice(-6), { role: 'user', content: userContent }]
+        messages: [...history.slice(-6), { role: 'user', content: userContent }],
+        tools: isInfoQuestion ? [{ type: 'web_search_20250305', name: 'web_search' }] : undefined,
+        tool_choice: isInfoQuestion ? { type: 'auto' } : undefined
       })
     });
 
     if (!claudeRes.ok) {
       const t = await claudeRes.text();
-      throw new Error(`Claude ${claudeRes.status}: ${t.substring(0,100)}`);
+      throw new Error('Claude ' + claudeRes.status + ': ' + t.substring(0,100));
     }
-    const data  = await claudeRes.json();
-    const reply = data.content?.[0]?.text || '';
+    const data = await claudeRes.json();
+    // אסוף טקסט מכל הblocks (כולל אחרי web_search)
+    let reply = '';
+    if (data.content) {
+      for (const block of data.content) {
+        if (block.type === 'text') reply += block.text;
+      }
+    }
+    if (!reply) reply = data.content?.[0]?.text || '';
     console.log(`OK ${model} | ${reply.length} chars`);
 
     if (ZAPIER_WEBHOOK_URL) {
