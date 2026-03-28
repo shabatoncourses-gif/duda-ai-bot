@@ -240,6 +240,8 @@ export default async function handler(req, res) {
     console.log(`POST [${site}]: ${message.substring(0,60)}`);
 
     const { context, isInfo } = await buildContext(message);
+    const isCourseQ = ['קורס','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
+    const isInfoQuestion = !!(isInfo && !isCourseQ);
     const model   = chooseModel(message);
     let userContent = context
       ? `${context}\n\n---\nשאלת הגולש: ${message}`
@@ -250,9 +252,6 @@ export default async function handler(req, res) {
 
     // הפעל web_search לכל שאלת מידע (לא שאלת קורסים)
     const courseKW = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות','תואר'];
-    const isCourseQ = courseKW.some(k => message.includes(k));
-    const isInfoQuestion = !isCourseQ;
-
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -263,8 +262,10 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model, max_tokens: 900, system: SYSTEM_PROMPT,
         messages: [...history.slice(-6), { role: 'user', content: userContent }],
-        tools: isInfoQuestion ? [{ type: 'web_search_20250305', name: 'web_search' }] : undefined,
-        tool_choice: isInfoQuestion ? { type: 'any' } : undefined
+        ...(isInfoQuestion ? {
+          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+          tool_choice: { type: 'auto' }
+        } : {})
       })
     });
 
