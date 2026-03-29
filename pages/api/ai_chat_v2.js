@@ -161,50 +161,37 @@ function searchCourses(message, region) {
       }
             if (region) {
         const tdOnly = title + ' ' + desc;
-        let cityMatch = false;   // עיר ממשית מהאזור הנכון
-        let keywordMatch = false; // keyword כללי של האזור
+
+        // בדוק עיר מאזור אחר תחילה (הכי חשוב)
         let wrongRegion = false;
-
-        // עיר ממשית מהאזור המבוקש
-        region.cities.forEach(c => {
-          if (c.length > 2 && tdOnly.includes(c.toLowerCase())) {
-            score += 5; cityMatch = true;
-          }
-        });
-        // keyword אזורי (ירושלים, צפון וכו')
-        region.keywords && region.keywords.forEach(k => {
-          if (tdOnly.includes(k.toLowerCase())) { score += 2; keywordMatch = true; }
-        });
-
-        // בדוק עיר מאזור אחר — **תמיד**, גם אם יש keyword match
         const regionsData = loadJSON('regions.json');
         if (regionsData) {
           for (const otherRegion of (regionsData.regions || [])) {
             if (otherRegion.slug === region.slug) continue;
-            const otherCities = otherRegion.cities || [];
-            if (otherCities.some(c => c.length > 3 && tdOnly.includes(c.toLowerCase()))) {
+            if (otherRegion.cities.some(c => c.length > 3 && tdOnly.includes(c.toLowerCase()))) {
               wrongRegion = true;
               break;
             }
           }
         }
+        // בדוק עיר ממשית מהאזור הנכון
+        let cityMatchCorrect = false;
+        region.cities.forEach(c => {
+          if (c.length > 2 && tdOnly.includes(c.toLowerCase())) {
+            score += 5; cityMatchCorrect = true;
+          }
+        });
+        region.keywords && region.keywords.forEach(k => {
+          if (tdOnly.includes(k.toLowerCase())) score += 2;
+        });
 
-        // אם יש עיר מאזור אחר ואין עיר ממשית מהאזור הנכון → סנן
-        if (wrongRegion && !cityMatch) { seen.add(url); continue; }
+        // עיר מאזור אחר ללא עיר מהאזור הנכון → סנן
+        if (wrongRegion && !cityMatchCorrect) { seen.add(url); continue; }
 
-        // אם אין שום קשר לאזור — סנן (למעט מרחוק)
-        const regionMatch = cityMatch || keywordMatch;
-        if (!regionMatch && !wrongRegion) {
+        // אין קשר לאזור כלל — סנן (אלא אם למידה מרחוק)
+        if (!cityMatchCorrect && !wrongRegion) {
           const isOnline = tdOnly.match(/מרחוק|זום|zoom|אונליין|online|מקוון/i);
           if (!isOnline) { seen.add(url); continue; }
-          score = Math.max(1, score - 3);
-        }
-        // אם אזור צוין בשאלה ואין התאמת עיר בdiff — סנן לחלוטין
-        if (!regionMatch && !wrongRegion) {
-          // הצג רק דפים עם למידה מרחוק (זום/אונליין) כאלטרנטיבה
-          const isOnline = (title + ' ' + desc).match(/מרחוק|זום|zoom|אונליין|online|מקוון/i);
-          if (!isOnline) { seen.add(url); continue; }
-          // דפי מרחוק: ציין שהם אונליין בניקוד נמוך יותר
           score = Math.max(1, score - 3);
         }
       }
