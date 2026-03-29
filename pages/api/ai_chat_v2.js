@@ -80,9 +80,27 @@ function getFieldSlug(question) {
 }
 
 // ── חיפוש קורסים ──────────────────────────────────────
+function getFieldKeywords(question) {
+  try {
+    const data = loadJSON('study-fields.json');
+    if (!data) return null;
+    const items = data.studyFields || (Array.isArray(data) ? data : []);
+    const qL = question.toLowerCase();
+    for (const f of items) {
+      const kws = f.keywords || [];
+      if (kws.some(k => qL.includes(k.toLowerCase()))) {
+        return kws.map(k => k.toLowerCase());
+      }
+    }
+  } catch(e) {}
+  return null;
+}
+
 function searchCourses(message, region) {
   const stop = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך']);
   const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !stop.has(w));
+  // keywords מהתחום לסינון תוצאות
+  const fieldKeywords = getFieldKeywords(message);
   const results = [], seen = new Set();
   const indexes = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json','morim_index_part1.json'];
   for (const fname of indexes) {
@@ -91,16 +109,31 @@ function searchCourses(message, region) {
     const pages = Array.isArray(data) ? data : (data.pages || []);
     for (const page of pages) {
       const url = page.url || page.link || '';
-      if (seen.has(url) || url.includes('/results-')) continue;
+      if (seen.has(url)) continue;
+      // סנן דפי קטגוריה (/results-) וחודשים שעברו
+      if (url.includes('/results-')) continue;
+      const pastMonths = ['/jan-','/feb-','/mar-','/apr-','/may-','/jun-'];
+      if (pastMonths.some(m => url.toLowerCase().includes(m))) continue;
+
       const title = (page.title || '').toLowerCase();
       const desc  = (page.description || '').toLowerCase();
+      const text  = (page.text||'').toLowerCase();
       let score = 0;
+
       words.forEach(w => {
         if (title.includes(w)) score += 3;
         else if (desc.includes(w)) score += 2;
-        else if ((page.text||'').toLowerCase().includes(w)) score += 1;
+        else if (text.includes(w)) score += 1;
       });
       if (!score) continue;
+
+      // אם יש field keywords — וודא שהדף שייך לתחום
+      if (fieldKeywords) {
+        const pageText = title + ' ' + desc + ' ' + text;
+        const fieldMatch = fieldKeywords.some(k => k.length > 3 && pageText.includes(k));
+        if (!fieldMatch) continue; // סנן דפים שלא שייכים לתחום
+      }
+
       if (region) region.cities.forEach(c => { if ((title+desc).includes(c.toLowerCase())) score += 5; });
       seen.add(url);
       results.push({ title: page.title, url, description: page.description||'', score });
