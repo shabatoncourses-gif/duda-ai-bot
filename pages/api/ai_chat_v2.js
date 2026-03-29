@@ -51,11 +51,21 @@ function detectRegion(q) {
     if (!data || !data.regions) return null;
     const qL = q.toLowerCase();
     for (const region of data.regions) {
+      // בדוק keywords
       if (region.keywords && region.keywords.some(k => qL.includes(k.toLowerCase()))) {
-        return { name: region.name, slug: region.slug, cities: region.cities || [] };
+        return { name: region.name, slug: region.slug, cities: region.cities || [], keywords: region.keywords };
       }
+      // בדוק ערים
       if (region.cities && region.cities.some(c => qL.includes(c.toLowerCase()))) {
-        return { name: region.name, slug: region.slug, cities: region.cities };
+        return { name: region.name, slug: region.slug, cities: region.cities, keywords: region.keywords };
+      }
+      // בדוק קיצורים
+      if (region.abbreviations) {
+        for (const [city, abbrs] of Object.entries(region.abbreviations)) {
+          if (abbrs.some(a => qL.includes(a.toLowerCase()))) {
+            return { name: region.name, slug: region.slug, cities: region.cities, keywords: region.keywords };
+          }
+        }
       }
     }
   } catch(e) {}
@@ -101,7 +111,7 @@ function getFieldKeywords(question) {
         // החזר רק מילות מפתח ייחודיות לתחום זה (לא גנריות)
         const unique = kws
           .map(k => k.toLowerCase())
-          .filter(k => k.length > 4 && (kwCount[k] || 0) === 1);
+          .filter(k => k.length > 2 && (kwCount[k] || 0) === 1);
         return unique;
       }
     }
