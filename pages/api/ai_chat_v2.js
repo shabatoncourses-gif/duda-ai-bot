@@ -127,14 +127,20 @@ function searchCourses(message, region) {
       });
       if (!score) continue;
 
-      // אם יש field keywords — וודא שהדף שייך לתחום
+      // אם יש field keywords — וודא שהדף שייך לתחום ולא לאחר
       if (fieldKeywords) {
-        const pageText = title + ' ' + desc + ' ' + text;
+        const pageText = title + ' ' + desc;
         const fieldMatch = fieldKeywords.some(k => k.length > 3 && pageText.includes(k));
-        if (!fieldMatch) continue; // סנן דפים שלא שייכים לתחום
+        if (!fieldMatch) continue;
+        // blacklist לאמנות: מסנן קונדיטוריה, ספורט, תפירה, בישול
+        const artKws = ['ציור','פיסול','קרמיקה','אמנות','ויטראז','רקמה','סריגה','חימר','גילוף','פסיפס','איור'];
+        const isArt = fieldKeywords.some(k => artKws.includes(k));
+        if (isArt) {
+          const artBlacklist = ['קונדיטוריה','אפייה','עוגות','תפירה','חייטות','ספורט','כושר','שחייה','בישול','מאפייה'];
+          if (artBlacklist.some(b => pageText.includes(b))) continue;
+        }
       }
-
-      if (region) region.cities.forEach(c => { if ((title+desc).includes(c.toLowerCase())) score += 5; });
+            if (region) region.cities.forEach(c => { if ((title+desc).includes(c.toLowerCase())) score += 5; });
       seen.add(url);
       results.push({ title: page.title, url, description: page.description||'', score });
     }
