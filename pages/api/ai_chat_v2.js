@@ -17,7 +17,7 @@ const SYSTEM_PROMPT =
   'ענה תמיד בעברית בלבד — אסור לכתוב אפילו משפט אחד באנגלית.\n' +
   'לעולם אל תפנה לגורמים חיצוניים ואל תתן טלפונים/אתרים חיצוניים.\n\n' +
   'לשאלות מידע: פתח חיובי, הצג את המידע מה-context, הפנה לדפי שבתון.\n' +
-  'לשאלות קורסים: הצג עד 8 מוסדות בסדר אקראי שונה בכל פעם, עם תיאור.\n' +
+  'לשאלות קורסים: הצג את המוסדות שנמצאו (עד 8), בסדר אקראי שונה בכל פעם, עם תיאור לכל אחד. אל תמציא מוסדות אם אין מספיק.\n' +
   'אסור להציג מוסד שלא ברשימה. אסור שאלות אישיות. אסור -- או ---.\n\n' +
   'פורמט קורסים:\n' +
   '### שם המוסד\n' +
@@ -160,13 +160,13 @@ function searchCourses(message, region) {
           if (pageText2.includes(k.toLowerCase())) { score += 2; regionMatch = true; }
         });
 
-        // בדוק אם הדף שייך לאזור אחר — מregions.json
+        // בדוק אם הדף מציין עיר מאזור אחר — תמיד, לא רק כש-!regionMatch
         const regionsData = loadJSON('regions.json');
-        if (regionsData && !regionMatch) {
+        if (regionsData) {
           for (const otherRegion of (regionsData.regions || [])) {
             if (otherRegion.slug === region.slug) continue;
             const otherCities = otherRegion.cities || [];
-            if (otherCities.some(c => pageText2.includes(c.toLowerCase()))) {
+            if (otherCities.some(c => c.length > 3 && pageText2.includes(c.toLowerCase()))) {
               wrongRegion = true;
               break;
             }
@@ -175,7 +175,7 @@ function searchCourses(message, region) {
 
         // סנן דפים שמציינים עיר מאזור אחר
         if (wrongRegion) { seen.add(url); continue; }
-        // הורד ניקוד לדפים ללא אזור ספציפי
+        // הורד ניקוד לדפים ללא שיוך אזורי
         if (!regionMatch) score = Math.max(0, score - 2);
       }
       seen.add(url);
