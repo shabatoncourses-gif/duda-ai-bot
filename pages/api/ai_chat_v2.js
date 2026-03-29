@@ -150,10 +150,13 @@ function searchCourses(message, region) {
         else if (desc.includes(w)) score += 2;
         else if (text.includes(w)) score += 2; // הגדל מ-1 ל-2 — text חשוב לרשימות קורסים
       });
-      // גם אם אין match ב-words, בדוק אם fieldKeywords ב-text
-      if (!score && fieldKeywords) {
-        const specificKws = fieldKeywords.filter(k => k.length > 2);
-        if (specificKws.some(k => text.includes(k))) score = 1;
+      // אם score=0 — נסה לחפש את מילות השאלה ו-fieldKeywords ב-text
+      if (!score) {
+        // חיפוש ב-text עם כל מילות השאלה
+        const textSearchWords = fieldKeywords
+          ? [...words, ...fieldKeywords.filter(k => k.length > 2)]
+          : words;
+        if (textSearchWords.some(w => text.includes(w))) score = 1;
       }
       if (!score) continue;
 
@@ -166,7 +169,7 @@ function searchCourses(message, region) {
         const shortMatch = specificKws.some(k => pageShort.includes(k));
         const textMatch  = !shortMatch && specificKws.some(k => pageFull.includes(k));
         if (!shortMatch && !textMatch) continue;
-        if (textMatch) score = Math.max(1, score - 1); // text-only match = ניקוד נמוך יותר
+        // text match תקין - אל תוריד ניקוד, הידרותרפיה וכד' נמצאים ב-text
       }
             if (region) {
         const tdOnly = title + ' ' + desc;
@@ -284,6 +287,8 @@ async function buildContext(message) {
   }
 
   const courses = searchCourses(message, region);
+
+
   if (courses.length > 0) {
     parts.push('\n=== קורסים שנמצאו ===');
     courses.forEach(c => parts.push(`שם: ${c.title}\nקישור: ${c.url}${c.description ? '\nתיאור: '+c.description.substring(0,120) : ''}`));
