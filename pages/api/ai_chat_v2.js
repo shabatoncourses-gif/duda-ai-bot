@@ -148,16 +148,25 @@ function searchCourses(message, region) {
       words.forEach(w => {
         if (title.includes(w)) score += 3;
         else if (desc.includes(w)) score += 2;
-        else if (text.includes(w)) score += 1;
+        else if (text.includes(w)) score += 2; // הגדל מ-1 ל-2 — text חשוב לרשימות קורסים
       });
+      // גם אם אין match ב-words, בדוק אם fieldKeywords ב-text
+      if (!score && fieldKeywords) {
+        const specificKws = fieldKeywords.filter(k => k.length > 2);
+        if (specificKws.some(k => text.includes(k))) score = 1;
+      }
       if (!score) continue;
 
       // אם יש field keywords — וודא שהדף שייך לתחום ולא לאחר
       if (fieldKeywords) {
-        const pageText = title + ' ' + desc;
-        const fieldMatch = fieldKeywords.some(k => k.length > 3 && pageText.includes(k));
-        if (!fieldMatch) continue;
-        
+        // חפש ב-title+desc קודם, אחר כך ב-text (רשימות קורסים)
+        const pageShort = title + ' ' + desc;
+        const pageFull  = pageShort + ' ' + text;
+        const specificKws = fieldKeywords.filter(k => k.length > 2);
+        const shortMatch = specificKws.some(k => pageShort.includes(k));
+        const textMatch  = !shortMatch && specificKws.some(k => pageFull.includes(k));
+        if (!shortMatch && !textMatch) continue;
+        if (textMatch) score = Math.max(1, score - 1); // text-only match = ניקוד נמוך יותר
       }
             if (region) {
         const tdOnly = title + ' ' + desc;
