@@ -1,4 +1,4 @@
-// שבי - עוזר שבתון AI v4
+// שבי - עוזר שבתון AI v5
 // ESM format - package.json has "type": "module"
 
 import fs from 'fs';
@@ -11,45 +11,38 @@ const _cache = {};
 // ── System Prompt ──────────────────────────────────────
 const SYSTEM_PROMPT =
   'שמך שבי, העוזר החכם והנעים של שבתון.\n' +
-  'ענה תמיד בעברית בחום ובידידותיות.\n\n' +
-
-  'כלל ברזל: תן תשובה עניינית מהמידע שסופק. לעולם אל תאמר שאינך יכול לענות.\n\n' +
-
-  'ענה תמיד בעברית\n' +
-  'כל שאלה מגולש שבתון היא בהקשר שנת שבתון. ביטוח לאומי = ביטוח לאומי בשבתון.\n' +
-  'לעולם אל תפנה לגורמים חיצוניים ואל תתן טלפונים/אתרים חיצוניים.\nבלבד — אסור לכתוב אפילו משפט אחד באנגלית, גם לא בפתיח.\\n' +
-  'לשאלות מידע על שבתון:\n' +
-  '1. תחילה - תן תשובה קצרה וברורה מתוך התוכן שסופק\n' +
-  '2. אחר כך - הפנה לדף הרלוונטי באתר\n' +
-  '3. אל תפנה לגורמים חיצוניים\n\n' +
-
-  'לשאלות קורסים:\n' +
-  '- הצג עד 5 מוסדות מהמידע שסופק בלבד, בסדר אקראי\n' +
-  '- אסור להציג מוסד שלא מופיע במידע שסופק\n' +
-  '- כל מוסד: ### שם | תיאור קצר | [פנו למידע ולייעוץ אישי](URL)\n\n' +
-
-  'פורמט קישורי מידע:\n' +
+  'ענה תמיד בעברית בחום ובידידותיות.\n' +
+  'כל שאלה מגולש שבתון היא בהקשר שנת שבתון — ביטוח לאומי = ביטוח לאומי בשבתון.\n' +
+  'כלל ברזל: תן תשובה עניינית מהמידע שסופק. לעולם אל תאמר שאינך יכול לענות.\n' +
+  'ענה תמיד בעברית בלבד — אסור לכתוב אפילו משפט אחד באנגלית.\n' +
+  'לעולם אל תפנה לגורמים חיצוניים ואל תתן טלפונים/אתרים חיצוניים.\n\n' +
+  'לשאלות מידע: פתח חיובי, הצג את המידע מה-context, הפנה לדפי שבתון.\n' +
+  'לשאלות קורסים: הצג עד 5 מוסדות בסדר אקראי שונה בכל פעם, עם תיאור.\n' +
+  'אסור להציג מוסד שלא ברשימה. אסור שאלות אישיות. אסור -- או ---.\n\n' +
+  'פורמט קורסים:\n' +
+  '### שם המוסד\n' +
+  'תיאור קצר\n' +
+  '[פנו למידע ולייעוץ אישי](URL)\n\n' +
+  'פורמט מידע:\n' +
   '📋 **שם הדף**\n' +
   'תיאור קצר\n' +
-  '[לפירוט ולמידע נוסף](URL)\n' +
-  '"מידע וטיפים חשובים" - תמיד אחרון\n\n' +
-
-  'footer לקורסים:\n' +
-  '📚 [כל קורסי [תחום] ב[אזור]](https://www.shabaton.online/[slug-אזור]/[slug-מקודד])\n' +
+  '[לפירוט ולמידע נוסף](URL)\n\n' +
+  'footer תמיד בסוף כל תשובה:\n' +
+  'לקורסים: 📚 [כל קורסי [תחום] ב[אזור]](URL מה-context)\n' +
   '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
   '💬 [אפשר גם לשאול בקבוצת הווטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
+  '"מידע וטיפים חשובים" — תמיד אחרון ברשימת מידע\n' +
+  'שאלה בסוף: ידידותית וחמה, ללא כוכביות.';
 
-  'כללי footer לקורסים:\n' +
-  'יש אזור בשאלה: https://www.shabaton.online/[slug-אזור]/[slug-תחום]\n' +
-  'אין אזור בשאלה: https://www.shabaton.online/results-all/[slug-תחום]\n' +
-  'slug תחומים מקודדים (מ-study-fields.json):\n' +
-  '  אופק חדש - עוז לתמורה = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%90%D7%95%D7%A4%D7%A7%20%D7%97%D7%93%D7%A9%20-%20%D7%A2%D7%95%D7%96%20%D7%9C%D7%AA%D7%9E%D7%95%D7%A8%D7%94\n  אימון - NLP = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%90%D7%99%D7%9E%D7%95%D7%9F%20-%20NLP\n  איפור, טיפוח אישי וסטיילינג = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%90%D7%99%D7%A4%D7%95%D7%A8%2C%20%D7%98%D7%99%D7%A4%D7%95%D7%97%20%D7%90%D7%99%D7%A9%D7%99%20%D7%95%D7%A1%D7%98%D7%99%D7%99%D7%9C%D7%99%D7%A0%D7%92\n  אמנות ואומנויות = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%90%D7%9E%D7%A0%D7%95%D7%AA%20%D7%95%D7%90%D7%95%D7%9E%D7%A0%D7%95%D7%99%D7%95%D7%AA\n  תואר שני בחינוך ובהוראה = %D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99%20%D7%91%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%91%D7%94%D7%95%D7%A8%D7%90%D7%94\n  בישול וקונדיטוריה = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%91%D7%99%D7%A9%D7%95%D7%9C%20-%20%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A7%D7%95%D7%A0%D7%93%D7%99%D7%98%D7%95%D7%A8%D7%99%D7%94\n  בריאות ותזונה נכונה = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%91%D7%A8%D7%99%D7%90%D7%95%D7%AA%20%D7%95%D7%AA%D7%96%D7%95%D7%A0%D7%94%20%D7%A0%D7%9B%D7%95%D7%A0%D7%94\n  גיל רך - חינוך קדם יסודי = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%D7%9D%20%D7%9C%D7%92%D7%99%D7%9C%20%D7%A8%D7%9A%20-%20%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%A7%D7%93%D7%9D%20%D7%99%D7%A1%D7%95%D7%93%D7%99\n  גישור = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%92%D7%99%D7%A9%D7%95%D7%A8\n  גרפולוגיה ונומרולוגיה = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%92%D7%A8%D7%A4%D7%95%D7%9C%D7%95%D7%92%D7%99%D7%94%20%D7%95%D7%A0%D7%95%D7%9E%D7%A8%D7%95%D7%9C%D7%95%D7%92%D7%99%D7%94\n  דרמה, פסיכודרמה, תיאטרון בובות = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%93%D7%A8%D7%9E%D7%94%2C%20%D7%A4%D7%A1%D7%99%D7%9B%D7%95%D7%93%D7%A8%D7%9E%D7%94%2C%20%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%AA%D7%99%D7%90%D7%98%D7%A8%D7%95%D7%9F%20%D7%91%D7%95%D7%91%D7%95%D7%AA\n  הדרכת הורים, זוגיות ומשפחה = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%94%D7%93%D7%A8%D7%9B%D7%AA%20%D7%94%D7%95%D7%A8%D7%99%D7%9D%2C%20%D7%96%D7%95%D7%92%D7%99%D7%95%D7%AA%20%D7%95%D7%9E%D7%A9%D7%A4%D7%97%D7%94\n  הוראה מתקנת - הוראה מותאמת = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%94%D7%95%D7%A8%D7%90%D7%94%20%D7%9E%D7%AA%D7%A7%D7%A0%D7%AA%20-%20%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%94%D7%95%D7%A8%D7%90%D7%94%20%D7%9E%D7%95%D7%AA%D7%90%D7%9E%D7%AA\n  הנחיית קבוצות = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%94%D7%A0%D7%97%D7%99%D7%99%D7%AA%20%D7%A7%D7%91%D7%95%D7%A6%D7%95%D7%AA\n  העצמה והתפתחות אישית = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%94%D7%A2%D7%A6%D7%9E%D7%94%20%D7%95%D7%94%D7%AA%D7%A4%D7%AA%D7%97%D7%95%D7%AA%20%D7%90%D7%99%D7%A9%D7%99%D7%AA\n  חברה וקהילה = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%97%D7%91%D7%A8%D7%94%20%D7%95%D7%A7%D7%94%D7%99%D7%9C%D7%94\n  חינוך גופני = %D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%92%D7%95%D7%A4%D7%A0%D7%99\n  חינוך והוראה = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%94%D7%95%D7%A8%D7%90%D7%94\n  חינוך סביבתי - לימודי ארץ ישראל = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%A1%D7%91%D7%99%D7%91%D7%AA%D7%99%20-%20%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%90%D7%A8%D7%A5%20%D7%99%D7%A9%D7%A8%D7%90%D7%9C\n  טיולים וסיורים לימודיים = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%98%D7%99%D7%95%D7%9C%D7%99%D7%9D%20-%20%D7%A1%D7%99%D7%95%D7%A8%D7%99%D7%9D%20%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%D7%99%D7%9D\n  טכנולוגיה דיגיטלית ואינטרנט = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%98%D7%9B%D7%A0%D7%95%D7%9C%D7%95%D7%92%D7%99%D7%94%20%D7%93%D7%99%D7%92%D7%99%D7%98%D7%9C%D7%99%D7%AA%20%D7%95%D7%90%D7%99%D7%A0%D7%98%D7%A8%D7%A0%D7%98\n  יהדות, מורשת ישראל ודתות = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%99%D7%94%D7%93%D7%95%D7%AA%2C%20%D7%9E%D7%95%D7%A8%D7%A9%D7%AA%20%D7%99%D7%A9%D7%A8%D7%90%D7%9C%20%D7%95%D7%93%D7%AA%D7%95%D7%AA\n  ייעוץ ארגוני = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%99%D7%99%D7%A2%D7%95%D7%A5%20%D7%90%D7%A8%D7%92%D7%95%D7%A0%D7%99\n  ייעוץ חינוכי = %D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%99%D7%99%D7%A2%D7%95%D7%A5%20%D7%97%D7%99%D7%A0%D7%95%D7%9B%D7%99\n  כתיבה יוצרת - כתיבה עיונית - כתיבה אקדמית = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%9B%D7%AA%D7%99%D7%91%D7%94%20%D7%99%D7%95%D7%A6%D7%A8%D7%AA%20-%20%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%9B%D7%AA%D7%99%D7%91%D7%94%20%D7%A2%D7%99%D7%95%D7%A0%D7%99%D7%AA%20-%20%D7%9B%D7%AA%D7%99%D7%91%D7%94%20%D7%90%D7%A7%D7%93%D7%9E%D7%99%D7%AA\n  קורסים לגימלאים = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%D7%9D%20%D7%9C%D7%92%D7%99%D7%9E%D7%9C%D7%90%D7%99%D7%9D\n  למידה מרחוק = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%D7%9D%20%D7%91%D7%9C%D7%9E%D7%99%D7%93%D7%94%20%D7%9E%D7%A8%D7%97%D7%95%D7%A7\n  לציבור הדתי = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%D7%9D%20%D7%9C%D7%A6%D7%99%D7%91%D7%95%D7%A8%20%D7%94%D7%93%D7%AA%D7%99\n  לקויות למידה וחינוך מיוחד = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%90%D7%91%D7%97%D7%95%D7%9F%20%D7%95%D7%98%D7%99%D7%A4%D7%95%D7%9C%20%D7%91%D7%9C%D7%A7%D7%95%D7%99%D7%95%D7%AA%20%D7%9C%D7%9E%D7%99%D7%93%D7%94%20-%20%D7%A7%D7%95%D7%A8%D7%A1%D7%99%D7%9D%20%D7%9C%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%9E%D7%99%D7%95%D7%97%D7%93\n  מדעי הרוח = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%D7%9D%20%D7%91%D7%9E%D7%93%D7%A2%D7%99%20%D7%94%D7%A8%D7%95%D7%97\n  מוסיקה = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%9E%D7%95%D7%A1%D7%99%D7%A7%D7%94%20-%20%D7%A7%D7%95%D7%A0%D7%A6%D7%A8%D7%98%D7%99%D7%9D%20%D7%9E%D7%95%D7%93%D7%A8%D7%9B%D7%99%D7%9D\n  מידענות וספרנות = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%9E%D7%99%D7%93%D7%A2%D7%A0%D7%95%D7%AA%20%D7%95%D7%A1%D7%A4%D7%A8%D7%A0%D7%95%D7%AA\n  מיינדפולנס ומדיטציה = %D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%9E%D7%99%D7%99%D7%A0%D7%93%D7%A4%D7%95%D7%9C%D7%A0%D7%A1%20%D7%95%D7%9E%D7%93%D7%99%D7%98%D7%A6%D7%99%D7%94\n  מנהל עסקים - פיננסים - יזמות = %D7%9E%D7%A0%D7%94%D7%9C%20%D7%A2%D7%A1%D7%A7%D7%99%D7%9D%20-%20%D7%A4%D7%99%D7%A0%D7%A0%D7%A1%D7%99%D7%9D%20-%20%D7%99%D7%96%D7%9E%D7%95%D7%AA\n  הוראת מתמטיקה ומדעים = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%94%D7%95%D7%A8%D7%90%D7%AA%20%D7%9E%D7%AA%D7%9E%D7%98%D7%99%D7%A7%D7%94%20%D7%95%D7%9E%D7%93%D7%A2%D7%99%D7%9D\n  ניהול חינוכי = %D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%A0%D7%99%D7%94%D7%95%D7%9C%20%D7%97%D7%99%D7%A0%D7%95%D7%9B%D7%99\n  ניתוח התנהגות = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A0%D7%99%D7%AA%D7%95%D7%97%20%D7%94%D7%AA%D7%A0%D7%94%D7%92%D7%95%D7%AA\n  ספורט, מחול ותנועה = %D7%A1%D7%A4%D7%95%D7%A8%D7%98%2C%20%D7%9E%D7%97%D7%95%D7%9C%20%D7%95%D7%AA%D7%A0%D7%95%D7%A2%D7%94\n  עיצוב אופנה - תפירה = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A2%D7%99%D7%A6%D7%95%D7%91%20%D7%90%D7%95%D7%A4%D7%A0%D7%94%20-%20%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%AA%D7%A4%D7%99%D7%A8%D7%94\n  עיצוב פנים - הום סטיילינג = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A2%D7%99%D7%A6%D7%95%D7%91%20%D7%A4%D7%A0%D7%99%D7%9D%20-%20%D7%94%D7%95%D7%9D%20%D7%A1%D7%98%D7%99%D7%99%D7%9C%D7%99%D7%A0%D7%92\n  עריכה לשונית = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A2%D7%A8%D7%99%D7%9B%D7%94%20%D7%9C%D7%A9%D7%95%D7%A0%D7%99%D7%AA\n  פיתוח מקצועי למורים = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%D7%9D%20%D7%9C%D7%A4%D7%99%D7%AA%D7%95%D7%97%20%D7%9E%D7%A7%D7%A6%D7%95%D7%A2%D7%99%20%D7%9C%D7%9E%D7%95%D7%A8%D7%99%D7%9D\n  פסיכולוגיה וייעוץ = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A4%D7%A1%D7%99%D7%9B%D7%95%D7%9C%D7%95%D7%92%D7%99%D7%94%20%D7%95%D7%99%D7%99%D7%A2%D7%95%D7%A5\n  צורפות ותכשיטנות = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%95%D7%A8%D7%A4%D7%95%D7%AA%20%D7%95%D7%AA%D7%9B%D7%A9%D7%99%D7%98%D7%A0%D7%95%D7%AA\n  צילום = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A6%D7%99%D7%9C%D7%95%D7%9D\n  רפואה משלימה = %D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%A8%D7%A4%D7%95%D7%90%D7%94%20%D7%9E%D7%A9%D7%9C%D7%99%D7%9E%D7%94\n  שפות - הוראת שפות - תרגום = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A9%D7%A4%D7%95%D7%AA%20-%20%D7%94%D7%95%D7%A8%D7%90%D7%AA%20%D7%A9%D7%A4%D7%95%D7%AA%20-%20%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%A8%D7%92%D7%95%D7%9D\n  תואר שלישי - דוקטורט = %D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%9C%D7%99%D7%A9%D7%99%20-%20%D7%93%D7%95%D7%A7%D7%98%D7%95%D7%A8%D7%98\n  תיירות = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%AA%D7%99%D7%99%D7%A8%D7%95%D7%AA\n  תקשורת בין-אישית = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%AA%D7%A7%D7%A9%D7%95%D7%A8%D7%AA%20%D7%91%D7%99%D7%9F-%D7%90%D7%99%D7%A9%D7%99%D7%AA\n  תרבות העשרה ואקטואליה = %D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%AA%D7%A8%D7%91%D7%95%D7%AA%20%D7%94%D7%A2%D7%A9%D7%A8%D7%94%20%D7%95%D7%90%D7%A7%D7%98%D7%95%D7%90%D7%9C%D7%99%D7%94\n  תרפיה וטיפול = %D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%A8%D7%A4%D7%99%D7%94%20%D7%95%D7%98%D7%99%D7%A4%D7%95%D7%9C\n\n' +
-  'כלל: אסור לתת טלפונים/אתרים חיצוניים. שאלה על ביטוח לאומי = שנת שבתון → https://www.shabaton.online/btl_shabaton\\n\\n' +
-  'footer לשאלות מידע:\n' +
-  '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
-  '💬 [אפשר גם לשאול בקבוצת הווטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
-  'אסור -- או ---. שאלה בסוף: ידידותית, ללא כוכביות.';
-
+// ── loadJSON ──────────────────────────────────────────
+function loadJSON(filename) {
+  if (_cache[filename] !== undefined) return _cache[filename];
+  try {
+    const p = path.join(process.cwd(), 'data', filename);
+    _cache[filename] = JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch(e) { _cache[filename] = null; }
+  return _cache[filename];
+}
 
 // ── זיהוי אזור מ-regions.json ──
 function detectRegion(q) {
@@ -58,11 +51,9 @@ function detectRegion(q) {
     if (!data || !data.regions) return null;
     const qL = q.toLowerCase();
     for (const region of data.regions) {
-      // בדוק keywords
       if (region.keywords && region.keywords.some(k => qL.includes(k.toLowerCase()))) {
         return { name: region.name, slug: region.slug, cities: region.cities || [] };
       }
-      // בדוק cities
       if (region.cities && region.cities.some(c => qL.includes(c.toLowerCase()))) {
         return { name: region.name, slug: region.slug, cities: region.cities };
       }
@@ -71,81 +62,79 @@ function detectRegion(q) {
   return null;
 }
 
-// ── חיפוש קורסים ──
-function searchCourses(question, region) {
-  const results = [], seen = new Set();
-  const qL = question.toLowerCase();
-  const stop = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך']);
-  const words = qL.split(/\s+/).filter(w => w.length > 2 && !stop.has(w));
+// ── חישוב slug לתחום ──────────────────────────────────
+function getFieldSlug(question) {
+  try {
+    const data = loadJSON('study-fields.json');
+    if (!data) return null;
+    const items = data.studyFields || (Array.isArray(data) ? data : []);
+    const qL = question.toLowerCase();
+    for (const f of items) {
+      const kws = f.keywords || [];
+      if (kws.some(k => qL.includes(k.toLowerCase()))) {
+        return { name: f.name, slug: encodeURIComponent(f.slug) };
+      }
+    }
+  } catch(e) {}
+  return null;
+}
 
+// ── חיפוש קורסים ──────────────────────────────────────
+function searchCourses(message, region) {
+  const stop = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך']);
+  const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !stop.has(w));
+  const results = [], seen = new Set();
   const indexes = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json','morim_index_part1.json'];
   for (const fname of indexes) {
-    try {
-      const data = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', fname), 'utf8'));
-      const pages = Array.isArray(data) ? data : (data.pages || []);
-      for (const page of pages) {
-        const url = page.url || page.link || '';
-        if (seen.has(url) || url.includes('/results-')) continue;
-        const title = (page.title || '').toLowerCase();
-        const desc = (page.description || '').toLowerCase();
-        let score = 0;
-        for (const w of words) {
-          if (title.includes(w)) score += 3;
-          else if (desc.includes(w)) score += 2;
-          else if ((page.text||'').toLowerCase().includes(w)) score += 1;
-        }
-        if (!score) continue;
-        if (region) {
-          for (const c of region.cities) {
-            if ((title+desc).includes(c.toLowerCase())) { score += 5; break; }
-          }
-        }
-        seen.add(url);
-        results.push({ title: page.title, url, description: page.description||'', score });
-      }
-    } catch(e) {}
+    const data = loadJSON(fname);
+    if (!data) continue;
+    const pages = Array.isArray(data) ? data : (data.pages || []);
+    for (const page of pages) {
+      const url = page.url || page.link || '';
+      if (seen.has(url) || url.includes('/results-')) continue;
+      const title = (page.title || '').toLowerCase();
+      const desc  = (page.description || '').toLowerCase();
+      let score = 0;
+      words.forEach(w => {
+        if (title.includes(w)) score += 3;
+        else if (desc.includes(w)) score += 2;
+        else if ((page.text||'').toLowerCase().includes(w)) score += 1;
+      });
+      if (!score) continue;
+      if (region) region.cities.forEach(c => { if ((title+desc).includes(c.toLowerCase())) score += 5; });
+      seen.add(url);
+      results.push({ title: page.title, url, description: page.description||'', score });
+    }
   }
   return results.sort((a,b) => b.score - a.score).slice(0, 10);
 }
 
-// ── loadJSON ──
-const _jsonCache = {};
-function loadJSON(filename) {
-  if (_jsonCache[filename] !== undefined) return _jsonCache[filename];
-  try {
-    const p = path.join(process.cwd(), 'data', filename);
-    _jsonCache[filename] = JSON.parse(fs.readFileSync(p, 'utf8'));
-  } catch(e) { _jsonCache[filename] = null; }
-  return _jsonCache[filename];
-}
-
+// ── זיהוי דפי מידע ────────────────────────────────────
 function detectInfoPages(question) {
   const q = question.toLowerCase();
   const pages = [
     { kw: ['לידה','מענק לידה','דמי לידה','חופשת לידה','הריון'], url: 'https://www.shabaton.online/birth_shabatgon' },
-    { kw: ['מענק','גובה המענק','חישוב מענק','תלוש מענק'], url: 'https://www.shabaton.online/shabaton-maanak' },
-    { kw: ['ביטוח לאומי','ביטל','מתי משלמים','תשלום ביטוח','דמי ביטוח','בטל','ביטוח','לאומי','תשלומי ביטוח'], url: 'https://www.shabaton.online/btl_shabaton' },
-    { kw: ['תוכנית לימודים','ש"ש','לימודי חובה','לימודי השלמה','שעות רשות','שעות חובה','שעות השלמה','שעות פנויות'], url: 'https://www.shabaton.online/shabaton-hova-hashlama' },
+    { kw: ['מענק','גובה המענק','חישוב מענק','תלוש מענק','כמה מקבלים','כמה כסף'], url: 'https://www.shabaton.online/shabaton-maanak' },
+    { kw: ['ביטוח לאומי','ביטל','מתי משלמים','תשלום ביטוח','דמי ביטוח','ביטוח בריאות'], url: 'https://www.shabaton.online/btl_shabaton' },
+    { kw: ['שעות חובה','שעות השלמה','שעות רשות','לימודי חובה','לימודי השלמה','חלוקת שעות'], url: 'https://www.shabaton.online/shabaton-hova-hashlama' },
     { kw: ['תוכנית לימודים','כמה שעות','שעות לימוד','מה לומדים'], url: 'https://www.shabaton.online/learning_programs_shabaton' },
     { kw: ['טפסים','מסמכים'], url: 'https://www.shabaton.online/forms_shabaton' },
-    { kw: ['לוח זמנים','מועדים','תאריכים'], url: 'https://www.shabaton.online/luz_shabaton' },
-    { kw: ['חצי שבתון','שבתון מלא','שבתון חלקי'], url: 'https://www.shabaton.online/halforfull_shabaton' },
-    { kw: ['בקשת שבתון','איך מבקשים','יציאה לשבתון','איך יוצאים'], url: 'https://www.shabaton.online/shabaton_request' },
-    { kw: ['תשלומים','עלויות','שכר לימוד'], url: 'https://www.shabaton.online/Payments_shabaton' },
+    { kw: ['לוח זמנים','מועדים','תאריכים','מתי להגיש'], url: 'https://www.shabaton.online/luz_shabaton' },
+    { kw: ['חצי שבתון','שבתון מלא','שבתון חלקי','הבדל שבתון'], url: 'https://www.shabaton.online/halforfull_shabaton' },
+    { kw: ['בקשת שבתון','איך מבקשים','יציאה לשבתון','31 במרץ'], url: 'https://www.shabaton.online/shabaton_request' },
+    { kw: ['תשלומים','עלויות','שכר לימוד','החזר שכר לימוד'], url: 'https://www.shabaton.online/Payments_shabaton' },
     { kw: ['חזרה משבתון','סיום שבתון','חזרה לעבודה'], url: 'https://www.shabaton.online/end_shabaton' },
     { kw: ['זכויות','זכאות','מי זכאי','תנאים לשבתון'], url: 'https://www.shabaton.online/important' },
   ];
-  return [...new Set(
-    pages.filter(p => p.kw.some(k => q.includes(k))).map(p => p.url)
-  )];
+  return [...new Set(pages.filter(p => p.kw.some(k => q.includes(k))).map(p => p.url))];
 }
 
-// ── שליפת תוכן מדף אתר ───────────────────────────────
+// ── סריקת דף ──────────────────────────────────────────
 async function fetchPageContent(url) {
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ShabatonBot/1.0)' },
-      signal: AbortSignal.timeout(6000)
+      signal: AbortSignal.timeout(5000)
     });
     if (!res.ok) return null;
     const html = await res.text();
@@ -153,73 +142,66 @@ async function fetchPageContent(url) {
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<style[\s\S]*?<\/style>/gi, '')
       .replace(/<nav[\s\S]*?<\/nav>/gi, '')
-      .replace(/<header[\s\S]*?<\/header>/gi, '')
-      .replace(/<footer[\s\S]*?<\/footer>/gi, '')
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
-    // מצא את התוכן הרלוונטי
-    const markers = ['שבתון', 'מענק', 'לידה', 'זכויות'];
-    let start = 0;
-    for (const m of markers) {
-      const i = text.indexOf(m);
-      if (i > 100) { start = Math.max(0, i - 100); break; }
-    }
-    return text.substring(start, start + 2500);
+    const mainStart = Math.max(0, text.indexOf('שבתון') - 200);
+    return text.substring(mainStart, mainStart + 2000);
   } catch(e) { return null; }
 }
 
-// ── בניית context ─────────────────────────────────────
+// ── חיפוש ב-QA ────────────────────────────────────────
+function searchQA(question) {
+  const qa = loadJSON('shabaton-qa.json');
+  if (!qa) return null;
+  const qL = question.toLowerCase();
+  const allQ = (qa.categories || []).flatMap(c => c.questions || []);
+  return allQ.find(q => (q.keywords || []).some(k => qL.includes(k.toLowerCase()))) || null;
+}
+
+// ── buildContext ──────────────────────────────────────
 async function buildContext(message) {
   const region = detectRegion(message);
   const parts = [];
 
-  // סריקת דפי אתר רלוונטיים בזמן אמת
   const infoUrls = detectInfoPages(message);
   if (infoUrls.length > 0) {
-    const contents = await Promise.all(
-      infoUrls.slice(0, 2).map(url => fetchPageContent(url))
-    );
+    const contents = await Promise.all(infoUrls.slice(0, 2).map(url => fetchPageContent(url)));
     let gotContent = false;
     contents.forEach((content, i) => {
       if (content) { parts.push(`=== מידע מ-${infoUrls[i]} ===\n${content}`); gotContent = true; }
     });
-    // אם הסריקה לא הצליחה - חפש ב-QA
     if (!gotContent) {
-      // fallback: QA keywords search
-      try {
-        const qa = loadJSON('shabaton-qa.json');
-        if (qa) {
-          const items = qa.categories
-            ? qa.categories.flatMap(c => c.questions || [])
-            : (qa.qaItems || []);
-          const qL = message.toLowerCase();
-          const qWords = qL.split(/\s+/).filter(w => w.length > 2);
-          const scored = items.map(item => {
-            let score = 0;
-            const kws = item.keywords || [];
-            const vars = item.variations || [];
-            kws.forEach(k => { if (qL.includes(k.toLowerCase())) score += 5; });
-            vars.forEach(v => { if (v && qL.includes(v.toLowerCase().substring(0,12))) score += 3; });
-            qWords.forEach(w => {
-              const allText = [item.question, ...kws].join(' ').toLowerCase();
-              if (allText.includes(w)) score += 1;
-            });
-            return { item, score };
-          }).filter(x => x.score > 0).sort((a,b) => b.score - a.score);
-          const best = scored.slice(0, 2);
-          if (best.length) {
-            parts.push('=== מידע מבסיס הידע של שבתון ===');
-            best.forEach(({ item }) => {
-              if (item.question && item.answer)
-                parts.push(`ש: ${item.question}\nת: ${item.answer}`);
-            });
-          }
-        }
-      } catch(e) {}
+      const qaMatch = searchQA(message);
+      if (qaMatch) {
+        parts.push('=== מידע על שבתון ===\n' + qaMatch.answer);
+      } else {
+        parts.push('=== דפי מידע רלוונטיים ===\n' + infoUrls.map(u => '- ' + u).join('\n'));
+      }
     }
+  }
 
-  if (region) parts.push(`\nאזור: ${region.name} | slug: ${region.slug}`);
+  const courses = searchCourses(message, region);
+  if (courses.length > 0) {
+    parts.push('\n=== קורסים שנמצאו ===');
+    courses.forEach(c => parts.push(`שם: ${c.title}\nקישור: ${c.url}${c.description ? '\nתיאור: '+c.description.substring(0,120) : ''}`));
+  }
+
+  const fieldInfo = getFieldSlug(message);
+  if (region) {
+    const fieldSlug = fieldInfo ? fieldInfo.slug : null;
+    const fieldName = fieldInfo ? fieldInfo.name : null;
+    if (fieldSlug) {
+      parts.push(`\nאזור: ${region.name} (slug: ${region.slug})\nתחום: ${fieldName}\n` +
+        `קישור לכל קורסי התחום באזור: https://www.shabaton.online/${region.slug}/${fieldSlug}\n` +
+        `קישור לכל קורסי התחום בכל הארץ: https://www.shabaton.online/results-all/${fieldSlug}`);
+    } else {
+      parts.push(`\nאזור: ${region.name} | slug: ${region.slug}`);
+    }
+  } else if (fieldInfo) {
+    parts.push(`\nתחום: ${fieldInfo.name}\nקישור לכל קורסי התחום: https://www.shabaton.online/results-all/${fieldInfo.slug}`);
+  }
+
   return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0 };
 }
 
@@ -230,14 +212,13 @@ function chooseModel(q) {
 }
 
 // ── Handler ────────────────────────────────────────────
-}
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).json({ ok: true });
-  if (req.method === 'GET')     return res.status(200).json({ status: 'ok', bot: 'shabi-v4' });
+  if (req.method === 'GET')     return res.status(200).json({ status: 'ok', bot: 'shabi-v5' });
   if (req.method !== 'POST')    return res.status(405).json({ error: 'POST only' });
 
   const ANTHROPIC_API_KEY  = process.env.ANTHROPIC_API_KEY  || '';
@@ -255,13 +236,14 @@ export default async function handler(req, res) {
     console.log(`POST [${site}]: ${message.substring(0,60)}`);
 
     const { context, isInfo } = await buildContext(message);
-    const isCourseQ = ['קורס','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
+    const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
-    const model   = chooseModel(message);
-    // השתמש תמיד בcontect שנסרק מהדפים
-    let userContent = context
+    const model = chooseModel(message);
+
+    const userContent = context
       ? `${context}\n\n---\nשאלת הגולש: ${message}`
       : message;
+
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -284,7 +266,6 @@ export default async function handler(req, res) {
       throw new Error('Claude ' + claudeRes.status + ': ' + t.substring(0,100));
     }
     const data = await claudeRes.json();
-    // אסוף טקסט מכל הblocks (web_search_20250305 מטופל אוטומטית ע"י API)
     let reply = '';
     if (data.content) {
       for (const block of data.content) {
