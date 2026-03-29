@@ -18,6 +18,7 @@ const SYSTEM_PROMPT =
   'לעולם אל תפנה לגורמים חיצוניים ואל תתן טלפונים/אתרים חיצוניים.\n\n' +
   'לשאלות מידע: פתח חיובי, הצג את המידע מה-context, הפנה לדפי שבתון.\n' +
   'לשאלות קורסים: הצג את המוסדות שנמצאו (עד 8), בסדר אקראי שונה בכל פעם, עם תיאור לכל אחד. אל תמציא מוסדות אם אין מספיק.\n' +
+  'אם מוסד מציע למידה מרחוק/זום ולא באזור שנשאל — ציין זאת מפורשות בתיאור.\n' +
   'אסור להציג מוסד שלא ברשימה. אסור שאלות אישיות. אסור -- או ---.\n\n' +
   'פורמט קורסים:\n' +
   '### שם המוסד\n' +
@@ -172,10 +173,11 @@ function searchCourses(message, region) {
           if (tdOnly.includes(k.toLowerCase())) { score += 2; regionMatch = true; }
         });
 
-        // בדוק אם הדף מציין עיר מאזור אחר — רק ב-title+desc (לא text מלא)
+        // בדוק אם הדף מציין עיר מאזור אחר — רק ב-title+desc
         const regionsData = loadJSON('regions.json');
         const titleDescOnly = title + ' ' + desc;
-        if (regionsData) {
+        if (regionsData && !regionMatch) {
+          // wrongRegion רק אם אין עיר מהאזור הנכון כלל
           for (const otherRegion of (regionsData.regions || [])) {
             if (otherRegion.slug === region.slug) continue;
             const otherCities = otherRegion.cities || [];
@@ -186,10 +188,16 @@ function searchCourses(message, region) {
           }
         }
 
-        // סנן דפים שמציינים עיר מאזור אחר
+        // סנן דפים שמציינים עיר מאזור אחר (ואין עיר מהאזור הנכון)
         if (wrongRegion) { seen.add(url); continue; }
-        // הורד ניקוד לדפים ללא שיוך אזורי
-        if (!regionMatch) score = Math.max(0, score - 2);
+        // אם אזור צוין בשאלה ואין התאמת עיר בdiff — סנן לחלוטין
+        if (!regionMatch && !wrongRegion) {
+          // הצג רק דפים עם למידה מרחוק (זום/אונליין) כאלטרנטיבה
+          const isOnline = (title + ' ' + desc).match(/מרחוק|זום|zoom|אונליין|online|מקוון/i);
+          if (!isOnline) { seen.add(url); continue; }
+          // דפי מרחוק: ציין שהם אונליין בניקוד נמוך יותר
+          score = Math.max(1, score - 3);
+        }
       }
       seen.add(url);
       results.push({ title: page.title, url, description: page.description||'', score });
