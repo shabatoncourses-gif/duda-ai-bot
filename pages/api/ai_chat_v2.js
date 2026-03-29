@@ -163,20 +163,23 @@ function searchCourses(message, region) {
         let wrongRegion = false;
 
         // בדוק התאמה לאזור המבוקש
+        // בדוק התאמה לאזור — רק ב-title+desc
+        const tdOnly = title + ' ' + desc;
         region.cities.forEach(c => {
-          if (pageText2.includes(c.toLowerCase())) { score += 5; regionMatch = true; }
+          if (tdOnly.includes(c.toLowerCase())) { score += 5; regionMatch = true; }
         });
         region.keywords && region.keywords.forEach(k => {
-          if (pageText2.includes(k.toLowerCase())) { score += 2; regionMatch = true; }
+          if (tdOnly.includes(k.toLowerCase())) { score += 2; regionMatch = true; }
         });
 
-        // בדוק אם הדף מציין עיר מאזור אחר — תמיד, לא רק כש-!regionMatch
+        // בדוק אם הדף מציין עיר מאזור אחר — רק ב-title+desc (לא text מלא)
         const regionsData = loadJSON('regions.json');
+        const titleDescOnly = title + ' ' + desc;
         if (regionsData) {
           for (const otherRegion of (regionsData.regions || [])) {
             if (otherRegion.slug === region.slug) continue;
             const otherCities = otherRegion.cities || [];
-            if (otherCities.some(c => c.length > 3 && pageText2.includes(c.toLowerCase()))) {
+            if (otherCities.some(c => c.length > 3 && titleDescOnly.includes(c.toLowerCase()))) {
               wrongRegion = true;
               break;
             }
