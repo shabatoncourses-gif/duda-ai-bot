@@ -17,7 +17,7 @@ const SYSTEM_PROMPT =
   'ענה תמיד בעברית בלבד — אסור לכתוב אפילו משפט אחד באנגלית.\n' +
   'לעולם אל תפנה לגורמים חיצוניים ואל תתן טלפונים/אתרים חיצוניים.\n\n' +
   'לשאלות מידע: פתח חיובי, הצג את המידע מה-context, הפנה לדפי שבתון.\n' +
-  'לשאלות קורסים: הצג עד 5 מוסדות בסדר אקראי שונה בכל פעם, עם תיאור.\n' +
+  'לשאלות קורסים: הצג עד 8 מוסדות בסדר אקראי שונה בכל פעם, עם תיאור.\n' +
   'אסור להציג מוסד שלא ברשימה. אסור שאלות אישיות. אסור -- או ---.\n\n' +
   'פורמט קורסים:\n' +
   '### שם המוסד\n' +
@@ -86,10 +86,23 @@ function getFieldKeywords(question) {
     if (!data) return null;
     const items = data.studyFields || (Array.isArray(data) ? data : []);
     const qL = question.toLowerCase();
+
+    // ספור כמה תחומים כל keyword מופיע בהם
+    const kwCount = {};
+    for (const f of items) {
+      for (const k of (f.keywords || [])) {
+        kwCount[k.toLowerCase()] = (kwCount[k.toLowerCase()] || 0) + 1;
+      }
+    }
+
     for (const f of items) {
       const kws = f.keywords || [];
       if (kws.some(k => qL.includes(k.toLowerCase()))) {
-        return kws.map(k => k.toLowerCase());
+        // החזר רק מילות מפתח ייחודיות לתחום זה (לא גנריות)
+        const unique = kws
+          .map(k => k.toLowerCase())
+          .filter(k => k.length > 4 && (kwCount[k] || 0) === 1);
+        return unique;
       }
     }
   } catch(e) {}
@@ -132,15 +145,39 @@ function searchCourses(message, region) {
         const pageText = title + ' ' + desc;
         const fieldMatch = fieldKeywords.some(k => k.length > 3 && pageText.includes(k));
         if (!fieldMatch) continue;
-        // blacklist לאמנות: מסנן קונדיטוריה, ספורט, תפירה, בישול
-        const artKws = ['ציור','פיסול','קרמיקה','אמנות','ויטראז','רקמה','סריגה','חימר','גילוף','פסיפס','איור'];
-        const isArt = fieldKeywords.some(k => artKws.includes(k));
-        if (isArt) {
-          const artBlacklist = ['קונדיטוריה','אפייה','עוגות','תפירה','חייטות','ספורט','כושר','שחייה','בישול','מאפייה'];
-          if (artBlacklist.some(b => pageText.includes(b))) continue;
-        }
+        
       }
-            if (region) region.cities.forEach(c => { if ((title+desc).includes(c.toLowerCase())) score += 5; });
+            if (region) {
+        const pageText2 = title + ' ' + desc + ' ' + text;
+        let regionMatch = false;
+        let wrongRegion = false;
+
+        // בדוק התאמה לאזור המבוקש
+        region.cities.forEach(c => {
+          if (pageText2.includes(c.toLowerCase())) { score += 5; regionMatch = true; }
+        });
+        region.keywords && region.keywords.forEach(k => {
+          if (pageText2.includes(k.toLowerCase())) { score += 2; regionMatch = true; }
+        });
+
+        // בדוק אם הדף שייך לאזור אחר — מregions.json
+        const regionsData = loadJSON('regions.json');
+        if (regionsData && !regionMatch) {
+          for (const otherRegion of (regionsData.regions || [])) {
+            if (otherRegion.slug === region.slug) continue;
+            const otherCities = otherRegion.cities || [];
+            if (otherCities.some(c => pageText2.includes(c.toLowerCase()))) {
+              wrongRegion = true;
+              break;
+            }
+          }
+        }
+
+        // סנן דפים שמציינים עיר מאזור אחר
+        if (wrongRegion) { seen.add(url); continue; }
+        // הורד ניקוד לדפים ללא אזור ספציפי
+        if (!regionMatch) score = Math.max(0, score - 2);
+      }
       seen.add(url);
       results.push({ title: page.title, url, description: page.description||'', score });
     }
