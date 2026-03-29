@@ -30,7 +30,7 @@ const SYSTEM_PROMPT =
   'footer תמיד בסוף כל תשובה:\n' +
   'לקורסים: 📚 [כל קורסי [תחום] ב[אזור]](URL מה-context)\n' +
   '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
-  '💬 [אפשר גם לשאול בקבוצת הווטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
+  '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
   '"מידע וטיפים חשובים" — תמיד אחרון ברשימת מידע\n' +
   'שאלה בסוף: ידידותית וחמה, ללא כוכביות.';
 
