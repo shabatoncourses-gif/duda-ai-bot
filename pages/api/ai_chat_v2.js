@@ -184,44 +184,40 @@ async function buildContext(message) {
     contents.forEach((content, i) => {
       if (content) { parts.push(`=== מידע מ-${infoUrls[i]} ===\n${content}`); gotContent = true; }
     });
-    // אם הסריקה לא הצליחה - ספר ל-Claude לאן לחפש
+    // אם הסריקה לא הצליחה - חפש ב-QA
     if (!gotContent) {
-      parts.push('=== דפי מידע רלוונטיים ב-shabaton.online ===\n' +
-        infoUrls.map(u => '- ' + u).join('\n'));
+      // fallback: QA keywords search
+      try {
+        const qa = loadJSON('shabaton-qa.json');
+        if (qa) {
+          const items = qa.categories
+            ? qa.categories.flatMap(c => c.questions || [])
+            : (qa.qaItems || []);
+          const qL = message.toLowerCase();
+          const qWords = qL.split(/\s+/).filter(w => w.length > 2);
+          const scored = items.map(item => {
+            let score = 0;
+            const kws = item.keywords || [];
+            const vars = item.variations || [];
+            kws.forEach(k => { if (qL.includes(k.toLowerCase())) score += 5; });
+            vars.forEach(v => { if (v && qL.includes(v.toLowerCase().substring(0,12))) score += 3; });
+            qWords.forEach(w => {
+              const allText = [item.question, ...kws].join(' ').toLowerCase();
+              if (allText.includes(w)) score += 1;
+            });
+            return { item, score };
+          }).filter(x => x.score > 0).sort((a,b) => b.score - a.score);
+          const best = scored.slice(0, 2);
+          if (best.length) {
+            parts.push('=== מידע מבסיס הידע של שבתון ===');
+            best.forEach(({ item }) => {
+              if (item.question && item.answer)
+                parts.push(`ש: ${item.question}\nת: ${item.answer}`);
+            });
+          }
+        }
+      } catch(e) {}
     }
-  }
-
-  // חיפוש קורסים באינדקסים
-  const stop = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך']);
-  const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !stop.has(w));
-  const results = [], seen = new Set();
-  ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json'].forEach(fname => {
-    const data = loadJSON(fname);
-    if (!data) return;
-    const pages = Array.isArray(data) ? data : (data.pages || []);
-    pages.forEach(page => {
-      const url = page.url || page.link || '';
-      if (seen.has(url) || url.includes('/results-')) return;
-      const title = (page.title || '').toLowerCase();
-      const desc  = (page.description || '').toLowerCase();
-      let score = 0;
-      words.forEach(w => {
-        if (title.includes(w)) score += 3;
-        else if (desc.includes(w)) score += 2;
-        else if ((page.text||'').toLowerCase().includes(w)) score += 1;
-      });
-      if (!score) return;
-      if (region) region.cities.forEach(c => { if ((title+desc).includes(c.toLowerCase())) score += 5; });
-      seen.add(url);
-      results.push({ title: page.title, url, description: page.description||'', score });
-    });
-  });
-  results.sort((a,b) => b.score - a.score);
-  const top = results.slice(0, 8);
-  if (top.length) {
-    parts.push('\n=== קורסים שנמצאו ===');
-    top.forEach(c => parts.push(`שם: ${c.title}\nקישור: ${c.url}${c.description ? '\nתיאור: '+c.description.substring(0,120) : ''}`));
-  }
 
   if (region) parts.push(`\nאזור: ${region.name} | slug: ${region.slug}`);
   return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0 };
@@ -234,6 +230,7 @@ function chooseModel(q) {
 }
 
 // ── Handler ────────────────────────────────────────────
+}
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
