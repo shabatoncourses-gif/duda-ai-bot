@@ -1,473 +1,975 @@
-// שבי - עוזר שבתון AI v5
-// ESM format - package.json has "type": "module"
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+<style>
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const _cache = {};
-
-// ── System Prompt ──────────────────────────────────────
-const SYSTEM_PROMPT =
-  'שמך שבי, העוזר החכם והנעים של שבתון.\n' +
-  'ענה תמיד בעברית בחום ובידידותיות.\n' +
-  'כל שאלה מגולש שבתון היא בהקשר שנת שבתון — ביטוח לאומי = ביטוח לאומי בשבתון.\n' +
-  'כלל ברזל: תן תשובה עניינית מהמידע שסופק. לעולם אל תאמר שאינך יכול לענות.\n' +
-  'לעולם אל תאמר "לא מצאתי", "מצטער", "אין קורסים" — זה אסור לחלוטין.\n' +
-  'אם לא נמצאו קורסים מדויקים — הפנה לקישור "כל קורסי [תחום]" בחיובי.\n' +
-  'דוגמה טובה: "לחיפוש מלא של קורסי הידרותרפיה:" + קישור\n' +
-  'ענה תמיד בעברית בלבד — אסור לכתוב אפילו משפט אחד באנגלית.\n' +
-  'לעולם אל תפנה לגורמים חיצוניים ואל תתן טלפונים/אתרים חיצוניים.\n\n' +
-  'לשאלות מידע: פתח חיובי, הצג את המידע מה-context, הפנה לדפי שבתון.\n' +
-  'לשאלות קורסים: הצג את המוסדות שנמצאו (עד 8), בסדר אקראי שונה בכל פעם, עם תיאור לכל אחד. אל תמציא מוסדות אם אין מספיק.\n' +
-  'אם מוסד מציע למידה מרחוק/זום ולא באזור שנשאל — ציין זאת מפורשות בתיאור.\n' +
-  'אל תציג לימודי תואר שני אלא אם הגולש ביקש תואר שני במפורש.\n' +
-  'אסור להציג מוסד שלא ברשימה. אסור שאלות אישיות. אסור -- או ---.\n\n' +
-  'פורמט קורסים:\n' +
-  '### שם המוסד\n' +
-  'תיאור קצר\n' +
-  '[פנו למידע ולייעוץ אישי](URL)\n\n' +
-  'פורמט מידע:\n' +
-  '📋 **שם הדף**\n' +
-  'תיאור קצר\n' +
-  '[לפירוט ולמידע נוסף](URL)\n\n' +
-  'footer תמיד בסוף כל תשובה:\n' +
-  'לקורסים: 📚 [כל קורסי [תחום] ב[אזור]](URL מה-context)\n' +
-  '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
-  '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
-  '"מידע וטיפים חשובים" — תמיד אחרון ברשימת מידע\n' +
-  'כללי ניסוח חשובים לכל תשובה:\n' +
-  '• עברית תקינה ורהוטה בכל המשפטים\n' +
-  '• אל תשתמש בניסוחים אישיים כמו "אני כאן בשבילך", "אני רגשית", "תרגיש חופשי"\n' +
-  '• שאלה סיום: קצרה וענינית, למשל: "יש שאלות נוספות?" או "האם חיפשת אזור ספציפי?"\n' +
-  '• בקישור "כל קורסי [תחום]" — אל תפרט דוגמאות. רק תכתוב "קורסים נוספים בתחום". אל תזכיר תחומים שאינם קשורים לשאלה.\\n' +
-  '• אל תשתמש בביטויים כמו "בהחלט", "בוודאי", "כמובן" בתחילת משפט\n' +
-  '• ללא כוכביות בשאלת הסיום';
-
-// ── loadJSON ──────────────────────────────────────────
-function loadJSON(filename) {
-  if (_cache[filename] !== undefined) return _cache[filename];
-  try {
-    const p = path.join(process.cwd(), 'data', filename);
-    _cache[filename] = JSON.parse(fs.readFileSync(p, 'utf8'));
-  } catch(e) { _cache[filename] = null; }
-  return _cache[filename];
+/* ═══════════════════════════════════════
+   LAUNCHER + BUBBLE
+═══════════════════════════════════════ */
+#shabaton-chat-launcher {
+  position: fixed;
+  bottom: 25vh;
+  right: 100px;
+  left: auto;
+  display: none;
+  align-items: flex-end;
+  flex-direction: row-reverse;
+  gap: 12px;
+  z-index: 9998;
+  direction: rtl;
+  font-family: 'Heebo', Arial, sans-serif;
 }
 
-// ── זיהוי אזור מ-regions.json ──
-function detectRegion(q) {
-  try {
-    const data = loadJSON('regions.json');
-    if (!data || !data.regions) return null;
-    const qL = q.toLowerCase();
-    for (const region of data.regions) {
-      // בדוק keywords
-      if (region.keywords && region.keywords.some(k => qL.includes(k.toLowerCase()))) {
-        return { name: region.name, slug: region.slug, cities: region.cities || [], keywords: region.keywords };
-      }
-      // בדוק ערים
-      if (region.cities && region.cities.some(c => qL.includes(c.toLowerCase()))) {
-        return { name: region.name, slug: region.slug, cities: region.cities, keywords: region.keywords };
-      }
-      // בדוק קיצורים
-      if (region.abbreviations) {
-        for (const [city, abbrs] of Object.entries(region.abbreviations)) {
-          if (abbrs.some(a => qL.includes(a.toLowerCase()))) {
-            return { name: region.name, slug: region.slug, cities: region.cities, keywords: region.keywords };
-          }
-        }
-      }
-    }
-  } catch(e) {}
-  return null;
+#shabaton-chat-launcher.visible {
+  display: flex;
 }
 
-// ── חישוב slug לתחום ──────────────────────────────────
-function getFieldSlug(question) {
-  try {
-    const data = loadJSON('study-fields.json');
-    if (!data) return null;
-    const items = data.studyFields || (Array.isArray(data) ? data : []);
-    const qL = question.toLowerCase();
-    for (const f of items) {
-      const kws = f.keywords || [];
-      if (kws.some(k => qL.includes(k.toLowerCase()))) {
-        return { name: f.name, slug: encodeURIComponent(f.slug) };
-      }
-    }
-  } catch(e) {}
-  return null;
+/* ── הבועה — כחולה, גדולה, עם זנב ── */
+#shabaton-chat-bubble {
+  background: #0982bc;
+  border-radius: 22px 22px 22px 6px;
+  padding: 20px 28px;
+  box-shadow: 0 8px 32px rgba(9,130,188,0.45), 0 2px 8px rgba(9,130,188,0.2);
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  animation: bubbleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  min-width: 240px;
 }
 
-// ── חיפוש קורסים ──────────────────────────────────────
-function getFieldKeywords(question) {
-  try {
-    const data = loadJSON('study-fields.json');
-    if (!data) return null;
-    const items = data.studyFields || (Array.isArray(data) ? data : []);
-    const qL = question.toLowerCase();
-
-    // ספור כמה תחומים כל keyword מופיע בהם
-    const kwCount = {};
-    for (const f of items) {
-      for (const k of (f.keywords || [])) {
-        kwCount[k.toLowerCase()] = (kwCount[k.toLowerCase()] || 0) + 1;
-      }
-    }
-
-    for (const f of items) {
-      const kws = f.keywords || [];
-      if (kws.some(k => qL.includes(k.toLowerCase()))) {
-        // החזר רק מילות מפתח ייחודיות לתחום זה (לא גנריות)
-        const unique = kws
-          .map(k => k.toLowerCase())
-          .filter(k => k.length > 2 && (kwCount[k] || 0) === 1);
-        return unique;
-      }
-    }
-  } catch(e) {}
-  return null;
+#shabaton-chat-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -16px;
+  right: 18px;
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 0px solid transparent;
+  border-top: 18px solid #0982bc;
+  filter: drop-shadow(0 4px 4px rgba(9,130,188,0.3));
 }
 
-function searchCourses(message, region) {
-  const stop = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך']);
-  const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !stop.has(w));
-  // keywords מהתחום לסינון תוצאות
-  const fieldKeywords = getFieldKeywords(message);
-  const results = [], seen = new Set();
-  const indexes = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json','morim_index_part1.json'];
-  for (const fname of indexes) {
-    const data = loadJSON(fname);
-    if (!data) continue;
-    const pages = Array.isArray(data) ? data : (data.pages || []);
-    for (const page of pages) {
-      const url = page.url || page.link || '';
-      if (seen.has(url)) continue;
-      // סנן דפי קטגוריה (/results-) וחודשים שעברו
-      if (url.includes('/results-')) continue;
-      const pastMonths = ['/jan-','/feb-','/mar-','/apr-','/may-','/jun-'];
-      if (pastMonths.some(m => url.toLowerCase().includes(m))) continue;
+@keyframes bubbleIn {
+  from { opacity: 0; transform: scale(0.6) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
 
-      const title = (page.title || '').toLowerCase();
-      const desc  = (page.description || '').toLowerCase();
-      const text  = (page.text||'').toLowerCase();
-      let score = 0;
+#shabaton-chat-bubble:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 44px rgba(9,130,188,0.5);
+}
 
-      words.forEach(w => {
-        if (title.includes(w)) score += 3;
-        else if (desc.includes(w)) score += 2;
-        else if (text.includes(w)) score += 2; // הגדל מ-1 ל-2 — text חשוב לרשימות קורסים
-      });
-      // אם score=0 — נסה לחפש את מילות השאלה ו-fieldKeywords ב-text
-      if (!score) {
-        // חיפוש ב-text עם כל מילות השאלה
-        const textSearchWords = fieldKeywords
-          ? [...words, ...fieldKeywords.filter(k => k.length > 2)]
-          : words;
-        if (textSearchWords.some(w => text.includes(w))) score = 1;
-      }
-      if (!score) continue;
+.bubble-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  direction: rtl;
+}
 
-      // אם יש field keywords — וודא שהדף שייך לתחום ולא לאחר
-      if (fieldKeywords) {
-        // חפש ב-title+desc קודם, אחר כך ב-text (רשימות קורסים)
-        const pageShort = title + ' ' + desc;
-        const pageFull  = pageShort + ' ' + text;
-        const specificKws = fieldKeywords.filter(k => k.length > 2);
-        const shortMatch = specificKws.some(k => pageShort.includes(k));
-        const textMatch  = !shortMatch && specificKws.some(k => pageFull.includes(k));
-        if (!shortMatch && !textMatch) continue;
-        // text match תקין - אל תוריד ניקוד, הידרותרפיה וכד' נמצאים ב-text
-      }
-            if (region) {
-        const tdOnly = title + ' ' + desc;
+.shabaton-logo-mark {
+  width: 52px;
+  height: 52px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+  border: 2px solid rgba(255,255,255,0.35);
+}
 
-        // בדוק עיר מאזור אחר תחילה (הכי חשוב)
-        let wrongRegion = false;
-        const regionsData = loadJSON('regions.json');
-        if (regionsData) {
-          for (const otherRegion of (regionsData.regions || [])) {
-            if (otherRegion.slug === region.slug) continue;
-            if (otherRegion.cities.some(c => c.length > 3 && tdOnly.includes(c.toLowerCase()))) {
-              wrongRegion = true;
-              break;
-            }
-          }
-        }
-        // בדוק עיר ממשית מהאזור הנכון
-        let cityMatchCorrect = false;
-        region.cities.forEach(c => {
-          if (c.length > 2 && tdOnly.includes(c.toLowerCase())) {
-            score += 5; cityMatchCorrect = true;
-          }
-        });
-        region.keywords && region.keywords.forEach(k => {
-          if (tdOnly.includes(k.toLowerCase())) score += 2;
-        });
+.shabaton-logo-mark svg {
+  width: 30px;
+  height: 30px;
+}
 
-        // עיר מאזור אחר ללא עיר מהאזור הנכון → סנן
-        if (wrongRegion && !cityMatchCorrect) { seen.add(url); continue; }
+.bubble-text {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
 
-        // אין קשר לאזור כלל — סנן (אלא אם למידה מרחוק)
-        if (!cityMatchCorrect && !wrongRegion) {
-          const isOnline = tdOnly.match(/מרחוק|זום|zoom|אונליין|online|מקוון/i);
-          if (!isOnline) { seen.add(url); continue; }
-          score = Math.max(1, score - 3);
-        }
-      }
-      seen.add(url);
-      results.push({ title: page.title, url, description: page.description||'', score });
-    }
+.bubble-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  direction: rtl;
+}
+
+.bubble-brand-name {
+  font-size: 19px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.3px;
+  line-height: 1;
+}
+
+.bubble-ai-badge {
+  background: rgba(255,255,255,0.25);
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 20px;
+  letter-spacing: 1px;
+  line-height: 1.4;
+  border: 1px solid rgba(255,255,255,0.5);
+}
+
+.bubble-tagline {
+  font-size: 13px;
+  color: rgba(255,255,255,0.85);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.bubble-disclaimer {
+  font-size: 10px;
+  color: rgba(255,255,255,0.65);
+  margin-top: 6px;
+  font-style: italic;
+  line-height: 1.3;
+  border-top: 1px solid rgba(255,255,255,0.25);
+  padding-top: 7px;
+  direction: rtl;
+  text-align: right;
+}
+
+#shabaton-bubble-close {
+  position: absolute;
+  top: -9px;
+  left: -9px;
+  width: 22px;
+  height: 22px;
+  background: rgba(0,0,0,0.25);
+  border: 2px solid rgba(255,255,255,0.6);
+  border-radius: 50%;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.2s;
+  line-height: 1;
+}
+
+#shabaton-bubble-close:hover { background: rgba(0,0,0,0.45); }
+
+/* ═══════════════════════════════════════
+   כפתור עגול
+═══════════════════════════════════════ */
+#shabaton-chat-button {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0982bc 0%, #0a9fd4 100%);
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(9, 130, 188, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+#shabaton-chat-button:hover {
+  transform: scale(1.08);
+  box-shadow: 0 8px 28px rgba(9, 130, 188, 0.65);
+}
+
+#shabaton-chat-button.active {
+  background: linear-gradient(135deg, #07689a 0%, #0982bc 100%);
+}
+
+/* ═══════════════════════════════════════
+   חלון הצ'אט — דסקטופ
+═══════════════════════════════════════ */
+#shabaton-chat-container {
+  position: fixed;
+  bottom: 25vh;
+  right: 20px;
+  left: auto;
+  width: 380px;
+  height: 600px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 9999;
+  animation: slideUp 0.3s ease;
+  direction: rtl;
+  font-family: 'Heebo', Arial, sans-serif;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#shabaton-chat-container.active { display: flex; }
+
+#shabaton-chat-container.expanded {
+  width: 700px;
+  height: 85vh;
+  bottom: 5vh;
+  right: 10px;
+}
+
+@media (max-width: 750px) {
+  #shabaton-chat-container.expanded {
+    width: 100%;
+    height: 100%;
+    bottom: 0;
+    right: 0;
+    border-radius: 0;
   }
-  return results.sort((a,b) => b.score - a.score).slice(0, 20);
 }
 
-// ── זיהוי דפי מידע ────────────────────────────────────
-function detectInfoPages(question) {
-  const q = question.toLowerCase();
-  const pages = [
-    { kw: ['לידה','מענק לידה','דמי לידה','חופשת לידה','הריון'], url: 'https://www.shabaton.online/birth_shabatgon' },
-    { kw: ['מענק','גובה המענק','חישוב מענק','תלוש מענק','כמה מקבלים','כמה כסף'], url: 'https://www.shabaton.online/shabaton-maanak' },
-    { kw: ['ביטוח לאומי','ביטל','מתי משלמים','תשלום ביטוח','דמי ביטוח','ביטוח בריאות'], url: 'https://www.shabaton.online/btl_shabaton' },
-    { kw: ['שעות חובה','שעות השלמה','שעות רשות','לימודי חובה','לימודי השלמה','חלוקת שעות'], url: 'https://www.shabaton.online/shabaton-hova-hashlama' },
-    { kw: ['תוכנית לימודים','כמה שעות','שעות לימוד','מה לומדים'], url: 'https://www.shabaton.online/learning_programs_shabaton' },
-    { kw: ['טפסים','מסמכים'], url: 'https://www.shabaton.online/forms_shabaton' },
-    { kw: ['לוח זמנים','מועדים','תאריכים','מתי להגיש'], url: 'https://www.shabaton.online/luz_shabaton' },
-    { kw: ['חצי שבתון','שבתון מלא','שבתון חלקי','הבדל שבתון'], url: 'https://www.shabaton.online/halforfull_shabaton' },
-    { kw: ['בקשת שבתון','איך מבקשים','יציאה לשבתון','31 במרץ'], url: 'https://www.shabaton.online/shabaton_request' },
-    { kw: ['תשלומים','עלויות','שכר לימוד','החזר שכר לימוד'], url: 'https://www.shabaton.online/Payments_shabaton' },
-    { kw: ['חזרה משבתון','סיום שבתון','חזרה לעבודה'], url: 'https://www.shabaton.online/end_shabaton' },
-    { kw: ['זכויות','זכאות','מי זכאי','תנאים לשבתון'], url: 'https://www.shabaton.online/important' },
-  ];
-  return [...new Set(pages.filter(p => p.kw.some(k => q.includes(k))).map(p => p.url))];
-}
+/* ═══════════════════════════════════════
+   מובייל — עיצוב מיוחד
+═══════════════════════════════════════ */
+@media (max-width: 600px) {
 
-// ── סריקת דף ──────────────────────────────────────────
-async function fetchPageContent(url) {
-  try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ShabatonBot/1.0)' },
-      signal: AbortSignal.timeout(5000)
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-    let text = html
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<nav[\s\S]*?<\/nav>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    const mainStart = Math.max(0, text.indexOf('שבתון') - 200);
-    return text.substring(mainStart, mainStart + 2000);
-  } catch(e) { return null; }
-}
-
-// ── חיפוש ב-QA ────────────────────────────────────────
-function searchQA(question) {
-  const qa = loadJSON('shabaton-qa.json');
-  if (!qa) return null;
-  const qL = question.toLowerCase();
-  const allQ = (qa.categories || []).flatMap(c => c.questions || []);
-  return allQ.find(q => (q.keywords || []).some(k => qL.includes(k.toLowerCase()))) || null;
-}
-
-
-// ── דפי מוסדות לסריקה בזמן אמת כש-text חסר ──────────
-function getInstitutionPagesForField(question) {
-  // מחזיר דפי מוסדות לסריקה — כולל כל האינדקסים, ממוין לפי רלוונטיות
-  const stop = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך','קורס','קורסי','לימודי']);
-  const qWords = question.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !stop.has(w));
-  const results = [];
-  const seen = new Set();
-  const indexes = ['morim_index.json','morim_index_part1.json','shabaton_index_part1.json','shabaton_index_part2.json'];
-  for (const fname of indexes) {
-    const data = loadJSON(fname);
-    if (!data) continue;
-    const pages = Array.isArray(data) ? data : (data.pages || []);
-    for (const page of pages) {
-      const url = page.url || page.link || '';
-      if (seen.has(url) || url.includes('/results-')) continue;
-      const title = (page.title || '').toLowerCase();
-      const desc  = (page.description || '').toLowerCase();
-      if (!title) continue;
-      // ניקוד: דפים שtitle/desc קרוב לשאלה — קודם בתור
-      const titleScore = qWords.filter(w => title.includes(w)).length * 2;
-      const descScore  = qWords.filter(w => desc.includes(w)).length;
-      seen.add(url);
-      results.push({ title: page.title, url, description: page.description || '', _score: titleScore + descScore });
-    }
-  }
-  // מיין: דפים קרובים לשאלה קודם, ואז שאר הדפים
-  results.sort((a,b) => b._score - a._score);
-  return results.slice(0, 40);
-}
-
-// ── buildContext ──────────────────────────────────────
-async function buildContext(message) {
-  const region = detectRegion(message);
-  const parts = [];
-
-  const infoUrls = detectInfoPages(message);
-  if (infoUrls.length > 0) {
-    const contents = await Promise.all(infoUrls.slice(0, 2).map(url => fetchPageContent(url)));
-    let gotContent = false;
-    contents.forEach((content, i) => {
-      if (content) { parts.push(`=== מידע מ-${infoUrls[i]} ===\n${content}`); gotContent = true; }
-    });
-    if (!gotContent) {
-      const qaMatch = searchQA(message);
-      if (qaMatch) {
-        parts.push('=== מידע על שבתון ===\n' + qaMatch.answer);
-      } else {
-        parts.push('=== דפי מידע רלוונטיים ===\n' + infoUrls.map(u => '- ' + u).join('\n'));
-      }
-    }
+  /* הלאנצ'ר — קרוב יותר לקצה, כפתור קצת קטן יותר */
+  #shabaton-chat-launcher {
+    bottom: 80px;               /* מעל סרגל הניווט התחתון בנייד */
+    right: 16px;
+    gap: 10px;
   }
 
-  const courses = searchCourses(message, region);
-  const fieldKeywords = getFieldKeywords(message); // לfallback scan
-
-  // סרוק דפי מוסדות בזמן אמת לפי תחום
-  if (fieldKeywords && fieldKeywords.length > 0) {
-    const institutionPages = getInstitutionPagesForField(message);
-    if (institutionPages.length > 0) {
-      const existingUrls = new Set(courses.map(c => c.url));
-      const scanned = await Promise.all(
-        institutionPages.filter(p => !existingUrls.has(p.url)).slice(0, 10).map(async p => {
-          const content = await fetchPageContent(p.url);
-          if (!content) return null;
-          // בדוק אם הדף מציין את המונח הספציפי
-          const qWords = message.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-          const relevant = qWords.some(w => content.toLowerCase().includes(w));
-          if (!relevant) return null;
-          return { title: p.title, url: p.url, description: p.description, score: 2 };
-        })
-      );
-      scanned.filter(Boolean).forEach(p => {
-        if (!existingUrls.has(p.url)) {
-          courses.push(p);
-          existingUrls.add(p.url);
-        }
-      });
-    }
+  /* הבועה — קומפקטית יותר, נשארת נוחה לקריאה */
+  #shabaton-chat-bubble {
+    padding: 14px 18px;
+    min-width: 190px;
+    border-radius: 18px 18px 18px 5px;
   }
 
-  if (courses.length > 0) {
-    parts.push('\n=== קורסים שנמצאו ===');
-    courses.forEach(c => parts.push(`שם: ${c.title}\nקישור: ${c.url}${c.description ? '\nתיאור: '+c.description.substring(0,120) : ''}`));
+  #shabaton-chat-bubble::after {
+    bottom: -13px;
+    right: 14px;
+    border-left-width: 10px;
+    border-top-width: 15px;
   }
 
-  const fieldInfo = getFieldSlug(message);
-  if (region) {
-    const fieldSlug = fieldInfo ? fieldInfo.slug : null;
-    const fieldName = fieldInfo ? fieldInfo.name : null;
-    if (fieldSlug) {
-      parts.push(`\nאזור: ${region.name} (slug: ${region.slug})\nתחום: ${fieldName}\n` +
-        `קישור לכל קורסי התחום באזור: https://www.shabaton.online/${region.slug}/${fieldSlug}\n` +
-        `קישור לכל קורסי התחום בכל הארץ: https://www.shabaton.online/results-all/${fieldSlug}`);
+  .shabaton-logo-mark {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+  }
+
+  .shabaton-logo-mark svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .bubble-brand-name { font-size: 16px; }
+  .bubble-tagline    { font-size: 12px; }
+  .bubble-disclaimer { font-size: 9px; }
+  .bubble-inner      { gap: 11px; }
+
+  /* כפתור עגול — קצת קטן יותר בנייד */
+  #shabaton-chat-button {
+    width: 52px;
+    height: 52px;
+    font-size: 22px;
+  }
+
+  /* חלון הצ'אט — מלא מסך בנייד */
+  #shabaton-chat-container {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;           /* ללא עיגול פינות במסך מלא */
+    box-shadow: none;
+    animation: slideFromBottom 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  @keyframes slideFromBottom {
+    from { opacity: 0; transform: translateY(100%); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* הכותרת — גבוהה יותר לנוחות אצבע */
+  #shabaton-chat-header {
+    padding: 20px 16px 16px;
+    padding-top: max(20px, env(safe-area-inset-top, 20px)); /* iPhone notch */
+  }
+
+  #shabaton-chat-header h3 { font-size: 17px; }
+
+  /* אזור ההודעות — מגולל בנוחות */
+  #shabaton-chat-messages {
+    padding: 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* הודעות — קצת רחבות יותר במסך נייד */
+  .shabaton-message-content {
+    max-width: 85%;
+    font-size: 14px;
+  }
+
+  /* שדה הקלדה — גדול יותר לנגישות אצבע */
+  #shabaton-chat-input-container {
+    padding: 12px 16px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 12px)); /* iPhone home bar */
+  }
+
+  #shabaton-chat-input {
+    font-size: 16px;            /* מונע זום אוטומטי ב-iOS */
+    padding: 14px 18px;
+  }
+
+  #shabaton-chat-send {
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+  }
+
+  /* כפתורי הכותרת — גדולים לאצבע */
+  #shabaton-clear-chat,
+  #shabaton-close-chat {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+}
+
+/* ═══════════════════════════════════════
+   שאר העיצוב (ללא שינוי)
+═══════════════════════════════════════ */
+#shabaton-chat-header {
+  background: #0982bc;
+  color: white;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  direction: rtl;
+}
+
+#shabaton-chat-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  direction: rtl;
+  text-align: right;
+}
+
+#shabaton-chat-header p {
+  font-size: 12px;
+  opacity: 0.9;
+  margin-top: 4px;
+  direction: rtl;
+  text-align: right;
+}
+
+#shabaton-clear-chat {
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.35);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+#shabaton-clear-chat:hover { background: rgba(255,255,255,0.35); transform: scale(1.05); }
+
+#shabaton-close-chat {
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.35);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1;
+  transition: all 0.2s;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#shabaton-close-chat:hover { background: rgba(255,255,255,0.35); transform: scale(1.1); }
+
+#shabaton-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  background: #f8f9fa;
+  scroll-behavior: smooth;
+  direction: rtl;
+}
+
+#shabaton-chat-messages::-webkit-scrollbar { width: 6px; }
+#shabaton-chat-messages::-webkit-scrollbar-track { background: transparent; }
+#shabaton-chat-messages::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+
+.shabaton-message {
+  margin-bottom: 10px;
+  animation: fadeIn 0.3s ease;
+  direction: rtl;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.shabaton-message-bot {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  direction: rtl;
+}
+
+.shabaton-message-user {
+  display: flex;
+  justify-content: flex-start;
+  direction: rtl;
+}
+
+.shabaton-bot-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0982bc 0%, #0a6fa8 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(9,130,188,0.3);
+  border: 2px solid rgba(255,255,255,0.9);
+}
+
+.shabaton-message-content {
+  background: white;
+  padding: 8px 12px;
+  border-radius: 10px;
+  max-width: 78%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  line-height: 1.4;
+  font-size: 13px;
+  direction: rtl;
+  text-align: right;
+}
+
+.shabaton-message-content hr { display: none; }
+.shabaton-message-user .shabaton-message-content {
+  background: #0982bc;
+  color: white;
+}
+
+.shabaton-link-button {
+  display: inline-block;
+  background: #e8630a;
+  color: white !important;
+  text-decoration: none;
+  padding: 8px 20px;
+  border-radius: 8px;
+  margin-top: 8px;
+  margin-bottom: 4px;
+  font-weight: 600;
+  font-size: 13px;
+  box-shadow: 0 2px 6px rgba(232,99,10,0.3);
+  cursor: pointer;
+  border: none;
+}
+
+.shabaton-link-button:hover { background: #d05a08; transform: translateY(-1px); }
+
+.shabaton-institution-link {
+  color: #0982bc !important;
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  display: inline-block;
+  padding: 3px 0;
+  border-bottom: 1px solid transparent;
+  margin-top: 4px;
+}
+
+.shabaton-institution-link:hover {
+  color: #07689a !important;
+  border-bottom-color: #0982bc;
+  transform: translateX(-3px);
+}
+
+.shabaton-message-content strong {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #2c3e50 !important;
+  display: block;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.shabaton-typing {
+  display: flex;
+  gap: 4px;
+  padding: 12px 16px;
+  background: white;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.shabaton-typing span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #0982bc;
+  animation: bounce 1.4s infinite;
+}
+
+.shabaton-typing span:nth-child(2) { animation-delay: 0.2s; }
+.shabaton-typing span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30%            { transform: translateY(-8px); }
+}
+
+#shabaton-chat-input-container {
+  padding: 16px;
+  background: white;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  gap: 8px;
+  direction: rtl;
+}
+
+#shabaton-chat-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 24px;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s;
+  font-family: inherit;
+  direction: rtl;
+  text-align: right;
+}
+
+#shabaton-chat-input:focus {
+  border-color: #0982bc;
+  box-shadow: 0 0 0 3px rgba(9,130,188,0.1);
+}
+
+#shabaton-chat-send {
+  background: linear-gradient(135deg, #0982bc 0%, #0a9fd4 100%);
+  color: white;
+  border: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  box-shadow: 0 3px 10px rgba(9,130,188,0.35);
+}
+
+#shabaton-chat-send:hover:not(:disabled) {
+  transform: scale(1.1);
+  box-shadow: 0 5px 14px rgba(9,130,188,0.45);
+}
+#shabaton-chat-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.shabaton-welcome-message {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  direction: rtl;
+}
+
+.shabaton-welcome-message h4 {
+  color: #0982bc;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.shabaton-welcome-message p {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.shabaton-chat-disclaimer {
+  text-align: center;
+  font-size: 10px;
+  color: #bbb;
+  font-style: italic;
+  padding: 6px 16px 2px;
+  background: white;
+  border-top: 1px solid #f0f0f0;
+  direction: rtl;
+  line-height: 1.4;
+}
+</style>
+
+<!-- ═══ LAUNCHER (בועה + כפתור) ═══ -->
+<div id="shabaton-chat-launcher">
+  <div id="shabaton-chat-bubble">
+    <button id="shabaton-bubble-close" aria-label="סגור">×</button>
+    <div class="bubble-inner">
+      <div class="shabaton-logo-mark" style="flex-direction:column;gap:3px">
+        <span style="font-size:26px;line-height:1">🤖</span>
+        
+      </div>
+      <div class="bubble-text">
+        <div class="bubble-brand">
+          <span class="bubble-brand-name">שבתון</span>
+          <span class="bubble-ai-badge">AI</span>
+        </div>
+        <span class="bubble-tagline">אתם שואלים, שבי עונה</span>
+        <span class="bubble-disclaimer">גרסת ניסיון לשירותכם</span>
+      </div>
+    </div>
+  </div>
+  <button id="shabaton-chat-button" aria-label="פתח צ'אט">💬</button>
+</div>
+
+<!-- ═══ חלון הצ'אט ═══ -->
+<div id="shabaton-chat-container">
+  <div id="shabaton-chat-header">
+    <div>
+      <h3>שבתון - עוזר וירטואלי</h3>
+      <p>שבי השבתוניסט כאן בשבילכם</p>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button id="shabaton-clear-chat">🗑️ נקה</button>
+      <button id="shabaton-expand-chat" title="הגדל">⛶</button>
+      <button id="shabaton-close-chat">×</button>
+    </div>
+  </div>
+
+  <div id="shabaton-chat-messages">
+    <div class="shabaton-welcome-message">
+      <div style="font-size:48px;margin-bottom:8px">☀️</div>
+      <h4 style="color:#0982bc;font-size:16px;margin-bottom:10px">שלום! אני <strong>שבי</strong></h4>
+      <p style="font-size:13px;line-height:1.7;text-align:right;color:#444">
+        העוזר הוירטואלי שלכם לשנת השבתון ☀️<br>
+        אלווה אתכם בכל השלבים של שנת השבתון,<br>
+        אעזור לכם למצוא את הקורסים המתאימים בכל רחבי הארץ,<br>
+        ואתן לכם טיפים ומידע חשוב.<br><br>
+        <strong>שאלו אותי על קורסים ו/או מידע על שנת שבתון!</strong><br>
+        <span style="color:#888;font-size:12px">למשל: "קורס הדרכת הורים בצפון" או "איך מחשבים את גובה המענק?"</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="shabaton-chat-disclaimer">
+    הצ'אט מבוסס AI ומספק מידע כללי בלבד. אין לראות בתשובות תחליף לייעוץ מקצועי.
+  </div>
+
+  <div id="shabaton-chat-input-container">
+    <button id="shabaton-chat-send" disabled>➤</button>
+    <input type="text" id="shabaton-chat-input" placeholder="שאלו אותי משהו..." autocomplete="off">
+  </div>
+</div>
+
+<script>
+(function() {
+  // בדיקת דף מורשה
+  var currentPath = window.location.pathname;
+  var ALLOWED_PAGES = ['/shaanan'];
+  var isAllowedPage = false;
+  for (var i = 0; i < ALLOWED_PAGES.length; i++) {
+    if (currentPath.indexOf(ALLOWED_PAGES[i]) !== -1) { isAllowedPage = true; break; }
+  }
+  if (!isAllowedPage) return;
+
+  var CONFIG = {
+    apiUrl: 'https://duda-ai-bot.vercel.app/api/ai_chat_v2',
+    site: 'shabaton'
+  };
+
+  var launcher    = document.getElementById('shabaton-chat-launcher');
+  var chatBtn     = document.getElementById('shabaton-chat-button');
+  var bubble      = document.getElementById('shabaton-chat-bubble');
+  var bubbleClose = document.getElementById('shabaton-bubble-close');
+  var container   = document.getElementById('shabaton-chat-container');
+  var messages    = document.getElementById('shabaton-chat-messages');
+  var chatInput   = document.getElementById('shabaton-chat-input');
+  var chatSend    = document.getElementById('shabaton-chat-send');
+  var clearButton = document.getElementById('shabaton-clear-chat');
+  var closeButton = document.getElementById('shabaton-close-chat');
+
+  var isOpen = false, isBusy = false, history = [];
+
+  launcher.classList.add('visible');
+
+  // אנימציה
+  var s = document.createElement('style');
+  s.textContent = '@keyframes sbBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-8px)}}';
+  document.head.appendChild(s);
+
+  function toggleChat() {
+    isOpen = !isOpen;
+    if (isOpen) {
+      container.classList.add('active');
+      bubble.style.display = 'none';
+      document.body.style.overflow = 'hidden';
+      setTimeout(function(){ chatInput.focus(); scrollEnd(); }, 100);
     } else {
-      parts.push(`\nאזור: ${region.name} | slug: ${region.slug}`);
+      container.classList.remove('active');
+      document.body.style.overflow = '';
     }
-  } else if (fieldInfo) {
-    parts.push(`\nתחום: ${fieldInfo.name}\nקישור לכל קורסי התחום: https://www.shabaton.online/results-all/${fieldInfo.slug}`);
   }
 
-  return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0, courseCount: courses.length };
-}
+  chatBtn.addEventListener('click', toggleChat);
+  bubble.addEventListener('click', toggleChat);
+  bubbleClose.addEventListener('click', function(e){
+    e.stopPropagation();
+    launcher.classList.remove('visible');
+  });
+  var expandButton = document.getElementById('shabaton-expand-chat');
+  expandButton.addEventListener('click', function(){
+    container.classList.toggle('expanded');
+    expandButton.textContent = container.classList.contains('expanded') ? '⊡' : '⛶';
+  });
 
-// ── בחירת מודל ────────────────────────────────────────
-function chooseModel(q) {
-  return /הסבר|ההבדל|השוואה|תהליך|זכאות|תנאים|חישוב|מסלול|שעות|אופק|תואר|זכויות/.test(q)
-    ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
-}
+  closeButton.addEventListener('click', function(){
+    isOpen = false;
+    container.classList.remove('active');
+    document.body.style.overflow = '';
+  });
 
-// ── Handler ────────────────────────────────────────────
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  function sendMessage() {
+    var msg = chatInput.value.trim();
+    if (!msg || isBusy) return;
+    chatInput.value = '';
+    chatSend.disabled = true;
+    addMessage(msg, 'user');
+    history.push({ role: 'user', content: msg });
+    var typingEl = addTyping();
+    isBusy = true;
 
-  if (req.method === 'OPTIONS') return res.status(200).json({ ok: true });
-  if (req.method === 'GET')     return res.status(200).json({ status: 'ok', bot: 'shabi-v5' });
-  if (req.method !== 'POST')    return res.status(405).json({ error: 'POST only' });
-
-  const ANTHROPIC_API_KEY  = process.env.ANTHROPIC_API_KEY  || '';
-  const ZAPIER_WEBHOOK_URL = process.env.ZAPIER_WEBHOOK_URL || '';
-  if (!ANTHROPIC_API_KEY) return res.status(500).json({ error: 'Missing API key' });
-
-  try {
-    let body = req.body || {};
-    if (typeof body === 'string') { try { body = JSON.parse(body); } catch(e) { body = {}; } }
-    const message = body.message || '';
-    const history = body.history || [];
-    const site    = body.site    || 'shabaton';
-    if (!message) return res.status(400).json({ error: 'message required' });
-
-    console.log(`POST [${site}]: ${message.substring(0,60)}`);
-
-    const { context, isInfo, courseCount } = await buildContext(message);
-    console.log(`buildContext: isInfo=${isInfo} courseCount=${courseCount} contextLen=${context.length}`);
-    const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
-    const isInfoQuestion = !!(isInfo && !isCourseQ);
-    const model = chooseModel(message);
-
-    const userContent = context
-      ? `${context}\n\n---\nשאלת הגולש: ${message}`
-      : message;
-
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+    fetch(CONFIG.apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model, max_tokens: 2500, system: SYSTEM_PROMPT,
-        messages: [...history.slice(-6), { role: 'user', content: userContent }],
-        ...(isInfoQuestion ? {
-          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-          tool_choice: { type: 'auto' }
-        } : {})
-      })
-    });
-
-    if (!claudeRes.ok) {
-      const t = await claudeRes.text();
-      throw new Error('Claude ' + claudeRes.status + ': ' + t.substring(0,100));
-    }
-    const data = await claudeRes.json();
-    let reply = '';
-    if (data.content) {
-      for (const block of data.content) {
-        if (block.type === 'text') reply += block.text;
-      }
-    }
-    if (!reply) reply = data.content?.[0]?.text || '';
-    console.log(`OK ${model} | ${reply.length} chars`);
-
-    if (ZAPIER_WEBHOOK_URL) {
-      try {
-        const now = new Date();
-        await fetch(ZAPIER_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            date: now.toLocaleDateString('he-IL',{timeZone:'Asia/Jerusalem'}),
-            time: now.toLocaleTimeString('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit'}),
-            site, question: message, answer: reply, model,
-            needs_learning: reply.includes('לא נמצאו') ? 'YES' : 'OK'
-          })
-        });
-      } catch(ze) {}
-    }
-
-    return res.status(200).json({ reply, model });
-
-  } catch(e) {
-    console.error('ERROR:', e.message);
-    return res.status(500).json({ error: e.message });
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ message: msg, history: history.slice(-6), site: CONFIG.site })
+    })
+    .then(function(r){
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(d){
+      typingEl.remove();
+      var reply = d.reply || 'מצטערים, אירעה שגיאה.';
+      // הסר תווים זרים
+      reply = reply.replace(/[\u1100-\u11FF\u3040-\u30FF\uAC00-\uD7AF]/g, '');
+      // הסר קווי הפרדה --
+      // הסר קווי הפרדה -- ו---
+      reply = reply.replace(/^\s*--+\s*$/mg, '');
+      reply = reply.replace(/\n\n\n+/g, '\n\n');
+      // הסר שורות באנגלית (כמו "I'll search for...")
+      reply = reply.replace(/^[A-Za-z][^\n]*\n/gm, '');
+      reply = reply.replace(/^I[`'ll].*$/gm, '');
+      // הסר כוכביות בודדות (לא **bold**)
+      reply = reply.replace(/(?<!\*)\*(?!\*)/g, '');
+      // הסר > בתחילת שורה (blockquote)
+      reply = reply.replace(/^>\s?/mg, '');
+      reply = reply.replace(/(<br>){2,}/g, '<br>');
+      reply = reply.replace(/(<br>)(<span style="color:#0982bc)/g, '$2');
+      reply = reply.replace(/(<br>){2}/g, '<br>');
+      addMessage(reply, 'bot');
+      history.push({ role: 'assistant', content: reply });
+    })
+    .catch(function(err){
+      typingEl.remove();
+      console.error('[SHABI]', err);
+      addMessage('מצטערים, יש תקלה.\n[קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)', 'bot');
+    })
+    .finally(function(){ isBusy = false; });
   }
-}
+
+  function renderMarkdown(text) {
+    if (!text) return '';
+    try {
+      var links = [];
+
+      // שמור קישורים [label](url)
+      var t = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, function(m, label, url) {
+        links.push({ url: url, label: label });
+        return '\x01' + (links.length - 1) + '\x01';
+      });
+      // URL גולמי
+      t = t.replace(/(https?:\/\/[^\s<>"'\[\]]+)/g, function(m, url) {
+        links.push({ url: url, label: url, isRaw: true });
+        return '\x01' + (links.length - 1) + '\x01';
+      });
+
+      // escape HTML
+      t = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+      // כותרות — הסר # והצג כטקסט כחול
+      t = t.replace(/^#{1,3}\s+(.+)$/mg,
+        '<span style="color:#0982bc;font-weight:700;font-size:13.5px;display:block;margin:6px 0 0px">$1</span>');
+
+      // bold
+      t = t.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#0982bc;font-weight:700">$1</strong>');
+      // כותרת דף מידע (אחרי 📋) - כחול
+      t = t.replace(/📋 <strong style="color:#222">/g, '📋 <strong style="color:#0982bc;font-size:13.5px;display:block;margin:10px 0 0">');
+
+      // הסר מספור ורשימות
+      t = t.replace(/^\d+[.):]\s*/mg, '');
+      t = t.replace(/^[-*]\s*/mg, '');
+
+      // מפריד
+      t = t.replace(/--+/g, '');
+
+      // שורות
+      t = t.replace(/\n/g, '<br>');
+
+      // שחזר קישורים
+      var footerKw = ['כל קורסי', 'כל הקורסים', 'הרשם', 'הצטרף', 'קבוצת הוואטסאפ', 'עלון שבתון', 'אפשר לשאול', 'לשאול בקבוצת'];
+      // הסר שורת רווח אחרי כותרת (H3 ו-bold כחול)
+      t = t.replace(/(<span style="color:#0982bc[^"]*">[^<]*<\/span>)<br>/g, '$1 ');
+      t = t.replace(/(<strong style="color:#0982bc[^"]*">[^<]*<\/strong>)<br>/g, '$1 ');
+
+      t = t.replace(/\x01(\d+)\x01/g, function(m, i) {
+        var link = links[parseInt(i, 10)];
+        if (!link) return '';
+        // קודד עברית ב-URL
+        try {
+          var urlObj = new URL(link.url);
+          link.url = urlObj.href;
+        } catch(e) {
+          link.url = link.url.replace(/[\u0590-\u05FF\u05F0-\u05F4]/g, function(c){ try { return encodeURIComponent(c); } catch(e){ return c; } });
+        }
+
+        if (link.isRaw) {
+          return '<a href="' + link.url + '" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:none">' + link.url + '</a>';
+        }
+
+        var ll = link.label.toLowerCase();
+        var isFooter = footerKw.some(function(w){ return ll.indexOf(w.toLowerCase()) !== -1; });
+
+        if (isFooter) {
+          return '<br><a href="' + link.url + '" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:none;border-bottom:1px solid rgba(9,130,188,0.35)">' + link.label + '</a>';
+        }
+
+        // כפתור — Claude קובע את הטקסט לפי הקשר
+        // קבע טקסט כפתור לפי סוג הקישור
+        // דפי מידע שבתון — לא מוסדות לימוד
+        var infoSlugs = ['/important','/btl_shabaton','/shabaton-maanak','/Payments_shabaton',
+          '/luz_shabaton','/end_shabaton','/forms_shabaton','/halforfull_shabaton',
+          '/shabaton_request','/learning_programs_shabaton','/shabaton-hova-hashlama',
+          '/birth_shabatgon','/shabaton_checklist','/change_prog_shabaton','/tlush_maanak_shabaton',
+          '/halforfull','/maanak-shabaton','/hagdala','/shabaton-kabalot','/phones_shabaton',
+          '/shabaton-plan','/shabaton-video','/back_from_shabaton','/shabaton_schedule'];
+        // footer links (כל קורסי, עלון, וואטסאפ) — כבר מטופלים למעלה כ-footerLink
+        // כאן נטפל רק בכפתורים
+        var isInfoPage = infoSlugs.some(function(p){ return link.url.indexOf(p) !== -1; });
+        var isResultsLink = link.url.indexOf('/results-') !== -1;
+        // results-all/results-X = קישור קטגוריה = footer, לא כפתור
+        if (isResultsLink) {
+          return '<a href="' + link.url + '" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline;">' + link.label + '</a>';
+        }
+        var btnText = isInfoPage ? 'לפירוט ולמידע נוסף' : 'פנו למידע ולייעוץ אישי';
+        return '<a href="' + link.url + '" target="_blank" style="display:inline-block;background:#e8630a;color:white;text-decoration:none;padding:7px 18px;border-radius:8px;font-size:12.5px;font-weight:600;margin:6px 0 4px;box-shadow:0 2px 6px rgba(232,99,10,0.3)">' + btnText + '</a>';
+      });
+
+      return t;
+    } catch(e) {
+      return text.replace(/\n/g,'<br>');
+    }
+  }
+
+  function addMessage(text, who) {
+    var wrap = document.createElement('div');
+    wrap.className = 'shabaton-message';
+    if (who === 'bot') {
+      wrap.innerHTML =
+        '<div class="shabaton-message-bot">' +
+        '<div class="shabaton-bot-avatar">&#129302;</div>' +
+        '<div class="shabaton-message-content">' + renderMarkdown(text) + '</div>' +
+        '</div>';
+    } else {
+      wrap.innerHTML =
+        '<div class="shabaton-message-user">' +
+        '<div class="shabaton-message-content">' +
+        text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') +
+        '</div></div>';
+    }
+    messages.appendChild(wrap);
+    scrollEnd();
+  }
+
+  function addTyping() {
+    var wrap = document.createElement('div');
+    wrap.className = 'shabaton-message';
+    wrap.innerHTML =
+      '<div class="shabaton-message-bot">' +
+      '<div class="shabaton-bot-avatar">&#129302;</div>' +
+      '<div class="shabaton-typing">' +
+      '<span style="animation:sbBounce 1.4s infinite"></span>' +
+      '<span style="animation:sbBounce 1.4s 0.2s infinite"></span>' +
+      '<span style="animation:sbBounce 1.4s 0.4s infinite"></span>' +
+      '</div></div>';
+    messages.appendChild(wrap);
+    scrollEnd();
+    return wrap;
+  }
+
+  function scrollEnd(){ setTimeout(function(){ messages.scrollTop = messages.scrollHeight; }, 50); }
+
+  function clearHistory(){
+    history = [];
+    messages.innerHTML = getWelcome();
+  }
+
+  function getWelcome() {
+    return '<div class="shabaton-welcome-message">' +
+      '<div style="font-size:52px;margin-bottom:8px;text-align:center">🤖</div>' +
+      '<h4 style="color:#0982bc;font-size:16px;margin-bottom:10px">שלום! אני <strong>שבי</strong></h4>' +
+      '<p style="font-size:13px;line-height:1.7;text-align:right;color:#444">' +
+      'העוזר הוירטואלי שלכם לשנת השבתון ☀️<br>' +
+      'אלווה אתכם בכל השלבים של שנת השבתון,<br>' +
+      'אעזור לכם למצוא את הקורסים המתאימים בכל רחבי הארץ,<br>' +
+      'ואתן לכם טיפים ומידע חשוב.<br><br>' +
+      '<strong>שאלו אותי על קורסים ו/או מידע על שנת שבתון!</strong><br>' +
+      '<span style="color:#888;font-size:12px">למשל: "קורס הדרכת הורים בצפון" או "איך מחשבים את גובה המענק?"</span>' +
+      '</p></div>';
+  }
+
+  // הצג הודעת פתיחה
+  messages.innerHTML = getWelcome();
+
+  clearButton.addEventListener('click', clearHistory);
+  chatSend.addEventListener('click', sendMessage);
+  chatInput.addEventListener('keypress', function(e){
+    if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }
+  });
+  chatInput.addEventListener('input', function(){
+    chatSend.disabled = !chatInput.value.trim();
+  });
+
+})();
+</script>
