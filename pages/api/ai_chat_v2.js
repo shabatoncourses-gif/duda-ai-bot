@@ -327,9 +327,9 @@ async function buildContext(message) {
   }
 
   const courses = searchCourses(message, region);
+  const fieldKeywords = getFieldKeywords(message); // לfallback scan
 
-
-  // אם תוצאות מועטות — סרוק דפי מוסדות בזמן אמת לפי תחום
+  // סרוק דפי מוסדות בזמן אמת לפי תחום
   if (fieldKeywords && fieldKeywords.length > 0) {
     const institutionPages = getInstitutionPagesForField(message);
     if (institutionPages.length > 0) {
