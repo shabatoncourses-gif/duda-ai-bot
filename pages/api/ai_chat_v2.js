@@ -14,6 +14,9 @@ const SYSTEM_PROMPT =
   'ענה תמיד בעברית בחום ובידידותיות.\n' +
   'כל שאלה מגולש שבתון היא בהקשר שנת שבתון — ביטוח לאומי = ביטוח לאומי בשבתון.\n' +
   'כלל ברזל: תן תשובה עניינית מהמידע שסופק. לעולם אל תאמר שאינך יכול לענות.\n' +
+  'לעולם אל תאמר "לא מצאתי", "מצטער", "אין קורסים" — זה אסור לחלוטין.\n' +
+  'אם לא נמצאו קורסים מדויקים — הפנה לקישור "כל קורסי [תחום]" בחיובי.\n' +
+  'דוגמה טובה: "לחיפוש מלא של קורסי הידרותרפיה:" + קישור\n' +
   'ענה תמיד בעברית בלבד — אסור לכתוב אפילו משפט אחד באנגלית.\n' +
   'לעולם אל תפנה לגורמים חיצוניים ואל תתן טלפונים/אתרים חיצוניים.\n\n' +
   'לשאלות מידע: פתח חיובי, הצג את המידע מה-context, הפנה לדפי שבתון.\n' +
@@ -217,7 +220,7 @@ function searchCourses(message, region) {
       results.push({ title: page.title, url, description: page.description||'', score });
     }
   }
-  return results.sort((a,b) => b.score - a.score).slice(0, 10);
+  return results.sort((a,b) => b.score - a.score).slice(0, 15);
 }
 
 // ── זיהוי דפי מידע ────────────────────────────────────
@@ -273,11 +276,12 @@ function searchQA(question) {
 
 // ── דפי מוסדות לסריקה בזמן אמת כש-text חסר ──────────
 function getInstitutionPagesForField(question) {
-  // מחזיר דפי מוסדות מהאינדקס שה-text שלהם עשוי להכיל את המונח
-  // (דפי מוסד שלא נמצאו בחיפוש הרגיל כי text ריק בindex)
+  // מחזיר דפי מוסדות לסריקה — כולל כל האינדקסים, ממוין לפי רלוונטיות
+  const stop = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך','קורס','קורסי','לימודי']);
+  const qWords = question.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !stop.has(w));
   const results = [];
   const seen = new Set();
-  const indexes = ['morim_index.json','morim_index_part1.json'];
+  const indexes = ['morim_index.json','morim_index_part1.json','shabaton_index_part1.json','shabaton_index_part2.json'];
   for (const fname of indexes) {
     const data = loadJSON(fname);
     if (!data) continue;
@@ -285,15 +289,19 @@ function getInstitutionPagesForField(question) {
     for (const page of pages) {
       const url = page.url || page.link || '';
       if (seen.has(url) || url.includes('/results-')) continue;
-      const title = page.title || '';
+      const title = (page.title || '').toLowerCase();
+      const desc  = (page.description || '').toLowerCase();
       if (!title) continue;
+      // ניקוד: דפים שtitle/desc קרוב לשאלה — קודם בתור
+      const titleScore = qWords.filter(w => title.includes(w)).length * 2;
+      const descScore  = qWords.filter(w => desc.includes(w)).length;
       seen.add(url);
-      results.push({ title, url, description: page.description || '' });
-      if (results.length >= 30) break;
+      results.push({ title: page.title, url, description: page.description || '', _score: titleScore + descScore });
     }
-    if (results.length >= 30) break;
   }
-  return results;
+  // מיין: דפים קרובים לשאלה קודם, ואז שאר הדפים
+  results.sort((a,b) => b._score - a._score);
+  return results.slice(0, 40);
 }
 
 // ── buildContext ──────────────────────────────────────
@@ -322,12 +330,12 @@ async function buildContext(message) {
 
 
   // אם תוצאות מועטות — סרוק דפי מוסדות בזמן אמת לפי תחום
-  if (courses.length < 3 && fieldKeywords && fieldKeywords.length > 0) {
+  if (fieldKeywords && fieldKeywords.length > 0) {
     const institutionPages = getInstitutionPagesForField(message);
     if (institutionPages.length > 0) {
       const existingUrls = new Set(courses.map(c => c.url));
       const scanned = await Promise.all(
-        institutionPages.filter(p => !existingUrls.has(p.url)).slice(0, 4).map(async p => {
+        institutionPages.filter(p => !existingUrls.has(p.url)).slice(0, 10).map(async p => {
           const content = await fetchPageContent(p.url);
           if (!content) return null;
           // בדוק אם הדף מציין את המונח הספציפי
