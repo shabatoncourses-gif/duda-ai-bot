@@ -144,8 +144,16 @@ function searchCourses(message, region) {
     for (const page of pages) {
       const url = page.url || page.link || '';
       if (seen.has(url)) continue;
-      // סנן דפי קטגוריה (/results-) וחודשים שעברו
+      // סנן דפי קטגוריה, תאריכים, ועמודי מערכת
       if (url.includes('/results-')) continue;
+      // סנן דפי חודש (ינואר, פברואר וכו')
+      const monthPaths = ['/january','/february','/march','/april','/may','/june',
+        '/july','/august','/september','/october','/november','/december',
+        '/jan-','/feb-','/mar-','/apr-','/may-','/jun-','/jul-','/aug-','/sep-','/oct-','/nov-','/dec-'];
+      if (monthPaths.some(m => url.toLowerCase().includes(m))) continue;
+      // סנן דפי קטגוריה כלליים (title = "קורסי X" ללא שם מוסד)
+      const titleLower = (page.title || '').toLowerCase();
+      if (/^קורסי |^קורסים ל|^שבתון - קורסים/.test(titleLower)) continue;
       const pastMonths = ['/jan-','/feb-','/mar-','/apr-','/may-','/jun-'];
       if (pastMonths.some(m => url.toLowerCase().includes(m))) continue;
 
@@ -277,8 +285,8 @@ function searchQA(question) {
 // ── דפי מוסדות לסריקה בזמן אמת כש-text חסר ──────────
 function getInstitutionPagesForField(question) {
   // מחזיר דפי מוסדות לסריקה — כולל כל האינדקסים, ממוין לפי רלוונטיות
-  const stop = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך','קורס','קורסי','לימודי']);
-  const qWords = question.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !stop.has(w));
+  const stopInst = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך','קורס','קורסי','לימודי','למורים','לגננות','בשבתון']);
+  const qWords = question.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !stopInst.has(w));
   const results = [];
   const seen = new Set();
   const indexes = ['morim_index.json','morim_index_part1.json','shabaton_index_part1.json','shabaton_index_part2.json'];
@@ -296,11 +304,16 @@ function getInstitutionPagesForField(question) {
       const titleScore = qWords.filter(w => title.includes(w)).length * 2;
       const descScore  = qWords.filter(w => desc.includes(w)).length;
       seen.add(url);
-      results.push({ title: page.title, url, description: page.description || '', _score: titleScore + descScore });
+      results.push({ title: page.title, url, description: page.description || '', _score: titleScore + descScore, _text: (page.text||'').toLowerCase().substring(0,500) });
     }
   }
-  // מיין: דפים קרובים לשאלה קודם, ואז שאר הדפים
-  results.sort((a,b) => b._score - a._score);
+  // מיין: קדם דפים שה-text שלהם כבר מכיל מונחים ספציפיים
+  results.sort((a, b) => {
+    // העדף דפים עם text match
+    const aTextMatch = qWords.some(w => (a._text||'').includes(w)) ? 10 : 0;
+    const bTextMatch = qWords.some(w => (b._text||'').includes(w)) ? 10 : 0;
+    return (b._score + bTextMatch) - (a._score + aTextMatch);
+  });
   return results.slice(0, 40);
 }
 
@@ -339,8 +352,10 @@ async function buildContext(message) {
         institutionPages.filter(p => !existingUrls.has(p.url)).slice(0, 10).map(async p => {
           const content = await fetchPageContent(p.url);
           if (!content) return null;
-          const qWords = message.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-          const relevant = qWords.some(w => content.toLowerCase().includes(w));
+          // רק מילים ספציפיות (לא "קורסי", "קורס", "למורים")
+          const genericScan = new Set(['קורס','קורסי','למורים','לגננות','בשבתון','מורים','גננות','שבתון']);
+          const qSpecific = message.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !genericScan.has(w));
+          const relevant = qSpecific.length > 0 && qSpecific.some(w => content.toLowerCase().includes(w));
           console.log(`scan ${p.url.split('/').pop()}: relevant=${relevant}`);
           if (!relevant) return null;
           return { title: p.title, url: p.url, description: p.description, score: 2 };
