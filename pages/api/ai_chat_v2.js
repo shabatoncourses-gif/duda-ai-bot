@@ -34,7 +34,12 @@ const SYSTEM_PROMPT =
   '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
   '"מידע וטיפים חשובים" — תמיד אחרון ברשימת מידע\n' +
-  'שאלה בסוף: ידידותית וחמה, ללא כוכביות.';
+  'כללי ניסוח חשובים לכל תשובה:\n' +
+  '• עברית תקינה ורהוטה בכל המשפטים\n' +
+  '• אל תשתמש בניסוחים אישיים כמו "אני כאן בשבילך", "אני רגשית", "תרגיש חופשי"\n' +
+  '• שאלה סיום: קצרה וענינית, למשל: "יש שאלות נוספות?" או "האם חיפשת אזור ספציפי?"\n' +
+  '• אל תשתמש בביטויים כמו "בהחלט", "בוודאי", "כמובן" בתחילת משפט\n' +
+  '• ללא כוכביות בשאלת הסיום';
 
 // ── loadJSON ──────────────────────────────────────────
 function loadJSON(filename) {
@@ -264,6 +269,32 @@ function searchQA(question) {
   return allQ.find(q => (q.keywords || []).some(k => qL.includes(k.toLowerCase()))) || null;
 }
 
+
+// ── דפי מוסדות לסריקה בזמן אמת כש-text חסר ──────────
+function getInstitutionPagesForField(question) {
+  // מחזיר דפי מוסדות מהאינדקס שה-text שלהם עשוי להכיל את המונח
+  // (דפי מוסד שלא נמצאו בחיפוש הרגיל כי text ריק בindex)
+  const results = [];
+  const seen = new Set();
+  const indexes = ['morim_index.json','morim_index_part1.json'];
+  for (const fname of indexes) {
+    const data = loadJSON(fname);
+    if (!data) continue;
+    const pages = Array.isArray(data) ? data : (data.pages || []);
+    for (const page of pages) {
+      const url = page.url || page.link || '';
+      if (seen.has(url) || url.includes('/results-')) continue;
+      const title = page.title || '';
+      if (!title) continue;
+      seen.add(url);
+      results.push({ title, url, description: page.description || '' });
+      if (results.length >= 30) break;
+    }
+    if (results.length >= 30) break;
+  }
+  return results;
+}
+
 // ── buildContext ──────────────────────────────────────
 async function buildContext(message) {
   const region = detectRegion(message);
@@ -288,6 +319,31 @@ async function buildContext(message) {
 
   const courses = searchCourses(message, region);
 
+
+  // אם תוצאות מועטות — סרוק דפי מוסדות בזמן אמת לפי תחום
+  if (courses.length < 3 && fieldKeywords && fieldKeywords.length > 0) {
+    const institutionPages = getInstitutionPagesForField(message);
+    if (institutionPages.length > 0) {
+      const existingUrls = new Set(courses.map(c => c.url));
+      const scanned = await Promise.all(
+        institutionPages.filter(p => !existingUrls.has(p.url)).slice(0, 4).map(async p => {
+          const content = await fetchPageContent(p.url);
+          if (!content) return null;
+          // בדוק אם הדף מציין את המונח הספציפי
+          const qWords = message.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+          const relevant = qWords.some(w => content.toLowerCase().includes(w));
+          if (!relevant) return null;
+          return { title: p.title, url: p.url, description: p.description, score: 2 };
+        })
+      );
+      scanned.filter(Boolean).forEach(p => {
+        if (!existingUrls.has(p.url)) {
+          courses.push(p);
+          existingUrls.add(p.url);
+        }
+      });
+    }
+  }
 
   if (courses.length > 0) {
     parts.push('\n=== קורסים שנמצאו ===');
