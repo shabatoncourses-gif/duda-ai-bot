@@ -220,7 +220,7 @@ function searchCourses(message, region) {
       results.push({ title: page.title, url, description: page.description||'', score });
     }
   }
-  return results.sort((a,b) => b.score - a.score).slice(0, 15);
+  return results.sort((a,b) => b.score - a.score).slice(0, 20);
 }
 
 // ── זיהוי דפי מידע ────────────────────────────────────
@@ -374,7 +374,7 @@ async function buildContext(message) {
     parts.push(`\nתחום: ${fieldInfo.name}\nקישור לכל קורסי התחום: https://www.shabaton.online/results-all/${fieldInfo.slug}`);
   }
 
-  return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0 };
+  return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0, courseCount: courses.length };
 }
 
 // ── בחירת מודל ────────────────────────────────────────
@@ -407,7 +407,8 @@ export default async function handler(req, res) {
 
     console.log(`POST [${site}]: ${message.substring(0,60)}`);
 
-    const { context, isInfo } = await buildContext(message);
+    const { context, isInfo, courseCount } = await buildContext(message);
+    console.log(`buildContext: isInfo=${isInfo} courseCount=${courseCount} contextLen=${context.length}`);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
     const model = chooseModel(message);
