@@ -146,8 +146,10 @@ function searchCourses(message, region) {
     for (const page of pages) {
       const url = page.url || page.link || '';
       if (seen.has(url)) continue;
-      // סנן דפי קטגוריה, תאריכים, ועמודי מערכת
+      // סנן דפי קטגוריה: results ודפי type שאינם course-detail
       if (url.includes('/results-')) continue;
+      const pageType = page.type || '';
+      if (pageType && pageType !== 'course-detail') continue;
       // סנן דפי חודש שעברו (ינואר 2026, מרץ 2026 וכו')
       const titleLower = (page.title || '').toLowerCase();
       {
@@ -327,6 +329,8 @@ function getInstitutionPagesForField(question) {
       // ניקוד: דפים שtitle/desc קרוב לשאלה — קודם בתור
       const titleScore = qWords.filter(w => title.includes(w)).length * 2;
       const descScore  = qWords.filter(w => desc.includes(w)).length;
+      // רק דפי מוסד (course-detail) - לא דפי קטגוריה
+      if ((page.type || '') && page.type !== 'course-detail') continue;
       seen.add(url);
       results.push({ title: page.title, url, description: page.description || '', _score: titleScore + descScore, _text: (page.text||'').toLowerCase().substring(0,500) });
     }
@@ -374,7 +378,9 @@ async function buildContext(message) {
   if (qSpecificFilter.length > 0) {
     const before = courses.length;
     courses.splice(0, courses.length, ...courses.filter(c => {
-      const cd = (c.title + ' ' + c.description).toLowerCase();
+
+      // דרוש מילה ספציפית ב-title או description
+      const cd = (t + ' ' + c.description).toLowerCase();
       return qSpecificFilter.some(w => cd.includes(w));
     }));
     if (courses.length < before) console.log('Filtered to specific:', courses.length, 'from', before);
