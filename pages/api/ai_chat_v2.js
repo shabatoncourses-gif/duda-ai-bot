@@ -23,7 +23,7 @@ const SYSTEM_PROMPT =
   'לשאלות קורסים: הצג את המוסדות שנמצאו (עד 8), בסדר אקראי שונה בכל פעם, עם תיאור לכל אחד. אל תמציא מוסדות אם אין מספיק.\n' +
   'אם מוסד מציע למידה מרחוק/זום ולא באזור שנשאל — ציין זאת מפורשות בתיאור.\n' +
   'אל תציג לימודי תואר שני אלא אם הגולש ביקש תואר שני במפורש.\n' +
-  'כל מוסד ברשימה נמצא מהאינדקס בגלל שהוא מלמד את הנושא המבוקש — הצג אותו.\n' +
+  'הצג רק מוסדות שהתיאור שלהם מזכיר את הנושא המבוקש. אם תיאור לא מזכיר את הנושא — דלג עליו.\n' +
   'אם בתיאור יש ציטוט מתוך רשימת הקורסים — השתמש בו להסביר מה המוסד מציע.\n' +
   'אסור להציג מוסד שלא ברשימה. אסור שאלות אישיות. אסור -- או ---.\n\n' +
   'פורמט קורסים:\n' +
@@ -237,15 +237,15 @@ function searchCourses(message, region) {
         }
       }
       seen.add(url);
-      // אם נמצא ב-text — שמור snippet רלוונטי
+      // חלץ snippet רלוונטי מה-text אם המונח נמצא בו
       let snippet = page.description || '';
-      if (score <= 2 && text) {
-        // מצא את המיקום הרלוונטי ב-text
+      if (text) {
         const qLower = message.toLowerCase().split(/\s+/).filter(w => w.length > 3);
         for (const qw of qLower) {
           const tidx = text.indexOf(qw);
           if (tidx >= 0) {
-            snippet = text.substring(Math.max(0, tidx - 30), tidx + 100).trim();
+            snippet = text.substring(Math.max(0, tidx - 30), tidx + 120).trim();
+            score = Math.max(score, 2); // וודא שלא נסוּנן
             break;
           }
         }
@@ -373,19 +373,7 @@ async function buildContext(message) {
 
   const courses = searchCourses(message, region);
   const fieldKeywords = getFieldKeywords(message);
-  // סנן: רק דפים שמילה ספציפית מהשאלה נמצאת בתוכן שלהם
-  const genericFilter = new Set(['קורס','קורסי','למורים','לגננות','בשבתון','מורים','גננות']);
-  const qSpecificFilter = message.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !genericFilter.has(w));
-  if (qSpecificFilter.length > 0) {
-    const before = courses.length;
-    courses.splice(0, courses.length, ...courses.filter(c => {
-      // בדוק title + description + _text (רשימת קורסים)
-      const cd = ((c.title || '') + ' ' + (c.description || '') + ' ' + (c._text || '')).toLowerCase();
-      return qSpecificFilter.some(w => cd.includes(w));
-    }));
-    console.log('After filter:', courses.length, 'from', before);
-    courses.slice(0,5).forEach(c => console.log(' -> ', c.title?.substring(0,40), '| hasText:', (c._text||'').length > 0));
-  } // לfallback scan
+    console.log('courses from index:', courses.length, courses.slice(0,3).map(c=>c.title?.substring(0,25)).join(' | '));
 
   // סרוק דפי מוסדות בזמן אמת לפי תחום
   if (fieldKeywords && fieldKeywords.length > 0) {
