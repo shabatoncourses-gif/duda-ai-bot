@@ -373,6 +373,8 @@ async function buildContext(message) {
 
   const courses = searchCourses(message, region);
   const fieldKeywords = getFieldKeywords(message);
+  const genericWords2 = new Set(['קורס','קורסי','קורסים','למורים','לגננות','בשבתון','מורים','גננות','שבתון','לימוד','לימודים']);
+  const qLower2 = message.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !genericWords2.has(w));
     console.log('courses from index:', courses.length, courses.slice(0,3).map(c=>c.title?.substring(0,25)).join(' | '));
 
   // סרוק דפי מוסדות בזמן אמת לפי תחום
@@ -383,8 +385,7 @@ async function buildContext(message) {
     console.log('instWithText:', instWithText.length, instWithText.map(p => p.url.split('/').pop()).join(' | '));
     if (institutionPages.length > 0) {
       const existingUrls = new Set(courses.map(c => c.url));
-      const genericScan2 = new Set(['קורס','קורסי','למורים','לגננות','בשבתון','מורים','גננות','שבתון']);
-      const qSpecific2 = message.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !genericScan2.has(w));
+      const qSpecific2 = qLower2; // כבר מוגדר ממעלה
 
       // שלב א: דפים שה-text באינדקס כבר מכיל התאמה — הוסף ישירות בלי fetchPageContent
       institutionPages.filter(p => !existingUrls.has(p.url) && qSpecific2.some(w => (p._text||'').includes(w))).forEach(p => {
@@ -421,9 +422,7 @@ async function buildContext(message) {
 
   if (courses.length > 0) {
     parts.push('\n=== קורסים שנמצאו ===');
-    const genericWords2 = new Set(['קורס','קורסי','קורסים','למורים','לגננות','בשבתון','מורים','גננות','שבתון','לימוד','לימודים']);
-  const qLower2 = message.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !genericWords2.has(w));
-  const coursesForClaude = [];
+    const coursesForClaude = [];
   courses.forEach(c => {
     let desc = c.description ? c.description.substring(0, 200) : '';
     // אם התיאור לא מכיל את מילות השאלה — חפש ב-_text והוסף
