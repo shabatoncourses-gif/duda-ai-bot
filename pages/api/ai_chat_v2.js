@@ -149,7 +149,11 @@ function searchCourses(message, region) {
       // סנן דפי קטגוריה: results ודפי type שאינם course-detail
       if (url.includes('/results-')) continue;
       const pageType = page.type || '';
-      if (pageType && pageType !== 'course-detail') continue;
+      if (pageType && pageType !== 'course-detail') {
+        continue;
+      }
+      // URL עם עברית מקודדת (%D7) = דף קטגוריה (לגימלאים, ספורט וכו')
+      if (/%[Dd][0-9A-Fa-f]/.test(url)) continue;
       // סנן דפי חודש שעברו (ינואר 2026, מרץ 2026 וכו')
       const titleLower = (page.title || '').toLowerCase();
       {
@@ -254,7 +258,9 @@ function searchCourses(message, region) {
       results.push({ title: page.title, url, description: snippet, score });
     }
   }
-  return results.sort((a,b) => b.score - a.score).slice(0, 20);
+  const sorted = results.sort((a,b) => b.score - a.score).slice(0, 20);
+  console.log('searchCourses results:', sorted.length, sorted.slice(0,5).map(c => c.title.substring(0,25)).join(' | '));
+  return sorted;
 }
 
 // ── זיהוי דפי מידע ────────────────────────────────────
@@ -331,6 +337,9 @@ function getInstitutionPagesForField(question) {
       const descScore  = qWords.filter(w => desc.includes(w)).length;
       // רק דפי מוסד (course-detail) - לא דפי קטגוריה
       if ((page.type || '') && page.type !== 'course-detail') continue;
+      if (/%[Dd][0-9A-Fa-f]/.test(url)) continue; // URL עם עברית = קטגוריה
+      // URL עם עברית מקודדת = דף קטגוריה
+      if (url.includes('%D7') || url.includes('%d7')) continue;
       seen.add(url);
       results.push({ title: page.title, url, description: page.description || '', _score: titleScore + descScore, _text: (page.text||'').toLowerCase().substring(0,500) });
     }
@@ -380,7 +389,7 @@ async function buildContext(message) {
     courses.splice(0, courses.length, ...courses.filter(c => {
 
       // דרוש מילה ספציפית ב-title או description
-      const cd = (t + ' ' + c.description).toLowerCase();
+      const cd = ((c.title || '') + ' ' + (c.description || '')).toLowerCase();
       return qSpecificFilter.some(w => cd.includes(w));
     }));
     if (courses.length < before) console.log('Filtered to specific:', courses.length, 'from', before);
