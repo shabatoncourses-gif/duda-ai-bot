@@ -255,7 +255,7 @@ function searchCourses(message, region) {
           }
         }
       }
-      results.push({ title: page.title, url, description: snippet, score });
+      results.push({ title: page.title, url, description: snippet, score, _text: text.substring(0,2000) });
     }
   }
   const sorted = results.sort((a,b) => b.score - a.score).slice(0, 20);
@@ -341,7 +341,7 @@ function getInstitutionPagesForField(question) {
       // URL עם עברית מקודדת = דף קטגוריה
       if (url.includes('%D7') || url.includes('%d7')) continue;
       seen.add(url);
-      results.push({ title: page.title, url, description: page.description || '', _score: titleScore + descScore, _text: (page.text||'').toLowerCase().substring(0,500) });
+      results.push({ title: page.title, url, description: page.description || '', _score: titleScore + descScore, _text: (page.text||'').toLowerCase().substring(0,2000) });
     }
   }
   // מיין: קדם דפים שה-text שלהם כבר מכיל מונחים ספציפיים
@@ -387,9 +387,8 @@ async function buildContext(message) {
   if (qSpecificFilter.length > 0) {
     const before = courses.length;
     courses.splice(0, courses.length, ...courses.filter(c => {
-
-      // דרוש מילה ספציפית ב-title או description
-      const cd = ((c.title || '') + ' ' + (c.description || '')).toLowerCase();
+      // בדוק title + description + _text (רשימת קורסים)
+      const cd = ((c.title || '') + ' ' + (c.description || '') + ' ' + (c._text || '')).toLowerCase();
       return qSpecificFilter.some(w => cd.includes(w));
     }));
     if (courses.length < before) console.log('Filtered to specific:', courses.length, 'from', before);
