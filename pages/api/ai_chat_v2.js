@@ -146,14 +146,9 @@ function searchCourses(message, region) {
     for (const page of pages) {
       const url = page.url || page.link || '';
       if (seen.has(url)) continue;
-      // סנן דפי קטגוריה: results ודפי type שאינם course-detail
       if (url.includes('/results-')) continue;
-      const pageType = page.type || '';
-      if (pageType && pageType !== 'course-detail') {
-        continue;
-      }
-      // URL עם עברית מקודדת (%D7) = דף קטגוריה (לגימלאים, ספורט וכו')
-      if (/%[Dd][0-9A-Fa-f]/.test(url) || /[\u0590-\u05FF]/.test(url)) continue; // עברית ב-URL = קטגוריה
+      // עברית ב-URL = דף קטגוריה (לגימלאים, ספורט וכו')
+      if (/%[Dd][0-9A-Fa-f]/.test(url) || /[\u0590-\u05FF]/.test(url)) continue;
       // סנן דפי חודש שעברו (ינואר 2026, מרץ 2026 וכו')
       const titleLower = (page.title || '').toLowerCase();
       {
@@ -335,11 +330,8 @@ function getInstitutionPagesForField(question) {
       // ניקוד: דפים שtitle/desc קרוב לשאלה — קודם בתור
       const titleScore = qWords.filter(w => title.includes(w)).length * 2;
       const descScore  = qWords.filter(w => desc.includes(w)).length;
-      // רק דפי מוסד (course-detail) - לא דפי קטגוריה
-      if ((page.type || '') && page.type !== 'course-detail') continue;
-      if (/%[Dd][0-9A-Fa-f]/.test(url) || /[\u0590-\u05FF]/.test(url)) continue; // עברית ב-URL = קטגוריה
-      // URL עם עברית מקודדת = דף קטגוריה
-      if (url.includes('%D7') || url.includes('%d7')) continue;
+      // עברית ב-URL = דף קטגוריה
+      if (/%[Dd][0-9A-Fa-f]/.test(url) || /[\u0590-\u05FF]/.test(url)) continue;
       seen.add(url);
       results.push({ title: page.title, url, description: page.description || '', _score: titleScore + descScore, _text: (page.text||'').toLowerCase() });
     }
@@ -391,7 +383,8 @@ async function buildContext(message) {
       const cd = ((c.title || '') + ' ' + (c.description || '') + ' ' + (c._text || '')).toLowerCase();
       return qSpecificFilter.some(w => cd.includes(w));
     }));
-    console.log('After filter:', courses.length, 'from', before, courses.slice(0,3).map(c=>c.title?.substring(0,25)).join(' | '));
+    console.log('After filter:', courses.length, 'from', before);
+    courses.slice(0,5).forEach(c => console.log(' -> ', c.title?.substring(0,40), '| hasText:', (c._text||'').length > 0));
   } // לfallback scan
 
   // סרוק דפי מוסדות בזמן אמת לפי תחום
