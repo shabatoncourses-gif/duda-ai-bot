@@ -379,6 +379,8 @@ async function buildContext(message) {
   if (fieldKeywords && fieldKeywords.length > 0) {
     const institutionPages = getInstitutionPagesForField(message);
     console.log(`institutionPages: ${institutionPages.length}, courses so far: ${courses.length}`);
+    const instWithText = institutionPages.filter(p => qLower2.length > 0 && qLower2.some(w => (p._text||'').includes(w)));
+    console.log('instWithText:', instWithText.length, instWithText.map(p => p.url.split('/').pop()).join(' | '));
     if (institutionPages.length > 0) {
       const existingUrls = new Set(courses.map(c => c.url));
       const genericScan2 = new Set(['קורס','קורסי','למורים','לגננות','בשבתון','מורים','גננות','שבתון']);
@@ -419,7 +421,8 @@ async function buildContext(message) {
 
   if (courses.length > 0) {
     parts.push('\n=== קורסים שנמצאו ===');
-    const qLower2 = message.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    const genericWords2 = new Set(['קורס','קורסי','קורסים','למורים','לגננות','בשבתון','מורים','גננות','שבתון','לימוד','לימודים']);
+  const qLower2 = message.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !genericWords2.has(w));
   const coursesForClaude = [];
   courses.forEach(c => {
     let desc = c.description ? c.description.substring(0, 200) : '';
