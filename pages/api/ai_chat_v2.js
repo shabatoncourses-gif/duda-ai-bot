@@ -146,14 +146,23 @@ function searchCourses(message, region) {
       if (seen.has(url)) continue;
       // סנן דפי קטגוריה, תאריכים, ועמודי מערכת
       if (url.includes('/results-')) continue;
-      // סנן דפי חודש (ינואר, פברואר וכו')
-      const monthPaths = ['/january','/february','/march','/april','/may','/june',
-        '/july','/august','/september','/october','/november','/december',
-        '/jan-','/feb-','/mar-','/apr-','/may-','/jun-','/jul-','/aug-','/sep-','/oct-','/nov-','/dec-'];
-      if (monthPaths.some(m => url.toLowerCase().includes(m))) continue;
-      // סנן דפי קטגוריה כלליים (title = "קורסי X" ללא שם מוסד)
+      // סנן דפי חודש שעברו (ינואר 2026, מרץ 2026 וכו')
       const titleLower = (page.title || '').toLowerCase();
-      if (/^קורסי |^קורסים ל|^שבתון - קורסים/.test(titleLower)) continue;
+      {
+        const now = new Date();
+        const heMonths = {'ינואר':1,'פברואר':2,'מרץ':3,'אפריל':4,'מאי':5,'יוני':6,'יולי':7,'אוגוסט':8,'ספטמבר':9,'אוקטובר':10,'נובמבר':11,'דצמבר':12};
+        const mMatch = titleLower.match(/^(ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)\s+(20\d\d)/);
+        if (mMatch) {
+          const pageMonth = heMonths[mMatch[1]], pageYear = parseInt(mMatch[2]);
+          const curMonth = now.getMonth() + 1, curYear = now.getFullYear();
+          // סנן אם החודש כבר עבר
+          if (pageYear < curYear || (pageYear === curYear && pageMonth < curMonth)) continue;
+        }
+      }
+      // סנן דפי קטגוריה כלליים
+      if (/^קורסי |^קורסים ל|^שבתון - קורסים|^לימודי |^ספורט,|^בריאות ו|^גיל רך|^חינוך גופני/.test(titleLower)) continue;
+      // סנן דפי URL עם חודשים
+      if (/\/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[-_]/.test(url.toLowerCase())) continue;
       const pastMonths = ['/jan-','/feb-','/mar-','/apr-','/may-','/jun-'];
       if (pastMonths.some(m => url.toLowerCase().includes(m))) continue;
 
@@ -308,13 +317,16 @@ function getInstitutionPagesForField(question) {
     }
   }
   // מיין: קדם דפים שה-text שלהם כבר מכיל מונחים ספציפיים
+  // מיין: דפים שה-text שלהם מכיל את המונח הספציפי → ראשונים (כנראה מוסדות רלוונטיים)
   results.sort((a, b) => {
-    // העדף דפים עם text match
-    const aTextMatch = qWords.some(w => (a._text||'').includes(w)) ? 10 : 0;
-    const bTextMatch = qWords.some(w => (b._text||'').includes(w)) ? 10 : 0;
-    return (b._score + bTextMatch) - (a._score + aTextMatch);
+    const aText = qWords.some(w => (a._text||'').includes(w)) ? 20 : 0;
+    const bText = qWords.some(w => (b._text||'').includes(w)) ? 20 : 0;
+    return (b._score + bText) - (a._score + aText);
   });
-  return results.slice(0, 40);
+  // החזר רק דפים שיש להם text match ראשונים, עד 20
+  const withTextMatch = results.filter(r => qWords.some(w => (r._text||'').includes(w)));
+  const withoutText   = results.filter(r => !qWords.some(w => (r._text||'').includes(w)));
+  return [...withTextMatch, ...withoutText].slice(0, 20);
 }
 
 // ── buildContext ──────────────────────────────────────
@@ -348,25 +360,30 @@ async function buildContext(message) {
     console.log(`institutionPages: ${institutionPages.length}, courses so far: ${courses.length}`);
     if (institutionPages.length > 0) {
       const existingUrls = new Set(courses.map(c => c.url));
+      const genericScan2 = new Set(['קורס','קורסי','למורים','לגננות','בשבתון','מורים','גננות','שבתון']);
+      const qSpecific2 = message.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !genericScan2.has(w));
+
+      // שלב א: דפים שה-text באינדקס כבר מכיל התאמה — הוסף ישירות בלי fetchPageContent
+      institutionPages.filter(p => !existingUrls.has(p.url) && qSpecific2.some(w => (p._text||'').includes(w))).forEach(p => {
+        courses.push({ title: p.title, url: p.url, description: p.description, score: 3 });
+        existingUrls.add(p.url);
+        console.log('textIndex:', p.url.split('/').pop());
+      });
+
+      // שלב ב: סרוק עד 5 דפים נוספים ללא text match
+      const toScan5 = institutionPages.filter(p => !existingUrls.has(p.url)).slice(0, 5);
       const scanned = await Promise.all(
-        institutionPages.filter(p => !existingUrls.has(p.url)).slice(0, 10).map(async p => {
+        toScan5.map(async p => {
           const content = await fetchPageContent(p.url);
           if (!content) return null;
           // רק מילים ספציפיות (לא "קורסי", "קורס", "למורים")
-          const genericScan = new Set(['קורס','קורסי','למורים','לגננות','בשבתון','מורים','גננות','שבתון']);
-          const qSpecific = message.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !genericScan.has(w));
-          const relevant = qSpecific.length > 0 && qSpecific.some(w => content.toLowerCase().includes(w));
+          const relevant = qSpecific2.length > 0 && qSpecific2.some(w => content.toLowerCase().includes(w));
           console.log(`scan ${p.url.split('/').pop()}: relevant=${relevant}`);
           if (!relevant) return null;
           return { title: p.title, url: p.url, description: p.description, score: 2 };
         })
       );
-      scanned.filter(Boolean).forEach(p => {
-        if (!existingUrls.has(p.url)) {
-          courses.push(p);
-          existingUrls.add(p.url);
-        }
-      });
+      scanned.filter(Boolean).forEach(p => { courses.push(p); existingUrls.add(p.url); });
     }
   }
 
