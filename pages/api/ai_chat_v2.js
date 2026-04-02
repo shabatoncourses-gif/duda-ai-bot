@@ -153,7 +153,7 @@ function searchCourses(message, region) {
         continue;
       }
       // URL עם עברית מקודדת (%D7) = דף קטגוריה (לגימלאים, ספורט וכו')
-      if (/%[Dd][0-9A-Fa-f]/.test(url)) continue;
+      if (/%[Dd][0-9A-Fa-f]/.test(url) || /[\u0590-\u05FF]/.test(url)) continue; // עברית ב-URL = קטגוריה
       // סנן דפי חודש שעברו (ינואר 2026, מרץ 2026 וכו')
       const titleLower = (page.title || '').toLowerCase();
       {
@@ -337,7 +337,7 @@ function getInstitutionPagesForField(question) {
       const descScore  = qWords.filter(w => desc.includes(w)).length;
       // רק דפי מוסד (course-detail) - לא דפי קטגוריה
       if ((page.type || '') && page.type !== 'course-detail') continue;
-      if (/%[Dd][0-9A-Fa-f]/.test(url)) continue; // URL עם עברית = קטגוריה
+      if (/%[Dd][0-9A-Fa-f]/.test(url) || /[\u0590-\u05FF]/.test(url)) continue; // עברית ב-URL = קטגוריה
       // URL עם עברית מקודדת = דף קטגוריה
       if (url.includes('%D7') || url.includes('%d7')) continue;
       seen.add(url);
