@@ -419,10 +419,11 @@ async function buildContext(message) {
 
   if (courses.length > 0) {
     parts.push('\n=== קורסים שנמצאו ===');
-    courses.forEach(c => {
+    const qLower2 = message.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  const coursesForClaude = [];
+  courses.forEach(c => {
     let desc = c.description ? c.description.substring(0, 200) : '';
     // אם התיאור לא מכיל את מילות השאלה — חפש ב-_text והוסף
-    const qLower2 = message.toLowerCase().split(/\s+/).filter(w => w.length > 3);
     const descHasQ = qLower2.some(w => desc.toLowerCase().includes(w));
     if (!descHasQ && c._text) {
       for (const qw of qLower2) {
@@ -434,8 +435,15 @@ async function buildContext(message) {
         }
       }
     }
-    parts.push(`שם: ${c.title}\nקישור: ${c.url}${desc ? '\nתיאור: '+desc : ''}`);
+    // שלח ל-Claude רק קורסים שהתיאור (אחרי העשרה) מכיל את המונח
+    const finalHasQ = qLower2.some(w => (desc + ' ' + c.title).toLowerCase().includes(w));
+    if (finalHasQ) {
+      coursesForClaude.push(`שם: ${c.title}\nקישור: ${c.url}${desc ? '\nתיאור: '+desc : ''}`);
+    }
   });
+  if (coursesForClaude.length > 0) {
+    parts.push(coursesForClaude.join('\n'));
+  }
   }
 
   const fieldInfo = getFieldSlug(message);
