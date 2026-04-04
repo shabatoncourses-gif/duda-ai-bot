@@ -16,12 +16,12 @@ const SYSTEM_PROMPT =
   'כלל ברזל: תן תשובה עניינית מהמידע שסופק. לעולם אל תאמר שאינך יכול לענות.\n' +
   'לעולם אל תאמר "לא מצאתי", "מצטער", "אין קורסים" — זה אסור לחלוטין.\n' +
   'אם לא נמצאו קורסים מדויקים — הפנה לקישור "כל קורסי [תחום]" בחיובי.\n' +
-  'דוגמה טובה: "לחיפוש מלא של קורסי הידרותרפיה:" + קישור\n' +
   'ענה תמיד בעברית בלבד — אסור לכתוב אפילו משפט אחד באנגלית.\n' +
   'לעולם אל תפנה לגורמים חיצוניים ואל תתן טלפונים/אתרים חיצוניים.\n\n' +
   'לשאלות מידע: פתח חיובי, הצג את המידע מה-context, הפנה לדפי שבתון.\n' +
   'לשאלות קורסים: הצג עד 8 מוסדות מהרשימה, בסדר אקראי, עם תיאור.\n' +
-  'כלל ברזל לתיאורים: השתמש אך ורק בטקסט שכתוב ב"תיאור" של כל מוסד בcontext. אל תוסיף מילה שלא כתובה שם. אל תנסח מחדש. אל תפרש.\n' +
+  'כלל ברזל מוחלט לתיאורים: העתק בדיוק את שדה "תיאור" מה-context. אסור לשנות מילה. אסור להוסיף מידע. אסור להסיק.\\n' +
+  'דוגמה: אם בcontext כתוב "קורסי פעילות גופנית במים ברחובות" — כתוב בדיוק "קורסי פעילות גופנית במים ברחובות". לא פחות, לא יותר.\\n' +
   'אם מוסד מציע למידה מרחוק/זום ולא באזור שנשאל — ציין זאת מפורשות בתיאור.\n' +
   'אל תציג לימודי תואר שני אלא אם הגולש ביקש תואר שני במפורש.\n' +
   'הצג רק מוסדות שהתיאור שלהם מזכיר את הנושא המבוקש. אם תיאור לא מזכיר את הנושא — דלג עליו.\n' +
@@ -252,7 +252,6 @@ function searchCourses(message, region) {
     }
   }
   const sorted = results.sort((a,b) => b.score - a.score).slice(0, 20);
-  console.log('searchCourses results:', sorted.length, sorted.slice(0,5).map(c => c.title.substring(0,25)).join(' | '));
   return sorted;
 }
 
@@ -308,7 +307,7 @@ function searchQA(question) {
 
 
 // ── דפי מוסדות לסריקה בזמן אמת כש-text חסר ──────────
-function getInstitutionPagesForField(question, priorityUrls) {
+function getInstitutionPagesForField(question) {
   // מחזיר דפי מוסדות לסריקה — כולל כל האינדקסים, ממוין לפי רלוונטיות
   const stopInst = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך','קורס','קורסי','לימודי','למורים','לגננות','בשבתון']);
   const qWords = question.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !stopInst.has(w));
@@ -336,17 +335,6 @@ function getInstitutionPagesForField(question, priorityUrls) {
   }
   // מיין: קדם דפים שה-text שלהם כבר מכיל מונחים ספציפיים
   // מיין: דפים שה-text שלהם מכיל את המונח הספציפי → ראשונים (כנראה מוסדות רלוונטיים)
-  // הוסף דפים בעדיפות (שלא עברו filter אבל כן נמצאו ב-searchCourses)
-  if (priorityUrls && priorityUrls.length > 0) {
-    for (const pu of priorityUrls) {
-      const existing = results.find(r => r.url === pu.url);
-      if (existing) {
-        existing._score += 100; // קדם אותם לראש
-      } else {
-        results.unshift({ title: pu.title, url: pu.url, description: pu.description, _score: 100, _text: pu._text || '' });
-      }
-    }
-  }
   results.sort((a, b) => {
     const aText = qWords.some(w => (a._text||'').includes(w)) ? 20 : 0;
     const bText = qWords.some(w => (b._text||'').includes(w)) ? 20 : 0;
@@ -384,25 +372,14 @@ async function buildContext(message) {
   const fieldKeywords = getFieldKeywords(message);
   const genericWords2 = new Set(['קורס','קורסי','קורסים','למורים','לגננות','בשבתון','מורים','גננות','שבתון','לימוד','לימודים']);
   const qLower2 = message.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !genericWords2.has(w));
-    console.log('courses from index:', courses.length, courses.slice(0,3).map(c=>c.title?.substring(0,25)).join(' | '));
 
   // סרוק דפי מוסדות בזמן אמת לפי תחום
   if (fieldKeywords && fieldKeywords.length > 0) {
-    // העבר דפים שנמצאו ב-searchCourses אבל לא עברו לclaude
-    const notInClaude = courses.filter(c => !coursesForClaude.some(l => l.includes(c.url)));
-    const institutionPages = getInstitutionPagesForField(message, notInClaude);
-    console.log(`institutionPages: ${institutionPages.length}, courses so far: ${courses.length}`);
+    const institutionPages = getInstitutionPagesForField(message);
     const instWithText = institutionPages.filter(p => qLower2.length > 0 && qLower2.some(w => (p._text||'').includes(w)));
-    console.log('instWithText:', instWithText.length, instWithText.map(p => p.url.split('/').pop()).join(' | '));
     const dyellIn = institutionPages.find(p => p.url.includes('dyellin'));
-    if (dyellIn) console.log('dyellin found in instPages, _text len:', (dyellIn._text||'').length, 'hasHydro:', (dyellIn._text||'').includes('הידרותרפיה'));
-    else console.log('dyellin NOT in institutionPages');
     if (institutionPages.length > 0) {
-      // רק דפים שכבר עברו לclaude — לא צריך לסרוק אותם שוב
-      const existingUrls = new Set(coursesForClaude.map(line => {
-        const m = line.match(/קישור: (https?:\/\/[^\n]+)/);
-        return m ? m[1] : '';
-      }).filter(Boolean));
+      const existingUrls = new Set();
       const qSpecific2 = qLower2; // כבר מוגדר ממעלה
 
       // שלב א: דפים שה-text באינדקס כבר מכיל התאמה — הוסף ישירות בלי fetchPageContent
@@ -418,7 +395,6 @@ async function buildContext(message) {
         }
         courses.push({ title: p.title, url: p.url, description: instSnippet, score: 3 });
         existingUrls.add(p.url);
-        console.log('textIndex:', p.url.split('/').pop(), '| _text len:', (p._text||'').length);
       });
 
       // שלב ב: סרוק עד 5 דפים נוספים ללא text match
@@ -429,7 +405,6 @@ async function buildContext(message) {
           if (!content) return null;
           // רק מילים ספציפיות (לא "קורסי", "קורס", "למורים")
           const relevant = qSpecific2.length > 0 && qSpecific2.some(w => content.toLowerCase().includes(w));
-          console.log(`scan ${p.url.split('/').pop()}: relevant=${relevant}`);
           if (!relevant) return null;
           return { title: p.title, url: p.url, description: p.description, score: 2 };
         })
@@ -515,10 +490,8 @@ export default async function handler(req, res) {
     console.log(`POST [${site}]: ${message.substring(0,60)}`);
 
     const { context, isInfo, courseCount } = await buildContext(message);
-    console.log(`buildContext: isInfo=${isInfo} courseCount=${courseCount} contextLen=${context.length}`);
     if (courseCount > 0) {
       const courseLines = context.split('\n').filter(l => l.startsWith('שם:'));
-      console.log(`courses found: ${courseLines.map(l => l.substring(0,40)).join(' | ')}`);
     }
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
