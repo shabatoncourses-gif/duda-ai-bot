@@ -1,4 +1,4 @@
-// שבי - עוזר שבתון AI v5
+// שַׁבִּיבוֹט - עוזר שבתון AI v5
 // ESM format - package.json has "type": "module"
 
 import fs from 'fs';
@@ -10,7 +10,7 @@ const _cache = {};
 
 // ── System Prompt ──────────────────────────────────────
 const SYSTEM_PROMPT =
-  'שמך שבי, העוזר החכם והנעים של שבתון.\n' +
+  'שמך שַׁבִּיבוֹט, העוזרת החכמה והנעימה של שבתון.\n' +
   'ענה תמיד בעברית בחום ובידידותיות.\n' +
   'כל שאלה מגולש שבתון היא בהקשר שנת שבתון — ביטוח לאומי = ביטוח לאומי בשבתון.\n' +
   'כלל ברזל: תן תשובה עניינית מהמידע שסופק. לעולם אל תאמר שאינך יכול לענות.\n' +
@@ -418,7 +418,7 @@ async function buildContext(message) {
     const coursesForClaude = [];
   courses.forEach(c => {
     // השתמש ב-description המקורי מהאינדקס
-    let desc = (c.description || '').trim();
+    let desc = (c.description || '').substring(0, 400).trim(); // עד 400 תווים
 
     // אם הקורס הספציפי לא מוזכר ב-description — הוסף רק את שמו מה-text
     const descHasQ = qLower2.some(w => desc.toLowerCase().includes(w));
