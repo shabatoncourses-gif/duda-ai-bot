@@ -147,8 +147,9 @@ function searchCourses(message, region) {
       if (url.includes('/results-')) continue;
       // עברית ב-URL = דף קטגוריה (לגימלאים, ספורט וכו')
       if (/%[Dd][0-9A-Fa-f]/.test(url) || /[\u0590-\u05FF]/.test(url)) continue;
-      // סנן דפי חודש שעברו (ינואר 2026, מרץ 2026 וכו')
+      // סנן סמינרים וטיולים - לא קורסים
       const titleLower = (page.title || '').toLowerCase();
+      if (/סמינר|טיול|סיור|אירוע/.test(titleLower)) continue;
       {
         const now = new Date();
         const heMonths = {'ינואר':1,'פברואר':2,'מרץ':3,'אפריל':4,'מאי':5,'יוני':6,'יולי':7,'אוגוסט':8,'ספטמבר':9,'אוקטובר':10,'נובמבר':11,'דצמבר':12};
