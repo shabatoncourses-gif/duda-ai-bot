@@ -150,6 +150,8 @@ function searchCourses(message, region) {
       // סנן סמינרים וטיולים - לא קורסים
       const titleLower = (page.title || '').toLowerCase();
       if (/סמינר|טיול|סיור|אירוע/.test(titleLower)) continue;
+      // סנן דפי קטגוריה כלליים (העשרה, פנאי, העצמה)
+      if (/קורסי העשרה|קורסי העצמה|קורסי פנאי/.test(titleLower)) continue;
       {
         const now = new Date();
         const heMonths = {'ינואר':1,'פברואר':2,'מרץ':3,'אפריל':4,'מאי':5,'יוני':6,'יולי':7,'אוגוסט':8,'ספטמבר':9,'אוקטובר':10,'נובמבר':11,'דצמבר':12};
@@ -399,7 +401,7 @@ async function buildContext(message) {
       });
 
       // שלב ב: סרוק עד 5 דפים נוספים ללא text match
-      const toScan5 = institutionPages.filter(p => !existingUrls.has(p.url)).slice(0, 8);
+      const toScan5 = institutionPages.filter(p => !existingUrls.has(p.url)).slice(0, 12);
       const scanned = await Promise.all(
         toScan5.map(async p => {
           const content = await fetchPageContent(p.url);
