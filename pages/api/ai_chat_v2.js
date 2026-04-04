@@ -20,8 +20,8 @@ const SYSTEM_PROMPT =
   'ענה תמיד בעברית בלבד — אסור לכתוב אפילו משפט אחד באנגלית.\n' +
   'לעולם אל תפנה לגורמים חיצוניים ואל תתן טלפונים/אתרים חיצוניים.\n\n' +
   'לשאלות מידע: פתח חיובי, הצג את המידע מה-context, הפנה לדפי שבתון.\n' +
-  'לשאלות קורסים: הצג את המוסדות שנמצאו (עד 8), בסדר אקראי שונה בכל פעם, עם תיאור לכל אחד. אל תמציא מוסדות.\n' +
-  'חשוב מאוד: העתק את התיאור מה-context בלבד! אסור להוסיף עובדות שלא כתובות שם.\n' +
+  'לשאלות קורסים: הצג עד 8 מוסדות מהרשימה, בסדר אקראי, עם תיאור.\n' +
+  'כלל ברזל לתיאורים: השתמש אך ורק בטקסט שכתוב ב"תיאור" של כל מוסד בcontext. אל תוסיף מילה שלא כתובה שם. אל תנסח מחדש. אל תפרש.\n' +
   'אם מוסד מציע למידה מרחוק/זום ולא באזור שנשאל — ציין זאת מפורשות בתיאור.\n' +
   'אל תציג לימודי תואר שני אלא אם הגולש ביקש תואר שני במפורש.\n' +
   'הצג רק מוסדות שהתיאור שלהם מזכיר את הנושא המבוקש. אם תיאור לא מזכיר את הנושא — דלג עליו.\n' +
@@ -308,7 +308,7 @@ function searchQA(question) {
 
 
 // ── דפי מוסדות לסריקה בזמן אמת כש-text חסר ──────────
-function getInstitutionPagesForField(question) {
+function getInstitutionPagesForField(question, priorityUrls) {
   // מחזיר דפי מוסדות לסריקה — כולל כל האינדקסים, ממוין לפי רלוונטיות
   const stopInst = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך','קורס','קורסי','לימודי','למורים','לגננות','בשבתון']);
   const qWords = question.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !stopInst.has(w));
@@ -336,6 +336,17 @@ function getInstitutionPagesForField(question) {
   }
   // מיין: קדם דפים שה-text שלהם כבר מכיל מונחים ספציפיים
   // מיין: דפים שה-text שלהם מכיל את המונח הספציפי → ראשונים (כנראה מוסדות רלוונטיים)
+  // הוסף דפים בעדיפות (שלא עברו filter אבל כן נמצאו ב-searchCourses)
+  if (priorityUrls && priorityUrls.length > 0) {
+    for (const pu of priorityUrls) {
+      const existing = results.find(r => r.url === pu.url);
+      if (existing) {
+        existing._score += 100; // קדם אותם לראש
+      } else {
+        results.unshift({ title: pu.title, url: pu.url, description: pu.description, _score: 100, _text: pu._text || '' });
+      }
+    }
+  }
   results.sort((a, b) => {
     const aText = qWords.some(w => (a._text||'').includes(w)) ? 20 : 0;
     const bText = qWords.some(w => (b._text||'').includes(w)) ? 20 : 0;
@@ -377,12 +388,21 @@ async function buildContext(message) {
 
   // סרוק דפי מוסדות בזמן אמת לפי תחום
   if (fieldKeywords && fieldKeywords.length > 0) {
-    const institutionPages = getInstitutionPagesForField(message);
+    // העבר דפים שנמצאו ב-searchCourses אבל לא עברו לclaude
+    const notInClaude = courses.filter(c => !coursesForClaude.some(l => l.includes(c.url)));
+    const institutionPages = getInstitutionPagesForField(message, notInClaude);
     console.log(`institutionPages: ${institutionPages.length}, courses so far: ${courses.length}`);
     const instWithText = institutionPages.filter(p => qLower2.length > 0 && qLower2.some(w => (p._text||'').includes(w)));
     console.log('instWithText:', instWithText.length, instWithText.map(p => p.url.split('/').pop()).join(' | '));
+    const dyellIn = institutionPages.find(p => p.url.includes('dyellin'));
+    if (dyellIn) console.log('dyellin found in instPages, _text len:', (dyellIn._text||'').length, 'hasHydro:', (dyellIn._text||'').includes('הידרותרפיה'));
+    else console.log('dyellin NOT in institutionPages');
     if (institutionPages.length > 0) {
-      const existingUrls = new Set(courses.map(c => c.url));
+      // רק דפים שכבר עברו לclaude — לא צריך לסרוק אותם שוב
+      const existingUrls = new Set(coursesForClaude.map(line => {
+        const m = line.match(/קישור: (https?:\/\/[^\n]+)/);
+        return m ? m[1] : '';
+      }).filter(Boolean));
       const qSpecific2 = qLower2; // כבר מוגדר ממעלה
 
       // שלב א: דפים שה-text באינדקס כבר מכיל התאמה — הוסף ישירות בלי fetchPageContent
