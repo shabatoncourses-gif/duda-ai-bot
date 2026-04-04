@@ -20,7 +20,8 @@ const SYSTEM_PROMPT =
   'ענה תמיד בעברית בלבד — אסור לכתוב אפילו משפט אחד באנגלית.\n' +
   'לעולם אל תפנה לגורמים חיצוניים ואל תתן טלפונים/אתרים חיצוניים.\n\n' +
   'לשאלות מידע: פתח חיובי, הצג את המידע מה-context, הפנה לדפי שבתון.\n' +
-  'לשאלות קורסים: הצג את המוסדות שנמצאו (עד 8), בסדר אקראי שונה בכל פעם, עם תיאור לכל אחד. אל תמציא מוסדות אם אין מספיק.\n' +
+  'לשאלות קורסים: הצג את המוסדות שנמצאו (עד 8), בסדר אקראי שונה בכל פעם, עם תיאור לכל אחד. אל תמציא מוסדות.\n' +
+  'חשוב מאוד: העתק את התיאור מה-context בלבד! אסור להוסיף עובדות שלא כתובות שם.\n' +
   'אם מוסד מציע למידה מרחוק/זום ולא באזור שנשאל — ציין זאת מפורשות בתיאור.\n' +
   'אל תציג לימודי תואר שני אלא אם הגולש ביקש תואר שני במפורש.\n' +
   'השתמש בעברית תקינה ומדויקת — לא "סביבת מימי" אלא "במים". לא "מטבע המימי" אלא "בסביבה מימית".\n' +
@@ -347,7 +348,7 @@ function getInstitutionPagesForField(question) {
   // החזר רק דפים שיש להם text match ראשונים, עד 20
   const withTextMatch = results.filter(r => qWords.some(w => (r._text||'').includes(w)));
   const withoutText   = results.filter(r => !qWords.some(w => (r._text||'').includes(w)));
-  return [...withTextMatch, ...withoutText].slice(0, 40);
+  return [...withTextMatch, ...withoutText].slice(0, 60);
 }
 
 // ── buildContext ──────────────────────────────────────
@@ -405,7 +406,7 @@ async function buildContext(message) {
       });
 
       // שלב ב: סרוק עד 5 דפים נוספים ללא text match
-      const toScan5 = institutionPages.filter(p => !existingUrls.has(p.url)).slice(0, 5);
+      const toScan5 = institutionPages.filter(p => !existingUrls.has(p.url)).slice(0, 8);
       const scanned = await Promise.all(
         toScan5.map(async p => {
           const content = await fetchPageContent(p.url);
