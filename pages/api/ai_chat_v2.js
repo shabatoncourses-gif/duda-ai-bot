@@ -19,7 +19,7 @@ const SYSTEM_PROMPT =
   'ענה תמיד בעברית בלבד — אסור לכתוב אפילו משפט אחד באנגלית.\n' +
   'לעולם אל תפנה לגורמים חיצוניים ואל תתן טלפונים/אתרים חיצוניים.\n\n' +
   'לשאלות מידע: פתח חיובי, הצג את המידע מה-context, הפנה לדפי שבתון.\n' +
-  'לשאלות קורסים: הצג עד 8 מוסדות מהרשימה, בסדר אקראי, עם תיאור.\n' +
+  'לשאלות קורסים: הצג עד 10 מוסדות מהרשימה, בסדר אקראי שונה בכל פעם — לא תמיד אותם מוסדות.\n' +
   'כלל ברזל מוחלט לתיאורים: העתק בדיוק את שדה "תיאור" מה-context. אסור לשנות מילה. אסור להוסיף מידע. אסור להסיק.\\n' +
   'דוגמה: אם בcontext כתוב "קורסי פעילות גופנית במים ברחובות" — כתוב בדיוק "קורסי פעילות גופנית במים ברחובות". לא פחות, לא יותר.\\n' +
   'אם מוסד מציע למידה מרחוק/זום ולא באזור שנשאל — ציין זאת מפורשות בתיאור.\n' +
@@ -252,7 +252,7 @@ function searchCourses(message, region) {
       results.push({ title: page.title, url, description: snippet, score, _text: text });
     }
   }
-  const sorted = results.sort((a,b) => b.score - a.score).slice(0, 20);
+  const sorted = results.sort((a,b) => b.score - a.score).slice(0, 25);
   return sorted;
 }
 
@@ -416,7 +416,12 @@ async function buildContext(message) {
 
   if (courses.length > 0) {
     parts.push('\n=== קורסים שנמצאו ===');
-    const coursesForClaude = [];
+    // ערבב את הקורסים לסדר אקראי שונה בכל פעם
+  for (let i = courses.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [courses[i], courses[j]] = [courses[j], courses[i]];
+  }
+  const coursesForClaude = [];
   courses.forEach(c => {
     // השתמש ב-description המקורי מהאינדקס
     let desc = (c.description || '').substring(0, 600).trim(); // עד 600 תווים
