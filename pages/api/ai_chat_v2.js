@@ -417,23 +417,27 @@ async function buildContext(message) {
     parts.push('\n=== קורסים שנמצאו ===');
     const coursesForClaude = [];
   courses.forEach(c => {
-    let desc = c.description ? c.description.substring(0, 200) : '';
-    // אם התיאור לא מכיל את מילות השאלה — חפש ב-_text והוסף
+    // השתמש ב-description המקורי מהאינדקס
+    let desc = (c.description || '').trim();
+
+    // אם הקורס הספציפי לא מוזכר ב-description — הוסף רק את שמו מה-text
     const descHasQ = qLower2.some(w => desc.toLowerCase().includes(w));
     if (!descHasQ && c._text) {
       for (const qw of qLower2) {
         const ti = c._text.indexOf(qw);
         if (ti >= 0) {
-          const extra = c._text.substring(Math.max(0, ti-20), ti+100).trim();
-          desc = (desc ? desc + ' | ' : '') + extra;
+          // חלץ רק שם הקורס (משפט קצר שמכיל את המונח)
+          const raw = c._text.substring(Math.max(0, ti - 5), ti + qw.length + 5).trim();
+          desc = desc + (desc ? ' | ' : '') + 'כולל קורס: ' + raw;
           break;
         }
       }
     }
-    // שלח ל-Claude רק קורסים שהתיאור (אחרי העשרה) מכיל את המונח
+
+    // שלח ל-Claude רק קורסים שהתיאור או הכותרת מכילים את המונח
     const finalHasQ = qLower2.some(w => (desc + ' ' + c.title).toLowerCase().includes(w));
     if (finalHasQ) {
-      coursesForClaude.push(`שם: ${c.title}\nקישור: ${c.url}${desc ? '\nתיאור: '+desc : ''}`);
+      coursesForClaude.push(`שם: ${c.title}\nקישור: ${c.url}${desc ? '\nתיאור: ' + desc : ''}`);
     }
   });
   if (coursesForClaude.length > 0) {
