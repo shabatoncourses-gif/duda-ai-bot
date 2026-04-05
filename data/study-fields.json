@@ -672,6 +672,32 @@
         "חמדת",
         "גבעת וושינגטון",
         "וושינגטון"
+      ],
+      "known_institutions": [
+        {
+          "url": "https://www.morim.boutique/foodprof",
+          "title": "פוד פרופסור - דנה אהרמן - סיורי קולינריה ואמנות"
+        },
+        {
+          "url": "https://www.shabaton.online/igud_arim",
+          "title": "איגוד ערים לאיכות הסביבה נפת אשקלון - סמינרים מרוכזים"
+        },
+        {
+          "url": "https://www.shabaton.online/washington-morim",
+          "title": "גבעת וושינגטון - קורסי סיור"
+        },
+        {
+          "url": "https://www.shabaton.online/hemdat",
+          "title": "האקדמית חמדת - לימודי חוץ - סמינרים וקורסי סיור"
+        },
+        {
+          "url": "https://www.morim.boutique/teva",
+          "title": "החברה להגנת הטבע - ארץ אהבתי - קורסי טיולים"
+        },
+        {
+          "url": "https://www.morim.boutique/atid-yarok",
+          "title": "עתיד ירוק - סיורים וסמינרים מרוכזים"
+        }
       ]
     },
     {
