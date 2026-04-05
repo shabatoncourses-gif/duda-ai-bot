@@ -464,7 +464,9 @@ async function buildContext(message) {
             break;
           }
         }
-        courses.push({ title: p.title, url: p.url, description: instSnippet, score: 3, _liveRelevant: true });
+        // תסמן כrelvant רק אם ה-snippet מכיל את המונח
+        const snippetHasQ = qLower2.some(w => instSnippet.toLowerCase().includes(w));
+        courses.push({ title: p.title, url: p.url, description: instSnippet, score: 3, _liveRelevant: snippetHasQ });
         existingUrls.add(p.url);
       });
 
