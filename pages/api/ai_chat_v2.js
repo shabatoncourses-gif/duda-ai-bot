@@ -441,7 +441,9 @@ async function buildContext(message) {
       const qSpecific2 = [...new Set([...qLower2, ...fieldKwsExtra])];
       console.log('qSpecific2:', qSpecific2.slice(0,8).join(' | '));
       for (const name of ['hemdat','igud_arim','washington','foodprof']) {
-        const found = institutionPages.find(p => p.url.toLowerCase().includes(name));
+        const found = name === 'washington'
+        ? institutionPages.find(p => p.url.toLowerCase().includes('washington-morim')) || institutionPages.find(p => p.url.toLowerCase().includes('washington'))
+        : institutionPages.find(p => p.url.toLowerCase().includes(name));
         if (found) {
           const txt = (found._text || '');
           const hasM = qSpecific2.some(w => txt.includes(w));
@@ -477,7 +479,7 @@ async function buildContext(message) {
           // רק מילים ספציפיות (לא "קורסי", "קורס", "למורים")
           const relevant = qSpecific2.length > 0 && qSpecific2.some(w => content.toLowerCase().includes(w));
           if (!relevant) return null;
-          return { title: p.title, url: p.url, description: p.description, score: 2 };
+          return { title: p.title, url: p.url, description: p.description, score: 2, _liveRelevant: true };
         })
       );
       scanned.filter(Boolean).forEach(p => { courses.push(p); existingUrls.add(p.url); });
@@ -514,7 +516,7 @@ async function buildContext(message) {
     const titleC = (c.title || '').toLowerCase();
     const isGenericPage = /^קורסי העשרה|^קורסי העצמה|^קורסי פנאי/.test(titleC);
     const isMaDegree = /^תואר שני/.test(titleC) && !message.includes('תואר שני');
-    const finalHasQ = !isGenericPage && !isMaDegree && qLower2.some(w => (desc + ' ' + c.title).toLowerCase().includes(w));
+    const finalHasQ = c._liveRelevant || (!isGenericPage && !isMaDegree && qLower2.some(w => (desc + ' ' + c.title).toLowerCase().includes(w)));
     if (finalHasQ) {
       const descFull = desc.length > 800 ? desc.substring(0, 800) + '...' : desc;
       coursesForClaude.push(`שם: ${c.title}\nקישור: ${c.url}${descFull ? '\nתיאור: ' + descFull : ''}`);
