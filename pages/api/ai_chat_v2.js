@@ -416,16 +416,7 @@ async function buildContext(message) {
     const institutionPages = getInstitutionPagesForField(message);
     const instWithText = institutionPages.filter(p => qLower2.length > 0 && qLower2.some(w => (p._text||'').includes(w)));
     console.log('instWithText count:', instWithText.length, instWithText.slice(0,8).map(p => p.url.split('/').pop()).join(' | '));
-    for (const name of ['hemdat','igud_arim','washington','foodprof']) {
-      const found = institutionPages.find(p => p.url.toLowerCase().includes(name));
-      if (found) {
-        const txt = (found._text || '');
-        const hasM = qSpecific2.some(w => txt.includes(w));
-        console.log('CHECK:', name, '| hasMatch:', hasM, '| preview:', txt.substring(0, 120).replace(/[\r\n]+/g, ' '));
-      } else {
-        console.log('NOT IN INDEX:', name);
-      }
-    }
+
     const dyellIn = institutionPages.find(p => p.url.includes('dyellin'));
     if (institutionPages.length > 0) {
       const existingUrls = new Set();
@@ -449,6 +440,14 @@ async function buildContext(message) {
       }
       const qSpecific2 = [...new Set([...qLower2, ...fieldKwsExtra])];
       console.log('qSpecific2:', qSpecific2.slice(0,8).join(' | '));
+      for (const name of ['hemdat','igud_arim','washington','foodprof']) {
+        const found = institutionPages.find(p => p.url.toLowerCase().includes(name));
+        if (found) {
+          const txt = (found._text || '');
+          const hasM = qSpecific2.some(w => txt.includes(w));
+          console.log('CHECK:', name, '| hasMatch:', hasM, '| preview:', txt.substring(0, 150).replace(/[\r\n]+/g, ' '));
+        } else { console.log('NOT IN INDEX:', name); }
+      }
 
       // שלב א: דפים שה-text באינדקס כבר מכיל התאמה — הוסף ישירות בלי fetchPageContent
       institutionPages.filter(p => !existingUrls.has(p.url) && qSpecific2.some(w => (p._text||'').includes(w))).forEach(p => {
