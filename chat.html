@@ -632,30 +632,8 @@
 }
 </style>
 
-<!-- ═══ LAUNCHER (בועה + כפתור) ═══ -->
-<div id="shabaton-chat-launcher">
-  <div id="shabaton-chat-bubble">
-    <button id="shabaton-bubble-close" aria-label="סגור">×</button>
-    <div class="bubble-inner">
-      <div class="shabaton-logo-mark" style="flex-direction:column;gap:3px">
-        <span style="font-size:26px;line-height:1">🤖</span>
-        
-      </div>
-      <div class="bubble-text">
-        <div class="bubble-brand">
-          <span class="bubble-brand-name">שבתון</span>
-          <span class="bubble-ai-badge">AI</span>
-        </div>
-        <span class="bubble-tagline">אתם שואלים, שַׁבִּיבּוֹט עונה</span>
-        <span class="bubble-disclaimer">גרסת ניסיון לשירותכם</span>
-      </div>
-    </div>
-  </div>
-  <button id="shabaton-chat-button" aria-label="פתח צ'אט">💬</button>
-</div>
-
 <!-- ═══ חלון הצ'אט ═══ -->
-<div id="shabaton-chat-container">
+<div id="shabaton-chat-container" class="active" style="position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;border-radius:0;box-shadow:none;">
   <div id="shabaton-chat-header">
     <div>
       <h3>שבתון - עוזר וירטואלי</h3>
@@ -664,7 +642,7 @@
     <div style="display: flex; gap: 8px;">
       <button id="shabaton-clear-chat">🗑️ נקה</button>
       <button id="shabaton-expand-chat" title="הגדל">⛶</button>
-      <button id="shabaton-close-chat">×</button>
+      
     </div>
   </div>
 
@@ -697,12 +675,12 @@
 (function() {
   // בדיקת דף מורשה
   var currentPath = window.location.pathname;
-  var ALLOWED_PAGES = ['/shaanan'];
+  var ALLOWED_PAGES = ['']; // דף עצמאי — תמיד מוצג
   var isAllowedPage = false;
   for (var i = 0; i < ALLOWED_PAGES.length; i++) {
     if (currentPath.indexOf(ALLOWED_PAGES[i]) !== -1) { isAllowedPage = true; break; }
   }
-  if (!isAllowedPage) return;
+  // isAllowedPage = true; // דף עצמאי
 
   var CONFIG = {
     apiUrl: 'https://duda-ai-bot.vercel.app/api/ai_chat_v2',
