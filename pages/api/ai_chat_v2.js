@@ -503,6 +503,25 @@ async function buildContext(message) {
         existingUrls.add(p.url);
       });
 
+      // וודא שכל known_institutions נסרקים (גם אם כבר ב-existingUrls)
+      try {
+        const sfKI = loadJSON('study-fields.json');
+        if (sfKI) {
+          const msgLKI = message.toLowerCase();
+          for (const sfItem of (sfKI.studyFields || [])) {
+            const kws = sfItem.keywords || [];
+            if (kws.some(k => msgLKI.includes(k.toLowerCase())) && sfItem.known_institutions) {
+              for (const ki of sfItem.known_institutions) {
+                if (!existingUrls.has(ki.url) && !institutionPages.find(p => p.url === ki.url)) {
+                  institutionPages.push({ title: ki.title, url: ki.url, description: ki.description || '', _score: 200, _text: '' });
+                }
+              }
+              break;
+            }
+          }
+        }
+      } catch(e) {}
+
       // שלב ב: סרוק עד 5 דפים נוספים ללא text match
       // סרוק: כל דפי textMatch (שה-_text מכיל מונח) + עד 8 נוספים
       const remainingInst = institutionPages.filter(p => !existingUrls.has(p.url));
