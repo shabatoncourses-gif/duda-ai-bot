@@ -42,7 +42,7 @@ const SYSTEM_PROMPT =
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
   '"מידע וטיפים חשובים" — תמיד אחרון ברשימת מידע\n' +
   'אם הגולש לא ציין אזור — אל תוסיף אזור לכותרת. כתוב "קורסי [תחום]" בלבד.\n' +
-  'כללי ניסוח לכל תשובה: עברית תקינה, ללא ניסוחים אישיים כמו "אני כאן בשבילך".\n' +
+  'כללי ניסוח: פתח בעברית תקינה. לא "מצוינו" — כתוב "מצאנו" או "הנה". ללא ניסוחים אישיים כמו "אני כאן בשבילך".\n' +
   'שאלת סיום: קצרה וענינית — "יש שאלות נוספות?" / "האם חיפשת אזור ספציפי?".\n' +
   'בקישור "כל קורסי..." — שמור על הטקסט המקורי מה-context. אל תפרט תחומים שאינם קשורים.\n' +
   'אל תשתמש ב"בהחלט", "בוודאי", "כמובן" בתחילת משפט. ללא כוכביות בשאלת הסיום';
@@ -250,7 +250,7 @@ function searchCourses(message, region) {
         for (const qw of qLower) {
           const tidx = text.indexOf(qw);
           if (tidx >= 0) {
-            snippet = text.substring(Math.max(0, tidx - 30), tidx + 120).trim();
+            snippet = text.substring(Math.max(0, tidx - 30), tidx + 300).trim();
             score = Math.max(score, 2); // וודא שלא נסוּנן
             break;
           }
@@ -452,13 +452,15 @@ async function buildContext(message) {
       }
 
       // שלב א: דפים שה-text באינדקס כבר מכיל התאמה — הוסף ישירות בלי fetchPageContent
-      institutionPages.filter(p => !existingUrls.has(p.url) && qSpecific2.some(w => (p._text||'').includes(w))).forEach(p => {
+      const textIndexPages = institutionPages.filter(p => !existingUrls.has(p.url) && qSpecific2.some(w => (p._text||'').includes(w)));
+      console.log('textIndex pages:', textIndexPages.map(p => p.url.split('/').pop()).join(' | '));
+      textIndexPages.forEach(p => {
         // מצא snippet מה-text
         let instSnippet = p.description;
         for (const qw of qSpecific2) {
           const tidx = (p._text||'').indexOf(qw);
           if (tidx >= 0) {
-            instSnippet = p._text.substring(Math.max(0, tidx - 30), tidx + 200).trim();
+            instSnippet = p._text.substring(Math.max(0, tidx - 30), tidx + 400).trim();
             break;
           }
         }
@@ -499,8 +501,15 @@ async function buildContext(message) {
     const j = Math.floor(Math.random() * (i + 1));
     [courses[i], courses[j]] = [courses[j], courses[i]];
   }
+  // הסר כפילויות לפי URL
+  const seenUrls = new Set();
+  const uniqueCourses = courses.filter(c => {
+    if (seenUrls.has(c.url)) return false;
+    seenUrls.add(c.url);
+    return true;
+  });
   const coursesForClaude = [];
-  courses.forEach(c => {
+  uniqueCourses.forEach(c => {
     // השתמש ב-description המקורי מהאינדקס
     let desc = (c.description || '').trim(); // תיאור מלא ללא קיצוץ
 
@@ -524,7 +533,7 @@ async function buildContext(message) {
     const isMaDegree = /^תואר שני/.test(titleC) && !message.includes('תואר שני');
     const finalHasQ = c._liveRelevant || (!isGenericPage && !isMaDegree && qLower2.some(w => (desc + ' ' + c.title).toLowerCase().includes(w)));
     if (finalHasQ) {
-      const descFull = desc.length > 800 ? desc.substring(0, 800) + '...' : desc;
+      const descFull = desc; // תיאור מלא — ללא קיצוץ
       coursesForClaude.push(`שם: ${c.title}\nקישור: ${c.url}${descFull ? '\nתיאור: ' + descFull : ''}`);
     }
   });
