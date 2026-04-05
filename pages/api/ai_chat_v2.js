@@ -435,7 +435,7 @@ async function buildContext(message) {
     }
   }
 
-  // אם יש known_institutions לתחום — השתמש בהם ישירות
+  // אם יש known_institutions לתחום — השתמש בהם ישירות וחזור
   const sfForKI = loadJSON('study-fields.json');
   let knownOnly = null;
   if (sfForKI) {
@@ -447,6 +447,30 @@ async function buildContext(message) {
         break;
       }
     }
+  }
+
+  // shortcut: אם known_institutions — סרוק אותם ישירות וחזור
+  if (knownOnly) {
+    const kiParts = [];
+    const kiResults = await Promise.all(knownOnly.map(async ki => {
+      const content = await fetchPageContent(ki.url);
+      if (!content) return { title: ki.title, url: ki.url, desc: ki.description || '' };
+      // חלץ תיאור נקי — ב-400 תווים ראשונים רלוונטיים
+      const clean = content.replace(/[\u0590-\u05FF\s]+שבתון - עוזר וירטואלי[\s\S]*/g, '').trim();
+      const desc = clean.substring(0, 400).trim();
+      return { title: ki.title, url: ki.url, desc };
+    }));
+    for (const r of kiResults) {
+      kiParts.push(`שם: ${r.title}\nקישור: ${r.url}${r.desc ? '\nתיאור: ' + r.desc : ''}`);
+    }
+    // footer
+    const fieldSlug2 = getFieldSlug(message);
+    const footerUrl2 = fieldSlug2 ? `https://www.shabaton.online/results-all/${encodeURIComponent(fieldSlug2)}` : 'https://www.shabaton.online/search-courses';
+    const footerName2 = fieldSlug2 || 'הנושא';
+    kiParts.push(`\nקישור לכל קורסי ${footerName2}: ${footerUrl2}`);
+    kiParts.push('קישור לעלון שבתון: https://www.shabaton.online/shabaton');
+    kiParts.push('קישור לווטסאפ: https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME');
+    return { context: kiParts.join('\n'), isInfo: false, courseCount: kiResults.length };
   }
 
   const courses = searchCourses(message, region);
