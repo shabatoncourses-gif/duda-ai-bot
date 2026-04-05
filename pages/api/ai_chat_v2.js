@@ -462,7 +462,7 @@ async function buildContext(message) {
             break;
           }
         }
-        courses.push({ title: p.title, url: p.url, description: instSnippet, score: 3 });
+        courses.push({ title: p.title, url: p.url, description: instSnippet, score: 3, _liveRelevant: true });
         existingUrls.add(p.url);
       });
 
