@@ -421,7 +421,26 @@ async function buildContext(message) {
     const dyellIn = institutionPages.find(p => p.url.includes('dyellin'));
     if (institutionPages.length > 0) {
       const existingUrls = new Set();
-      const qSpecific2 = qLower2; // כבר מוגדר ממעלה
+      // הרחב את החיפוש: qLower2 + fieldKeywords ייחודיים של התחום
+      const sfDataInst = loadJSON('study-fields.json');
+      const fieldKwsExtra = [];
+      if (sfDataInst) {
+        const msgL = message.toLowerCase();
+        for (const sf of (sfDataInst.studyFields || [])) {
+          const kws = sf.keywords || [];
+          const fieldMatch = kws.some(k => msgL.includes(k.toLowerCase()));
+          if (fieldMatch) {
+            // הוסף keywords ייחודיים (length>2, לא גנריים)
+            const generic = new Set(['קורס','קורסי','קורסים','מורים','גננות','שבתון','למורים','לגננות']);
+            kws.filter(k => k.length > 2 && !generic.has(k)).forEach(k => {
+              if (!fieldKwsExtra.includes(k.toLowerCase())) fieldKwsExtra.push(k.toLowerCase());
+            });
+            break;
+          }
+        }
+      }
+      const qSpecific2 = [...new Set([...qLower2, ...fieldKwsExtra])];
+      console.log('qSpecific2:', qSpecific2.slice(0,8).join(' | '));
 
       // שלב א: דפים שה-text באינדקס כבר מכיל התאמה — הוסף ישירות בלי fetchPageContent
       institutionPages.filter(p => !existingUrls.has(p.url) && qSpecific2.some(w => (p._text||'').includes(w))).forEach(p => {
