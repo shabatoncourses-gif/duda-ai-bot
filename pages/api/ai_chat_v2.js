@@ -25,7 +25,7 @@ const SYSTEM_PROMPT =
   'אם מוסד מציע למידה מרחוק/זום ולא באזור שנשאל — ציין זאת מפורשות בתיאור.\n' +
   'הצג את התיאור המלא — אל תקצץ באמצע משפט. אם התיאור ארוך, סיים במשפט שלם.\n' +
   'אל תציג לימודי תואר שני אלא אם הגולש ביקש תואר שני במפורש.\n' +
-  'הצג רק מוסדות שהתיאור שלהם מזכיר את הנושא המבוקש. אם תיאור לא מזכיר את הנושא — דלג עליו.\n' +
+  'הצג רק מוסדות שהתיאור שלהם מזכיר את הנושא המבוקש ישירות. אם הנושא מוזכר בדרך אגב בין נושאים אחרים רבים — דלג על המוסד.\n' +
   'אם בתיאור יש ציטוט מתוך רשימת הקורסים — השתמש בו להסביר מה המוסד מציע.\n' +
   'אסור להציג מוסד שלא ברשימה. אסור שאלות אישיות. אסור -- או ---.\n\n' +
   'פורמט קורסים:\n' +
@@ -154,6 +154,8 @@ function searchCourses(message, region) {
       if (/סמינר|טיול|סיור|אירוע/.test(titleLower)) continue;
       // סנן דפי קטגוריה כלליים (העשרה, פנאי, העצמה)
       if (/קורסי העשרה|קורסי העצמה|קורסי פנאי|קורסי העצמה אישית/.test(titleLower)) continue;
+      // סנן תוארי שני (אלא אם הגולש ביקש)
+      if (/^תואר שני/.test(titleLower) && !message.includes('תואר שני')) continue;
 
       {
         const now = new Date();
@@ -463,7 +465,7 @@ async function buildContext(message) {
       const remainingInst = institutionPages.filter(p => !existingUrls.has(p.url));
       const withTextMatch2 = remainingInst.filter(p => qSpecific2.some(w => (p._text||'').includes(w)));
       const withoutText2   = remainingInst.filter(p => !qSpecific2.some(w => (p._text||'').includes(w)));
-      const toScan5 = [...withTextMatch2, ...withoutText2.slice(0, 8)];
+      const toScan5 = [...withTextMatch2, ...withoutText2.slice(0, 20)];
       const scanned = await Promise.all(
         toScan5.map(async p => {
           const content = await fetchPageContent(p.url);
@@ -505,7 +507,10 @@ async function buildContext(message) {
     }
 
     // שלח ל-Claude רק קורסים שהתיאור או הכותרת מכילים את המונח
-    const finalHasQ = qLower2.some(w => (desc + ' ' + c.title).toLowerCase().includes(w));
+    const titleC = (c.title || '').toLowerCase();
+    const isGenericPage = /^קורסי העשרה|^קורסי העצמה|^קורסי פנאי/.test(titleC);
+    const isMaDegree = /^תואר שני/.test(titleC) && !message.includes('תואר שני');
+    const finalHasQ = !isGenericPage && !isMaDegree && qLower2.some(w => (desc + ' ' + c.title).toLowerCase().includes(w));
     if (finalHasQ) {
       const descFull = desc.length > 800 ? desc.substring(0, 800) + '...' : desc;
       coursesForClaude.push(`שם: ${c.title}\nקישור: ${c.url}${descFull ? '\nתיאור: ' + descFull : ''}`);
