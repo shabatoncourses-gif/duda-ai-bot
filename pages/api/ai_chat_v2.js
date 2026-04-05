@@ -42,6 +42,7 @@ const SYSTEM_PROMPT =
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
   '"מידע וטיפים חשובים" — תמיד אחרון ברשימת מידע\n' +
   'אם הגולש לא ציין אזור — אל תוסיף אזור לכותרת. כתוב "קורסי [תחום]" בלבד.\n' +
+  'בנושא טיולים: הפרד בין (1) קורסי טיולים לימודיים וסמינרים שמורים הולכים אליהם (2) קורסי הכשרת מדריכי טיולים ומורי דרך. הצג את שתי הקטגוריות בנפרד אם שתיהן קיימות.\n' +
   'כללי ניסוח: פתח בעברית תקינה. לא "מצוינו" — כתוב "מצאנו" או "הנה". ללא ניסוחים אישיים כמו "אני כאן בשבילך".\n' +
   'שאלת סיום: קצרה וענינית — "יש שאלות נוספות?" / "האם חיפשת אזור ספציפי?".\n' +
   'בקישור "כל קורסי..." — שמור על הטקסט המקורי מה-context. אל תפרט תחומים שאינם קשורים.\n' +
@@ -465,7 +466,11 @@ async function buildContext(message) {
           }
         }
         // תסמן כrelvant רק אם ה-snippet מכיל את המונח
-        const snippetHasQ = qLower2.some(w => instSnippet.toLowerCase().includes(w));
+        const snippetHasQ = qSpecific2.some(w => instSnippet.toLowerCase().includes(w));
+        const shortU = p.url.split('/').pop();
+        if (['hemdat','igud_arim','foodprof'].includes(shortU)) {
+          console.log('textIndex snippet:', shortU, 'hasQ='+snippetHasQ, instSnippet.substring(0,80));
+        }
         courses.push({ title: p.title, url: p.url, description: instSnippet, score: 3, _liveRelevant: snippetHasQ });
         existingUrls.add(p.url);
       });
