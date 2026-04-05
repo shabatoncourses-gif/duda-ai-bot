@@ -41,7 +41,7 @@ const SYSTEM_PROMPT =
   '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
   '"מידע וטיפים חשובים" — תמיד אחרון ברשימת מידע\n' +
-  'אם הגולש לא ציין אזור — אל תוסיף אזור לכותרת. כתוב "קורסי [תחום]" בלבד.\n' +
+  'אם הגולש לא ציין אזור — אל תוסיף אזור לכותרת ולא ב-footer. השתמש בקישור results-all (כל הארץ) ולא בקישור אזורי.\n' +
   'בנושא טיולים: הצג רק קורסים שמורים הולכים אליהם (סמינרים, סיורים). אל תציג קורסי הכשרת מורי דרך, הכשרת מדריכי תיירות, ואל תציג מוסדות שה-description שלהם לא קשור לטיולים.\n' +
   'כללי ניסוח: פתח בעברית תקינה. לא "מצוינו" — כתוב "מצאנו" או "הנה". ללא ניסוחים אישיים כמו "אני כאן בשבילך".\n' +
   'שאלת סיום: קצרה וענינית — "יש שאלות נוספות?" / "האם חיפשת אזור ספציפי?".\n' +
@@ -671,7 +671,7 @@ async function buildContext(message) {
       parts.push(`\nאזור: ${region.name} | slug: ${region.slug}`);
     }
   } else if (fieldInfo) {
-    parts.push(`\nתחום: ${fieldInfo.name}\nקישור לכל קורסי התחום: https://www.shabaton.online/results-all/${fieldInfo.slug}`);
+    parts.push(`\nתחום: ${fieldInfo.name}\nקישור לכל קורסי התחום בכל הארץ: https://www.shabaton.online/results-all/${fieldInfo.slug}\nחשוב: הגולש לא ציין אזור — אל תוסיף אזור בכותרת ולא בfooter`);
   }
 
   return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0, courseCount: courses.length };
