@@ -262,20 +262,50 @@ function searchCourses(message, region) {
 function detectInfoPages(question) {
   const q = question.toLowerCase();
   const pages = [
-    { kw: ['לידה','מענק לידה','דמי לידה','חופשת לידה','הריון'], url: 'https://www.shabaton.online/birth_shabatgon' },
+    // תכנון ורשימת משימות
+    { kw: ['רשימת משימות','כיצד מתחילים','איך מתחילים','תהליך יציאה','צ\'קליסט'], url: 'https://www.shabaton.online/shabaton_checklist' },
+    { kw: ['תכנון','טבלת עזר','תוכנית לימודים','הרכבת תוכנית','תכנית לימודים'], url: 'https://www.shabaton.online/shabaton-plan' },
+
+    // לימודים
+    { kw: ['חובות לימודים','שעות חובה','שעות השלמה','שעות רשות','לימודי חובה','חלוקת שעות'], url: 'https://www.shabaton.online/learning_programs_shabaton' },
+    { kw: ['מוסדות מאושרים','נושאי השתלמות','ספורט בשבתון','שינוי תוכנית','אופק חדש','תואר שלישי','גמול השתלמות','פרויקט אישי','לימודים בישיבה','לימודים בחו"ל','לימוד בחו'], url: 'https://www.shabaton.online/learning_programs_shabaton' },
+
+    // לוחות זמנים ובקשות
+    { kw: ['לוח זמנים','מועדים','תאריכים','מתי להגיש','קרן השתלמות','אישור זכאות'], url: 'https://www.shabaton.online/luz_shabaton' },
+    { kw: ['בקשת שבתון','איך מבקשים','יציאה לשבתון'], url: 'https://www.shabaton.online/shabaton_request' },
+
+    // תשלומים
+    { kw: ['ביטוח לאומי','ביטל','תשלום ביטוח','דמי ביטוח'], url: 'https://www.shabaton.online/btl_shabaton' },
+    { kw: ['קבלות','החזר שכר לימוד','קבלה','שכר לימוד'], url: 'https://www.shabaton.online/kabalot_shabaton' },
+    { kw: ['החזר שכ"ל','tuition','החזר שכר'], url: 'https://www.shabaton.online/tuition_reimbursement' },
     { kw: ['מענק','גובה המענק','חישוב מענק','תלוש מענק','כמה מקבלים','כמה כסף'], url: 'https://www.shabaton.online/shabaton-maanak' },
-    { kw: ['ביטוח לאומי','ביטל','מתי משלמים','תשלום ביטוח','דמי ביטוח','ביטוח בריאות'], url: 'https://www.shabaton.online/btl_shabaton' },
-    { kw: ['שעות חובה','שעות השלמה','שעות רשות','לימודי חובה','לימודי השלמה','חלוקת שעות'], url: 'https://www.shabaton.online/shabaton-hova-hashlama' },
-    { kw: ['תוכנית לימודים','כמה שעות','שעות לימוד','מה לומדים'], url: 'https://www.shabaton.online/learning_programs_shabaton' },
-    { kw: ['טפסים','מסמכים'], url: 'https://www.shabaton.online/forms_shabaton' },
-    { kw: ['לוח זמנים','מועדים','תאריכים','מתי להגיש'], url: 'https://www.shabaton.online/luz_shabaton' },
+    { kw: ['לידה','מענק לידה','דמי לידה','חופשת לידה','הריון'], url: 'https://www.shabaton.online/birth_shabatgon' },
+    { kw: ['פנסיה','קרן פנסיה'], url: 'https://www.shabaton.online/pension_shabaton' },
+    { kw: ['קרן מקוצרת','מקור','מישור','הפרשה לקרן'], url: 'https://www.shabaton.online/keren_makor_mishor' },
+    { kw: ['טופס 101','101'], url: 'https://www.shabaton.online/tofes_101' },
+
+    // טפסים
+    { kw: ['טפסים','מסמכים','חל"ת','הצהרה על עבודה','חזרה משבתון','בקשה לשעות'], url: 'https://www.shabaton.online/forms_shabaton' },
+
+    // חצי/מלא
     { kw: ['חצי שבתון','שבתון מלא','שבתון חלקי','הבדל שבתון'], url: 'https://www.shabaton.online/halforfull_shabaton' },
-    { kw: ['בקשת שבתון','איך מבקשים','יציאה לשבתון','31 במרץ'], url: 'https://www.shabaton.online/shabaton_request' },
-    { kw: ['תשלומים','עלויות','שכר לימוד','החזר שכר לימוד'], url: 'https://www.shabaton.online/Payments_shabaton' },
+
+    // חזרה מהשבתון
     { kw: ['חזרה משבתון','סיום שבתון','חזרה לעבודה'], url: 'https://www.shabaton.online/end_shabaton' },
+
+    // זכויות כלליות
     { kw: ['זכויות','זכאות','מי זכאי','תנאים לשבתון'], url: 'https://www.shabaton.online/important' },
+
+    // מלגות
+    { kw: ['מלגה','מלגות','מלגת לימודים'], url: 'https://www.morim.online/milgot-morim' },
+
+    // סרטוני הדרכה
+    { kw: ['סרטון','סרטוני הדרכה','וידאו','להדרכה'], url: 'https://www.shabaton.online/shabaton-video' },
+
+    // טלפונים וכתובות — QA
+    { kw: ['טלפון','כתובת','יצירת קשר','פורטל עובדי הוראה'], url: 'qa:phones' },
   ];
-  return [...new Set(pages.filter(p => p.kw.some(k => q.includes(k))).map(p => p.url))];
+  return [...new Set(pages.filter(p => p.kw.some(k => q.includes(k))).map(p => p.url).filter(u => !u.startsWith('qa:')))];
 }
 
 // ── סריקת דף ──────────────────────────────────────────
