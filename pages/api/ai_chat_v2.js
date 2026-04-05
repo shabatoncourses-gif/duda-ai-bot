@@ -477,7 +477,13 @@ async function buildContext(message) {
           const content = await fetchPageContent(p.url);
           if (!content) return null;
           // רק מילים ספציפיות (לא "קורסי", "קורס", "למורים")
-          const relevant = qSpecific2.length > 0 && qSpecific2.some(w => content.toLowerCase().includes(w));
+          // אם הדף כבר התאים ב-_text (withTextMatch2) — תמיד רלוונטי
+          const isAlreadyTextMatch = withTextMatch2.some(tm => tm.url === p.url);
+          const relevant = isAlreadyTextMatch || (qSpecific2.length > 0 && qSpecific2.some(w => content.toLowerCase().includes(w)));
+          const shortName = p.url.split('/').pop();
+          if (['hemdat','igud_arim','washington-morim','foodprof'].includes(shortName)) {
+            console.log('LIVE SCAN:', shortName, 'relevant='+relevant, 'content_len='+(content||'').length);
+          }
           if (!relevant) return null;
           return { title: p.title, url: p.url, description: p.description, score: 2, _liveRelevant: true };
         })
