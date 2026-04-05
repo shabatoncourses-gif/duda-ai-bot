@@ -372,6 +372,24 @@ function getInstitutionPagesForField(question) {
       results.push({ title: page.title, url, description: page.description || '', _score: titleScore + descScore, _text: (page.text||'').toLowerCase() });
     }
   }
+  // הוסף known_institutions מ-study-fields — מוסדות סמכותיים לתחום
+  try {
+    const sfD = loadJSON('study-fields.json');
+    if (sfD) {
+      const qLL = question.toLowerCase();
+      for (const sf of (sfD.studyFields || [])) {
+        const kws = sf.keywords || [];
+        if (kws.some(k => qLL.includes(k.toLowerCase())) && sf.known_institutions) {
+          for (const ki of sf.known_institutions) {
+            if (!results.find(r => r.url === ki.url)) {
+              results.unshift({ title: ki.title, url: ki.url, description: ki.description || '', _score: 200, _text: '' });
+            }
+          }
+          break;
+        }
+      }
+    }
+  } catch(e) {}
   // מיין: קדם דפים שה-text שלהם כבר מכיל מונחים ספציפיים
   // מיין: דפים שה-text שלהם מכיל את המונח הספציפי → ראשונים (כנראה מוסדות רלוונטיים)
   results.sort((a, b) => {
