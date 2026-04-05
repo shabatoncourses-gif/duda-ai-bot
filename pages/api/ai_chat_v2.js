@@ -42,7 +42,7 @@ const SYSTEM_PROMPT =
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
   '"מידע וטיפים חשובים" — תמיד אחרון ברשימת מידע\n' +
   'אם הגולש לא ציין אזור — אל תוסיף אזור לכותרת. כתוב "קורסי [תחום]" בלבד.\n' +
-  'בנושא טיולים: הפרד בין (1) קורסי טיולים לימודיים וסמינרים שמורים הולכים אליהם (2) קורסי הכשרת מדריכי טיולים ומורי דרך. הצג את שתי הקטגוריות בנפרד אם שתיהן קיימות.\n' +
+  'בנושא טיולים: הצג רק קורסים שמורים הולכים אליהם (סמינרים, סיורים). אל תציג קורסי הכשרת מורי דרך או מדריכי תיירות אלא אם הגולש ביקש זאת במפורש.\n' +
   'כללי ניסוח: פתח בעברית תקינה. לא "מצוינו" — כתוב "מצאנו" או "הנה". ללא ניסוחים אישיים כמו "אני כאן בשבילך".\n' +
   'שאלת סיום: קצרה וענינית — "יש שאלות נוספות?" / "האם חיפשת אזור ספציפי?".\n' +
   'בקישור "כל קורסי..." — שמור על הטקסט המקורי מה-context. אל תפרט תחומים שאינם קשורים.\n' +
@@ -157,6 +157,12 @@ function searchCourses(message, region) {
       if (/קורסי העשרה|קורסי העצמה|קורסי פנאי|קורסי העצמה אישית/.test(titleLower)) continue;
       // סנן תוארי שני (אלא אם הגולש ביקש)
       if (/^תואר שני/.test(titleLower) && !message.includes('תואר שני')) continue;
+      // סנן הכשרת מורי דרך/תיירות כשמחפשים קורסי טיולים רגילים
+      if (/מורי דרך|הכשרת מדריכ|תיירות, פנאי ואתגר|לימודי תיירות/.test(titleLower)) {
+        const wantsTours = /טיול|סיור/.test(message.toLowerCase());
+        const wantsTraining = /מורי דרך|מדריך טיולים|הכשרת מדריך|תיירות/.test(message.toLowerCase());
+        if (wantsTours && !wantsTraining) continue;
+      }
 
       {
         const now = new Date();
@@ -400,7 +406,7 @@ function getInstitutionPagesForField(question) {
   // החזר רק דפים שיש להם text match ראשונים, עד 20
   const withTextMatch = results.filter(r => qWords.some(w => (r._text||'').includes(w)));
   const withoutText   = results.filter(r => !qWords.some(w => (r._text||'').includes(w)));
-  return [...withTextMatch, ...withoutText]; // כל הדפים
+  return [...withTextMatch.slice(0, 20), ...withoutText.slice(0, 20)]; // עד 40 דפים
 }
 
 // ── buildContext ──────────────────────────────────────
@@ -556,14 +562,24 @@ async function buildContext(message) {
     const titleC = (c.title || '').toLowerCase();
     const isGenericPage = /^קורסי העשרה|^קורסי העצמה|^קורסי פנאי/.test(titleC);
     const isMaDegree = /^תואר שני/.test(titleC) && !message.includes('תואר שני');
-    const finalHasQ = c._liveRelevant || (!isGenericPage && !isMaDegree && qLower2.some(w => (desc + ' ' + c.title).toLowerCase().includes(w)));
+    const wantsTours2 = /טיול|סיור/.test(message.toLowerCase());
+    const wantsTraining2 = /מורי דרך|מדריך טיולים|הכשרת מדריך|תיירות/.test(message.toLowerCase());
+    const isTrainingCourse = /מורי דרך|הכשרת מדריכ|תיירות, פנאי ואתגר|לימודי תיירות/.test(titleC);
+    const filterTraining = isTrainingCourse && wantsTours2 && !wantsTraining2;
+    const finalHasQ = !filterTraining && (c._liveRelevant || (!isGenericPage && !isMaDegree && qLower2.some(w => (desc + ' ' + c.title).toLowerCase().includes(w))));
     if (finalHasQ) {
       const descFull = desc; // תיאור מלא — ללא קיצוץ
       coursesForClaude.push(`שם: ${c.title}\nקישור: ${c.url}${descFull ? '\nתיאור: ' + descFull : ''}`);
     }
   });
-  if (coursesForClaude.length > 0) {
-    parts.push(coursesForClaude.join('\n'));
+  // ערבב וצמצם ל-10 מקסימום
+  for (let i = coursesForClaude.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [coursesForClaude[i], coursesForClaude[j]] = [coursesForClaude[j], coursesForClaude[i]];
+  }
+  const claudeFinal = coursesForClaude.slice(0, 10);
+  if (claudeFinal.length > 0) {
+    parts.push(claudeFinal.join('\n'));
   }
   }
 
