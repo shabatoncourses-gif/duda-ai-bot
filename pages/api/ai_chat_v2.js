@@ -387,7 +387,11 @@ function getInstitutionPagesForField(question) {
         const kws = sf.keywords || [];
         if (kws.some(k => qLL.includes(k.toLowerCase())) && sf.known_institutions) {
           for (const ki of sf.known_institutions) {
-            if (!results.find(r => r.url === ki.url)) {
+            const existing = results.find(r => r.url === ki.url);
+            if (existing) {
+              existing._score = 200; // קדם לראש
+              if (ki.title) existing.title = ki.title;
+            } else {
               results.unshift({ title: ki.title, url: ki.url, description: ki.description || '', _score: 200, _text: '' });
             }
           }
