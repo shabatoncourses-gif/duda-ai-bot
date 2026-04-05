@@ -452,15 +452,11 @@ async function buildContext(message) {
   // shortcut: אם known_institutions — סרוק אותם ישירות וחזור
   if (knownOnly) {
     const kiParts = [];
-    const kiResults = await Promise.all(knownOnly.map(async ki => {
-      const content = await fetchPageContent(ki.url);
-      if (!content) return { title: ki.title, url: ki.url, desc: ki.description || '' };
-      // חלץ תיאור נקי — עד 600 תווים, סיום במשפט שלם
-      const clean = content.replace(/שבתון - עוזר וירטואלי[\s\S]*/g, '').replace(/פנו ליועצי לימודים[\s\S]*/g, '').trim();
-      let desc = clean.substring(0, 600).trim();
-      const lastPunct = Math.max(desc.lastIndexOf('.'), desc.lastIndexOf('!'), desc.lastIndexOf('?'));
-      if (lastPunct > 150) desc = desc.substring(0, lastPunct + 1).trim();
-      return { title: ki.title, url: ki.url, desc };
+    // השתמש בtיאור המוכן מה-JSON — מהיר ומדויק
+    const kiResults = knownOnly.map(ki => ({
+      title: ki.title,
+      url: ki.url,
+      desc: ki.description || ''
     }));
     for (const r of kiResults) {
       kiParts.push(`שם: ${r.title}\nקישור: ${r.url}${r.desc ? '\nתיאור: ' + r.desc : ''}`);
