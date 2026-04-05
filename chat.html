@@ -406,13 +406,7 @@ html, body {
 (function() {
   // בדיקת דף מורשה
   var currentPath = window.location.pathname;
-  var ALLOWED_PAGES = ['']; // דף עצמאי — תמיד מוצג
-  var isAllowedPage = false;
-  for (var i = 0; i < ALLOWED_PAGES.length; i++) {
-    if (currentPath.indexOf(ALLOWED_PAGES[i]) !== -1) { isAllowedPage = true; break; }
-  }
-  // isAllowedPage = true; // דף עצמאי
-
+  // דף עצמאי — תמיד פעיל
   var CONFIG = {
     apiUrl: 'https://duda-ai-bot.vercel.app/api/ai_chat_v2',
     site: 'shabaton'
