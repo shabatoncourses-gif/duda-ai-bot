@@ -318,7 +318,7 @@ async function fetchPageContent(url) {
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ShabatonBot/1.0)' },
-      signal: AbortSignal.timeout(5000)
+      signal: AbortSignal.timeout(8000)
     });
     if (!res.ok) return null;
     const html = await res.text();
@@ -416,11 +416,16 @@ async function buildContext(message) {
     const institutionPages = getInstitutionPagesForField(message);
     const instWithText = institutionPages.filter(p => qLower2.length > 0 && qLower2.some(w => (p._text||'').includes(w)));
     console.log('instWithText count:', instWithText.length, instWithText.slice(0,8).map(p => p.url.split('/').pop()).join(' | '));
-    ['hemdat','igud_arim','washington','foodprof'].forEach(name => {
+    for (const name of ['hemdat','igud_arim','washington','foodprof']) {
       const found = institutionPages.find(p => p.url.toLowerCase().includes(name));
-      if (found) console.log('CHECK:', name, 'found, _text len:', (found._text||'').length, 'hasMatch:', qLower2.some(w => (found._text||'').includes(w)));
-      else console.log('NOT IN INDEX:', name);
-    });
+      if (found) {
+        const txt = (found._text || '');
+        const hasM = qSpecific2.some(w => txt.includes(w));
+        console.log('CHECK:', name, '| hasMatch:', hasM, '| preview:', txt.substring(0, 120).replace(/[\r\n]+/g, ' '));
+      } else {
+        console.log('NOT IN INDEX:', name);
+      }
+    }
     const dyellIn = institutionPages.find(p => p.url.includes('dyellin'));
     if (institutionPages.length > 0) {
       const existingUrls = new Set();
@@ -465,7 +470,7 @@ async function buildContext(message) {
       const remainingInst = institutionPages.filter(p => !existingUrls.has(p.url));
       const withTextMatch2 = remainingInst.filter(p => qSpecific2.some(w => (p._text||'').includes(w)));
       const withoutText2   = remainingInst.filter(p => !qSpecific2.some(w => (p._text||'').includes(w)));
-      const toScan5 = [...withTextMatch2, ...withoutText2.slice(0, 20)];
+      const toScan5 = [...withTextMatch2, ...withoutText2]; // סרוק את כולם
       const scanned = await Promise.all(
         toScan5.map(async p => {
           const content = await fetchPageContent(p.url);
