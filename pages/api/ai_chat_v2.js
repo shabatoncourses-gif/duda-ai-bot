@@ -152,7 +152,7 @@ function searchCourses(message, region) {
       const titleLower = (page.title || '').toLowerCase();
       if (/סמינר|טיול|סיור|אירוע/.test(titleLower)) continue;
       // סנן דפי קטגוריה כלליים (העשרה, פנאי, העצמה)
-      if (/קורסי העשרה|קורסי העצמה|קורסי פנאי/.test(titleLower)) continue;
+      if (/קורסי העשרה|קורסי העצמה|קורסי פנאי|קורסי העצמה אישית/.test(titleLower)) continue;
       {
         const now = new Date();
         const heMonths = {'ינואר':1,'פברואר':2,'מרץ':3,'אפריל':4,'מאי':5,'יוני':6,'יולי':7,'אוגוסט':8,'ספטמבר':9,'אוקטובר':10,'נובמבר':11,'דצמבר':12};
@@ -377,7 +377,7 @@ function getInstitutionPagesForField(question) {
   // החזר רק דפים שיש להם text match ראשונים, עד 20
   const withTextMatch = results.filter(r => qWords.some(w => (r._text||'').includes(w)));
   const withoutText   = results.filter(r => !qWords.some(w => (r._text||'').includes(w)));
-  return [...withTextMatch, ...withoutText].slice(0, 60);
+  return [...withTextMatch, ...withoutText]; // כל הדפים
 }
 
 // ── buildContext ──────────────────────────────────────
@@ -432,7 +432,11 @@ async function buildContext(message) {
       });
 
       // שלב ב: סרוק עד 5 דפים נוספים ללא text match
-      const toScan5 = institutionPages.filter(p => !existingUrls.has(p.url)).slice(0, 12);
+      // סרוק: כל דפי textMatch (שה-_text מכיל מונח) + עד 8 נוספים
+      const remainingInst = institutionPages.filter(p => !existingUrls.has(p.url));
+      const withTextMatch2 = remainingInst.filter(p => qSpecific2.some(w => (p._text||'').includes(w)));
+      const withoutText2   = remainingInst.filter(p => !qSpecific2.some(w => (p._text||'').includes(w)));
+      const toScan5 = [...withTextMatch2, ...withoutText2.slice(0, 8)];
       const scanned = await Promise.all(
         toScan5.map(async p => {
           const content = await fetchPageContent(p.url);
