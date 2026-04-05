@@ -412,6 +412,12 @@ async function buildContext(message) {
   if (fieldKeywords && fieldKeywords.length > 0) {
     const institutionPages = getInstitutionPagesForField(message);
     const instWithText = institutionPages.filter(p => qLower2.length > 0 && qLower2.some(w => (p._text||'').includes(w)));
+    console.log('instWithText count:', instWithText.length, instWithText.slice(0,8).map(p => p.url.split('/').pop()).join(' | '));
+    ['hemdat','igud_arim','washington','foodprof'].forEach(name => {
+      const found = institutionPages.find(p => p.url.toLowerCase().includes(name));
+      if (found) console.log('CHECK:', name, 'found, _text len:', (found._text||'').length, 'hasMatch:', qLower2.some(w => (found._text||'').includes(w)));
+      else console.log('NOT IN INDEX:', name);
+    });
     const dyellIn = institutionPages.find(p => p.url.includes('dyellin'));
     if (institutionPages.length > 0) {
       const existingUrls = new Set();
