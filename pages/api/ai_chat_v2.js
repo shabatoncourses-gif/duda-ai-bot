@@ -42,7 +42,7 @@ const SYSTEM_PROMPT =
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
   '"מידע וטיפים חשובים" — תמיד אחרון ברשימת מידע\n' +
   'אם הגולש לא ציין אזור — אל תוסיף אזור לכותרת. כתוב "קורסי [תחום]" בלבד.\n' +
-  'בנושא טיולים: הצג רק קורסים שמורים הולכים אליהם (סמינרים, סיורים). אל תציג קורסי הכשרת מורי דרך או מדריכי תיירות אלא אם הגולש ביקש זאת במפורש.\n' +
+  'בנושא טיולים: הצג רק קורסים שמורים הולכים אליהם (סמינרים, סיורים). אל תציג קורסי הכשרת מורי דרך, הכשרת מדריכי תיירות, ואל תציג מוסדות שה-description שלהם לא קשור לטיולים.\n' +
   'כללי ניסוח: פתח בעברית תקינה. לא "מצוינו" — כתוב "מצאנו" או "הנה". ללא ניסוחים אישיים כמו "אני כאן בשבילך".\n' +
   'שאלת סיום: קצרה וענינית — "יש שאלות נוספות?" / "האם חיפשת אזור ספציפי?".\n' +
   'בקישור "כל קורסי..." — שמור על הטקסט המקורי מה-context. אל תפרט תחומים שאינם קשורים.\n' +
@@ -435,6 +435,20 @@ async function buildContext(message) {
     }
   }
 
+  // אם יש known_institutions לתחום — השתמש בהם ישירות
+  const sfForKI = loadJSON('study-fields.json');
+  let knownOnly = null;
+  if (sfForKI) {
+    const msgLKI2 = message.toLowerCase();
+    for (const sfItem of (sfForKI.studyFields || [])) {
+      const kws = sfItem.keywords || [];
+      if (kws.some(k => msgLKI2.includes(k.toLowerCase())) && sfItem.known_institutions && sfItem.known_institutions.length > 0) {
+        knownOnly = sfItem.known_institutions;
+        break;
+      }
+    }
+  }
+
   const courses = searchCourses(message, region);
   const fieldKeywords = getFieldKeywords(message);
   const genericWords2 = new Set(['קורס','קורסי','קורסים','למורים','לגננות','בשבתון','מורים','גננות','שבתון','לימוד','לימודים']);
@@ -595,14 +609,31 @@ async function buildContext(message) {
       coursesForClaude.push(`שם: ${c.title}\nקישור: ${c.url}${descFull ? '\nתיאור: ' + descFull : ''}`);
     }
   });
-  // ערבב וצמצם ל-10 מקסימום
-  for (let i = coursesForClaude.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [coursesForClaude[i], coursesForClaude[j]] = [coursesForClaude[j], coursesForClaude[i]];
-  }
-  const claudeFinal = coursesForClaude.slice(0, 10);
-  if (claudeFinal.length > 0) {
-    parts.push(claudeFinal.join('\n'));
+  // אם יש known_institutions — שדרס את coursesForClaude
+  if (knownOnly && knownOnly.length > 0 && coursesForClaude.length === 0) {
+    // fallback: scan known_institutions live
+    const kiScanned = await Promise.all(knownOnly.map(async ki => {
+      const content = await fetchPageContent(ki.url);
+      if (!content) return `שם: ${ki.title}\nקישור: ${ki.url}`;
+      const excerpt = content.substring(0, 400).trim();
+      return `שם: ${ki.title}\nקישור: ${ki.url}\nתיאור: ${excerpt}`;
+    }));
+    parts.push(kiScanned.join('\n'));
+  } else if (knownOnly && knownOnly.length > 0) {
+    // ערבב ושדרס: known first + מה שנמצא
+    const knownUrls = new Set(knownOnly.map(k => k.url));
+    const knownInClaude = coursesForClaude.filter(c => knownOnly.some(k => c.includes(k.url)));
+    const otherInClaude = coursesForClaude.filter(c => !knownOnly.some(k => c.includes(k.url)));
+    const claudeFinal = [...knownInClaude, ...otherInClaude].slice(0, 10);
+    if (claudeFinal.length > 0) parts.push(claudeFinal.join('\n'));
+  } else {
+    // ערבב וצמצם ל-10 מקסימום
+    for (let i = coursesForClaude.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [coursesForClaude[i], coursesForClaude[j]] = [coursesForClaude[j], coursesForClaude[i]];
+    }
+    const claudeFinal = coursesForClaude.slice(0, 10);
+    if (claudeFinal.length > 0) parts.push(claudeFinal.join('\n'));
   }
   }
 
