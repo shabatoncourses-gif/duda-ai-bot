@@ -23,6 +23,7 @@ const SYSTEM_PROMPT =
   'כלל ברזל מוחלט לתיאורים: העתק בדיוק את שדה "תיאור" מה-context. אסור לשנות מילה. אסור להוסיף מידע. אסור להסיק.\\n' +
   'דוגמה: אם בcontext כתוב "קורסי פעילות גופנית במים ברחובות" — כתוב בדיוק "קורסי פעילות גופנית במים ברחובות". לא פחות, לא יותר.\\n' +
   'אם מוסד מציע למידה מרחוק/זום ולא באזור שנשאל — ציין זאת מפורשות בתיאור.\n' +
+  'הצג את התיאור המלא — אל תקצץ באמצע משפט. אם התיאור ארוך, סיים במשפט שלם.\n' +
   'אל תציג לימודי תואר שני אלא אם הגולש ביקש תואר שני במפורש.\n' +
   'הצג רק מוסדות שהתיאור שלהם מזכיר את הנושא המבוקש. אם תיאור לא מזכיר את הנושא — דלג עליו.\n' +
   'אם בתיאור יש ציטוט מתוך רשימת הקורסים — השתמש בו להסביר מה המוסד מציע.\n' +
@@ -423,7 +424,7 @@ async function buildContext(message) {
         for (const qw of qSpecific2) {
           const tidx = (p._text||'').indexOf(qw);
           if (tidx >= 0) {
-            instSnippet = p._text.substring(Math.max(0, tidx - 20), tidx + 120).trim();
+            instSnippet = p._text.substring(Math.max(0, tidx - 30), tidx + 200).trim();
             break;
           }
         }
@@ -461,7 +462,7 @@ async function buildContext(message) {
   const coursesForClaude = [];
   courses.forEach(c => {
     // השתמש ב-description המקורי מהאינדקס
-    let desc = (c.description || '').substring(0, 600).trim(); // עד 600 תווים
+    let desc = (c.description || '').trim(); // תיאור מלא ללא קיצוץ
 
     // אם הקורס הספציפי לא מוזכר ב-description — הוסף רק את שמו מה-text
     const descHasQ = qLower2.some(w => desc.toLowerCase().includes(w));
@@ -480,7 +481,8 @@ async function buildContext(message) {
     // שלח ל-Claude רק קורסים שהתיאור או הכותרת מכילים את המונח
     const finalHasQ = qLower2.some(w => (desc + ' ' + c.title).toLowerCase().includes(w));
     if (finalHasQ) {
-      coursesForClaude.push(`שם: ${c.title}\nקישור: ${c.url}${desc ? '\nתיאור: ' + desc : ''}`);
+      const descFull = desc.length > 800 ? desc.substring(0, 800) + '...' : desc;
+      coursesForClaude.push(`שם: ${c.title}\nקישור: ${c.url}${descFull ? '\nתיאור: ' + descFull : ''}`);
     }
   });
   if (coursesForClaude.length > 0) {
