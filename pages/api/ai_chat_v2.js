@@ -455,9 +455,11 @@ async function buildContext(message) {
     const kiResults = await Promise.all(knownOnly.map(async ki => {
       const content = await fetchPageContent(ki.url);
       if (!content) return { title: ki.title, url: ki.url, desc: ki.description || '' };
-      // חלץ תיאור נקי — ב-400 תווים ראשונים רלוונטיים
-      const clean = content.replace(/[\u0590-\u05FF\s]+שבתון - עוזר וירטואלי[\s\S]*/g, '').trim();
-      const desc = clean.substring(0, 400).trim();
+      // חלץ תיאור נקי — עד 600 תווים, סיום במשפט שלם
+      const clean = content.replace(/שבתון - עוזר וירטואלי[\s\S]*/g, '').replace(/פנו ליועצי לימודים[\s\S]*/g, '').trim();
+      let desc = clean.substring(0, 600).trim();
+      const lastPunct = Math.max(desc.lastIndexOf('.'), desc.lastIndexOf('!'), desc.lastIndexOf('?'));
+      if (lastPunct > 150) desc = desc.substring(0, lastPunct + 1).trim();
       return { title: ki.title, url: ki.url, desc };
     }));
     for (const r of kiResults) {
