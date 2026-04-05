@@ -690,17 +690,234 @@ html, body {
 
 })();
 </script>
+
 <script>
-// Suggestion chips
-document.querySelectorAll('.suggestion-chip').forEach(function(chip) {
-  chip.addEventListener('click', function() {
-    var input = document.getElementById('shabaton-chat-input');
-    input.value = chip.textContent;
-    input.dispatchEvent(new Event('input'));
-    input.focus();
-    document.getElementById('shabaton-chat-send').click();
+(function() {
+  var CONFIG = {
+    apiUrl: 'https://duda-ai-bot.vercel.app/api/ai_chat_v2',
+    site: 'shabaton'
+  };
+
+  var messages  = document.getElementById('shabaton-chat-messages');
+  var chatInput = document.getElementById('shabaton-chat-input');
+  var chatSend  = document.getElementById('shabaton-chat-send');
+  var clearBtn  = document.getElementById('shabaton-clear-chat');
+
+  var isBusy = false, history = [];
+
+  function renderMarkdown(text) {
+    if (!text) return '';
+    try {
+      var links = [];
+
+      // שמור קישורים [label](url)
+      var t = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, function(m, label, url) {
+        links.push({ url: url, label: label });
+        return '\x01' + (links.length - 1) + '\x01';
+      });
+      // URL גולמי
+      t = t.replace(/(https?:\/\/[^\s<>"'\[\]]+)/g, function(m, url) {
+        links.push({ url: url, label: url, isRaw: true });
+        return '\x01' + (links.length - 1) + '\x01';
+      });
+
+      // escape HTML
+      t = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+      // כותרות — הסר # והצג כטקסט כחול
+      t = t.replace(/^#{1,3}\s+(.+)$/mg,
+        '<span style="color:#0982bc;font-weight:700;font-size:13.5px;display:block;margin:6px 0 0px">$1</span>');
+
+      // bold
+      t = t.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#0982bc;font-weight:700">$1</strong>');
+      // כותרת דף מידע (אחרי 📋) - כחול
+      t = t.replace(/📋 <strong style="color:#222">/g, '📋 <strong style="color:#0982bc;font-size:13.5px;display:block;margin:10px 0 0">');
+
+      // הסר מספור ורשימות
+      t = t.replace(/^\d+[.):]\s*/mg, '');
+      t = t.replace(/^[-*]\s*/mg, '');
+
+      // מפריד
+      t = t.replace(/--+/g, '');
+
+      // שורות
+      t = t.replace(/\n/g, '<br>');
+
+      // שחזר קישורים
+      var footerKw = ['כל קורסי', 'כל הקורסים', 'הרשם', 'הצטרף', 'קבוצת הוואטסאפ', 'עלון שבתון', 'אפשר לשאול', 'לשאול בקבוצת'];
+      // הסר שורת רווח אחרי כותרת (H3 ו-bold כחול)
+      t = t.replace(/(<span style="color:#0982bc[^"]*">[^<]*<\/span>)<br>/g, '$1 ');
+      t = t.replace(/(<strong style="color:#0982bc[^"]*">[^<]*<\/strong>)<br>/g, '$1 ');
+
+      t = t.replace(/\x01(\d+)\x01/g, function(m, i) {
+        var link = links[parseInt(i, 10)];
+        if (!link) return '';
+        // קודד עברית ב-URL
+        try {
+          var urlObj = new URL(link.url);
+          link.url = urlObj.href;
+        } catch(e) {
+          link.url = link.url.replace(/[\u0590-\u05FF\u05F0-\u05F4]/g, function(c){ try { return encodeURIComponent(c); } catch(e){ return c; } });
+        }
+
+        if (link.isRaw) {
+          return '<a href="' + link.url + '" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:none">' + link.url + '</a>';
+        }
+
+        var ll = link.label.toLowerCase();
+        var isFooter = footerKw.some(function(w){ return ll.indexOf(w.toLowerCase()) !== -1; });
+
+        if (isFooter) {
+          return '<br><a href="' + link.url + '" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline;">' + link.label + '</a>';
+        }
+
+        // כפתור — Claude קובע את הטקסט לפי הקשר
+        // קבע טקסט כפתור לפי סוג הקישור
+        // דפי מידע שבתון — לא מוסדות לימוד
+        var infoSlugs = ['/important','/btl_shabaton','/shabaton-maanak','/Payments_shabaton',
+          '/luz_shabaton','/end_shabaton','/forms_shabaton','/halforfull_shabaton',
+          '/shabaton_request','/learning_programs_shabaton','/shabaton-hova-hashlama',
+          '/birth_shabatgon','/shabaton_checklist','/change_prog_shabaton','/tlush_maanak_shabaton',
+          '/halforfull','/maanak-shabaton','/hagdala','/shabaton-kabalot','/phones_shabaton',
+          '/shabaton-plan','/shabaton-video','/back_from_shabaton','/shabaton_schedule',
+          '/kabalot_shabaton','/tuition_reimbursement','/pension_shabaton',
+          '/keren_makor_mishor','/tofes_101','/milgot-morim'];
+        // footer links (כל קורסי, עלון, וואטסאפ) — כבר מטופלים למעלה כ-footerLink
+        // כאן נטפל רק בכפתורים
+        var isInfoPage = infoSlugs.some(function(p){ return link.url.indexOf(p) !== -1; });
+        var isResultsLink = link.url.indexOf('/results-') !== -1;
+        // results-all/results-X = קישור קטגוריה = footer, לא כפתור
+        if (isResultsLink) {
+          return '<a href="' + link.url + '" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline;">' + link.label + '</a>';
+        }
+        var btnText = isInfoPage ? 'לפירוט ולמידע נוסף' : 'פנו למידע ולייעוץ אישי';
+        return '<a href="' + link.url + '" target="_blank" style="display:inline-block;background:#e8630a;color:white;text-decoration:none;padding:7px 18px;border-radius:8px;font-size:12.5px;font-weight:600;margin:6px 0 4px;box-shadow:0 2px 6px rgba(232,99,10,0.3)">' + btnText + '</a>';
+      });
+
+      return t;
+    } catch(e) {
+      return text.replace(/\n/g,'<br>');
+    }
+  }
+
+
+    function addMessage(text, who) {
+    var wrap = document.createElement('div');
+    wrap.className = 'shabaton-message';
+    if (who === 'bot') {
+      wrap.innerHTML =
+        '<div class="shabaton-message-bot">' +
+        '<div class="shabaton-bot-avatar">&#129302;</div>' +
+        '<div class="shabaton-message-content">' + renderMarkdown(text) + '</div>' +
+        '</div>';
+    } else {
+      wrap.innerHTML =
+        '<div class="shabaton-message-user">' +
+        '<div class="shabaton-message-content">' +
+        text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') +
+        '</div></div>';
+    }
+    messages.appendChild(wrap);
+    scrollEnd();
+  }
+
+  function addTyping() {
+    var wrap = document.createElement('div');
+    wrap.className = 'shabaton-message';
+    wrap.innerHTML =
+      '<div class="shabaton-message-bot">' +
+      '<div class="shabaton-bot-avatar">&#129302;</div>' +
+      '<div class="shabaton-typing">' +
+      '<span style="animation:sbBounce 1.4s infinite"></span>' +
+      '<span style="animation:sbBounce 1.4s 0.2s infinite"></span>' +
+      '<span style="animation:sbBounce 1.4s 0.4s infinite"></span>' +
+      '</div></div>';
+    messages.appendChild(wrap);
+    scrollEnd();
+    return wrap;
+  }
+
+
+
+    function scrollEnd(){ setTimeout(function(){ messages.scrollTop = messages.scrollHeight; }, 50); }
+
+
+
+  function getWelcome() {
+    return '<div class="welcome-box">' +
+      '<p>ברוכים הבאים לשַׁבִּיבּוֹט ☀️ — העוזר הוירטואלי שלכם לשנת השבתון.<br>' +
+      'כאן תמצאו <strong>קורסים מכל רחבי הארץ</strong>, תשובות על <strong>מענקים, ביטוח לאומי וטפסים</strong>,<br>' +
+      'ומידע שיעזור לכם לתכנן שנה מוצלחת ומועשרת.<br><br>' +
+      'פשוט כתבו שאלה בתיבה למעלה — ואנחנו נענה!</p>' +
+      '<p class="example" style="margin-top:12px">למשל: "קורסי טיולים", "כמה מקבלים במענק?", "הדרכת הורים בצפון"</p>' +
+      '</div>';
+  }
+
+  messages.innerHTML = getWelcome();
+
+  function sendMessage() {
+    var msg = chatInput.value.trim();
+    if (!msg || isBusy) return;
+    chatInput.value = '';
+    chatSend.disabled = true;
+    addMessage(msg, 'user');
+    history.push({ role: 'user', content: msg });
+    var typingEl = addTyping();
+    isBusy = true;
+
+    fetch(CONFIG.apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ message: msg, history: history.slice(-6), site: CONFIG.site })
+    })
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(d) {
+      typingEl.remove();
+      var reply = d.reply || 'מצטערים, אירעה שגיאה.';
+      reply = reply.replace(/[\u1100-\u11FF\u3040-\u30FF\uAC00-\uD7AF]/g, '');
+      reply = reply.replace(/^\s*--+\s*$/mg, '');
+      reply = reply.replace(/^[A-Za-z][^\n]*\n/gm, '');
+      reply = reply.replace(/(?<!\*)\*(?!\*)/g, '');
+      reply = reply.replace(/^>\s?/mg, '');
+      addMessage(reply, 'bot');
+      history.push({ role: 'assistant', content: reply });
+    })
+    .catch(function(err) {
+      typingEl.remove();
+      console.error('[SHABI]', err);
+      addMessage('מצטערים, יש תקלה. [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)', 'bot');
+    })
+    .finally(function() { isBusy = false; });
+  }
+
+  chatSend.addEventListener('click', sendMessage);
+  chatInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
-});
+  chatInput.addEventListener('input', function() {
+    chatSend.disabled = !chatInput.value.trim();
+  });
+
+  clearBtn.addEventListener('click', function() {
+    history = [];
+    messages.innerHTML = getWelcome();
+  });
+
+  // Suggestion chips
+  document.querySelectorAll('.suggestion-chip').forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      chatInput.value = chip.textContent.trim();
+      chatSend.disabled = false;
+      chatInput.focus();
+      sendMessage();
+    });
+  });
+
+})();
 </script>
+
 </body>
 </html>
