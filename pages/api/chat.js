@@ -590,7 +590,12 @@ html, body {
         text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') +
         '</div></div>';
     }
-    messages.prepend(wrap);
+    var firstMsg = messages.querySelector('.shabaton-message, .welcome-box');
+    if (firstMsg) {
+      messages.insertBefore(wrap, firstMsg);
+    } else {
+      messages.prepend(wrap);
+    }
     wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -605,7 +610,12 @@ html, body {
       '<span></span>' +
       '<span></span>' +
       '</div></div>';
-    messages.prepend(wrap);
+    var firstMsg = messages.querySelector('.shabaton-message, .welcome-box');
+    if (firstMsg) {
+      messages.insertBefore(wrap, firstMsg);
+    } else {
+      messages.prepend(wrap);
+    }
     wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return wrap;
   }
@@ -788,7 +798,12 @@ html, body {
         text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') +
         '</div></div>';
     }
-    messages.prepend(wrap);
+    var firstMsg = messages.querySelector('.shabaton-message, .welcome-box');
+    if (firstMsg) {
+      messages.insertBefore(wrap, firstMsg);
+    } else {
+      messages.prepend(wrap);
+    }
     wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -803,7 +818,12 @@ html, body {
       '<span></span>' +
       '<span></span>' +
       '</div></div>';
-    messages.prepend(wrap);
+    var firstMsg = messages.querySelector('.shabaton-message, .welcome-box');
+    if (firstMsg) {
+      messages.insertBefore(wrap, firstMsg);
+    } else {
+      messages.prepend(wrap);
+    }
     wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return wrap;
   }
