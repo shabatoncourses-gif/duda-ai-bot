@@ -663,7 +663,7 @@ async function buildContext(message) {
     const wantsTraining2 = /מורי דרך|מדריך טיולים|הכשרת מדריך|תיירות/.test(message.toLowerCase());
     const isTrainingCourse = /מורי דרך|הכשרת מדריכ|תיירות, פנאי ואתגר|לימודי תיירות/.test(titleC);
     const filterTraining = isTrainingCourse && wantsTours2 && !wantsTraining2;
-    const finalHasQ = !filterTraining && (c._liveRelevant || (!isGenericPage && !isMaDegree && qLower2.some(w => (desc + ' ' + c.title).toLowerCase().includes(w))));
+    const finalHasQ = !filterTraining && !isGenericPage && !isMaDegree && (c._liveRelevant || qLower2.some(w => (desc + ' ' + c.title).toLowerCase().includes(w)));
     if ((c.url||'').includes('idit-link')) console.log('idit-link finalHasQ:', finalHasQ, '_liveRelevant:', c._liveRelevant, 'desc:', (desc||'').substring(0,50));
     if (finalHasQ) {
       const descFull = desc; // תיאור מלא — ללא קיצוץ
