@@ -37,6 +37,9 @@ const SYSTEM_PROMPT =
   'תיאור קצר\n' +
   '[לפירוט ולמידע נוסף](URL)\n\n' +
   'footer תמיד בסוף כל תשובה:\n' +
+  'לכל תשובה — הוסף תמיד את שני הקישורים הבאים בסוף, גם לשאלות מידע וגם לקורסים:\n' +
+  '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
+  '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
   'לקורסים: 📚 [כל קורסי [שם-התחום] ב[שם-האזור]](URL מה-context)\n' +
   '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
@@ -280,7 +283,7 @@ function detectInfoPages(question) {
   const pages = [
     // תכנון ורשימת משימות
     { kw: ['רשימת משימות','כיצד מתחילים','איך מתחילים','תהליך יציאה','צ\'קליסט'], url: 'https://www.shabaton.online/shabaton_checklist' },
-    { kw: ['תכנון','טבלת עזר','תוכנית לימודים','הרכבת תוכנית','תכנית לימודים'], url: 'https://www.shabaton.online/shabaton-plan' },
+    { kw: ['תכנון','מתכנן','מתכננים','לתכנן','תכנון תוכנית','טבלת עזר','תוכנית לימודים','הרכבת תוכנית','תכנית לימודים','איך מתכנן','איך מרכיב'], url: 'https://www.shabaton.online/shabaton-plan' },
 
     // לימודים
     { kw: ['חובות לימודים','שעות חובה','שעות השלמה','שעות רשות','לימודי חובה','חלוקת שעות'], url: 'https://www.shabaton.online/learning_programs_shabaton' },
