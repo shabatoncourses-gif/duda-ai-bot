@@ -441,7 +441,7 @@ async function fetchPageContent(url) {
       .replace(/&gt;/g, '>')
       .replace(/\s{2,}/g, ' ')
       .trim();
-    return text.substring(0, 2000);
+    return text.substring(0, 3000);
   } catch(e) {
     return null;
   }
@@ -454,10 +454,16 @@ async function buildContext(message) {
 
   const infoUrls = detectInfoPages(message) || [];
   if (infoUrls.length > 0) {
-    const contents = await Promise.all(infoUrls.slice(0, 2).map(url => fetchPageContent(url)));
+    const contents = await Promise.all(infoUrls.slice(0, 3).map(url => fetchPageContent(url)));
     let gotContent = false;
     contents.forEach((content, i) => {
-      if (content) { parts.push(`=== מידע מ-${infoUrls[i]} ===\n${content}`); gotContent = true; }
+      if (content) {
+        console.log('INFO page fetched:', infoUrls[i], 'len:', content.length);
+        parts.push(`=== מידע מ-${infoUrls[i]} ===\n${content}`);
+        gotContent = true;
+      } else {
+        console.log('INFO page FAILED:', infoUrls[i]);
+      }
     });
     if (!gotContent) {
       const qaMatch = searchQA(message);
