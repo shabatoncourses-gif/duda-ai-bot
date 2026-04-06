@@ -31,7 +31,7 @@ const SYSTEM_PROMPT =
   'פורמט קורסים:\n' +
   '### שם המוסד\n' +
   'תיאור קצר\n' +
-  '[פנו למידע ולייעוץ אישי](URL)\n\n' +
+  '[לחיפוש קורסים המתאימים עבורך](https://www.shabaton.online/search-courses)\n\n' +
   'פורמט מידע:\n' +
   '📋 **שם הדף**\n' +
   'תיאור קצר\n' +
@@ -478,8 +478,8 @@ async function buildContext(message) {
     kiParts.push('קישור לעלון שבתון: https://www.shabaton.online/shabaton');
     kiParts.push('קישור לווטסאפ: https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME');
     // הוסף קישור 📚 לכל קורסי התחום
-    const kiFieldSlug = getFieldSlug(message);
-    if (kiFieldSlug) kiParts.push('קישור לכל קורסי התחום: https://www.shabaton.online/results-all/' + encodeURIComponent(kiFieldSlug));
+    const kiFieldInfo = getFieldSlug(message);
+    if (kiFieldInfo) kiParts.push('קישור לכל קורסי התחום: https://www.shabaton.online/results-all/' + encodeURIComponent(kiFieldInfo.name || kiFieldInfo));
     return { context: kiParts.join('\n'), isInfo: false, courseCount: kiResults.length };
   }
 
