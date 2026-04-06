@@ -27,7 +27,7 @@
 }
 
 html, body {
-  min-height: 100%;
+  height: auto;
   margin: 0;
   font-family: var(--font);
   background: var(--bg);
@@ -612,10 +612,10 @@ html, body {
 
   function scrollEnd(){
     setTimeout(function(){
-      // שלח גובה לiframe parent
-      var h = document.body.scrollHeight;
-      if (window.parent !== window) window.parent.postMessage({ height: h }, '*');
-    }, 100);
+      if (window.parent !== window) {
+        window.parent.postMessage({ iframeHeight: document.body.scrollHeight }, '*');
+      }
+    }, 150);
   }
 
   function clearHistory(){
@@ -814,10 +814,10 @@ html, body {
 
     function scrollEnd(){
     setTimeout(function(){
-      // שלח גובה לiframe parent
-      var h = document.body.scrollHeight;
-      if (window.parent !== window) window.parent.postMessage({ height: h }, '*');
-    }, 100);
+      if (window.parent !== window) {
+        window.parent.postMessage({ iframeHeight: document.body.scrollHeight }, '*');
+      }
+    }, 150);
   }
 
 
