@@ -573,8 +573,7 @@ html, body {
         // כאן נטפל רק בכפתורים
         var isInfoPage = infoSlugs.some(function(p){ return link.url.indexOf(p) !== -1; });
         // קישורים שצריכים להיות טקסט רגיל (לא כפתור)
-        var isPlainLink = ll.indexOf('פירוט') !== -1 || ll.indexOf('פנו למידע') !== -1 ||
-                          ll.indexOf('פייסבוק') !== -1 || ll.indexOf('הצטרפ') !== -1;
+        var isPlainLink = ll.indexOf('פייסבוק') !== -1 || ll.indexOf('הצטרפ') !== -1;
         if (isPlainLink) {
           return '<a href="' + link.url + '" target="_blank" style="color:#0982bc;text-decoration:underline">' + link.label + '</a>';
         }
@@ -794,8 +793,7 @@ html, body {
         // כאן נטפל רק בכפתורים
         var isInfoPage = infoSlugs.some(function(p){ return link.url.indexOf(p) !== -1; });
         // קישורים שצריכים להיות טקסט רגיל (לא כפתור)
-        var isPlainLink = ll.indexOf('פירוט') !== -1 || ll.indexOf('פנו למידע') !== -1 ||
-                          ll.indexOf('פייסבוק') !== -1 || ll.indexOf('הצטרפ') !== -1;
+        var isPlainLink = ll.indexOf('פייסבוק') !== -1 || ll.indexOf('הצטרפ') !== -1;
         if (isPlainLink) {
           return '<a href="' + link.url + '" target="_blank" style="color:#0982bc;text-decoration:underline">' + link.label + '</a>';
         }
