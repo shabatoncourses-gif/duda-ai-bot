@@ -358,12 +358,19 @@ html, body {
   .input-wrapper { padding: 6px 6px 6px 14px; }
   #shabaton-chat-input { font-size: 16px; }
 }
-/* שם מוסד — קישור כחול עם קו תחתון */
-.shabaton-message-content h3 { font-size: 14px; font-weight: 700; margin: 10px 0 4px; }
-.shabaton-message-content h3 a { color: #0982bc; text-decoration: underline; font-weight: 700; }
-.shabaton-message-content h3 a:hover { color: #0770a3; }
-/* כפתור פנו — בולט פחות */
-.shabaton-message-content a[href]:not(h3 a) { color: #0982bc; }
+.shabaton-h3 {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 700;
+  margin: 12px 0 3px;
+  line-height: 1.3;
+}
+.shabaton-h3 a {
+  color: #0982bc !important;
+  text-decoration: underline !important;
+  font-weight: 700;
+}
+.shabaton-h3 a:hover { color: #0660a0 !important; }
 </style>
 </head>
 <body>
@@ -504,9 +511,9 @@ html, body {
       // escape HTML
       t = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-      // כותרות — הסר # והצג כטקסט כחול
-      t = t.replace(/^#{1,3}\s+(.+)$/mg,
-        '<span style="color:#0982bc;font-weight:700;font-size:13.5px;display:block;margin:6px 0 0px">$1</span>');
+      // כותרות ### — טפל לפני שחזור links
+      // ### [שם](URL) יהפוך ל: <span class="shabaton-h3"><a>שם</a></span>
+      t = t.replace(/^#{1,3}\s+(.+)$/mg, '<span class="shabaton-h3">$1</span>');
 
       // bold
       t = t.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#0982bc;font-weight:700">$1</strong>');
@@ -719,9 +726,9 @@ html, body {
       // escape HTML
       t = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-      // כותרות — הסר # והצג כטקסט כחול
-      t = t.replace(/^#{1,3}\s+(.+)$/mg,
-        '<span style="color:#0982bc;font-weight:700;font-size:13.5px;display:block;margin:6px 0 0px">$1</span>');
+      // כותרות ### — טפל לפני שחזור links
+      // ### [שם](URL) יהפוך ל: <span class="shabaton-h3"><a>שם</a></span>
+      t = t.replace(/^#{1,3}\s+(.+)$/mg, '<span class="shabaton-h3">$1</span>');
 
       // bold
       t = t.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#0982bc;font-weight:700">$1</strong>');
