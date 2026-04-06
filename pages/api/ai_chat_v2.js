@@ -28,19 +28,18 @@ const SYSTEM_PROMPT =
   'הצג רק מוסדות שהתיאור שלהם מזכיר את הנושא המבוקש ישירות. אם הנושא מוזכר בדרך אגב בין נושאים אחרים רבים — דלג על המוסד.\n' +
   'אם בתיאור יש ציטוט מתוך רשימת הקורסים — השתמש בו להסביר מה המוסד מציע.\n' +
   'אסור להציג מוסד שלא ברשימה. אסור שאלות אישיות. אסור -- או ---.\n\n' +
-  'פורמט קורסים:\n' +
-  '### שם המוסד\n' +
+  'פורמט קורסים (לכל מוסד):\n' +
+  '### [שם המוסד](URL של המוסד מה-context)\n' +
   'תיאור קצר\n' +
-  '[לחיפוש קורסים המתאימים עבורך](https://www.shabaton.online/search-courses)\n\n' +
+  '[פנו למידע ולייעוץ אישי](URL של המוסד מה-context)\n\n' +
   'פורמט מידע:\n' +
   '📋 **שם הדף**\n' +
   'תיאור קצר\n' +
   '[לפירוט ולמידע נוסף](URL)\n\n' +
-  'footer תמיד בסוף כל תשובה:\n' +
   'footer — הוסף תמיד בסוף:\n' +
   '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
-  'לשאלות קורסים בלבד: הוסף גם 📚 [כל קורסי [שם-התחום]](URL מה-context). אל תמציא URL — השתמש רק ב-URL שמופיע במפורש ב-context.\n' +
+  'לשאלות קורסים: הוסף בסוף 📚 [כל קורסי [שם-התחום]](URL מה-context — קישור לתחום). אם אין URL בcontext — השמט.\n' +
   'לשאלות מידע: אל תוסיף 📚 קישור לקורסים. אם רלוונטי — הוסף: 🔍 [חיפוש קורסים](https://www.shabaton.online/search-courses)\n' +
   '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
@@ -671,6 +670,7 @@ async function buildContext(message) {
     const isTrainingCourse = /מורי דרך|הכשרת מדריכ|תיירות, פנאי ואתגר|לימודי תיירות/.test(titleC);
     const filterTraining = isTrainingCourse && wantsTours2 && !wantsTraining2;
     const finalHasQ = !filterTraining && !isGenericPage && !isMaDegree && (c._liveRelevant || qLower2.some(w => (desc + ' ' + c.title).toLowerCase().includes(w)));
+    if (finalHasQ) console.log('PASS TO CLAUDE:', (c.title||'').substring(0,30));
     if ((c.url||'').includes('idit-link')) console.log('idit-link finalHasQ:', finalHasQ, '_liveRelevant:', c._liveRelevant, 'desc:', (desc||'').substring(0,50));
     if (finalHasQ) {
       const descFull = desc; // תיאור מלא — ללא קיצוץ
