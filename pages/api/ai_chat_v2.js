@@ -28,10 +28,11 @@ const SYSTEM_PROMPT =
   'הצג רק מוסדות שהתיאור שלהם מזכיר את הנושא המבוקש ישירות. אם הנושא מוזכר בדרך אגב בין נושאים אחרים רבים — דלג על המוסד.\n' +
   'אם בתיאור יש ציטוט מתוך רשימת הקורסים — השתמש בו להסביר מה המוסד מציע.\n' +
   'אסור להציג מוסד שלא ברשימה. אסור שאלות אישיות. אסור -- או ---.\n\n' +
-  'פורמט קורסים (לכל מוסד):\n' +
-  '### [שם המוסד](URL של המוסד מה-context)\n' +
-  'תיאור קצר\n' +
-  '[פנו למידע ולייעוץ אישי](URL של המוסד מה-context)\n\n' +
+  'פורמט קורסים — לכל מוסד בcontext (בפורמט ### שם\nURL: ...\nתיאור):\n' +
+  '### [שם המוסד](URL מה-context של אותו מוסד)\n' +
+  'תיאור: העתק בדיוק כפי שכתוב בcontext — אסור לשנות מילה.\n' +
+  '[פנו למידע ולייעוץ אישי](URL מה-context של אותו מוסד)\n\n' +
+  'חשוב: כל מוסד מקבל את ה-URL הספציפי שלו מה-context. אל תשתמש בURL של מוסד אחר.\n' +
   'פורמט מידע:\n' +
   '📋 **שם הדף**\n' +
   'תיאור קצר\n' +
@@ -674,7 +675,7 @@ async function buildContext(message) {
     if ((c.url||'').includes('idit-link')) console.log('idit-link finalHasQ:', finalHasQ, '_liveRelevant:', c._liveRelevant, 'desc:', (desc||'').substring(0,50));
     if (finalHasQ) {
       const descFull = desc; // תיאור מלא — ללא קיצוץ
-      coursesForClaude.push(`שם: ${c.title}\nקישור: ${c.url}${descFull ? '\nתיאור: ' + descFull : ''}`);
+      coursesForClaude.push(`### ${c.title}\nURL: ${c.url}\n${descFull || ''}`);
     }
   });
   // אם יש known_institutions — שדרס את coursesForClaude
