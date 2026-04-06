@@ -436,7 +436,7 @@ async function buildContext(message) {
   console.log('region:', region ? region.name : 'none', '| msg:', message.substring(0,30));
   const parts = [];
 
-  const infoUrls = detectInfoPages(message);
+  const infoUrls = detectInfoPages(message) || [];
   if (infoUrls.length > 0) {
     const contents = await Promise.all(infoUrls.slice(0, 2).map(url => fetchPageContent(url)));
     let gotContent = false;
