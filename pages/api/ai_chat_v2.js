@@ -429,16 +429,32 @@ async function fetchPageContent(url) {
     });
     clearTimeout(timer);
     if (!res.ok) return null;
-    const html = await res.text();
-    // הסר תגיות HTML ושמור טקסט
-    const text = html
+    let html = await res.text();
+    // הסר script, style, nav, header, footer
+    html = html
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+      .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+      .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '');
+    // חפש תוכן עיקרי — דפי Duda
+    let body = html;
+    // נסה לחפש content div
+    const contentMatch = html.match(/class="[^"]*(?:dmBody|dmContent|content|main-content|page-content)[^"]*"[^>]*>([\s\S]{100,})/i) ||
+                         html.match(/<main[^>]*>([\s\S]*?)<\/main>/i) ||
+                         html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+    if (contentMatch) body = contentMatch[1];
+    // הסר divs של ניווט
+    body = body.replace(/<ul[^>]*>[\s\S]*?<\/ul>/gi, ' ');
+    // הסר תגיות וnoise
+    const text = body
       .replace(/<[^>]+>/g, ' ')
       .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
+      .replace(/[\u0600-\u06FF]+/g, '') // הסר ערבית
+      .replace(/[\u4E00-\u9FFF]+/g, '') // הסר סינית
       .replace(/\s{2,}/g, ' ')
       .trim();
     return text.substring(0, 3000);
@@ -454,17 +470,38 @@ async function buildContext(message) {
 
   const infoUrls = detectInfoPages(message) || [];
   if (infoUrls.length > 0) {
-    const contents = await Promise.all(infoUrls.slice(0, 3).map(url => fetchPageContent(url)));
     let gotContent = false;
-    contents.forEach((content, i) => {
-      if (content) {
-        console.log('INFO page fetched:', infoUrls[i], 'len:', content.length);
-        parts.push(`=== מידע מ-${infoUrls[i]} ===\n${content}`);
-        gotContent = true;
-      } else {
-        console.log('INFO page FAILED:', infoUrls[i]);
+    // תחילה: חפש באינדקסים (מהיר)
+    const indexes2 = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json'];
+    for (const url of infoUrls.slice(0, 2)) {
+      const slug = url.split('/').pop().replace('#', '_');
+      for (const fname of indexes2) {
+        const data = loadJSON(fname);
+        if (!data) continue;
+        const pages = Array.isArray(data) ? data : (data.pages || []);
+        const found = pages.find(p => p.url && (p.url.includes(slug) || p.url === url));
+        if (found && found._text && found._text.length > 100) {
+          console.log('INFO from index:', url, 'len:', found._text.length);
+          parts.push('=== מידע מ-' + url + ' ===\n' + found._text.substring(0, 3000));
+          gotContent = true;
+          break;
+        }
       }
-    });
+      if (gotContent) break;
+    }
+    // fallback: סרוק מהאינטרנט
+    if (!gotContent) {
+      const contents = await Promise.all(infoUrls.slice(0, 2).map(url => fetchPageContent(url)));
+      contents.forEach((content, i) => {
+        if (content) {
+          console.log('INFO page fetched:', infoUrls[i], 'len:', content.length);
+          parts.push('=== מידע מ-' + infoUrls[i] + ' ===\n' + content);
+          gotContent = true;
+        } else {
+          console.log('INFO page FAILED:', infoUrls[i]);
+        }
+      });
+    }
     if (!gotContent) {
       const qaMatch = searchQA(message);
       if (qaMatch) {
