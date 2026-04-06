@@ -27,7 +27,7 @@
 }
 
 html, body {
-  height: 100%;
+  height: auto;
   margin: 0;
   font-family: var(--font);
   background: var(--bg);
@@ -39,7 +39,7 @@ html, body {
 .page {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: 100vh;
   max-width: 960px;
   margin: 0 auto;
   padding: 0 16px;
@@ -225,8 +225,7 @@ html, body {
 
 /* ── MESSAGES ────────────────────── */
 #shabaton-chat-messages {
-  flex: 1;
-  overflow-y: auto;
+  overflow-y: visible;
   padding: 0 0 12px;
   scroll-behavior: smooth;
 }
@@ -611,14 +610,18 @@ html, body {
     return wrap;
   }
 
-  function scrollEnd(){ setTimeout(function(){ messages.scrollTop = messages.scrollHeight; }, 50); }
+  function scrollEnd(){
+    setTimeout(function(){
+      try { window.parent.postMessage({ iframeHeight: document.body.scrollHeight }, '*'); } catch(e){}
+    }, 200);
+  }
 
   function clearHistory(){
     history = [];
     messages.innerHTML = '<div class="welcome-box">' +
-      '<p>ברוכים הבאים לשַׁבִּיבּוֹט ☀️ — העוזר הוירטואלי שלכם לשנת השבתון.<br>' +
+      '<p>ברוכים הבאים לשַׁבִּיבּוֹט 🤖 — העוזר הוירטואלי שלכם לשנת השבתון.<br>' +
       'כאן תמצאו <strong>קורסים מכל רחבי הארץ</strong>, תשובות על <strong>מענקים, ביטוח לאומי וטפסים</strong>,<br>' +
-      'ומידע שיעזור לכם לתכנן שנה מוצלחת ומועשרת.<br><br>' +
+      'ומידע שיעזור לכם לתכנן שנה נפלאה.<br><br>' +
       'פשוט כתבו שאלה בתיבה למעלה — ואנחנו נענה!</p>' +
       '<p class="example" style="margin-top:12px">למשל: "קורס ציור בתל אביב", "כמה מקבלים במענק?", "הידרותרפיה בצפון"</p>' +
       '</div>';
@@ -640,9 +643,9 @@ html, body {
 
   // הצג הודעת פתיחה
   messages.innerHTML = '<div class="welcome-box">' +
-      '<p>ברוכים הבאים לשַׁבִּיבּוֹט ☀️ — העוזר הוירטואלי שלכם לשנת השבתון.<br>' +
+      '<p>ברוכים הבאים לשַׁבִּיבּוֹט 🤖 — העוזר הוירטואלי שלכם לשנת השבתון.<br>' +
       'כאן תמצאו <strong>קורסים מכל רחבי הארץ</strong>, תשובות על <strong>מענקים, ביטוח לאומי וטפסים</strong>,<br>' +
-      'ומידע שיעזור לכם לתכנן שנה מוצלחת ומועשרת.<br><br>' +
+      'ומידע שיעזור לכם לתכנן שנה נפלאה.<br><br>' +
       'פשוט כתבו שאלה בתיבה למעלה — ואנחנו נענה!</p>' +
       '<p class="example" style="margin-top:12px">למשל: "קורס ציור בתל אביב", "כמה מקבלים במענק?", "הידרותרפיה בצפון"</p>' +
       '</div>';
@@ -807,15 +810,19 @@ html, body {
 
 
 
-    function scrollEnd(){ setTimeout(function(){ messages.scrollTop = messages.scrollHeight; }, 50); }
+    function scrollEnd(){
+    setTimeout(function(){
+      try { window.parent.postMessage({ iframeHeight: document.body.scrollHeight }, '*'); } catch(e){}
+    }, 200);
+  }
 
 
 
   function getWelcome() {
     return '<div class="welcome-box">' +
-      '<p>ברוכים הבאים לשַׁבִּיבּוֹט ☀️ — העוזר הוירטואלי שלכם לשנת השבתון.<br>' +
+      '<p>ברוכים הבאים לשַׁבִּיבּוֹט 🤖 — העוזר הוירטואלי שלכם לשנת השבתון.<br>' +
       'כאן תמצאו <strong>קורסים מכל רחבי הארץ</strong>, תשובות על <strong>מענקים, ביטוח לאומי וטפסים</strong>,<br>' +
-      'ומידע שיעזור לכם לתכנן שנה מוצלחת ומועשרת.<br><br>' +
+      'ומידע שיעזור לכם לתכנן שנה נפלאה.<br><br>' +
       'פשוט כתבו שאלה בתיבה למעלה — ואנחנו נענה!</p>' +
       '<p class="example" style="margin-top:12px">למשל: "קורסי טיולים", "כמה מקבלים במענק?", "הדרכת הורים בצפון"</p>' +
       '</div>';
