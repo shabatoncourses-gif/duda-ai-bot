@@ -37,10 +37,11 @@ const SYSTEM_PROMPT =
   'תיאור קצר\n' +
   '[לפירוט ולמידע נוסף](URL)\n\n' +
   'footer תמיד בסוף כל תשובה:\n' +
-  'לכל תשובה — הוסף תמיד את שני הקישורים הבאים בסוף, גם לשאלות מידע וגם לקורסים:\n' +
+  'footer — הוסף תמיד בסוף:\n' +
   '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
-  'לקורסים: 📚 [כל קורסי [שם-התחום] ב[שם-האזור]](URL מה-context)\n' +
+  'לשאלות קורסים בלבד: הוסף גם 📚 [כל קורסי [שם-התחום]](URL מה-context). אל תמציא URL — השתמש רק ב-URL שמופיע במפורש ב-context.\n' +
+  'לשאלות מידע: אל תוסיף 📚 קישור לקורסים. אם רלוונטי — הוסף: 🔍 [חיפוש קורסים](https://www.shabaton.online/search-courses)\n' +
   '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n\n' +
   '"מידע וטיפים חשובים" — תמיד אחרון ברשימת מידע\n' +
@@ -476,6 +477,9 @@ async function buildContext(message) {
     kiParts.push(`\nקישור לכל קורסי ${footerName2}: ${footerUrl2}`);
     kiParts.push('קישור לעלון שבתון: https://www.shabaton.online/shabaton');
     kiParts.push('קישור לווטסאפ: https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME');
+    // הוסף קישור 📚 לכל קורסי התחום
+    const kiFieldSlug = getFieldSlug(message);
+    if (kiFieldSlug) kiParts.push('קישור לכל קורסי התחום: https://www.shabaton.online/results-all/' + encodeURIComponent(kiFieldSlug));
     return { context: kiParts.join('\n'), isInfo: false, courseCount: kiResults.length };
   }
 
