@@ -23,10 +23,10 @@ const SYSTEM_PROMPT =
   'אל תציג תואר שני אלא אם ביקשו.\n' +
   'בנושא טיולים: הצג רק סמינרים וסיורים שמורים הולכים אליהם — לא קורסי הכשרת מורי דרך.\n\n' +
 
-  'פורמט לכל מוסד (context מכיל ===MOSSAD=== עם SHEM=, URL=, TEUR=):\n' +
-  '### [SHEM](URL)\n' +
-  'TEUR — העתק בדיוק.\n' +
-  '[פנו למידע ולייעוץ אישי](URL)\n\n' +
+  'פורמט לכל מוסד (context מכיל "שם:", "קישור:", "תיאור:"):\n' +
+  '### [תוכן שם:](תוכן קישור:)\n' +
+  'תוכן תיאור: — העתק בדיוק.\n' +
+  '[פנו למידע ולייעוץ אישי](תוכן קישור:)\n\n' +
 
   '=== שאלות מידע ===\n' +
   'קח מידע אך ורק מה-context. תן תקציר ממוקד. הוסף [לפירוט ולמידע נוסף](URL).\n\n' +
@@ -703,14 +703,12 @@ async function buildContext(message) {
     if (finalHasQ) console.log('PASS TO CLAUDE:', (c.title||'').substring(0,30), '| url:', (c.url||'').split('/').pop());
     if ((c.url||'').includes('idit-link')) console.log('idit-link finalHasQ:', finalHasQ, '_liveRelevant:', c._liveRelevant, 'desc:', (desc||'').substring(0,50));
     if (finalHasQ) {
-      const descFull = desc; // תיאור מלא — ללא קיצוץ
-      coursesForClaude.push([
-        '===MOSSAD===',
-        `SHEM=${c.title}`,
-        `URL=${c.url}`,
-        `TEUR=${(descFull || '').trim().substring(0, 500)}`,
-        '===END==='
-      ].join('\n'));
+       const descFull = (desc || '').trim().substring(0, 500);
+       coursesForClaude.push(
+         'שם: ' + c.title + '\n' +
+         'קישור: ' + c.url + '\n' +
+         (descFull ? 'תיאור: ' + descFull : '') + '\n'
+       );
     }
   });
   // אם יש known_institutions — שדרס את coursesForClaude
