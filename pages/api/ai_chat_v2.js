@@ -249,6 +249,10 @@ function searchCourses(message, region) {
           score = Math.max(1, score - 3);
         }
       }
+      if (url.includes('shlomit') || url.includes('idit-link')) {
+        const tdOnly = (page.title + ' ' + (page.description||'')).toLowerCase();
+        console.log('TRACE:', url.split('/').pop(), 'score:', score, 'region_check:', region ? region.name : 'none');
+      }
       seen.add(url);
       // חלץ snippet רלוונטי מה-text אם המונח נמצא בו
       let snippet = page.description || '';
@@ -416,6 +420,7 @@ function getInstitutionPagesForField(question) {
 // ── buildContext ──────────────────────────────────────
 async function buildContext(message) {
   const region = detectRegion(message);
+  console.log('region:', region ? region.name : 'none', '| msg:', message.substring(0,30));
   const parts = [];
 
   const infoUrls = detectInfoPages(message);
@@ -572,6 +577,22 @@ async function buildContext(message) {
           // אם הדף כבר התאים ב-_text (withTextMatch2) — תמיד רלוונטי
           const isAlreadyTextMatch = withTextMatch2.some(tm => tm.url === p.url);
           const relevant = isAlreadyTextMatch || (qSpecific2.length > 0 && qSpecific2.some(w => content.toLowerCase().includes(w)));
+          // סנן לפי אזור — אם יש region ואם הדף שייך לאזור אחר
+          if (relevant && region) {
+            const regD = loadJSON('regions.json');
+            if (regD) {
+              const contentLower = content.toLowerCase();
+              let wrongReg = false, rightCity = false;
+              for (const or2 of (regD.regions || [])) {
+                if (or2.slug === region.slug) {
+                  rightCity = or2.cities.some(c => c.length > 2 && contentLower.includes(c.toLowerCase()));
+                } else {
+                  if (or2.cities.some(c => c.length > 3 && contentLower.includes(c.toLowerCase()))) wrongReg = true;
+                }
+              }
+              if (wrongReg && !rightCity) return null; // אזור שגוי
+            }
+          }
           const shortName = p.url.split('/').pop();
           if (['hemdat','igud_arim','washington-morim','foodprof'].includes(shortName)) {
             console.log('LIVE SCAN:', shortName, 'relevant='+relevant, 'content_len='+(content||'').length);
