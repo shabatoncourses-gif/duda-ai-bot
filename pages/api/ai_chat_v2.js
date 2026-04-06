@@ -540,7 +540,24 @@ async function buildContext(message) {
         if (['hemdat','igud_arim','foodprof'].includes(shortU)) {
           console.log('textIndex snippet:', shortU, 'hasQ='+snippetHasQ, instSnippet.substring(0,80));
         }
-        courses.push({ title: p.title, url: p.url, description: instSnippet, score: 3, _liveRelevant: snippetHasQ });
+        // region filter לtextIndex
+        let skipPage = false;
+        if (region) {
+          const tdCheck = (p.title + ' ' + instSnippet + ' ' + (p.description||'')).toLowerCase();
+          const regD2 = loadJSON('regions.json');
+          if (regD2) {
+            let wrongR = false, rightC = false;
+            for (const orr of (regD2.regions || [])) {
+              if (orr.slug === region.slug) {
+                rightC = (orr.cities || []).some(c => c.length > 2 && tdCheck.includes(c.toLowerCase()));
+              } else {
+                if ((orr.cities || []).some(c => c.length > 3 && tdCheck.includes(c.toLowerCase()))) wrongR = true;
+              }
+            }
+            if (wrongR && !rightC) skipPage = true;
+          }
+        }
+        if (!skipPage) courses.push({ title: p.title, url: p.url, description: instSnippet, score: 3, _liveRelevant: snippetHasQ });
         existingUrls.add(p.url);
       });
 
@@ -647,6 +664,7 @@ async function buildContext(message) {
     const isTrainingCourse = /מורי דרך|הכשרת מדריכ|תיירות, פנאי ואתגר|לימודי תיירות/.test(titleC);
     const filterTraining = isTrainingCourse && wantsTours2 && !wantsTraining2;
     const finalHasQ = !filterTraining && (c._liveRelevant || (!isGenericPage && !isMaDegree && qLower2.some(w => (desc + ' ' + c.title).toLowerCase().includes(w))));
+    if ((c.url||'').includes('idit-link')) console.log('idit-link finalHasQ:', finalHasQ, '_liveRelevant:', c._liveRelevant, 'desc:', (desc||'').substring(0,50));
     if (finalHasQ) {
       const descFull = desc; // תיאור מלא — ללא קיצוץ
       coursesForClaude.push(`שם: ${c.title}\nקישור: ${c.url}${descFull ? '\nתיאור: ' + descFull : ''}`);
