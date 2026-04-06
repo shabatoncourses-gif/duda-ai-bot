@@ -29,11 +29,11 @@ const SYSTEM_PROMPT =
   'הצג רק מוסדות שהתיאור שלהם מזכיר את הנושא המבוקש ישירות. אם הנושא מוזכר בדרך אגב בין נושאים אחרים רבים — דלג על המוסד.\n' +
   'אם בתיאור יש ציטוט מתוך רשימת הקורסים — השתמש בו להסביר מה המוסד מציע.\n' +
   'אסור להציג מוסד שלא ברשימה. אסור שאלות אישיות. אסור -- או ---.\n\n' +
-  'פורמט קורסים — לכל מוסד בcontext (בפורמט ### שם\nURL: ...\nתיאור):\n' +
-  '### [שם המוסד](URL מה-context של אותו מוסד)\n' +
-  'תיאור: העתק בדיוק כפי שכתוב בcontext — אסור לשנות מילה.\n' +
-  '[פנו למידע ולייעוץ אישי](URL מה-context של אותו מוסד)\n\n' +
-  'חשוב: כל מוסד מקבל את ה-URL הספציפי שלו מה-context. אל תשתמש בURL של מוסד אחר.\n' +
+  'פורמט קורסים — לכל מוסד:\n' +
+  '### [**שם** מה-context](הקישור מה-context)\n' +
+  'התיאור המלא מה-context — אסור לשנות מילה.\n' +
+  '[פנו למידע ולייעוץ אישי](הקישור מה-context)\n\n' +
+  'חשוב: השתמש בשם ובקישור הספציפי של כל מוסד מה-context. אסור לערבב קישורים.\n' +
   'פורמט מידע:\n' +
   '📋 **שם הדף**\n' +
   'תיאור קצר\n' +
@@ -41,7 +41,7 @@ const SYSTEM_PROMPT =
   'footer — הוסף תמיד בסוף:\n' +
   '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
-  '👥 [קבוצת הפייסבוק של שבתון](https://www.facebook.com/groups/shabaton.online)\n' +
+  'הצטרפו לקבוצת הפייסבוק שלנו: https://www.facebook.com/groups/shabaton.online\n' +
   'לשאלות קורסים: הוסף בסוף 📚 [כל קורסי [שם-התחום]](URL מה-context — קישור לתחום). אם אין URL בcontext — השמט.\n' +
   'לשאלות מידע: אל תוסיף 📚 קישור לקורסים. אם רלוונטי — הוסף: 🔍 [חיפוש קורסים](https://www.shabaton.online/search-courses)\n' +
   '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
@@ -708,12 +708,16 @@ async function buildContext(message) {
     const wantsTraining2 = /מורי דרך|מדריך טיולים|הכשרת מדריך|תיירות/.test(message.toLowerCase());
     const isTrainingCourse = /מורי דרך|הכשרת מדריכ|תיירות, פנאי ואתגר|לימודי תיירות/.test(titleC);
     const filterTraining = isTrainingCourse && wantsTours2 && !wantsTraining2;
-    const finalHasQ = !filterTraining && !isGenericPage && !isMaDegree && (c._liveRelevant || qLower2.some(w => (desc + ' ' + c.title).toLowerCase().includes(w)));
-    if (finalHasQ) console.log('PASS TO CLAUDE:', (c.title||'').substring(0,30));
+    // qWords כולל מילות מפתח מורחבות
+    const titleDescLower = (desc + ' ' + c.title).toLowerCase();
+    const hasQword = qLower2.some(w => titleDescLower.includes(w)) ||
+                     (c._score && c._score >= 3); // דפים שנמצאו בחיפוש ישיר
+    const finalHasQ = !filterTraining && !isGenericPage && !isMaDegree && (c._liveRelevant || hasQword);
+    if (finalHasQ) console.log('PASS TO CLAUDE:', (c.title||'').substring(0,30), '| url:', (c.url||'').split('/').pop());
     if ((c.url||'').includes('idit-link')) console.log('idit-link finalHasQ:', finalHasQ, '_liveRelevant:', c._liveRelevant, 'desc:', (desc||'').substring(0,50));
     if (finalHasQ) {
       const descFull = desc; // תיאור מלא — ללא קיצוץ
-      coursesForClaude.push(`### ${c.title}\nURL: ${c.url}\n${descFull || ''}`);
+      coursesForClaude.push(`**שם**: ${c.title}\n**קישור**: ${c.url}\n**תיאור**: ${descFull || '(אין תיאור)'}`);
     }
   });
   // אם יש known_institutions — שדרס את coursesForClaude
@@ -812,7 +816,7 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model, max_tokens: 2500, system: SYSTEM_PROMPT,
+        model, max_tokens: 3000, system: SYSTEM_PROMPT,
         messages: [...history.slice(-6), { role: 'user', content: userContent }],
         ...(isInfoQuestion ? {
           tools: [{ type: 'web_search_20250305', name: 'web_search' }],
