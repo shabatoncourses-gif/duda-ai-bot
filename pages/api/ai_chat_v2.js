@@ -431,6 +431,35 @@ function getInstitutionPagesForField(question) {
 }
 
 // ── buildContext ──────────────────────────────────────
+
+async function fetchPageContent(url) {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'shabaton-bot/1.0' },
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const html = await res.text();
+    // הסר תגיות HTML ושמור טקסט
+    const text = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    return text.substring(0, 2000);
+  } catch(e) {
+    return null;
+  }
+}
+
 async function buildContext(message) {
   const region = detectRegion(message);
   console.log('region:', region ? region.name : 'none', '| msg:', message.substring(0,30));
