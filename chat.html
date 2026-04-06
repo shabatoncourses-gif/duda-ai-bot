@@ -27,7 +27,7 @@
 }
 
 html, body {
-  height: 100%;
+  min-height: 100%;
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
@@ -38,7 +38,7 @@ html, body {
 .page {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: 100vh;
   max-width: 960px;
   margin: 0 auto;
   padding: 0 16px;
@@ -224,8 +224,8 @@ html, body {
 
 /* ── MESSAGES ────────────────────── */
 #shabaton-chat-messages {
-  flex: 1;
   overflow-y: auto;
+  max-height: 65vh;
   padding: 0 0 12px;
   scroll-behavior: smooth;
 }
@@ -262,7 +262,7 @@ html, body {
   border-radius: 4px 18px 18px 18px;
   max-width: 82%;
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-  line-height: 1.65;
+  line-height: 1.35;
   font-size: 15px;
   color: var(--text);
   direction: rtl;
@@ -542,7 +542,7 @@ html, body {
         var isFooter = footerKw.some(function(w){ return ll.indexOf(w.toLowerCase()) !== -1; });
 
         if (isFooter) {
-          return '<br><a href="' + link.url + '" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline;">' + link.label + '</a>';
+          return '<span style="display:inline-flex;align-items:center;gap:3px;margin:2px 6px"><a href="' + link.url + '" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline;white-space:nowrap">' + link.label + '</a></span>';
         }
 
         // כפתור — Claude קובע את הטקסט לפי הקשר
@@ -735,7 +735,7 @@ html, body {
         var isFooter = footerKw.some(function(w){ return ll.indexOf(w.toLowerCase()) !== -1; });
 
         if (isFooter) {
-          return '<br><a href="' + link.url + '" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline;">' + link.label + '</a>';
+          return '<span style="display:inline-flex;align-items:center;gap:3px;margin:2px 6px"><a href="' + link.url + '" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline;white-space:nowrap">' + link.label + '</a></span>';
         }
 
         // כפתור — Claude קובע את הטקסט לפי הקשר
