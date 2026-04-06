@@ -27,7 +27,7 @@
 }
 
 html, body {
-  height: auto;
+  height: 100%;
   margin: 0;
   font-family: var(--font);
   background: var(--bg);
@@ -39,7 +39,7 @@ html, body {
 .page {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100%;
   max-width: 960px;
   margin: 0 auto;
   padding: 0 16px;
@@ -225,7 +225,8 @@ html, body {
 
 /* ── MESSAGES ────────────────────── */
 #shabaton-chat-messages {
-  overflow-y: visible;
+  flex: 1;
+  overflow-y: auto;
   padding: 0 0 12px;
   scroll-behavior: smooth;
 }
@@ -610,13 +611,7 @@ html, body {
     return wrap;
   }
 
-  function scrollEnd(){
-    setTimeout(function(){
-      if (window.parent !== window) {
-        window.parent.postMessage({ iframeHeight: document.body.scrollHeight }, '*');
-      }
-    }, 150);
-  }
+  function scrollEnd(){ setTimeout(function(){ messages.scrollTop = messages.scrollHeight; }, 50); }
 
   function clearHistory(){
     history = [];
@@ -812,13 +807,7 @@ html, body {
 
 
 
-    function scrollEnd(){
-    setTimeout(function(){
-      if (window.parent !== window) {
-        window.parent.postMessage({ iframeHeight: document.body.scrollHeight }, '*');
-      }
-    }, 150);
-  }
+    function scrollEnd(){ setTimeout(function(){ messages.scrollTop = messages.scrollHeight; }, 50); }
 
 
 
