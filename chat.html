@@ -531,7 +531,7 @@ html, body {
       t = t.replace(/\n/g, '<br>');
 
       // שחזר קישורים
-      var footerKw = ['כל קורסי', 'כל הקורסים', 'הרשם', 'הצטרף', 'קבוצת הוואטסאפ', 'עלון שבתון', 'אפשר לשאול', 'לשאול בקבוצת'];
+      var footerKw = ['כל קורסי', 'כל הקורסים', 'הרשם', 'קבוצת הוואטסאפ', 'עלון שבתון', 'אפשר לשאול', 'לשאול בקבוצת'];
       // הסר שורת רווח אחרי כותרת (H3 ו-bold כחול)
       t = t.replace(/(<span style="color:#0982bc[^"]*">[^<]*<\/span>)<br>/g, '$1 ');
       t = t.replace(/(<strong style="color:#0982bc[^"]*">[^<]*<\/strong>)<br>/g, '$1 ');
@@ -572,6 +572,12 @@ html, body {
         // footer links (כל קורסי, עלון, וואטסאפ) — כבר מטופלים למעלה כ-footerLink
         // כאן נטפל רק בכפתורים
         var isInfoPage = infoSlugs.some(function(p){ return link.url.indexOf(p) !== -1; });
+        // קישורים שצריכים להיות טקסט רגיל (לא כפתור)
+        var isPlainLink = ll.indexOf('פירוט') !== -1 || ll.indexOf('פנו למידע') !== -1 ||
+                          ll.indexOf('פייסבוק') !== -1 || ll.indexOf('הצטרפ') !== -1;
+        if (isPlainLink) {
+          return '<a href="' + link.url + '" target="_blank" style="color:#0982bc;text-decoration:underline">' + link.label + '</a>';
+        }
         var isResultsLink = link.url.indexOf('/results-') !== -1;
         // results-all/results-X = קישור קטגוריה = footer, לא כפתור
         if (isResultsLink) {
@@ -746,7 +752,7 @@ html, body {
       t = t.replace(/\n/g, '<br>');
 
       // שחזר קישורים
-      var footerKw = ['כל קורסי', 'כל הקורסים', 'הרשם', 'הצטרף', 'קבוצת הוואטסאפ', 'עלון שבתון', 'אפשר לשאול', 'לשאול בקבוצת'];
+      var footerKw = ['כל קורסי', 'כל הקורסים', 'הרשם', 'קבוצת הוואטסאפ', 'עלון שבתון', 'אפשר לשאול', 'לשאול בקבוצת'];
       // הסר שורת רווח אחרי כותרת (H3 ו-bold כחול)
       t = t.replace(/(<span style="color:#0982bc[^"]*">[^<]*<\/span>)<br>/g, '$1 ');
       t = t.replace(/(<strong style="color:#0982bc[^"]*">[^<]*<\/strong>)<br>/g, '$1 ');
@@ -787,6 +793,12 @@ html, body {
         // footer links (כל קורסי, עלון, וואטסאפ) — כבר מטופלים למעלה כ-footerLink
         // כאן נטפל רק בכפתורים
         var isInfoPage = infoSlugs.some(function(p){ return link.url.indexOf(p) !== -1; });
+        // קישורים שצריכים להיות טקסט רגיל (לא כפתור)
+        var isPlainLink = ll.indexOf('פירוט') !== -1 || ll.indexOf('פנו למידע') !== -1 ||
+                          ll.indexOf('פייסבוק') !== -1 || ll.indexOf('הצטרפ') !== -1;
+        if (isPlainLink) {
+          return '<a href="' + link.url + '" target="_blank" style="color:#0982bc;text-decoration:underline">' + link.label + '</a>';
+        }
         var isResultsLink = link.url.indexOf('/results-') !== -1;
         // results-all/results-X = קישור קטגוריה = footer, לא כפתור
         if (isResultsLink) {
