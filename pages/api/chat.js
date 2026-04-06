@@ -225,8 +225,6 @@ html, body {
 
 /* ── MESSAGES ────────────────────── */
 #shabaton-chat-messages {
-  display: flex;
-  flex-direction: column-reverse;
   overflow-y: visible;
   padding: 0 0 12px;
   scroll-behavior: smooth;
@@ -592,8 +590,8 @@ html, body {
         text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') +
         '</div></div>';
     }
-    messages.appendChild(wrap);
-    scrollEnd();
+    messages.prepend(wrap);
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function addTyping() {
@@ -607,8 +605,8 @@ html, body {
       '<span></span>' +
       '<span></span>' +
       '</div></div>';
-    messages.appendChild(wrap);
-    scrollEnd();
+    messages.prepend(wrap);
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return wrap;
   }
 
@@ -790,8 +788,8 @@ html, body {
         text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') +
         '</div></div>';
     }
-    messages.appendChild(wrap);
-    scrollEnd();
+    messages.prepend(wrap);
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function addTyping() {
@@ -805,8 +803,8 @@ html, body {
       '<span></span>' +
       '<span></span>' +
       '</div></div>';
-    messages.appendChild(wrap);
-    scrollEnd();
+    messages.prepend(wrap);
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return wrap;
   }
 
