@@ -358,6 +358,12 @@ html, body {
   .input-wrapper { padding: 6px 6px 6px 14px; }
   #shabaton-chat-input { font-size: 16px; }
 }
+/* שם מוסד — קישור כחול עם קו תחתון */
+.shabaton-message-content h3 { font-size: 14px; font-weight: 700; margin: 10px 0 4px; }
+.shabaton-message-content h3 a { color: #0982bc; text-decoration: underline; font-weight: 700; }
+.shabaton-message-content h3 a:hover { color: #0770a3; }
+/* כפתור פנו — בולט פחות */
+.shabaton-message-content a[href]:not(h3 a) { color: #0982bc; }
 </style>
 </head>
 <body>
@@ -590,8 +596,17 @@ html, body {
         text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') +
         '</div></div>';
     }
-    messages.appendChild(wrap);
-    scrollEnd();
+    // הוסף אחרי welcome, לפני שאר ההודעות
+    var welcome = messages.querySelector('.shabaton-welcome-message, .welcome-box');
+    var firstConv = messages.querySelector('.shabaton-message');
+    if (firstConv) {
+      messages.insertBefore(wrap, firstConv);
+    } else if (welcome) {
+      messages.insertBefore(wrap, welcome.nextSibling);
+    } else {
+      messages.prepend(wrap);
+    }
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   function addTyping() {
@@ -605,8 +620,17 @@ html, body {
       '<span></span>' +
       '<span></span>' +
       '</div></div>';
-    messages.appendChild(wrap);
-    scrollEnd();
+    // הוסף אחרי welcome, לפני שאר ההודעות
+    var welcome = messages.querySelector('.shabaton-welcome-message, .welcome-box');
+    var firstConv = messages.querySelector('.shabaton-message');
+    if (firstConv) {
+      messages.insertBefore(wrap, firstConv);
+    } else if (welcome) {
+      messages.insertBefore(wrap, welcome.nextSibling);
+    } else {
+      messages.prepend(wrap);
+    }
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     return wrap;
   }
 
@@ -788,8 +812,17 @@ html, body {
         text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') +
         '</div></div>';
     }
-    messages.appendChild(wrap);
-    scrollEnd();
+    // הוסף אחרי welcome, לפני שאר ההודעות
+    var welcome = messages.querySelector('.shabaton-welcome-message, .welcome-box');
+    var firstConv = messages.querySelector('.shabaton-message');
+    if (firstConv) {
+      messages.insertBefore(wrap, firstConv);
+    } else if (welcome) {
+      messages.insertBefore(wrap, welcome.nextSibling);
+    } else {
+      messages.prepend(wrap);
+    }
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   function addTyping() {
@@ -803,8 +836,17 @@ html, body {
       '<span></span>' +
       '<span></span>' +
       '</div></div>';
-    messages.appendChild(wrap);
-    scrollEnd();
+    // הוסף אחרי welcome, לפני שאר ההודעות
+    var welcome = messages.querySelector('.shabaton-welcome-message, .welcome-box');
+    var firstConv = messages.querySelector('.shabaton-message');
+    if (firstConv) {
+      messages.insertBefore(wrap, firstConv);
+    } else if (welcome) {
+      messages.insertBefore(wrap, welcome.nextSibling);
+    } else {
+      messages.prepend(wrap);
+    }
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     return wrap;
   }
 
