@@ -18,7 +18,8 @@ const SYSTEM_PROMPT =
   'אם לא נמצאו קורסים מדויקים — הפנה לקישור "כל קורסי [תחום]" בחיובי.\n' +
   'ענה תמיד בעברית בלבד — אסור לכתוב אפילו משפט אחד באנגלית.\n' +
   'לעולם אל תפנה לגורמים חיצוניים ואל תתן טלפונים/אתרים חיצוניים.\n\n' +
-  'לשאלות מידע: פתח חיובי, הצג את המידע מה-context, הוסף קישור לדף המידע הרלוונטי בפורמט [לפירוט ולמידע נוסף](URL).\n' +
+  'לשאלות מידע: קח מידע אך ורק מה-context (דפי האתר שנסרקו). תן תקציר ממוקד לשאלה. הוסף קישור [לפירוט ולמידע נוסף](URL מה-context).\n' +
+  'אם אין מידע ב-context — ציין שאין לך מידע עכשיו.\n' +
   'לשאלות קורסים: הצג עד 10 מוסדות מהרשימה, בסדר אקראי שונה בכל פעם — לא תמיד אותם מוסדות.\n' +
   'כלל ברזל מוחלט לתיאורים: העתק בדיוק את שדה "תיאור" מה-context. אסור לתקן שגיאות כתיב — כתוב בדיוק כפי שכתוב. אסור לשנות מילה. אסור להוסיף מידע. אסור להסיק.\\n' +
   'דוגמה: אם בcontext כתוב "קורסי פעילות גופנית במים ברחובות" — כתוב בדיוק "קורסי פעילות גופנית במים ברחובות". לא פחות, לא יותר.\\n' +
@@ -40,6 +41,7 @@ const SYSTEM_PROMPT =
   'footer — הוסף תמיד בסוף:\n' +
   '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
+  '👥 [קבוצת הפייסבוק של שבתון](https://www.facebook.com/groups/shabaton.online)\n' +
   'לשאלות קורסים: הוסף בסוף 📚 [כל קורסי [שם-התחום]](URL מה-context — קישור לתחום). אם אין URL בcontext — השמט.\n' +
   'לשאלות מידע: אל תוסיף 📚 קישור לקורסים. אם רלוונטי — הוסף: 🔍 [חיפוש קורסים](https://www.shabaton.online/search-courses)\n' +
   '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
@@ -282,74 +284,81 @@ function searchCourses(message, region) {
 function detectInfoPages(question) {
   const q = question.toLowerCase();
   const pages = [
-    // תכנון ורשימת משימות
-    { kw: ['רשימת משימות','כיצד מתחילים','איך מתחילים','תהליך יציאה','צ\'קליסט'], url: 'https://www.shabaton.online/shabaton_checklist' },
-    { kw: ['תכנון','מתכנן','מתכננים','לתכנן','תכנון תוכנית','טבלת עזר','תוכנית לימודים','הרכבת תוכנית','תכנית לימודים','איך מתכנן','איך מרכיב'], url: 'https://www.shabaton.online/shabaton-plan' },
 
-    // לימודים
-    { kw: ['חובות לימודים','שעות חובה','שעות השלמה','שעות רשות','לימודי חובה','חלוקת שעות'], url: 'https://www.shabaton.online/learning_programs_shabaton' },
-    { kw: ['מוסדות מאושרים','נושאי השתלמות','ספורט בשבתון','שינוי תוכנית','אופק חדש','תואר שלישי','גמול השתלמות','פרויקט אישי','לימודים בישיבה','לימודים בחו"ל','לימוד בחו'], url: 'https://www.shabaton.online/learning_programs_shabaton' },
+    // רשימת משימות / איך מתחילים
+    { kw: ['רשימת משימות','צ\'קליסט','כיצד מתחילים','איך מתחילים','תהליך יציאה','איך יוצאים לשבתון','מה לעשות לפני שבתון'],
+      url: 'https://www.shabaton.online/shabaton_checklist' },
 
-    // לוחות זמנים ובקשות
-    { kw: ['לוח זמנים','מועדים','תאריכים','מתי להגיש','קרן השתלמות','אישור זכאות'], url: 'https://www.shabaton.online/luz_shabaton' },
-    { kw: ['בקשת שבתון','איך מבקשים','יציאה לשבתון'], url: 'https://www.shabaton.online/shabaton_request' },
+    // תכנון תוכנית לימודים / טבלת עזר
+    { kw: ['תכנון','תוכנית לימודים','תכנית לימודים','טבלת עזר','הרכבת תוכנית','מתכנן','מתכננים','לתכנן','איך מרכיב'],
+      url: 'https://www.shabaton.online/shabaton-plan' },
 
-    // תשלומים
-    { kw: ['ביטוח לאומי','ביטל','תשלום ביטוח','דמי ביטוח'], url: 'https://www.shabaton.online/btl_shabaton' },
-    { kw: ['קבלות','החזר שכר לימוד','קבלה','שכר לימוד'], url: 'https://www.shabaton.online/kabalot_shabaton' },
-    { kw: ['החזר שכ"ל','tuition','החזר שכר'], url: 'https://www.shabaton.online/tuition_reimbursement' },
-    { kw: ['מענק','גובה המענק','חישוב מענק','תלוש מענק','כמה מקבלים','כמה כסף'], url: 'https://www.shabaton.online/shabaton-maanak' },
-    { kw: ['לידה','מענק לידה','דמי לידה','חופשת לידה','הריון'], url: 'https://www.shabaton.online/birth_shabatgon' },
-    { kw: ['פנסיה','קרן פנסיה'], url: 'https://www.shabaton.online/pension_shabaton' },
-    { kw: ['קרן מקוצרת','מקור','מישור','הפרשה לקרן'], url: 'https://www.shabaton.online/keren_makor_mishor' },
-    { kw: ['טופס 101','101'], url: 'https://www.shabaton.online/tofes_101' },
+    // חובות לימודים / חלוקת שעות / מוסדות מאושרים / נושאים מאושרים
+    { kw: ['חובות לימודים','שעות חובה','שעות השלמה','שעות רשות','לימודי חובה','לימודי השלמה','מוסדות מאושרים','נושאי השתלמות','ספורט בשבתון','שינוי תוכנית','אופק חדש','תואר שלישי','דוקטורט','גמול השתלמות','מסלול אישי','פרויקט אישי','ישיבה','לימודים בחו"ל','לימודים בחול'],
+      url: 'https://www.shabaton.online/learning_programs_shabaton' },
 
-    // טפסים
-    { kw: ['טפסים','מסמכים','חל"ת','הצהרה על עבודה','חזרה משבתון','בקשה לשעות'], url: 'https://www.shabaton.online/forms_shabaton' },
+    // לוח זמנים / בקשת שבתון / טפסים לקרן
+    { kw: ['לוח זמנים','מועדים','בקשת שבתון','אישור זכאות','מתי מגישים','מתי להגיש','מערכת הגשה'],
+      url: 'https://www.shabaton.online/luz_shabaton' },
 
-    // חצי/מלא
-    { kw: ['חצי שבתון','שבתון מלא','שבתון חלקי','הבדל שבתון'], url: 'https://www.shabaton.online/halforfull_shabaton' },
+    // ביטוח לאומי
+    { kw: ['ביטוח לאומי','בל','דמי ביטוח'],
+      url: 'https://www.shabaton.online/btl_shabaton' },
 
-    // חזרה מהשבתון
-    { kw: ['חזרה משבתון','סיום שבתון','חזרה לעבודה'], url: 'https://www.shabaton.online/end_shabaton' },
+    // קבלות להחזר שכר לימוד
+    { kw: ['קבלות','קבלה להחזר','קבלות שכר לימוד'],
+      url: 'https://www.shabaton.online/kabalot_shabaton' },
 
-    // זכויות כלליות
-    { kw: ['זכויות','זכאות','מי זכאי','תנאים לשבתון'], url: 'https://www.shabaton.online/important' },
+    // החזר שכר לימוד
+    { kw: ['החזר שכר לימוד','החזר שכ"ל','החזר שכל','כמה מחזירים','החזר לימודים'],
+      url: 'https://www.shabaton.online/tuition_reimbursement' },
 
-    // מלגות
-    { kw: ['מלגה','מלגות','מלגת לימודים'], url: 'https://www.morim.online/milgot-morim' },
+    // מענק חודשי / גובה מענק
+    { kw: ['מענק','כמה מענק','גובה מענק','מענק חודשי','חישוב מענק','כמה מקבלים','כמה מרוויחים'],
+      url: 'https://www.shabaton.online/shabaton-maanak' },
+
+    // לידה / דמי לידה / חופשת לידה
+    { kw: ['לידה','דמי לידה','חופשת לידה','הריון בשבתון','ילד בשבתון'],
+      url: 'https://www.shabaton.online/birth_shabatgon' },
+
+    // קרן פנסיה
+    { kw: ['פנסיה','קרן פנסיה','הפרשה לפנסיה'],
+      url: 'https://www.shabaton.online/pension_shabaton' },
+
+    // קרן מקוצרת / מקור / מישור
+    { kw: ['קרן מקוצרת','מקור','מישור','קרן מקור','קרן מישור','הפרשה לקרן'],
+      url: 'https://www.shabaton.online/keren_makor_mishor' },
+
+    // טופס 101
+    { kw: ['טופס 101','101','ניכוי מס במקור'],
+      url: 'https://www.shabaton.online/tofes_101' },
+
+    // טפסים ומסמכים
+    { kw: ['טפסים','טופס','מסמכים','חל"ת','הצהרה על עבודה','הודעה על חזרה','אישור סיום'],
+      url: 'https://www.shabaton.online/forms_shabaton' },
+
+    // שבתון מלא או חצי
+    { kw: ['שבתון מלא','חצי שבתון','מלא או חצי','הבדל בין שבתון','שבתון שלם'],
+      url: 'https://www.shabaton.online/halforfull_shabaton' },
+
+    // מלגות לימודים
+    { kw: ['מלגה','מלגות','מלגת לימודים','השתתפות בשכר לימוד'],
+      url: 'https://www.morim.online/milgot-morim' },
 
     // סרטוני הדרכה
-    { kw: ['סרטון','סרטוני הדרכה','וידאו','להדרכה'], url: 'https://www.shabaton.online/shabaton-video' },
-
-    // טלפונים וכתובות — QA
-    { kw: ['טלפון','כתובת','יצירת קשר','פורטל עובדי הוראה'], url: 'qa:phones' },
+    { kw: ['סרטון','וידאו','הסבר מצולם','סרטוני הדרכה'],
+      url: 'https://www.shabaton.online/shabaton-video' },
   ];
-  return [...new Set(pages.filter(p => p.kw.some(k => q.includes(k))).map(p => p.url).filter(u => !u.startsWith('qa:')))];
+
+  const matched = [];
+  for (const p of pages) {
+    if (p.kw.some(k => q.includes(k.toLowerCase()))) {
+      matched.push(p.url);
+    }
+  }
+  return matched.length > 0 ? matched : null;
 }
 
-// ── סריקת דף ──────────────────────────────────────────
-async function fetchPageContent(url) {
-  try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ShabatonBot/1.0)' },
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-    let text = html
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<nav[\s\S]*?<\/nav>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    const mainStart = Math.max(0, text.indexOf('שבתון') - 200);
-    return text.substring(mainStart, mainStart + 2000);
-  } catch(e) { return null; }
-}
-
-// ── חיפוש ב-QA ────────────────────────────────────────
 function searchQA(question) {
   const qa = loadJSON('shabaton-qa.json');
   if (!qa) return null;
