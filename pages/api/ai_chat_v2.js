@@ -427,37 +427,30 @@ async function fetchPageContent(url) {
     clearTimeout(timer);
     if (!res.ok) return null;
     let html = await res.text();
-    // הסר script, style, nav, header, footer
+    // הסר script/style/nav/header/footer
     html = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
-      .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
-      .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '');
-    // חפש תוכן עיקרי — דפי Duda
-    let body = html;
-    // נסה לחפש content div
-    const contentMatch = html.match(/class="[^"]*(?:dmBody|dmContent|content|main-content|page-content)[^"]*"[^>]*>([\s\S]{100,})/i) ||
-                         html.match(/<main[^>]*>([\s\S]*?)<\/main>/i) ||
-                         html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
-    if (contentMatch) body = contentMatch[1];
-    // הסר divs של ניווט
-    body = body.replace(/<ul[^>]*>[\s\S]*?<\/ul>/gi, ' ');
-    // הסר תגיות וnoise
-    const text = body
+      .replace(/<script[^]*?<\/script>/gi, '')
+      .replace(/<style[^]*?<\/style>/gi, '')
+      .replace(/<nav[^]*?<\/nav>/gi, '')
+      .replace(/<header[^]*?<\/header>/gi, '')
+      .replace(/<footer[^]*?<\/footer>/gi, '');
+    // חפש תוכן עיקרי — Duda: wsite-content
+    const m = html.match(/id="wsite-content"[^>]*>([\s\S]{100,})/) ||
+               html.match(/<main[^>]*>([\s\S]+?)<\/main>/i) ||
+               html.match(/<article[^>]*>([\s\S]+?)<\/article>/i);
+    const body = m ? m[1] : html;
+    let text = body
       .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/[\u0600-\u06FF]+/g, '') // הסר ערבית
-      .replace(/[\u4E00-\u9FFF]+/g, '') // הסר סינית
-      .replace(/\s{2,}/g, ' ')
-      .trim();
-    return text.substring(0, 3000);
-  } catch(e) {
-    return null;
-  }
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/[\u0600-\u06FF]+/g, '')
+      .replace(/\s{2,}/g, ' ').trim();
+    // דלג על nav header של שבתון
+    const NAV = 'תואר שני בחינוך, לימודי תעודה';
+    const ni = text.indexOf(NAV);
+    if (ni >= 0 && ni < 500) text = text.substring(ni + NAV.length + 50);
+    return text.substring(0, 3000).trim();
+  } catch(e) { return null; }
 }
 
 async function buildContext(message) {
