@@ -874,6 +874,7 @@ export default async function handler(req, res) {
     }
     if (!reply) reply = data.content?.[0]?.text || '';
     console.log(`OK ${model} | ${reply.length} chars`);
+    console.log('REPLY:', reply.substring(0, 300).replace(/\n/g, '|'));
 
     if (ZAPIER_WEBHOOK_URL) {
       try {
