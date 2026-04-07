@@ -174,10 +174,13 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
       t = t.replace(/\x00H3\x00([^\x00]+)\x00([^\x00]+)\x00H3E\x00/g, function(m, url, label) {
         return '<span class="shabaton-h3"><a href="' + url + '" target="_blank">' + label + '</a></span>';
       });
+      // h3: link בתחילת שורה (שהיה **[שם](URL)**) → shabaton-h3
+      // bold הפך **N** ל-<strong>...N...</strong>
+      // restore הפך N ל-<a>. עכשיו: <strong style="color:#0982bc"><a href="URL">שם</a></strong> → h3
       // h3: ### ו-**[שם](url)** אחרי restore ואחרי bold
       t = t.replace(/^#{1,3}\s+(.+)$/mg, '<span class="shabaton-h3">$1</span>');
       // **<a>שם</a>** → כבר הפך ל-<strong><a>שם</a></strong> → h3
-      t = t.replace(/^<strong[^>]*>(<a [^>]+>[^<]+<\/a>)<\/strong>/mg, '<span class="shabaton-h3">$1</span>');
+      t = t.replace(/<strong[^>]*>(<a [^>]+>[^<]+<\/a>)<\/strong>/g, '<span class="shabaton-h3">$1</span>');
       // גם **<a>** ישיר
       t = t.replace(/^\*\*(<a [^>]+>[^<]+<\/a>)\*\*/mg, '<span class="shabaton-h3">$1</span>');
       // <strong><a href="URL">שם</a></strong> → h3 (מגיע מ-**[שם](URL)**)
