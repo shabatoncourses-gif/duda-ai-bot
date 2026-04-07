@@ -843,7 +843,7 @@ export default async function handler(req, res) {
       ? `${context}\n\n---\nשאלת הגולש: ${message}`
       : message;
 
-    console.log('CONTEXT SAMPLE:', contextStr.substring(0, 400));
+    console.log('CONTEXT SAMPLE:', (context||'').substring(0, 400));
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
