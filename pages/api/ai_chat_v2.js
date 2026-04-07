@@ -543,7 +543,7 @@ async function buildContext(message) {
     // הוסף קישור 📚 לכל קורסי התחום
     const kiFieldInfo = getFieldSlug(message);
     if (kiFieldInfo) kiParts.push('קישור לכל קורסי התחום: https://www.shabaton.online/results-all/' + encodeURIComponent(kiFieldInfo.name || kiFieldInfo));
-    return { context: kiParts.join('\n'), isInfo: false, courseCount: kiResults.length };
+    return { context: kiParts.join('\n'), isInfo: false, courseCount: kiResults.length, urlToTitle: {} };
   }
 
   const courses = searchCourses(message, region);
@@ -707,6 +707,7 @@ async function buildContext(message) {
     return true;
   });
   const coursesForClaude = [];
+  const urlToTitle = {};
   uniqueCourses.forEach(c => {
     // השתמש ב-description המקורי מהאינדקס
     let desc = (c.description || '').trim(); // תיאור מלא ללא קיצוץ
@@ -747,6 +748,7 @@ async function buildContext(message) {
                   descFull + '\n' +
                   '[פנו למידע ולייעוץ אישי](' + c.url + ')\n';
        coursesForClaude.push(md);
+       urlToTitle[c.url] = c.title;
     }
   });
   // אם יש known_institutions — שדרס את coursesForClaude
@@ -798,7 +800,7 @@ async function buildContext(message) {
     parts.push(`\nתחום: ${fieldInfo.name}\nקישור לכל קורסי התחום בכל הארץ: https://www.shabaton.online/results-all/${fieldInfo.slug}\nחשוב: הגולש לא ציין אזור — אל תוסיף אזור בכותרת ולא בfooter`);
   }
 
-  return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0, courseCount: courses.length };
+  return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0, courseCount: courses.length, urlToTitle };
 }
 
 // ── בחירת מודל ────────────────────────────────────────
@@ -831,7 +833,7 @@ export default async function handler(req, res) {
 
     console.log(`POST [${site}]: ${message.substring(0,60)}`);
 
-    const { context, isInfo, courseCount } = await buildContext(message);
+    const { context, isInfo, courseCount, urlToTitle } = await buildContext(message);
     if (courseCount > 0) {
       const courseLines = context.split('\n').filter(l => l.startsWith('שם:'));
     }
@@ -876,6 +878,25 @@ export default async function handler(req, res) {
     console.log(`OK ${model} | ${reply.length} chars`);
     console.log('REPLY:', reply.substring(0, 300).replace(/\n/g, '|'));
 
+
+    // post-process: הוסף כותרות מוסדות אם Claude לא כתב **[שם](URL)**
+    if (typeof urlToTitle !== 'undefined') {
+      for (const [url, title] of Object.entries(urlToTitle)) {
+        const btnPattern = '\u05E4\u05E0\u05D5 \u05DC\u05DE\u05D9\u05D3\u05E2 \u05D5\u05DC\u05D9\u05D9\u05E2\u05D5\u05E5 \u05D0\u05D9\u05E9\u05D9'; // פנו למידע ולייעוץ אישי
+        const urlEsc = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // בדוק: אם [פנו](URL) קיים אבל **[שם](URL)** לא קיים — הוסף כותרת
+        if (reply.includes('[' + btnPattern + '](' + url + ')') && !reply.includes('**[' + title)) {
+          reply = reply.replace(
+            new RegExp('(' + urlEsc.replace(/\//g, '\\/') + ')', 'g'),
+            url
+          );
+          reply = reply.replace(
+            '[' + btnPattern + '](' + url + ')',
+            '**[' + title + '](' + url + ')**\n[' + btnPattern + '](' + url + ')'
+          );
+        }
+      }
+    }
     if (ZAPIER_WEBHOOK_URL) {
       try {
         const now = new Date();
