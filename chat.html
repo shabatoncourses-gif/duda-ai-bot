@@ -149,6 +149,11 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
       t = t.replace(/\n/g, '<br>');
 
       // שחזר קישורים
+      // --- h3: ### ו-**[שם](url)** → אחרי restore ---
+      t = t.replace(/^#{1,3}\s+(.+)$/mg, '<span class="shabaton-h3">$1</span>');
+      // **<a href="URL">שם</a>** בתחילת שורה → h3
+      t = t.replace(/^\*\*(<a [^>]+>[^<]+<\/a>)\*\*/mg, '<span class="shabaton-h3">$1</span>');
+      // ---
       var footerKw = ['כל קורסי', 'כל הקורסים', 'הרשם', 'קבוצת הוואטסאפ', 'עלון שבתון', 'אפשר לשאול', 'לשאול בקבוצת'];
       // הסר שורת רווח אחרי כותרת (H3 ו-bold כחול)
       t = t.replace(/(<span style="color:#0982bc[^"]*">[^<]*<\/span>)<br>/g, '$1 ');
