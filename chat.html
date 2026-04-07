@@ -120,13 +120,13 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
         links.push({ url: url, label: label });
         return '\x01' + (links.length - 1) + '\x01';
       });
-      // המר **[קישור]** ל-h3 HTML ישירות לפני כל regex אחר
-      t = t.replace(/\*\*\x01(\d+)\x01\*\*/g, function(m, idx) {
+      // המר **[קישור]** ל-h3 — index נפרד
+      var h3Links = [];
+      t = t.replace(/\*\*(\x01(\d+)\x01)\*\*/g, function(m, placeholder, idx) {
         var link = links[parseInt(idx)];
         if (!link) return m;
-        return '\x02H3START\x02' + link.url + '\x02SEP\x02' + link.label + '\x02H3END\x02';
+        h3Links.push(link); return '\x03' + (h3Links.length-1) + '\x03';
       });
-
       // URL גולמי
       t = t.replace(/(https?:\/\/[^\s<>"'\[\]]+)/g, function(m, url) {
         links.push({ url: url, label: url, isRaw: true });
