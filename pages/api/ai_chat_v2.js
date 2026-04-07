@@ -462,6 +462,7 @@ async function buildContext(message) {
   const region = detectRegion(message);
   console.log('region:', region ? region.name : 'none', '| msg:', message.substring(0,30));
   const parts = [];
+  const urlToTitle = {}; // מפת URL→שם לpost-processing
 
   const infoUrls = detectInfoPages(message) || [];
   if (infoUrls.length > 0) {
@@ -707,7 +708,6 @@ async function buildContext(message) {
     return true;
   });
   const coursesForClaude = [];
-  const urlToTitle = {};
   uniqueCourses.forEach(c => {
     // השתמש ב-description המקורי מהאינדקס
     let desc = (c.description || '').trim(); // תיאור מלא ללא קיצוץ
