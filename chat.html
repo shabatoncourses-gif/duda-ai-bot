@@ -115,12 +115,15 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
     try {
       var links = [];
 
-      // **[שם](URL)** → h3 span ישירות, לפני כל עיבוד
       var t = text;
+      // שמור **[שם](URL)** ← לפני link save!
+      var h3Map = {}; var h3Idx = 0;
       t = t.replace(/\*\*\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)\*\*/g, function(m, label, url) {
-        return '\x00H3\x00' + url + '\x00' + label + '\x00H3E\x00';
+        var key = 'SHABH3_' + (h3Idx++) + '_END';
+        h3Map[key] = '<span class="shabaton-h3"><a href="' + url + '" target="_blank">' + label + '</a></span>';
+        return key;
       });
-      // שמור קישורים [label](url)
+            // שמור קישורים [label](url)
       t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, function(m, label, url) {
         links.push({ url: url, label: label });
         return '\x01' + (links.length - 1) + '\x01';
@@ -131,8 +134,17 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
         return '\x01' + (links.length - 1) + '\x01';
       });
 
+      // שמור **[שם](URL)** כ-h3 (לפני escape)
+      var h3Map = {}; var h3Idx = 0;
+      t = t.replace(/\*\*\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)\*\*/g, function(m, label, url) {
+        var key = 'SHABH3_' + (h3Idx++) + '_END';
+        h3Map[key] = '<span class="shabaton-h3"><a href="' + url + '" target="_blank">' + label + '</a></span>';
+        return key;
+      });
       // escape HTML
       t = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      Object.keys(h3Map).forEach(function(k){ t = t.replace(new RegExp(k,'g'), h3Map[k]); });
+      Object.keys(h3Map).forEach(function(k){ t = t.replace(k, h3Map[k]); });
 
       // כותרות ### — טפל לפני שחזור links
       // ### [שם](URL) יהפוך ל: <span class="shabaton-h3"><a>שם</a></span>
@@ -170,17 +182,18 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
           link.url = urlObj.href;
         } catch(e) {
           link.url = link.url.replace(/[\u0590-\u05FF\u05F0-\u05F4]/g, function(c){ try { return encodeURIComponent(c); } catch(e){ return c; } });
-      // שחזר h3 placeholders
-      t = t.replace(/\x00H3\x00([^\x00]+)\x00([^\x00]+)\x00H3E\x00/g, function(m, url, label) {
-        return '<span class="shabaton-h3"><a href="' + url + '" target="_blank">' + label + '</a></span>';
-      });
+
       // h3: link בתחילת שורה (שהיה **[שם](URL)**) → shabaton-h3
       // bold הפך **N** ל-<strong>...N...</strong>
       // restore הפך N ל-<a>. עכשיו: <strong style="color:#0982bc"><a href="URL">שם</a></strong> → h3
       // h3: ### ו-**[שם](url)** אחרי restore ואחרי bold
       t = t.replace(/^#{1,3}\s+(.+)$/mg, '<span class="shabaton-h3">$1</span>');
       // **<a>שם</a>** → כבר הפך ל-<strong><a>שם</a></strong> → h3
-      t = t.replace(/<strong[^>]*>(<a [^>]+>[^<]+<\/a>)<\/strong>/g, '<span class="shabaton-h3">$1</span>');
+      t = t.replace(/<strong[^>]*>(.*?)<\/strong>/g, function(m, inner) {
+        var aMatch = inner.match(/<a[\s\S]*?href="([^"]+)"[^>]*>([^<]+)<\/a>/);
+        if (aMatch) return '<span class="shabaton-h3"><a href="' + aMatch[1] + '" target="_blank">' + aMatch[2] + '</a></span>';
+        return m;
+      });
       // גם **<a>** ישיר
       t = t.replace(/^\*\*(<a [^>]+>[^<]+<\/a>)\*\*/mg, '<span class="shabaton-h3">$1</span>');
       // <strong><a href="URL">שם</a></strong> → h3 (מגיע מ-**[שם](URL)**)
