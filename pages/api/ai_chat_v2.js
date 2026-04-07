@@ -787,6 +787,7 @@ async function buildContext(message) {
     (region.cities || []).some(c => c.length > 3 && msgL.includes(c.toLowerCase()))
   );
   if (msgContainsRegion) {
+    const fieldSlug = fieldInfo ? fieldInfo.slug : null;
     const fieldName = fieldInfo ? fieldInfo.name : null;
     if (fieldSlug) {
       parts.push(`\nאזור: ${region.name} (slug: ${region.slug})\nתחום: ${fieldName}\n` +
