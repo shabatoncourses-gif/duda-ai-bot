@@ -11,7 +11,7 @@ const _cache = {};
 // ── System Prompt ──────────────────────────────────────
 const SYSTEM_PROMPT =
   'שמך שַׁבִּיבּוֹט, העוזר החכם של שבתון.\n' +
-  'ענה תמיד בעברית, בחום ובידידותיות.\n' +
+  'ענה בעברית, בידידותיות ובמקצועיות. אל תשתמש בניסוחים מוגזמים כמו "תיבת רכבת", "מגניב", "מדהים" — השתמש בשפה רגילה ומכובדת.\n' +
   'כל שאלה היא בהקשר שנת שבתון.\n' +
   'לעולם אל תאמר שאין קורסים, שאתה מצטער, או שאינך יכול לענות.\n' +
   'ענה בעברית בלבד — אסור לכתוב אנגלית.\n\n' +
@@ -23,11 +23,7 @@ const SYSTEM_PROMPT =
   'אל תציג תואר שני אלא אם ביקשו.\n' +
   'בנושא טיולים: הצג רק סמינרים וסיורים שמורים הולכים אליהם — לא קורסי הכשרת מורי דרך.\n\n' +
 
-  // format: שם:/קישור:/תיאור:
-  'לכל מוסד ב-context, כתוב בדיוק:\n' +
-  '### [כאן השם מ-"שם:"](כאן ה-URL מ-"קישור:")\n' +
-  'כאן התיאור מ-"תיאור:" - העתק מילה במילה\n' +
-  '[פנו למידע ולייעוץ אישי](כאן ה-URL מ-"קישור:")\n\n' +
+  'הקורסים מסופקים כ-markdown מוכן. העתק אותם בדיוק — אסור לשנות שם, קישור או תיאור.\n\n' +
   '=== שאלות מידע ===\n' +
   'כתוב תשובה ידידותית ומובנית על בסיס תוכן הדף. פרטי המידע המרכזיים: סכומים, תנאים, מועדים, שלבים.\n' +
   'אל תכתוב "בדף תמצאו" — כתוב את המידע עצמו. אל תמציא מידע שאינו ב-context.\n' +
@@ -747,12 +743,12 @@ async function buildContext(message) {
     if (finalHasQ) console.log('PASS TO CLAUDE:', (c.title||'').substring(0,30), '| url:', (c.url||'').split('/').pop());
     if ((c.url||'').includes('idit-link')) console.log('idit-link finalHasQ:', finalHasQ, '_liveRelevant:', c._liveRelevant, 'desc:', (desc||'').substring(0,50));
     if (finalHasQ) {
-       const descFull = (desc || '').trim().substring(0, 500);
-       coursesForClaude.push(
-         'שם: ' + c.title + '\n' +
-         'קישור: ' + c.url + '\n' +
-         (descFull ? 'תיאור: ' + descFull : '') + '\n'
-       );
+       const descFull = (desc || '').trim().substring(0, 400);
+       // markdown מוכן — Claude רק מעתיק
+       const md = '### [' + c.title + '](' + c.url + ')\n' +
+                  descFull + '\n' +
+                  '[פנו למידע ולייעוץ אישי](' + c.url + ')\n';
+       coursesForClaude.push(md);
     }
   });
   // אם יש known_institutions — שדרס את coursesForClaude
