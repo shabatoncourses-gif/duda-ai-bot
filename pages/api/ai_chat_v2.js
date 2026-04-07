@@ -491,7 +491,7 @@ async function buildContext(message) {
       const contents = await Promise.all(infoUrls.slice(0, 2).map(url => fetchPageContent(url)));
       contents.forEach((content, i) => {
         if (content) {
-          console.log('INFO page fetched:', infoUrls[i], 'len:', content.length);
+          console.log('INFO page fetched:', infoUrls[i], 'len:', content.length, 'preview:', content.substring(0,100).replace(/\n/g,' '));
           parts.push('=== מידע מ-' + infoUrls[i] + ' ===\n' + content);
           gotContent = true;
         } else {
@@ -756,9 +756,9 @@ async function buildContext(message) {
     // fallback: scan known_institutions live
     const kiScanned = await Promise.all(knownOnly.map(async ki => {
       const content = await fetchPageContent(ki.url);
-      if (!content) return `שם: ${ki.title}\nקישור: ${ki.url}`;
+      if (!content) return `**[${ki.title}](${ki.url})**\n${ki.description || ''}`;
       const excerpt = content.substring(0, 400).trim();
-      return `שם: ${ki.title}\nקישור: ${ki.url}\nתיאור: ${excerpt}`;
+      return `**[${ki.title}](${ki.url})**\n${excerpt}\n[פנו למידע ולייעוץ אישי](${ki.url})`;
     }));
     parts.push(kiScanned.join('\n'));
   } else if (knownOnly && knownOnly.length > 0) {
