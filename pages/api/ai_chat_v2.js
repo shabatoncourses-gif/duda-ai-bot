@@ -780,8 +780,13 @@ async function buildContext(message) {
   }
 
   const fieldInfo = getFieldSlug(message);
-  if (region) {
-    const fieldSlug = fieldInfo ? fieldInfo.slug : null;
+  // שלח URL אזורי רק אם השאלה מכילה מפורשות מילת אזור
+  const msgL = message.toLowerCase();
+  const msgContainsRegion = region && (
+    (region.keywords || []).some(k => msgL.includes(k.toLowerCase())) ||
+    (region.cities || []).some(c => c.length > 3 && msgL.includes(c.toLowerCase()))
+  );
+  if (msgContainsRegion) {
     const fieldName = fieldInfo ? fieldInfo.name : null;
     if (fieldSlug) {
       parts.push(`\nאזור: ${region.name} (slug: ${region.slug})\nתחום: ${fieldName}\n` +
