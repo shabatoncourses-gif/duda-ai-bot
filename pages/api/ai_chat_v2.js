@@ -914,7 +914,11 @@ export default async function handler(req, res) {
     }
 
     // המר | separator ל-newline לתצוגה נכונה
-    reply = reply.replace(/\)\*\*\|/g, ')**\n').replace(/\|\|/g, '\n\n');
+    // נרמל פורמט
+    reply = reply.replace(/^#+\s*/gm, '');           // הסר # כותרות
+    reply = reply.replace(/\)\*\*\|/g, ')**\n');   // | → newline אחרי שם מוסד
+    reply = reply.replace(/\|\|/g, '\n\n');         // || → שורה ריקה
+    reply = reply.replace(/^---+$/gm, '');             // הסר ---
     return res.status(200).json({ reply, model });
 
   } catch(e) {
