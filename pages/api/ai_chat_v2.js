@@ -913,6 +913,8 @@ export default async function handler(req, res) {
       } catch(ze) {}
     }
 
+    // המר | separator ל-newline לתצוגה נכונה
+    reply = reply.replace(/\)\*\*\|/g, ')**\n').replace(/\|\|/g, '\n\n');
     return res.status(200).json({ reply, model });
 
   } catch(e) {
