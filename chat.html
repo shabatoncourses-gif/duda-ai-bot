@@ -64,6 +64,7 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
 .welcome-box .example { color: #b0bec5; font-size: 13px; }
 @media (min-width: 768px) { .page { padding: 0 32px; } .header-text h1 { font-size: 26px; } #shabaton-chat-input { font-size: 18px; } }
 @media (max-width: 480px) { .header-text h1 { font-size: 19px; } .welcome-box { padding: 20px 18px; } #shabaton-chat-input { font-size: 16px; } }
+.shabaton-consult-btn { margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -169,11 +170,11 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
       // bold הפך **N** ל-<strong>...N...</strong>
       // restore הפך N ל-<a>. עכשיו: <strong style="color:#0982bc"><a href="URL">שם</a></strong> → h3
       // **[שם](URL)** → bold → <strong><a> → h3
-      t = t.replace(/<strong[^>]*>(<a [^>]+>([^<]+)<\/a>)<\/strong>/g, function(m, aTag, label) {
+      t = t.replace(/<strong[^>]*>(<a ([^>]+)>([^<]+)<\/a>)<\/strong>/g, function(m, aTag, attrs, label) {
         // רק כותרות מוסדות — לא footer links
         var lbl = label.toLowerCase();
         if (lbl.indexOf('שאול') !== -1 || lbl.indexOf('הרשם') !== -1 || lbl.indexOf('פייסבוק') !== -1 || lbl.indexOf('הצטרפ') !== -1 || lbl.indexOf('לפירוט') !== -1 || lbl.indexOf('פנו') !== -1) return m;
-        return '<span class="shabaton-h3">' + aTag + '</span>';
+        return '<span class="shabaton-h3">🏫 ' + aTag + '</span>';
       });
       // h3: ### ו-**[שם](url)** אחרי restore ואחרי bold
       t = t.replace(/^#{1,3}\s+(.+)$/mg, '<span class="shabaton-h3">$1</span>');
