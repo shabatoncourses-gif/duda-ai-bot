@@ -116,28 +116,25 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
     try {
       var links = [];
       var t = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, function(m, label, url) {
-        links.push({ url: url, label: label });
-        return '\x01' + (links.length - 1) + '\x01';
+        links.push({ url: url, label: label }); return '\x01' + (links.length-1) + '\x01';
       });
       t = t.replace(/(https?:\/\/[^\s<>"'\[\]]+)/g, function(m, url) {
-        links.push({ url: url, label: url, isRaw: true });
-        return '\x01' + (links.length - 1) + '\x01';
+        links.push({ url: url, label: url, isRaw: true }); return '\x01' + (links.length-1) + '\x01';
       });
-      var tableMap = {}; var tableIdx = 0;
+      var tableMap = {}, tableIdx = 0;
       t = t.replace(/((?:^\|.+\|\s*$\n?)+)/gm, function(block) {
         var rows = block.trim().split('\n');
         var htmlRows = rows.map(function(row, ri) {
           var cells = row.split('|').slice(1, -1);
           if (cells.every(function(c){ return /^[-:\s]+$/.test(c.trim()); })) return null;
-          var cellTag = ri === 0 ? 'th' : 'td';
-          var cellStyle = ri === 0 ? 'padding:7px 12px;border:1px solid #b8cfe8;background:#deeaf8;font-weight:700;text-align:right' : 'padding:6px 12px;border:1px solid #dde8f5;text-align:right;font-size:13px';
-          return '<tr>' + cells.map(function(c){ return '<'+cellTag+' style="'+cellStyle+'">'+c.trim()+'</'+cellTag+'>'; }).join('') + '</tr>';
+          var ct = ri===0?'th':'td', cs = ri===0?'padding:7px 12px;border:1px solid #b8cfe8;background:#deeaf8;font-weight:700;text-align:right':'padding:6px 12px;border:1px solid #dde8f5;text-align:right;font-size:13px';
+          return '<tr>'+cells.map(function(c){ return '<'+ct+' style="'+cs+'">'+c.trim()+'</'+ct+'>'; }).join('')+'</tr>';
         }).filter(Boolean);
-        var key = '||TABLE' + (tableIdx++) + '||';
-        tableMap[key] = '<table style="border-collapse:collapse;width:100%;direction:rtl;margin:8px 0">' + htmlRows.join('') + '</table>';
+        var key = '||TABLE'+(tableIdx++)+'||';
+        tableMap[key] = '<table style="border-collapse:collapse;width:100%;direction:rtl;margin:8px 0">'+htmlRows.join('')+'</table>';
         return key;
       });
-      // שמור **[link]** כ-h3 BEFORE bold
+      // שמור **[link]** → SHABTITLE לפני bold
       t = t.replace(/\*\*(\x01(\d+)\x01)\*\*/g, function(m, ph, idx) { return 'SHABTITLE_'+idx+'_END'; });
       t = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       Object.keys(tableMap).forEach(function(k){ t = t.replace(k, tableMap[k]); });
@@ -145,174 +142,42 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
       t = t.replace(/(?<!\*)\*(?!\*)/g, '');
       t = t.replace(/--+/g, '');
       t = t.replace(/\n/g, '<br>');
-      // שחזר h3 titles
+      // שחזר SHABTITLE → shabaton-h3 (רק הופעה ראשונה לכל URL)
       var seenH3Urls = {};
       t = t.replace(/SHABTITLE_(\d+)_END/g, function(m, idx2) {
         var link = links[parseInt(idx2)];
         if (!link) return m;
-        if (seenH3Urls[link.url]) return ''; // כפול
+        if (seenH3Urls[link.url]) return ''; // כבר הופיע — הסר
         seenH3Urls[link.url] = true;
-        return '<span class="shabaton-h3">🏫 <a href="' + link.url + '" target="_blank">' + link.label + '</a></span>';
+        return '<span class="shabaton-h3">🏫 <a href="'+link.url+'" target="_blank">'+link.label+'</a></span>';
       });
-        var link = links[parseInt(idx2)];
-      var footerKw = ['כל קורסי', 'כל הקורסים', 'הרשם', 'קבוצת הוואטסאפ', 'עלון שבתון', 'אפשר לשאול', 'לשאול בקבוצת'];
-      t = t.replace(/(<span class="shabaton-h3">.*?<\/span>)<br>/g, '$1<br>');
+      // הסר br אחרי h3
+      t = t.replace(/(<span class="shabaton-h3">[\s\S]*?<\/span>)<br>/g, '$1<br>');
+      var footerKw = ['כל קורסי','כל הקורסים','הרשם','קבוצת הוואטסאפ','עלון שבתון','אפשר לשאול','לשאול בקבוצת'];
       t = t.replace(/\x01(\d+)\x01/g, function(m, i) {
-        var link = links[parseInt(i, 10)];
+        var link = links[parseInt(i,10)];
         if (!link) return '';
         var url = link.url;
         try { url = new URL(url).href; } catch(e2) {}
-        if (link.isRaw) return '<a href="' + url + '" target="_blank" style="color:#0982bc">' + url + '</a>';
+        if (link.isRaw) return '<a href="'+url+'" target="_blank" style="color:#0982bc">'+url+'</a>';
         var ll = link.label.toLowerCase();
-        var isFooter = footerKw.some(function(w){ return ll.indexOf(w.toLowerCase()) !== -1; });
-        if (ll.indexOf('פייסבוק') !== -1 || ll.indexOf('הצטרפ') !== -1) return '<a href="' + url + '" target="_blank" style="color:#0982bc;text-decoration:underline">' + link.label + '</a>';
-        var infoSlugs = ['/btl_shabaton','/shabaton-maanak','/luz_shabaton','/forms_shabaton','/halforfull_shabaton','/birth_shabatgon','/shabaton_checklist','/shabaton-plan','/shabaton-video','/kabalot_shabaton','/tuition_reimbursement','/pension_shabaton','/keren_makor_mishor','/tofes_101','/milgot-morim','/learning_programs_shabaton'];
-        if (url.indexOf('/results-') !== -1) return '<a href="' + url + '" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline">' + link.label + '</a>';
-        return '<a href="' + url + '" target="_blank" style="display:inline-block;background:#e8630a;color:#fff;padding:7px 18px;border-radius:24px;font-weight:700;text-decoration:none;margin:6px 0">' + link.label + '</a>';
-      t = t.replace(/^#{1,3}\s+(.+)$/mg, '<span class="shabaton-h3">$1</span>');
+        if (footerKw.some(function(w){ return ll.indexOf(w.toLowerCase())!==-1; }))
+          return '<span style="display:inline-flex;align-items:center;gap:3px;margin:2px 4px"><a href="'+url+'" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline">'+link.label+'</a></span>';
+        if (ll.indexOf('פייסבוק')!==-1 || ll.indexOf('הצטרפ')!==-1)
+          return '<a href="'+url+'" target="_blank" style="color:#0982bc;text-decoration:underline">'+link.label+'</a>';
+        if (url.indexOf('/results-')!==-1)
+          return '<a href="'+url+'" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline">'+link.label+'</a>';
+        return '<a href="'+url+'" target="_blank" style="display:inline-block;background:#e8630a;color:#fff;padding:7px 18px;border-radius:24px;font-weight:700;text-decoration:none;margin:6px 0">'+link.label+'</a>';
+      });
+      // fallback strong+link → h3
+      t = t.replace(/<strong[^>]*>(<a [^>]+>([^<]+)<\/a>)<\/strong>/g, function(m, aTag, label) {
+        var lbl = label.toLowerCase();
+        if (lbl.indexOf('שאול')!==-1 || lbl.indexOf('הרשם')!==-1 || lbl.indexOf('פייסבוק')!==-1 || lbl.indexOf('הצטרפ')!==-1 || lbl.indexOf('פנו')!==-1 || lbl.indexOf('לפירוט')!==-1) return m;
+        return '<span class="shabaton-h3">🏫 '+aTag+'</span>';
+      });
       return t;
     } catch(e) { return text; }
-  }
-
-
-    function addMessage(text, who) {
-    var wrap = document.createElement('div');
-    wrap.className = 'shabaton-message';
-    if (who === 'bot') {
-      wrap.innerHTML =
-        '<div class="shabaton-message-bot">' +
-        '<div class="shabaton-bot-avatar">&#129302;</div>' +
-        '<div class="shabaton-message-content">' + renderMarkdown(text) + '</div>' +
-        '</div>';
-    } else {
-      wrap.innerHTML =
-        '<div class="shabaton-message-user">' +
-        '<div class="shabaton-message-content">' +
-        text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') +
-        '</div></div>';
-    }
-    // הוסף אחרי welcome, לפני שאר ההודעות
-    var welcome = messages.querySelector('.shabaton-welcome-message, .welcome-box');
-    var firstConv = messages.querySelector('.shabaton-message');
-    if (firstConv) {
-      messages.insertBefore(wrap, firstConv);
-    } else if (welcome) {
-      messages.insertBefore(wrap, welcome.nextSibling);
-    } else {
-      messages.prepend(wrap);
-    }
-    wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-
-  function addTyping() {
-    var wrap = document.createElement('div');
-    wrap.className = 'shabaton-message';
-    wrap.innerHTML =
-      '<div class="shabaton-message-bot">' +
-      '<div class="shabaton-bot-avatar">&#129302;</div>' +
-      '<div class="shabaton-typing">' +
-      '<span></span>' +
-      '<span></span>' +
-      '<span></span>' +
-      '</div></div>';
-    // הוסף אחרי welcome, לפני שאר ההודעות
-    var welcome = messages.querySelector('.shabaton-welcome-message, .welcome-box');
-    var firstConv = messages.querySelector('.shabaton-message');
-    if (firstConv) {
-      messages.insertBefore(wrap, firstConv);
-    } else if (welcome) {
-      messages.insertBefore(wrap, welcome.nextSibling);
-    } else {
-      messages.prepend(wrap);
-    }
-    wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    return wrap;
-  }
-
-
-
-    function scrollEnd(){
-    setTimeout(function(){
-      try { window.parent.postMessage({ iframeHeight: document.body.scrollHeight }, '*'); } catch(e){}
-    }, 200);
-  }
-
-
-
-  function getWelcome() {
-    return '<div class="welcome-box">' +
-      '<p>ברוכים הבאים לשַׁבִּיבּוֹט 🤖 — העוזר הוירטואלי שלכם לשנת השבתון.<br>' +
-      'כאן תמצאו <strong>קורסים מכל רחבי הארץ</strong>, תשובות על <strong>מענקים, ביטוח לאומי וטפסים</strong>,<br>' +
-      'ומידע שיעזור לכם לתכנן שנה נפלאה.<br><br>' +
-      'פשוט כתבו שאלה בתיבה למעלה — ואנחנו נענה!</p>' +
-      '<p class="example" style="margin-top:12px">למשל: "קורסי טיולים", "כמה מקבלים במענק?", "הדרכת הורים בצפון"</p>' +
-      '</div>';
-  }
-
-  messages.innerHTML = getWelcome();
-
-  function sendMessage() {
-    var msg = chatInput.value.trim();
-    if (!msg || isBusy) return;
-    chatInput.value = '';
-    chatSend.disabled = true;
-    addMessage(msg, 'user');
-    history.push({ role: 'user', content: msg });
-    var typingEl = addTyping();
-    isBusy = true;
-
-    fetch(CONFIG.apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ message: msg, history: history.slice(-6), site: CONFIG.site })
-    })
-    .then(function(r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    })
-    .then(function(d) {
-      typingEl.remove();
-      var reply = d.reply || 'מצטערים, אירעה שגיאה.';
-      reply = reply.replace(/[\u1100-\u11FF\u3040-\u30FF\uAC00-\uD7AF]/g, '');
-      reply = reply.replace(/^\s*--+\s*$/mg, '');
-      reply = reply.replace(/^[A-Za-z][^\n]*\n/gm, '');
-      reply = reply.replace(/(?<!\*)\*(?!\*)/g, '');
-      reply = reply.replace(/^>\s?/mg, '');
-      addMessage(reply, 'bot');
-      history.push({ role: 'assistant', content: reply });
-    })
-    .catch(function(err) {
-      typingEl.remove();
-      console.error('[SHABI]', err);
-      addMessage('מצטערים, יש תקלה. [קבוצת הוואטסאפ של שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)', 'bot');
-    })
-    .finally(function() { isBusy = false; });
-  }
-
-  chatSend.addEventListener('click', sendMessage);
-  chatInput.addEventListener('keypress', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  });
-  chatInput.addEventListener('input', function() {
-    chatSend.disabled = !chatInput.value.trim();
-  });
-
-  clearBtn.addEventListener('click', function() {
-    history = [];
-    messages.innerHTML = getWelcome();
-  });
-
-  // Suggestion chips
-  document.querySelectorAll('.suggestion-chip').forEach(function(chip) {
-    chip.addEventListener('click', function() {
-      chatInput.value = chip.textContent.trim();
-      chatSend.disabled = false;
-      chatInput.focus();
-      sendMessage();
-    });
-  });
-
-})();
+  })();
 </script>
 </body>
 </html>
