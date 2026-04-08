@@ -152,7 +152,7 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
         return '<span class="shabaton-h3">🏫 <a href="' + link.url + '" target="_blank">' + link.label + '</a></span>';
       });
       var footerKw = ['כל קורסי', 'כל הקורסים', 'הרשם', 'קבוצת הוואטסאפ', 'עלון שבתון', 'אפשר לשאול', 'לשאול בקבוצת'];
-      t = t.replace(/(<span class="shabaton-h3">.*?<\/span>)<br>/g, '$1');
+      t = t.replace(/(<span class="shabaton-h3">.*?<\/span>)<br>/g, '$1<br>');
       t = t.replace(/\x01(\d+)\x01/g, function(m, i) {
         var link = links[parseInt(i, 10)];
         if (!link) return '';
