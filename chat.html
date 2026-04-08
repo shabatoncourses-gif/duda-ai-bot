@@ -116,11 +116,7 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
       var links = [];
 
       var t = text;
-      // שמור **[שם](URL)** ← לפני link save!
-      t = t.replace(/\*\*\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)\*\*/g, function(m, label, url) {
-        return key;
-      });
-            // שמור קישורים [label](url)
+      // שמור קישורים [label](url)
       t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, function(m, label, url) {
         links.push({ url: url, label: label });
         return '\x01' + (links.length - 1) + '\x01';
@@ -131,11 +127,6 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
         return '\x01' + (links.length - 1) + '\x01';
       });
 
-      // שמור **[שם](URL)** כ-h3 (לפני escape)
-      t = t.replace(/\*\*\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)\*\*/g, function(m, label, url) {
-        return key;
-      });
-      // escape HTML
       t = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
       // כותרות ### — טפל לפני שחזור links
