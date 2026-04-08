@@ -916,7 +916,7 @@ export default async function handler(req, res) {
     // המר | separator ל-newline לתצוגה נכונה
     // נרמל פורמט
     reply = reply.replace(/^#+\s*/gm, '');           // הסר # כותרות
-    reply = reply.replace(/\)\*\*\|/g, ')**\n');   // | → newline אחרי שם מוסד
+    reply = reply.replace(/\)\*\*\|+/g, ')**\n');   // | → newline אחרי שם מוסד
     reply = reply.replace(/\|\|/g, '\n\n');         // || → שורה ריקה
     reply = reply.replace(/^---+$/gm, '');             // הסר ---
     return res.status(200).json({ reply, model });
