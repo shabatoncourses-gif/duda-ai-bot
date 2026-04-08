@@ -31,6 +31,7 @@ const SYSTEM_PROMPT =
   '[פנו למידע ולייעוץ אישי](URL)\n\n' +
   'חשוב: אחרי התיאור — רק הכפתור [פנו למידע]. אסור לחזור על שם המוסד לפני הכפתור.\n\n' +
   '📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
+  'לשאלות קורסים: הוסף 📚 [כל קורסי [שם התחום]](URL מה-context — קישור לתחום). אם אין URL — השמט.\n' +
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
   '👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)\n\n' +
 
