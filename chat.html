@@ -133,25 +133,26 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
           var cellStyle = ri === 0 ? 'padding:7px 12px;border:1px solid #b8cfe8;background:#deeaf8;font-weight:700;text-align:right' : 'padding:6px 12px;border:1px solid #dde8f5;text-align:right;font-size:13px';
           return '<tr>' + cells.map(function(c){ return '<'+cellTag+' style="'+cellStyle+'">'+c.trim()+'</'+cellTag+'>'; }).join('') + '</tr>';
         }).filter(Boolean);
-        var key = '\x02TABLE' + (tableIdx++) + '\x02';
+        var key = '||TABLE' + (tableIdx++) + '||';
         tableMap[key] = '<table style="border-collapse:collapse;width:100%;direction:rtl;margin:8px 0">' + htmlRows.join('') + '</table>';
         return key;
       });
+      // שמור **[link]** כ-h3 BEFORE bold
+      t = t.replace(/\*\*(\x01(\d+)\x01)\*\*/g, function(m, ph, idx) { return 'SHABTITLE_'+idx+'_END'; });
       t = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       Object.keys(tableMap).forEach(function(k){ t = t.replace(k, tableMap[k]); });
-      t = t.replace(/\*\*(\x01\d+\x01)\*\*/g, '\x03$1\x03');
       t = t.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#0982bc;font-weight:700">$1</strong>');
       t = t.replace(/(?<!\*)\*(?!\*)/g, '');
       t = t.replace(/--+/g, '');
       t = t.replace(/\n/g, '<br>');
-      t = t.replace(/\x03(\x01\d+\x01)\x03/g, function(m, placeholder) {
-        var idx2 = parseInt(placeholder.replace(/\x01/g, ''));
-        var link = links[idx2];
+      // שחזר h3 titles
+      t = t.replace(/SHABTITLE_(\d+)_END/g, function(m, idx2) {
+        var link = links[parseInt(idx2)];
         if (!link) return m;
-        return '<span class="shabaton-h3">\uD83C\uDFEB <a href="' + link.url + '" target="_blank">' + link.label + '</a></span>';
+        return '<span class="shabaton-h3">🏫 <a href="' + link.url + '" target="_blank">' + link.label + '</a></span>';
       });
       var footerKw = ['כל קורסי', 'כל הקורסים', 'הרשם', 'קבוצת הוואטסאפ', 'עלון שבתון', 'אפשר לשאול', 'לשאול בקבוצת'];
-      t = t.replace(/(<span class="shabaton-h3">.*?<\/span>)<br>/g, '$1 ');
+      t = t.replace(/(<span class="shabaton-h3">.*?<\/span>)<br>/g, '$1');
       t = t.replace(/\x01(\d+)\x01/g, function(m, i) {
         var link = links[parseInt(i, 10)];
         if (!link) return '';
@@ -161,25 +162,12 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
         var ll = link.label.toLowerCase();
         var isFooter = footerKw.some(function(w){ return ll.indexOf(w.toLowerCase()) !== -1; });
         if (isFooter) return '<span style="display:inline-flex;align-items:center;gap:3px;margin:2px 4px"><a href="' + url + '" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline">' + link.label + '</a></span>';
-        var isPlainLink = ll.indexOf('פייסבוק') !== -1 || ll.indexOf('הצטרפ') !== -1;
-        if (isPlainLink) return '<a href="' + url + '" target="_blank" style="color:#0982bc;text-decoration:underline">' + link.label + '</a>';
+        if (ll.indexOf('פייסבוק') !== -1 || ll.indexOf('הצטרפ') !== -1) return '<a href="' + url + '" target="_blank" style="color:#0982bc;text-decoration:underline">' + link.label + '</a>';
         var infoSlugs = ['/btl_shabaton','/shabaton-maanak','/luz_shabaton','/forms_shabaton','/halforfull_shabaton','/birth_shabatgon','/shabaton_checklist','/shabaton-plan','/shabaton-video','/kabalot_shabaton','/tuition_reimbursement','/pension_shabaton','/keren_makor_mishor','/tofes_101','/milgot-morim','/learning_programs_shabaton'];
-        var isInfoPage = infoSlugs.some(function(p){ return url.indexOf(p) !== -1; });
-        var isResultsLink = url.indexOf('/results-') !== -1;
-        if (isResultsLink) return '<a href="' + url + '" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline">' + link.label + '</a>';
+        if (url.indexOf('/results-') !== -1) return '<a href="' + url + '" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline">' + link.label + '</a>';
         return '<a href="' + url + '" target="_blank" style="display:inline-block;background:#e8630a;color:#fff;padding:7px 18px;border-radius:24px;font-weight:700;text-decoration:none;margin:6px 0">' + link.label + '</a>';
       });
-      t = t.replace(/<strong[^>]*>(<a ([^>]+)>([^<]+)<\/a>)<\/strong>/g, function(m, aTag, attrs, label) {
-        var lbl = label.toLowerCase();
-        if (lbl.indexOf('שאול') !== -1 || lbl.indexOf('הרשם') !== -1 || lbl.indexOf('פייסבוק') !== -1 || lbl.indexOf('הצטרפ') !== -1 || lbl.indexOf('לפירוט') !== -1 || lbl.indexOf('פנו') !== -1) return m;
-        return '<span class="shabaton-h3">\uD83C\uDFEB ' + aTag + '</span>';
-      });
       t = t.replace(/^#{1,3}\s+(.+)$/mg, '<span class="shabaton-h3">$1</span>');
-      t = t.replace(/<strong[^>]*>(.*?)<\/strong>/g, function(m, inner) {
-        var aMatch = inner.match(/<a[\s\S]*?href="([^"]+)"[^>]*>([^<]+)<\/a>/);
-        if (aMatch) return '<span class="shabaton-h3">\uD83C\uDFEB <a href="' + aMatch[1] + '" target="_blank">' + aMatch[2] + '</a></span>';
-        return m;
-      });
       return t;
     } catch(e) { return text; }
   }
