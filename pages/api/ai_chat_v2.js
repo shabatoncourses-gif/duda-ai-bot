@@ -93,7 +93,7 @@ function getFieldSlug(question) {
     for (const f of items) {
       const kws = f.keywords || [];
       if (kws.some(k => qL.includes(k.toLowerCase()))) {
-        return { name: f.name, slug: encodeURIComponent(f.slug) };
+        return { name: f.name, slug: encodeURIComponent(f.slug), fetchFromUrl: f.fetchFromUrl || false, categoryUrl: f.categoryUrl || null };
       }
     }
   } catch(e) {}
@@ -466,6 +466,29 @@ async function buildContext(message) {
   const parts = [];
   const urlToTitle = {}; // מפת URL→שם לpost-processing
 
+  // קורסים לציבור הדתי — fetch מדף ייעודי
+  const isDati = /ציבור הדתי|לציבור הדתי|דתיים|חרדי|חרדים|דתי-לאומי/i.test(message);
+  if (isDati) {
+    const datiUrl = 'https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%D7%9D%20%D7%9C%D7%A6%D7%99%D7%91%D7%95%D7%A8%20%D7%94%D7%93%D7%AA%D7%99';
+    const datiContent = await fetchPageContent(datiUrl);
+    if (datiContent) {
+      let filtered = datiContent;
+      // סנן לפי אזור אם צוין
+      if (region) {
+        const regionCities = (region.cities || []).join('|');
+        const regionKw = (region.keywords || []).join('|');
+        const regionPattern = new RegExp(regionCities + '|' + regionKw + '|' + region.name, 'i');
+        if (!regionPattern.test(filtered)) {
+          filtered = datiContent; // אין סינון אם לא נמצא
+        }
+      }
+      parts.push('=== קורסים לציבור הדתי ===\n' + filtered.substring(0, 2500));
+      parts.push('קישור לכל קורסי ציבור הדתי: ' + datiUrl);
+      console.log('Dati content fetched, len:', datiContent.length);
+      return { context: parts.join('\n\n'), isInfo: false, courseCount: 5, urlToTitle };
+    }
+  }
+
   const infoUrls = detectInfoPages(message) || [];
   if (infoUrls.length > 0) {
     let gotContent = false;
@@ -782,6 +805,18 @@ async function buildContext(message) {
   }
 
   const fieldInfo = getFieldSlug(message);
+
+  // אם ה-field מסומן fetchFromUrl — סרוק דף הקטגוריה
+  if (fieldInfo && fieldInfo.fetchFromUrl && fieldInfo.categoryUrl && courses.length < 3) {
+    try {
+      const catContent = await fetchPageContent(fieldInfo.categoryUrl);
+      if (catContent) {
+        console.log('Category page fetched:', fieldInfo.categoryUrl.substring(0,60), 'len:', catContent.length);
+        parts.push(`=== קורסים לציבור הדתי (מדף הקטגוריה) ===\n${catContent}`);
+      }
+    } catch(e) {}
+  }
+
   // שלח URL אזורי רק אם השאלה מכילה מפורשות מילת אזור
   const msgL = message.toLowerCase();
   const msgContainsRegion = region && (
