@@ -470,23 +470,52 @@ async function buildContext(message) {
   const isDati = /ציבור הדתי|לציבור הדתי|דתיים|חרדי|חרדים|דתי-לאומי/i.test(message);
   if (isDati) {
     const datiUrl = 'https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%D7%9D%20%D7%9C%D7%A6%D7%99%D7%91%D7%95%D7%A8%20%D7%94%D7%93%D7%AA%D7%99';
-    const datiContent = await fetchPageContent(datiUrl);
-    if (datiContent) {
-      let filtered = datiContent;
-      // סנן לפי אזור אם צוין
-      if (region) {
-        const regionCities = (region.cities || []).join('|');
-        const regionKw = (region.keywords || []).join('|');
-        const regionPattern = new RegExp(regionCities + '|' + regionKw + '|' + region.name, 'i');
-        if (!regionPattern.test(filtered)) {
-          filtered = datiContent; // אין סינון אם לא נמצא
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const datiRes = await fetch(datiUrl, { headers: { 'User-Agent': 'shabaton-bot/1.0' }, signal: controller.signal });
+      clearTimeout(timer);
+      if (datiRes.ok) {
+        const rawHtml = await datiRes.text();
+        // חלץ: שם מוסד + URL + תיאור
+        const instPattern = /<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([^<]{5,80})<\/a>/g;
+        const insts = [];
+        let m;
+        const seen = new Set();
+        while ((m = instPattern.exec(rawHtml)) !== null) {
+          const url = m[1], name = m[2].trim();
+          if (!seen.has(url) && !url.includes('results-all') && !url.includes('shabaton.online/#') && name.length > 5) {
+            seen.add(url);
+            insts.push({ url, name });
+          }
+        }
+        // בנה context ב-markdown מוכן
+        if (insts.length > 0) {
+          // סנן לפי אזור אם צוין
+          let filtered = insts;
+          if (region) {
+            const rTerms = [...(region.cities || []), ...(region.keywords || []), region.name];
+            const regionFilt = filtered.filter(i => {
+              const ctx = rawHtml.substring(rawHtml.indexOf(i.url) - 300, rawHtml.indexOf(i.url) + 300);
+              return rTerms.some(t => ctx.includes(t));
+            });
+            if (regionFilt.length >= 2) filtered = regionFilt;
+          }
+          const mdLines = filtered.slice(0, 10).map(i => {
+            // חלץ תיאור קצר אחרי ה-link
+            const pos = rawHtml.indexOf(i.url);
+            const snippet = rawHtml.substring(pos + i.url.length + 50, pos + i.url.length + 400)
+              .replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim().substring(0, 200);
+            urlToTitle[i.url] = i.name;
+            return '**[' + i.name + '](' + i.url + ')**\n' + snippet + '\n[פנו למידע ולייעוץ אישי](' + i.url + ')';
+          });
+          parts.push('=== קורסים שנמצאו ===\n\n' + mdLines.join('\n\n'));
+          parts.push('קישור לכל קורסי ציבור הדתי: ' + datiUrl);
+          console.log('Dati institutions found:', filtered.length);
+          return { context: parts.join('\n\n'), isInfo: false, courseCount: filtered.length, urlToTitle };
         }
       }
-      parts.push('=== קורסים לציבור הדתי ===\n' + filtered.substring(0, 2500));
-      parts.push('קישור לכל קורסי ציבור הדתי: ' + datiUrl);
-      console.log('Dati content fetched, len:', datiContent.length);
-      return { context: parts.join('\n\n'), isInfo: false, courseCount: 5, urlToTitle };
-    }
+    } catch(e) { console.log('Dati fetch error:', e.message); }
   }
 
   const infoUrls = detectInfoPages(message) || [];
