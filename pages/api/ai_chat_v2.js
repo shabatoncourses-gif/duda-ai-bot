@@ -18,7 +18,7 @@ const SYSTEM_PROMPT =
   'כלל ברזל: אל תמציא מידע שאינו ב-context. אסור לציין מוסדות שאינם מופיעים ב-context. אם אין מספיק מוסדות ב-context — הצג רק את אלה שיש, אל תוסיף.\n' +
 
   '=== שאלות קורסים ===\n' +
-  'הצג 6-10 מוסדות מהרשימה בcontext.\n' +
+  'הצג 10-15 מוסדות מהרשימה בcontext. הצג כמה שיותר — אל תקצץ.\n' +
   'כלל תיאורים: מהתיאור שב-context, בחר **רק את החלק הרלוונטי לשאלה**. אל תצטט נושאים שאינם קשורים לשאלה. אם התיאור מכיל רשימה ארוכה — כתוב רק את הפריטים הקשורים לשאלה.\n' +
   'אל תציג תואר שני אלא אם ביקשו.\n' +
   'בנושא טיולים: הצג רק סמינרים וסיורים שמורים הולכים אליהם — לא קורסי הכשרת מורי דרך.\n\n' +
@@ -501,7 +501,7 @@ async function buildContext(message) {
             });
             if (regionFilt.length >= 2) filtered = regionFilt;
           }
-          const mdLines = filtered.slice(0, 10).map(i => {
+          const mdLines = filtered.slice(0, 15).map(i => {
             // חלץ תיאור קצר אחרי ה-link
             const pos = rawHtml.indexOf(i.url);
             const snippet = rawHtml.substring(pos + i.url.length + 50, pos + i.url.length + 400)
@@ -828,7 +828,7 @@ async function buildContext(message) {
       const j = Math.floor(Math.random() * (i + 1));
       [coursesForClaude[i], coursesForClaude[j]] = [coursesForClaude[j], coursesForClaude[i]];
     }
-    const claudeFinal = coursesForClaude.slice(0, 10);
+    const claudeFinal = coursesForClaude.slice(0, 15);
     if (claudeFinal.length > 0) parts.push(claudeFinal.join('\n'));
   }
   }
