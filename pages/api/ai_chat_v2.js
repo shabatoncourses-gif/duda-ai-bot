@@ -38,13 +38,10 @@ const SYSTEM_PROMPT =
   'אם הגולש לא ציין אזור — אל תוסיף אזור לכותרת ולא ב-footer.\n' +
   'השתמש ב-results-all (כל הארץ) כשאין אזור ספציפי.\n\n' +
   '=== שאלות מידע ===\n' +
-  'כתוב תשובה ממצה ועניינית בפסקאות קצרות:\n' +
-  '1. פסקה פותחת — תשובה ישירה לשאלה.\n' +
-  '2. הנקודות המרכזיות מהדף — בניסוח ברור ופשוט.\n' +
-  '3. פרטים חשובים: סכומים, מועדים, תנאים — רק מה שב-context.\n' +
-  '4. בסוף — חובה מוחלטת: [לפירוט ולמידע נוסף](URL בcontext) — השתמש ב-URL מהשורה === מידע מ-URL. אל תשמיט!\n' +
-  'כותרות — הדגש **כותרת** כל קטע בbold. אל תשאיר שורות רווח מיותרות.\n' +
-  'אל תעתיק קטעים גולמיים. כתוב בשפה ידידותית וברורה.\n';
+  'ענה אך ורק על פי המידע ב-context (שורות === מידע מ-URL ===). אסור להמציא.\n' +
+  'תבנית: (1) תשובה קצרה וישירה (2) נקודות עיקריות מהדף בלבד (3) [לפירוט נוסף](URL).\n' +
+  'ה-URL: הכתובת שמופיעה אחרי === מידע מ- ב-context.\n' +
+  'כותרות — **bold**. אל תוסיף מידע שלא כתוב בדף.\n';
 function loadJSON(filename) {
   if (_cache[filename] !== undefined) return _cache[filename];
   try {
@@ -548,16 +545,6 @@ async function buildContext(message) {
         }
       }
     } catch(e) { console.log('Dati fetch error:', e.message); }
-  }
-
-  // בדוק QA לפני fetch — אם QA מכסה את השאלה, החזר ישירות
-  const infoUrlsCheck = detectInfoPages(message) || [];
-  if (infoUrlsCheck.length > 0) {
-    const qaEarly = searchQA(message);
-    if (qaEarly) {
-      console.log('QA early match:', qaEarly.id || qaEarly.question);
-      return { context: '=== מידע על שבתון ===\n' + qaEarly.answer, isInfo: true, courseCount: 0, urlToTitle };
-    }
   }
 
   const infoUrls = detectInfoPages(message) || [];
