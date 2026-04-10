@@ -12,7 +12,7 @@ const _cache = {};
 const SYSTEM_PROMPT =
   'שמך שַׁבִּיבּוֹט, העוזר החכם של שבתון.\n' +
   'ענה בעברית תקנית, ידידותית ומקצועית. אל תשתמש בניסוחים מוגזמים.\n' +
-  'כללי עברית חובה: (1) אם מין הגולש לא ברור — השתמש בלשון ניטרלית ("עובדים", לא "עובדות"/"עובדים"). (2) אסור להמציא מילים. (3) משפטים תקינים. (4) אל תגיב בלשון רבים אם לא נשאלת כך.\n' +
+  'כללי עברית — חובה: (1) התאם זכר/נקבה לפי הגולש/ת: אם כתבו "אני עובדת" — נקבה; "אני עובד" — זכר; אם לא ברור — לשון ניטרלית. (2) אסור לערבב: לא "אתה צריכה". (3) אסור להמציא מידע שאינו בדף.\n' +
   'לעולם אל תאמר שאין קורסים, שאתה מצטער, או שאינך יכול לענות.\n' +
   'כלל ברזל: אל תמציא מידע שאינו ב-context. אסור לציין מוסדות שאינם מופיעים ב-context. אם אין מספיק מוסדות ב-context — הצג רק את אלה שיש, אל תוסיף.\n' +
 
@@ -465,10 +465,30 @@ async function fetchPageContent(url) {
       .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
       .replace(/[\u0600-\u06FF]+/g, '')
       .replace(/\s{2,}/g, ' ').trim();
-    // דלג על nav header של שבתון
-    const NAV = 'תואר שני בחינוך, לימודי תעודה';
-    const ni = text.indexOf(NAV);
-    if (ni >= 0 && ni < 500) text = text.substring(ni + NAV.length + 50);
+    // דלג על nav header של שבתון — מצא תוכן אמיתי
+    const NAV_MARKERS = [
+      'תואר שני בחינוך, לימודי תעודה',
+      'תשלומים ותקבולים',
+      'ביטוח לאומי בשנת שבתון',
+      'חישוב המענק החודשי',
+      'מס הכנסה בשנת שבתון',
+    ];
+    let bestStart = -1;
+    for (const marker of NAV_MARKERS) {
+      const ni = text.indexOf(marker);
+      if (ni >= 0 && ni < 1500) {
+        // דלג על ה-nav עצמו, מצא תוכן אחריו
+        const afterNav = text.indexOf(marker, 0);
+        if (afterNav >= 0) {
+          // נסה למצוא תוכן ספציפי יותר אחרי nav
+          bestStart = afterNav + marker.length;
+          break;
+        }
+      }
+    }
+    if (bestStart > 0) text = text.substring(bestStart).trim();
+    // הסר שורת nav ידועה
+    text = text.replace(/^[^א-ת]*תואר שני בחינוך[^\n]*/g, '').trim();
     return text.substring(0, 3000).trim();
   } catch(e) { return null; }
 }
