@@ -291,6 +291,14 @@ function detectInfoPages(question) {
     { kw: ['לוח זמנים','מועדים','בקשת שבתון','אישור זכאות','מתי מגישים','מתי להגיש','מערכת הגשה'],
       url: 'https://www.shabaton.online/luz_shabaton' },
 
+    // תיאום מס / מס הכנסה
+    { kw: ['תיאום מס','מס הכנסה','טופס 101 מס','החזר מס','פטור ממס'],
+      url: 'https://www.shabaton.online/Payments_shabaton' },
+
+    // תיאום מס / מס הכנסה
+    { kw: ['תיאום מס','מס הכנסה','טופס 101 מס','החזר מס','פטור ממס'],
+      url: 'https://www.shabaton.online/Payments_shabaton#1989197642' },
+
     // ביטוח לאומי
     { kw: ['ביטוח לאומי','בל','דמי ביטוח'],
       url: 'https://www.shabaton.online/btl_shabaton' },
@@ -470,16 +478,6 @@ async function buildContext(message) {
   console.log('region:', region ? region.name : 'none', '| msg:', message.substring(0,30));
   const parts = [];
   const urlToTitle = {}; // מפת URL→שם לpost-processing
-
-  // בדוק QA ראשון — אם יש תשובה מוכנה החזר אותה ישירות
-  const infoUrls0 = detectInfoPages(message) || [];
-  if (infoUrls0.length === 0) {
-    const qaMatchFirst = searchQA(message);
-    if (qaMatchFirst) {
-      console.log('QA direct match:', qaMatchFirst.id || qaMatchFirst.question);
-      return { context: '=== מידע על שבתון ===\n' + qaMatchFirst.answer, isInfo: true, courseCount: 0, urlToTitle };
-    }
-  }
 
   // קורסים לציבור הדתי — fetch מדף ייעודי
   const isDati = /ציבור הדתי|לציבור הדתי|דתיים|חרדי|חרדים|דתי-לאומי/i.test(message);
