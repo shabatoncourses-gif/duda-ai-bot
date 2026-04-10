@@ -557,7 +557,8 @@ async function buildContext(message) {
       const contents = await Promise.all(infoUrls.slice(0, 2).map(url => fetchPageContent(url)));
       contents.forEach((content, i) => {
         if (content) {
-          console.log('INFO page fetched:', infoUrls[i], 'len:', content.length, 'preview:', content.substring(0,100).replace(/\n/g,' '));
+          console.log('INFO page fetched:', infoUrls[i], 'len:', content.length);
+        console.log('INFO CONTENT:', content.substring(0, 200).replace(/[\n\r]/g,' '));
           parts.push('=== מידע מ-' + infoUrls[i] + ' ===\n' + content);
           gotContent = true;
         } else {
