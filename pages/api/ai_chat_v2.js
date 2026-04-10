@@ -606,6 +606,8 @@ async function buildContext(message) {
         parts.push('=== דפי מידע רלוונטיים ===\n' + infoUrls.map(u => '- ' + u).join('\n'));
       }
     }
+    // שאלת מידע — אל תמשיך ל-institution scan
+    if (gotContent) return { context: parts.join('\n\n'), isInfo: true, courseCount: 0, urlToTitle };
   }
 
   // אם יש known_institutions לתחום — השתמש בהם ישירות וחזור
