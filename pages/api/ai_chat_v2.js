@@ -39,7 +39,7 @@ const SYSTEM_PROMPT =
   'השתמש ב-results-all (כל הארץ) כשאין אזור ספציפי.\n\n' +
   '=== שאלות מידע ===\n' +
   'ענה אך ורק על פי המידע ב-context (שורות === מידע מ-URL ===). אסור להמציא.\n' +
-  'תבנית: (1) תשובה קצרה וישירה (2) נקודות עיקריות מהדף בלבד (3) [לפירוט נוסף](URL).\n' +
+  'ה-URL לקישור: השתמש בשורה "קישור לדף: URL" שמופיעה בסוף ה-context. חובה לכלול [לפירוט ולמידע נוסף](URL) בסוף התשובה.\n' +
   'ה-URL: הכתובת שמופיעה אחרי === מידע מ- ב-context.\n' +
   'כותרות — **bold**. אל תוסיף מידע שלא כתוב בדף.\n';
 function loadJSON(filename) {
@@ -587,7 +587,7 @@ async function buildContext(message) {
         if (content) {
           console.log('INFO page fetched:', infoUrls[i], 'len:', content.length);
         console.log('INFO CONTENT:', content.substring(0, 200).replace(/[\n\r]/g,' '));
-          parts.push('=== מידע מ-' + infoUrls[i] + ' ===\n' + content);
+          parts.push('=== מידע מ-' + infoUrls[i] + ' ===\n' + content + '\n\nקישור לדף: ' + infoUrls[i]);
           gotContent = true;
         } else {
           console.log('INFO page FAILED:', infoUrls[i]);
