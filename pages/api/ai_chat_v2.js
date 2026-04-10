@@ -11,9 +11,8 @@ const _cache = {};
 // ── System Prompt ──────────────────────────────────────
 const SYSTEM_PROMPT =
   'שמך שַׁבִּיבּוֹט, העוזר החכם של שבתון.\n' +
-  'ענה בעברית, בידידותיות ובמקצועיות. אל תשתמש בניסוחים מוגזמים כמו "תיבת רכבת", "מגניב", "מדהים" — השתמש בשפה רגילה ומכובדת.\n' +
-  'כל שאלה היא בהקשר שנת שבתון.\n' +
-  'לעולם אל תאמר שאין קורסים, שאתה מצטער, או שאינך יכול לענות.\n' +
+  'ענה בעברית תקנית, ידידותית ומקצועית. אל תשתמש בניסוחים מוגזמים.\n' +
+  'כללי עברית חובה: (1) זכר/נקבה — שים לב למין הדובר/ת לפי הקשר; אם לא ברור — כתוב בלשון יחיד ניטרלית. (2) אסור להמציא מילים בעברית. (3) משפטים תקינים ומובנים. (4) אל תערבב זכר ונקבה באותו משפט.\n' +
   'לעולם אל תאמר שאין קורסים, שאתה מצטער, או שאינך יכול לענות.\n' +
   'כלל ברזל: אל תמציא מידע שאינו ב-context. אסור לציין מוסדות שאינם מופיעים ב-context. אם אין מספיק מוסדות ב-context — הצג רק את אלה שיש, אל תוסיף.\n' +
 
@@ -354,7 +353,13 @@ function searchQA(question) {
   const qa = loadJSON('shabaton-qa.json');
   if (!qa) return null;
   const qL = question.toLowerCase();
-  const allQ = (qa.categories || []).flatMap(c => c.questions || []);
+  // חפש גם ב-c.questions (nested) וגם ישירות ב-categories
+  const allQ = (qa.categories || []).flatMap(c => {
+    const nested = c.questions || [];
+    // אם לitem יש answer ישירות — זה entry ישיר
+    const direct = (c.answer && c.keywords) ? [c] : [];
+    return [...nested, ...direct];
+  });
   return allQ.find(q => (q.keywords || []).some(k => qL.includes(k.toLowerCase()))) || null;
 }
 
@@ -555,6 +560,10 @@ async function buildContext(message) {
     if (!gotContent) {
       const qaMatch = searchQA(message);
       if (qaMatch) {
+        // QA match — החזר ישירות ללא scan נוסף
+        return { context: '=== מידע על שבתון ===\n' + qaMatch.answer, isInfo: true, courseCount: 0, urlToTitle: {} };
+      }
+      if (false && qaMatch) { // dead code
         parts.push('=== מידע על שבתון ===\n' + qaMatch.answer);
       } else {
         parts.push('=== דפי מידע רלוונטיים ===\n' + infoUrls.map(u => '- ' + u).join('\n'));
