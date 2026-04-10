@@ -12,7 +12,7 @@ const _cache = {};
 const SYSTEM_PROMPT =
   'שמך שַׁבִּיבּוֹט, העוזר החכם של שבתון.\n' +
   'ענה בעברית תקנית, ידידותית ומקצועית. אל תשתמש בניסוחים מוגזמים.\n' +
-  'כללי עברית חובה: (1) זכר/נקבה — שים לב למין הדובר/ת לפי הקשר; אם לא ברור — כתוב בלשון יחיד ניטרלית. (2) אסור להמציא מילים בעברית. (3) משפטים תקינים ומובנים. (4) אל תערבב זכר ונקבה באותו משפט.\n' +
+  'כללי עברית חובה: (1) אם מין הגולש לא ברור — השתמש בלשון ניטרלית ("עובדים", לא "עובדות"/"עובדים"). (2) אסור להמציא מילים. (3) משפטים תקינים. (4) אל תגיב בלשון רבים אם לא נשאלת כך.\n' +
   'לעולם אל תאמר שאין קורסים, שאתה מצטער, או שאינך יכול לענות.\n' +
   'כלל ברזל: אל תמציא מידע שאינו ב-context. אסור לציין מוסדות שאינם מופיעים ב-context. אם אין מספיק מוסדות ב-context — הצג רק את אלה שיש, אל תוסיף.\n' +
 
@@ -470,6 +470,16 @@ async function buildContext(message) {
   console.log('region:', region ? region.name : 'none', '| msg:', message.substring(0,30));
   const parts = [];
   const urlToTitle = {}; // מפת URL→שם לpost-processing
+
+  // בדוק QA ראשון — אם יש תשובה מוכנה החזר אותה ישירות
+  const infoUrls0 = detectInfoPages(message) || [];
+  if (infoUrls0.length === 0) {
+    const qaMatchFirst = searchQA(message);
+    if (qaMatchFirst) {
+      console.log('QA direct match:', qaMatchFirst.id || qaMatchFirst.question);
+      return { context: '=== מידע על שבתון ===\n' + qaMatchFirst.answer, isInfo: true, courseCount: 0, urlToTitle };
+    }
+  }
 
   // קורסים לציבור הדתי — fetch מדף ייעודי
   const isDati = /ציבור הדתי|לציבור הדתי|דתיים|חרדי|חרדים|דתי-לאומי/i.test(message);
