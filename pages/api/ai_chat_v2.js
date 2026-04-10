@@ -438,45 +438,59 @@ function getInstitutionPagesForField(question) {
 
 async function fetchPageContent(url) {
   try {
+    // Jina AI reader — מרנדר JavaScript ומחזיר טקסט נקי
+    const jinaUrl = 'https://r.jina.ai/' + url;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'shabaton-bot/1.0' },
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch(jinaUrl, {
+      headers: {
+        'Accept': 'text/plain',
+        'X-Return-Format': 'text',
+        'User-Agent': 'shabaton-bot/1.0'
+      },
       signal: controller.signal
     });
     clearTimeout(timer);
-    if (!res.ok) return null;
-    let html = await res.text();
-    // הסר script/style/nav/header/footer
-    html = html
-      .replace(/<script[^]*?<\/script>/gi, '')
-      .replace(/<style[^]*?<\/style>/gi, '')
-      .replace(/<nav[^]*?<\/nav>/gi, '')
-      .replace(/<header[^]*?<\/header>/gi, '')
-      .replace(/<footer[^]*?<\/footer>/gi, '');
-    // חפש תוכן עיקרי — Duda: wsite-content
-    const m = html.match(/id="wsite-content"[^>]*>([\s\S]{100,})/) ||
-               html.match(/<main[^>]*>([\s\S]+?)<\/main>/i) ||
-               html.match(/<article[^>]*>([\s\S]+?)<\/article>/i);
-    const body = m ? m[1] : html;
-    let text = body
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"')
-      .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-      .replace(/[\u0600-\u06FF]+/g, '')
-      .replace(/\s{2,}/g, ' ').trim();
-    // דלג על nav header — כל תוכן לפני "תשלומים ותקבולים" הוא nav
-    const CONTENT_START = 'תשלומים ותקבולים בשנת שבתון';
-    const csi = text.indexOf(CONTENT_START);
-    if (csi > 0) {
-      text = text.substring(csi);
-    } else {
-      // fallback: דלג על 800 תווים ראשונים (nav)
-      text = text.substring(800);
+    if (res.ok) {
+      let text = await res.text();
+      // הסר meta headers של jina
+      text = text.replace(/^Title:.*\n/gm,'').replace(/^URL Source:.*\n/gm,'')
+                 .replace(/^Markdown Content:/gm,'').replace(/^={3,}.*\n/gm,'');
+      // דלג על nav — מצא תוכן רלוונטי
+      const markers = ['תשלומים ותקבולים בשנת שבתון','ביטוח לאומי בשנת שבתון','מי חייב',
+                       'המענק החודשי','החזר שכר לימוד','חישוב המענק','שבתון מלא או חצי'];
+      for (const marker of markers) {
+        const idx = text.indexOf(marker);
+        if (idx > 0 && idx < 2000) { text = text.substring(idx); break; }
+      }
+      text = text.replace(/\s{3,}/g,'\n\n').trim();
+      console.log('Jina OK:', url.split('/').pop(), 'len:', text.length);
+      return text.substring(0, 3500);
     }
-    return text.substring(0, 3000).trim();
-  } catch(e) { return null; }
+    console.log('Jina failed status:', res.status);
+  } catch(e) {
+    console.log('Jina error:', e.message);
+  }
+  // fallback: fetch ישיר
+  try {
+    const controller2 = new AbortController();
+    const timer2 = setTimeout(() => controller2.abort(), 8000);
+    const res2 = await fetch(url, { headers: {'User-Agent':'shabaton-bot/1.0'}, signal: controller2.signal });
+    clearTimeout(timer2);
+    if (!res2.ok) return null;
+    let html = await res2.text();
+    html = html.replace(/<script[^]*?<\/script>/gi,'').replace(/<style[^]*?<\/style>/gi,'')
+               .replace(/<nav[^]*?<\/nav>/gi,'').replace(/<header[^]*?<\/header>/gi,'')
+               .replace(/<footer[^]*?<\/footer>/gi,'');
+    const m = html.match(/id="wsite-content"[^>]*>([\s\S]{100,})/);
+    let text = (m ? m[1] : html).replace(/<[^>]+>/g,' ').replace(/\s{2,}/g,' ').trim();
+    const csi = text.indexOf('תשלומים ותקבולים בשנת שבתון');
+    if (csi > 0) text = text.substring(csi);
+    else text = text.substring(800);
+    return text.substring(0,3000).trim();
+  } catch(e2) { return null; }
 }
+
 
 async function buildContext(message) {
   const region = detectRegion(message);
@@ -536,9 +550,31 @@ async function buildContext(message) {
     } catch(e) { console.log('Dati fetch error:', e.message); }
   }
 
+  // בדוק QA לפני fetch — אם QA מכסה את השאלה, החזר ישירות
+  const infoUrlsCheck = detectInfoPages(message) || [];
+  if (infoUrlsCheck.length > 0) {
+    const qaEarly = searchQA(message);
+    if (qaEarly) {
+      console.log('QA early match:', qaEarly.id || qaEarly.question);
+      return { context: '=== מידע על שבתון ===\n' + qaEarly.answer, isInfo: true, courseCount: 0, urlToTitle };
+    }
+  }
+
   const infoUrls = detectInfoPages(message) || [];
   if (infoUrls.length > 0) {
     let gotContent = false;
+    // 0. בדוק info-pages.json (תוכן מהדפים — הכי מדויק)
+    const infoPageDB = loadJSON('info-pages.json') || {};
+    for (const url of infoUrls.slice(0, 3)) {
+      const baseUrl = url.split('#')[0];
+      const entry = infoPageDB[url] || infoPageDB[baseUrl] ||
+        Object.values(infoPageDB).find((v, idx) => Object.keys(infoPageDB)[idx].startsWith(baseUrl));
+      if (entry && entry.content && entry.content !== '<<CONTENT_FROM_PAGE>>') {
+        console.log('INFO from static DB:', url);
+        parts.push('=== מידע מ-' + url + ' ===\n' + entry.content);
+        gotContent = true; break;
+      }
+    }
     // תחילה: חפש באינדקסים (מהיר)
     const indexes2 = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json'];
     for (const url of infoUrls.slice(0, 2)) {
