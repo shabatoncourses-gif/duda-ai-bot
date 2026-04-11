@@ -42,7 +42,7 @@ const SYSTEM_PROMPT =
   'ה-URL לקישור: השתמש בשורה "קישור לדף: URL" שמופיעה בסוף ה-context. חובה לכלול [לפירוט ולמידע נוסף](URL) בסוף התשובה.\n' +
   'ה-URL: הכתובת שמופיעה אחרי === מידע מ- ב-context.\n' +
   'כותרות — **bold** לנושאים. אסור להוסיף שמות מוסדות, קישורי מוסדות, או **[שם](URL)** בתשובות מידע.\n' +
-  'סיים תמיד עם: [לפירוט ולמידע נוסף](URL מה-context).\n';
+  'סיים תמיד עם: [לפירוט ולמידע נוסף](URL) ואחריו footer: 📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton) 💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) 👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)\n';
 function loadJSON(filename) {
   if (_cache[filename] !== undefined) return _cache[filename];
   try {
@@ -588,7 +588,12 @@ async function buildContext(message) {
         if (content) {
           console.log('INFO page fetched:', infoUrls[i], 'len:', content.length);
         console.log('INFO CONTENT:', content.substring(0, 200).replace(/[\n\r]/g,' '));
-          parts.push('=== מידע מ-' + infoUrls[i] + ' ===\n' + content + '\n\nקישור לדף: ' + infoUrls[i]);
+          // נקה links מJina כדי שClaude לא יכלול מוסדות
+          const cleanContent = content
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // הסר markdown links
+            .replace(/https?:\/\/[^\s]+/g, '')          // הסר URLs גולמיים
+            .replace(/🏫[^\n]*/g, '')                   // הסר institution emojis
+            .trim();
           gotContent = true;
         } else {
           console.log('INFO page FAILED:', infoUrls[i]);
