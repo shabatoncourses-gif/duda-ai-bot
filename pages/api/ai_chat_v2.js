@@ -456,10 +456,28 @@ async function fetchPageContent(url) {
                  .replace(/^Markdown Content:/gm,'').replace(/^={3,}.*\n/gm,'');
       // דלג על nav — מצא תוכן רלוונטי
       const markers = ['תשלומים ותקבולים בשנת שבתון','ביטוח לאומי בשנת שבתון','מי חייב',
-                       'המענק החודשי','החזר שכר לימוד','חישוב המענק','שבתון מלא או חצי'];
+                       'המענק החודשי','החזר שכר לימוד','חישוב המענק','שבתון מלא או חצי',
+                       'תוכניות הלימודים בשבתון','חובות הלימודים','שעות חובה',
+                       'מה לומדים','בניית התוכנית','תכנית הלימוד','לוח הזמנים',
+                       'רשימת משימות','צ\u0027קליסט','איך מתחילים','זכאות לשבתון',
+                       'קבלות','החזר שכ\u0022ל','פנסיה בשבתון','לידה בשבתון',
+                       'טופס 101','תיאום מס','מלגות לימודים','סרטוני הדרכה'];
+      let foundMarker = false;
       for (const marker of markers) {
-        const idx = text.indexOf(marker);
-        if (idx > 0 && idx < 2000) { text = text.substring(idx); break; }
+        const midx = text.indexOf(marker);
+        if (midx > 0 && midx < 3000) { text = text.substring(midx); foundMarker = true; break; }
+      }
+      // fallback: מצא שורה ראשונה עם תוכן עברי משמעותי (לא nav)
+      if (!foundMarker) {
+        const lines2 = text.split('\n');
+        for (let li = 0; li < lines2.length; li++) {
+          const l = lines2[li].trim();
+          // שורה עם 20+ תווים עבריים שאינה nav link
+          if (l.length > 20 && /[א-ת]{10,}/.test(l) && !l.includes('קרן ארגון') && !l.includes('קרן הסתדרות')) {
+            text = lines2.slice(li).join('\n');
+            break;
+          }
+        }
       }
       text = text.replace(/\s{3,}/g,'\n\n').trim();
       console.log('Jina OK:', url.split('/').pop(), 'len:', text.length);
