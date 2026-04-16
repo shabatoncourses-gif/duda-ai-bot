@@ -278,11 +278,11 @@ function detectInfoPages(question) {
       url: 'https://www.shabaton.online/shabaton_checklist' },
 
     // תכנון תוכנית לימודים / טבלת עזר
-    { kw: ['תכנון','תוכנית לימודים','תכנית לימודים','טבלת עזר','הרכבת תוכנית','מתכנן','מתכננים','לתכנן','איך מרכיב'],
-      url: 'https://www.shabaton.online/shabaton-plan' },
+    { kw: ['תכנון','תוכנית לימודים','תכנית לימודים','טבלת עזר','הרכבת תוכנית','מתכנן','מתכננים','לתכנן','איך מרכיב','בניית תוכנית','תכנון לימודים','להרכיב תוכנית','מה ללמוד בשבתון','כמה שעות ללמוד','לימוד בשבתון','לימודי חובה ורשות','לימודי רשות','מוסדות מאושרים ללמוד','חובות לימודים','שעות חובה','שעות השלמה','שעות רשות','לימודי חובה','לימודי השלמה','ספורט בשבתון','שינוי תוכנית','אופק חדש בשבתון','גמול השתלמות','מסלול אישי','פרויקט אישי','לימודים בחו"ל'],
+      urls: ['https://www.shabaton.online/shabaton-plan','https://www.shabaton.online/learning_programs_shabaton'] },
 
     // חובות לימודים / חלוקת שעות / מוסדות מאושרים / נושאים מאושרים
-    { kw: ['חובות לימודים','שעות חובה','שעות השלמה','שעות רשות','לימודי חובה','לימודי השלמה','מוסדות מאושרים','נושאי השתלמות','ספורט בשבתון','שינוי תוכנית','אופק חדש','תואר שלישי','דוקטורט','גמול השתלמות','מסלול אישי','פרויקט אישי','ישיבה','לימודים בחו"ל','לימודים בחול','תוכנית לימודים','להרכיב תוכנית','הרכבת תוכנית','בניית תוכנית','מה ללמוד','כמה שעות','תכנית לימודים','לימוד בשבתון'],
+    { kw: ['חובות לימודים','שעות חובה','שעות השלמה','שעות רשות','לימודי חובה','לימודי השלמה','מוסדות מאושרים','נושאי השתלמות','ספורט בשבתון','שינוי תוכנית','אופק חדש','תואר שלישי','דוקטורט','גמול השתלמות','מסלול אישי','פרויקט אישי','ישיבה','לימודים בחו"ל','לימודים בחול','תוכנית לימודים','להרכיב תוכנית','הרכבת תוכנית','בניית תוכנית','מה ללמוד','כמה שעות','תכנית לימודים','לימוד בשבתון','לימודי רשות','לימודי חובה ורשות','מוסדות ללמוד'],
       url: 'https://www.shabaton.online/learning_programs_shabaton' },
 
     // לוח זמנים / בקשת שבתון / טפסים לקרן
@@ -349,7 +349,8 @@ function detectInfoPages(question) {
   const matched = [];
   for (const p of pages) {
     if (p.kw.some(k => q.includes(k.toLowerCase()))) {
-      matched.push(p.url);
+      if (p.urls) { p.urls.forEach(u => { if (!matched.includes(u)) matched.push(u); }); }
+      else matched.push(p.url);
     }
   }
   return matched.length > 0 ? matched : null;
@@ -462,26 +463,29 @@ async function fetchPageContent(url) {
                        'רשימת משימות','צ\u0027קליסט','איך מתחילים','זכאות לשבתון',
                        'קבלות','החזר שכ\u0022ל','פנסיה בשבתון','לידה בשבתון',
                        'טופס 101','תיאום מס','מלגות לימודים','סרטוני הדרכה'];
-      let foundMarker = false;
-      for (const marker of markers) {
-        const midx = text.indexOf(marker);
-        if (midx > 0 && midx < 3000) { text = text.substring(midx); foundMarker = true; break; }
-      }
-      // fallback: מצא שורה ראשונה עם תוכן עברי משמעותי (לא nav)
-      if (!foundMarker) {
-        const lines2 = text.split('\n');
-        for (let li = 0; li < lines2.length; li++) {
-          const l = lines2[li].trim();
-          // שורה עם 20+ תווים עבריים שאינה nav link
-          if (l.length > 20 && /[א-ת]{10,}/.test(l) && !l.includes('קרן ארגון') && !l.includes('קרן הסתדרות')) {
-            text = lines2.slice(li).join('\n');
-            break;
-          }
+      // מצא שורה ראשונה עם תוכן ממשי — לא nav link קצר
+      // nav links הם שורות קצרות (< 60 תווים), תוכן אמיתי ארוך יותר
+      const lines2 = text.split('\n');
+      let contentStart = -1;
+      // חפש: שורה עם 60+ תווים עבריים שאינה nav
+      const navPhrases = ['קרן ארגון','קרן הסתדרות','לוח הזמנים - סוף','החזר שכר לימוד לקרן','קבלות החזר','הודעה על חזרה'];
+      for (let li = 0; li < lines2.length; li++) {
+        const l = lines2[li].trim();
+        const isNav = navPhrases.some(p => l.includes(p)) || (l.length < 60 && /^[\[*]/.test(l));
+        if (!isNav && l.length > 60 && /[א-ת]{15,}/.test(l)) {
+          contentStart = li;
+          break;
         }
+      }
+      if (contentStart > 0) {
+        text = lines2.slice(contentStart).join('\n');
+      } else {
+        // fallback: דלג על 30% הראשון (nav)
+        text = text.substring(Math.floor(text.length * 0.3));
       }
       text = text.replace(/\s{3,}/g,'\n\n').trim();
       console.log('Jina OK:', url.split('/').pop(), 'len:', text.length);
-      return text.substring(0, 3500);
+      return text.substring(0, 5000);
     }
     console.log('Jina failed status:', res.status);
   } catch(e) {
@@ -592,7 +596,7 @@ async function buildContext(message) {
         const found = pages.find(p => p.url && (p.url.includes(slug) || p.url === url));
         if (found && found._text && found._text.length > 100) {
           console.log('INFO from index:', url, 'len:', found._text.length);
-          parts.push('=== מידע מ-' + url + ' ===\n' + found._text.substring(0, 3000));
+          parts.push('=== מידע מ-' + url + ' ===\n' + found._text.substring(0, 5000));
           gotContent = true;
           break;
         }
