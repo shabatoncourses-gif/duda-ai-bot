@@ -724,20 +724,8 @@ async function buildContext(message) {
           }
         }
       }
-      // בנה רשימת צירופים מחייבים מהשאלה + field keywords
       const qSpecific2 = [...new Set([...qLower2, ...fieldKwsExtra])];
-      // צירופים מחייבים: אם השאלה מכילה צירוף → דרוש צירוף מלא (לא מילה בודדת)
-      const REQUIRED_PHRASES = [
-        'הנחיית קבוצות','הנחיה קבוצתית','הדרכת הורים','הדרכה הורית',
-        'הוראה מתואמת','הוראה מתקנת','ניהול כיתה','עיצוב גרפי',
-        'בישול בריא','אפייה בריאה','ציור ומים','ניהול עסקי',
-        'טיפול זוגי','טיפול משפחתי','ביטוח לאומי','תיאום מס',
-        'החזר שכר לימוד','קרן פנסיה','מסלול אישי','גמול השתלמות',
-        'פוטו תרפיה','פוטותרפיה','ארומתרפיה','דרמה תרפיה',
-        'תנועה טיפולית','מוזיקה טיפולית','טיפול בבעלי חיים'
-      ];
       const msgLower2 = message.toLowerCase();
-      const requiredPhrase = REQUIRED_PHRASES.find(p => msgLower2.includes(p));
       console.log('qSpecific2:', qSpecific2.slice(0,8).join(' | '));
       for (const name of ['hemdat','igud_arim','washington','foodprof']) {
         const found = name === 'washington'
