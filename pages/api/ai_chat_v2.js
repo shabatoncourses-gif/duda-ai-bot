@@ -705,7 +705,13 @@ async function buildContext(message) {
         }
       }
     });
-    const instWithText = institutionPages.filter(p => expandedQ.length > 0 && expandedQ.some(w => (p._text||'').includes(w)));
+    const instWithText = institutionPages.filter(p => {
+      const pt = (p._text||'');
+      if (requiredPhrase) return pt.includes(requiredPhrase) ||
+        (p.title||'').toLowerCase().includes(requiredPhrase) ||
+        (p.description||'').toLowerCase().includes(requiredPhrase);
+      return expandedQ.length > 0 && expandedQ.some(w => pt.includes(w));
+    });
     console.log('instWithText count:', instWithText.length, instWithText.slice(0,8).map(p => p.url.split('/').pop()).join(' | '));
 
     const dyellIn = institutionPages.find(p => p.url.includes('dyellin'));
@@ -744,7 +750,15 @@ async function buildContext(message) {
       }
 
       // שלב א: דפים שה-text באינדקס כבר מכיל התאמה — הוסף ישירות בלי fetchPageContent
-      const textIndexPages = institutionPages.filter(p => !existingUrls.has(p.url) && qSpecific2.some(w => (p._text||'').includes(w)));
+      const textIndexPages = institutionPages.filter(p => {
+        if (existingUrls.has(p.url)) return false;
+        const pt = (p._text||'');
+        // אם יש צירוף מחייב — דרוש אותו
+        if (requiredPhrase) return pt.includes(requiredPhrase) ||
+          (p.title||'').toLowerCase().includes(requiredPhrase) ||
+          (p.description||'').toLowerCase().includes(requiredPhrase);
+        return qSpecific2.some(w => pt.includes(w));
+      });
       console.log('textIndex pages:', textIndexPages.map(p => p.url.split('/').pop()).join(' | '));
       textIndexPages.forEach(p => {
         // מצא snippet מה-text
@@ -815,7 +829,10 @@ async function buildContext(message) {
           // רק מילים ספציפיות (לא "קורסי", "קורס", "למורים")
           // אם הדף כבר התאים ב-_text (withTextMatch2) — תמיד רלוונטי
           const isAlreadyTextMatch = withTextMatch2.some(tm => tm.url === p.url);
-          const relevant = isAlreadyTextMatch || (qSpecific2.length > 0 && qSpecific2.some(w => content.toLowerCase().includes(w)));
+          const contentLower3 = content.toLowerCase();
+          const relevant = requiredPhrase
+            ? contentLower3.includes(requiredPhrase)  // דרוש צירוף מלא
+            : (isAlreadyTextMatch || (qSpecific2.length > 0 && qSpecific2.some(w => contentLower3.includes(w))));
           // סנן לפי אזור — אם יש region ואם הדף שייך לאזור אחר
           if (relevant && region) {
             const regD = loadJSON('regions.json');
