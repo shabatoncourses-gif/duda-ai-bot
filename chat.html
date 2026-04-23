@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>שַׁבִּיבּוֹט — עוזר שבתון AI</title>
+<title>שבתון-בוט — עוזר שבתון AI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -75,7 +75,7 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
     <div class="header-brand">
       <div class="header-avatar">🤖</div>
       <div class="header-text">
-        <h1>שַׁבִּיבּוֹט</h1>
+        <h1>שבתון-בוט</h1>
         <p>עוזר שבתון חכם — שאלו, וקבלו תשובה!</p>
       </div>
       <span class="header-badge">AI</span>
@@ -188,23 +188,16 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
     } else {
       wrap.innerHTML = '<div class="shabaton-message-user"><div class="shabaton-message-content">' + text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') + '</div></div>';
     }
-    var firstConv = messages.querySelector('.shabaton-message');
-    if (firstConv) messages.insertBefore(wrap, firstConv);
-    else messages.prepend(wrap);
-    wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    // שלח גובה לDuda iframe
-    if (window.parent !== window) {
-      window.parent.postMessage({ iframeHeight: document.documentElement.scrollHeight }, '*');
-    }
+    messages.appendChild(wrap);
+    messages.scrollTop = messages.scrollHeight;
   }
 
   function addTyping() {
     var wrap = document.createElement('div');
     wrap.className = 'shabaton-message shabaton-typing-wrap';
     wrap.innerHTML = '<div class="shabaton-message-bot"><div class="shabaton-bot-avatar">&#129302;</div><div class="shabaton-typing"><span></span><span></span><span></span></div></div>';
-    var firstConv = messages.querySelector('.shabaton-message');
-    if (firstConv) messages.insertBefore(wrap, firstConv);
-    else messages.prepend(wrap);
+    messages.appendChild(wrap);
+    messages.scrollTop = messages.scrollHeight;
     return wrap;
   }
 
