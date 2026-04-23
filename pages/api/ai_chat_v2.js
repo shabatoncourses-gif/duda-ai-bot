@@ -242,9 +242,15 @@ function searchCourses(message, region) {
           const isOnline = tdOnly.match(/מרחוק|זום|zoom|אונליין|online|מקוון/i) ||
             (page.text||'').match(/מרחוק|זום|zoom|אונליין|online|מקוון/i);
           if (region.slug === 'online') {
-            // חיפוש מרחוק: הצג רק דפים עם מרחוק/zoom
-            if (!isOnline) { seen.add(url); continue; }
-            score += 3; // העלה ניקוד למרחוק
+            // חיפוש מרחוק: בדוק גם ב-Jina content (יבדק ב-live scan)
+            // כאן: אם title/desc/text אחד מכיל מרחוק — תקין
+            // אם לא — ייבדק ב-live scan
+            if (!isOnline) {
+              // אל תסנן עדיין — live scan יבדוק Jina content
+              score = Math.max(score, 1);
+            } else {
+              score += 3; // העלה ניקוד למרחוק
+            }
           } else {
             if (!isOnline) { seen.add(url); continue; }
             score = Math.max(1, score - 3);
@@ -839,9 +845,14 @@ async function buildContext(message) {
           // אם הדף כבר התאים ב-_text (withTextMatch2) — תמיד רלוונטי
           const isAlreadyTextMatch = withTextMatch2.some(tm => tm.url === p.url);
           const contentLower3 = content.toLowerCase();
-          const relevant = requiredPhrase
-            ? contentLower3.includes(requiredPhrase)  // דרוש צירוף מלא
-            : (isAlreadyTextMatch || (qSpecific2.length > 0 && qSpecific2.some(w => contentLower3.includes(w))));
+          const onlineKeywords = /מרחוק|זום|zoom|אונליין|online|מקוון|מתוקשב/;
+          const hasOnlineContent = onlineKeywords.test(contentLower3);
+          // אם חיפוש מרחוק: דרוש גם תוכן מרחוק בJina וגם requiredPhrase
+          const relevant = (region && region.slug === 'online')
+            ? hasOnlineContent && (requiredPhrase ? contentLower3.includes(requiredPhrase) : qSpecific2.some(w => contentLower3.includes(w)))
+            : requiredPhrase
+              ? contentLower3.includes(requiredPhrase)
+              : (isAlreadyTextMatch || (qSpecific2.length > 0 && qSpecific2.some(w => contentLower3.includes(w))));
           // סנן לפי אזור — אם יש region ואם הדף שייך לאזור אחר
           if (relevant && region) {
             const regD = loadJSON('regions.json');
