@@ -724,7 +724,20 @@ async function buildContext(message) {
           }
         }
       }
+      // בנה רשימת צירופים מחייבים מהשאלה + field keywords
       const qSpecific2 = [...new Set([...qLower2, ...fieldKwsExtra])];
+      // צירופים מחייבים: אם השאלה מכילה צירוף → דרוש צירוף מלא (לא מילה בודדת)
+      const REQUIRED_PHRASES = [
+        'הנחיית קבוצות','הנחיה קבוצתית','הדרכת הורים','הדרכה הורית',
+        'הוראה מתואמת','הוראה מתקנת','ניהול כיתה','עיצוב גרפי',
+        'בישול בריא','אפייה בריאה','ציור ומים','ניהול עסקי',
+        'טיפול זוגי','טיפול משפחתי','ביטוח לאומי','תיאום מס',
+        'החזר שכר לימוד','קרן פנסיה','מסלול אישי','גמול השתלמות',
+        'פוטו תרפיה','פוטותרפיה','ארומתרפיה','דרמה תרפיה',
+        'תנועה טיפולית','מוזיקה טיפולית','טיפול בבעלי חיים'
+      ];
+      const msgLower2 = message.toLowerCase();
+      const requiredPhrase = REQUIRED_PHRASES.find(p => msgLower2.includes(p));
       console.log('qSpecific2:', qSpecific2.slice(0,8).join(' | '));
       for (const name of ['hemdat','igud_arim','washington','foodprof']) {
         const found = name === 'washington'
@@ -882,11 +895,17 @@ async function buildContext(message) {
     const filterTraining = isTrainingCourse && wantsTours2 && !wantsTraining2;
     // qWords כולל מילות מפתח מורחבות
     const titleDescLower = (desc + ' ' + (c.title||'')).toLowerCase();
-    const textHasQ = qLower2.some(w => (c._text||'').includes(w));
-    const hasQword = qLower2.some(w => titleDescLower.includes(w)) ||
-                     textHasQ ||
+    const textHasQ = requiredPhrase
+      ? (c._text||'').includes(requiredPhrase) ||
+        (c.description||'').toLowerCase().includes(requiredPhrase) ||
+        (c.title||'').toLowerCase().includes(requiredPhrase)
+      : qLower2.some(w => (c._text||'').includes(w));
+    const hasQword = requiredPhrase
+      ? titleDescLower.includes(requiredPhrase)
+      : qLower2.some(w => titleDescLower.includes(w));
+                     // textHasQ מטופל למעלה
                      (c._score && c._score >= 3); // דפים שנמצאו בחיפוש ישיר
-    const finalHasQ = !filterTraining && !isGenericPage && !isMaDegree && (c._liveRelevant || hasQword);
+    const finalHasQ = !filterTraining && !isGenericPage && !isMaDegree && (c._liveRelevant || hasQword || textHasQ);
     if (finalHasQ) console.log('PASS TO CLAUDE:', (c.title||'').substring(0,30), '| url:', (c.url||'').split('/').pop());
     if ((c.url||'').includes('idit-link')) console.log('idit-link finalHasQ:', finalHasQ, '_liveRelevant:', c._liveRelevant, 'desc:', (desc||'').substring(0,50));
     if (finalHasQ) {
