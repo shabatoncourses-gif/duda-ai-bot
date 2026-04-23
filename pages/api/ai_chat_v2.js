@@ -609,13 +609,14 @@ async function buildContext(message) {
       contents.forEach((content, i) => {
         if (content) {
           console.log('INFO page fetched:', infoUrls[i], 'len:', content.length);
-        console.log('INFO CONTENT:', content.substring(0, 200).replace(/[\n\r]/g,' '));
+        console.log('INFO CONTENT:', content.substring(0, 500).replace(/[\n\r]/g,' '));
           // נקה links מJina כדי שClaude לא יכלול מוסדות
           const cleanContent = content
             .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // הסר markdown links
             .replace(/https?:\/\/[^\s]+/g, '')          // הסר URLs גולמיים
             .replace(/🏫[^\n]*/g, '')                   // הסר institution emojis
             .trim();
+          parts.push('=== מידע מ-' + infoUrls[i] + ' ===\n' + cleanContent + '\n\nקישור לדף: ' + infoUrls[i]);
           gotContent = true;
         } else {
           console.log('INFO page FAILED:', infoUrls[i]);
