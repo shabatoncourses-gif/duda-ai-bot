@@ -442,12 +442,14 @@ async function fetchPageContent(url) {
     const jinaUrl = 'https://r.jina.ai/' + url;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
+    const jinaHeaders = {
+      'Accept': 'text/plain',
+      'X-Return-Format': 'text',
+      'User-Agent': 'shabaton-bot/1.0'
+    };
+    if (process.env.JINA_API_KEY) jinaHeaders['Authorization'] = 'Bearer ' + process.env.JINA_API_KEY;
     const res = await fetch(jinaUrl, {
-      headers: {
-        'Accept': 'text/plain',
-        'X-Return-Format': 'text',
-        'User-Agent': 'shabaton-bot/1.0'
-      },
+      headers: jinaHeaders,
       signal: controller.signal
     });
     clearTimeout(timer);
@@ -854,7 +856,7 @@ async function buildContext(message) {
             console.log('LIVE SCAN:', shortName, 'relevant='+relevant, 'content_len='+(content||'').length);
           }
           if (!relevant) return null;
-          return { title: p.title, url: p.url, description: p.description, score: 2, _liveRelevant: true };
+          return { title: p.title, url: p.url, description: p.description, score: 2, _liveRelevant: true, _liveContent: content };
         })
       );
       scanned.filter(Boolean).forEach(p => { courses.push(p); existingUrls.add(p.url); });
@@ -896,7 +898,9 @@ async function buildContext(message) {
 
     // שלח ל-Claude רק קורסים שהתיאור או הכותרת מכילים את המונח
     const titleC = (c.title || '').toLowerCase();
-    const isGenericPage = /^קורסי העשרה|^קורסי העצמה|^קורסי פנאי/.test(titleC);
+    const isGenericPage = /^קורסי העשרה|^קורסי העצמה|^קורסי פנאי/.test(titleC) ||
+      /^שבתון - קורסים והשתלמויות/.test(titleC) ||
+      (c.url||'').includes('/kenes/');
     const wantsDegree = /תואר שני|תואר ראשון|תואר שלישי|דוקטורט|MA|BA|MSC/.test(message);
     const isMaDegree = /תואר שני|MA |M\.A|תואר \|מסלול תואר/.test(titleC) && !wantsDegree;
     const wantsTours2 = /טיול|סיור/.test(message.toLowerCase());
@@ -919,23 +923,25 @@ async function buildContext(message) {
     if (finalHasQ) console.log('PASS TO CLAUDE:', (c.title||'').substring(0,30), '| url:', (c.url||'').split('/').pop());
     if ((c.url||'').includes('idit-link')) console.log('idit-link finalHasQ:', finalHasQ, '_liveRelevant:', c._liveRelevant, 'desc:', (desc||'').substring(0,50));
     if (finalHasQ) {
-       // חלץ snippet רלוונטי מ-_text לפי מילות השאלה
+       // חלץ snippet רלוונטי: עדיפות לJina content, אחר כך _text
        let descFull = (desc || '').trim();
-       if (c._text) {
-         for (const qw of qLower2) {
-           const ti = c._text.indexOf(qw);
+       // מצא את המונח הרלוונטי ביותר (requiredPhrase > qLower2)
+       const searchTerms = requiredPhrase ? [requiredPhrase, ...qLower2] : qLower2;
+       // נסה ב-Jina content קודם (מדויק יותר)
+       const sourceText = c._liveContent || c._text || '';
+       if (sourceText) {
+         for (const qw of searchTerms) {
+           const ti = sourceText.toLowerCase().indexOf(qw);
            if (ti >= 0) {
-             // חלץ משפט שמכיל את המונח
-             const start = Math.max(0, ti - 60);
-             const raw = c._text.substring(start, ti + qw.length + 250).trim();
-             // קח מהתחלת משפט
+             const start = Math.max(0, ti - 40);
+             const raw = sourceText.substring(start, ti + qw.length + 280).replace(/<[^>]+>/g,' ').trim();
              const sentStart = raw.search(/[א-ת]/);
-             descFull = (sentStart >= 0 ? raw.substring(sentStart) : raw).substring(0, 350).trim();
-             break;
+             const snippet = (sentStart >= 0 ? raw.substring(sentStart) : raw).substring(0, 320).trim();
+             if (snippet.length > 30) { descFull = snippet; break; }
            }
          }
        }
-       descFull = descFull.substring(0, 400);
+       descFull = descFull.substring(0, 380);
        // markdown מוכן — Claude רק מעתיק
        const md = '**[' + c.title + '](' + c.url + ')**\n' +
                   descFull + '\n' +
