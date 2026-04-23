@@ -19,7 +19,7 @@ const SYSTEM_PROMPT =
 
   '=== שאלות קורסים ===\n' +
   'הצג 10-15 מוסדות מהרשימה בcontext. הצג כמה שיותר — אל תקצץ.\n' +
-  'כלל תיאורים: מהתיאור שב-context, בחר **רק את החלק הרלוונטי לשאלה**. אל תצטט נושאים שאינם קשורים לשאלה. אם התיאור מכיל רשימה ארוכה — כתוב רק את הפריטים הקשורים לשאלה.\n' +
+  'כלל תיאורים: כתוב תיאור קצר ורלוונטי לשאלה — מה שמכיל ב-context. אסור להוסיף מידע שלא קיים. אסור להמציא. עברית תקנית.\n' +
   'אל תציג תואר שני אלא אם ביקשו.\n' +
   'בנושא טיולים: הצג רק סמינרים וסיורים שמורים הולכים אליהם — לא קורסי הכשרת מורי דרך.\n\n' +
 
@@ -874,7 +874,8 @@ async function buildContext(message) {
     // שלח ל-Claude רק קורסים שהתיאור או הכותרת מכילים את המונח
     const titleC = (c.title || '').toLowerCase();
     const isGenericPage = /^קורסי העשרה|^קורסי העצמה|^קורסי פנאי/.test(titleC);
-    const isMaDegree = /^תואר שני/.test(titleC) && !message.includes('תואר שני');
+    const wantsDegree = /תואר שני|תואר ראשון|תואר שלישי|דוקטורט|MA|BA|MSC/.test(message);
+    const isMaDegree = /תואר שני|MA |M\.A|תואר \|מסלול תואר/.test(titleC) && !wantsDegree;
     const wantsTours2 = /טיול|סיור/.test(message.toLowerCase());
     const wantsTraining2 = /מורי דרך|מדריך טיולים|הכשרת מדריך|תיירות/.test(message.toLowerCase());
     const isTrainingCourse = /מורי דרך|הכשרת מדריכ|תיירות, פנאי ואתגר|לימודי תיירות/.test(titleC);
@@ -889,7 +890,23 @@ async function buildContext(message) {
     if (finalHasQ) console.log('PASS TO CLAUDE:', (c.title||'').substring(0,30), '| url:', (c.url||'').split('/').pop());
     if ((c.url||'').includes('idit-link')) console.log('idit-link finalHasQ:', finalHasQ, '_liveRelevant:', c._liveRelevant, 'desc:', (desc||'').substring(0,50));
     if (finalHasQ) {
-       const descFull = (desc || '').trim().substring(0, 400);
+       // חלץ snippet רלוונטי מ-_text לפי מילות השאלה
+       let descFull = (desc || '').trim();
+       if (c._text) {
+         for (const qw of qLower2) {
+           const ti = c._text.indexOf(qw);
+           if (ti >= 0) {
+             // חלץ משפט שמכיל את המונח
+             const start = Math.max(0, ti - 60);
+             const raw = c._text.substring(start, ti + qw.length + 250).trim();
+             // קח מהתחלת משפט
+             const sentStart = raw.search(/[א-ת]/);
+             descFull = (sentStart >= 0 ? raw.substring(sentStart) : raw).substring(0, 350).trim();
+             break;
+           }
+         }
+       }
+       descFull = descFull.substring(0, 400);
        // markdown מוכן — Claude רק מעתיק
        const md = '**[' + c.title + '](' + c.url + ')**\n' +
                   descFull + '\n' +
