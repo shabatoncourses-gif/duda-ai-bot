@@ -880,8 +880,9 @@ async function buildContext(message) {
     const isTrainingCourse = /מורי דרך|הכשרת מדריכ|תיירות, פנאי ואתגר|לימודי תיירות/.test(titleC);
     const filterTraining = isTrainingCourse && wantsTours2 && !wantsTraining2;
     // qWords כולל מילות מפתח מורחבות
-    const titleDescLower = (desc + ' ' + c.title).toLowerCase();
+    const textHasQ = qLower2.some(w => (c._text||'').includes(w));
     const hasQword = qLower2.some(w => titleDescLower.includes(w)) ||
+                     textHasQ ||
                      (c._score && c._score >= 3); // דפים שנמצאו בחיפוש ישיר
     const finalHasQ = !filterTraining && !isGenericPage && !isMaDegree && (c._liveRelevant || hasQword);
     if (finalHasQ) console.log('PASS TO CLAUDE:', (c.title||'').substring(0,30), '| url:', (c.url||'').split('/').pop());
