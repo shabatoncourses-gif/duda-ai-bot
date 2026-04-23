@@ -13,7 +13,8 @@ const SYSTEM_PROMPT =
   'שמך שַׁבִּיבּוֹט, העוזר החכם של שבתון.\n' +
   'ענה בעברית תקנית, ידידותית ומקצועית. אל תשתמש בניסוחים מוגזמים.\n' +
   'כללי עברית — חובה: (1) זהה מין לפי השאלה: "אני עובדת" = נקבה, "אני עובד" = זכר. (2) אסור לערבב: "את צריכה" או "אתה צריך" — לא "אתה צריכה". (3) אם לא ברור — לשון ניטרלית ללא כינוי אישי.\n' +
-  'לעולם אל תאמר שאין קורסים, שאתה מצטער, או שאינך יכול לענות.\n' +
+  'לעולם אל תאמר שאין קורסים, שאתה מצטער, אינך יכול לענות, או שהמידע לא קיים.\n' +
+  'אסור: להמליץ לפנות לפורטל ליצור קורס, להמציא הצעות קורסים שלא קיימות, או לנחש שמות לא נכונים.\n' +
   'כלל ברזל: אל תמציא מידע שאינו ב-context. אסור לציין מוסדות שאינם מופיעים ב-context. אם אין מספיק מוסדות ב-context — הצג רק את אלה שיש, אל תוסיף.\n' +
 
   '=== שאלות קורסים ===\n' +
@@ -686,7 +687,20 @@ async function buildContext(message) {
   // סרוק דפי מוסדות בזמן אמת לפי תחום
   if (fieldKeywords && fieldKeywords.length > 0) {
     const institutionPages = getInstitutionPagesForField(message);
-    const instWithText = institutionPages.filter(p => qLower2.length > 0 && qLower2.some(w => (p._text||'').includes(w)));
+    // פצל מילות חיפוש מורכבות (כמו פוטותרפיה → פוטו + תרפיה)
+    const expandedQ = [...qLower2];
+    qLower2.forEach(function(w) {
+      if (w.length > 6) {
+        // נסה לפצל: 3 תווים + שאר
+        for (var si = 3; si <= w.length-3; si++) {
+          var p1 = w.substring(0, si), p2 = w.substring(si);
+          if (p1.length >= 3 && p2.length >= 3 && !expandedQ.includes(p1)) {
+            expandedQ.push(p1, p2);
+          }
+        }
+      }
+    });
+    const instWithText = institutionPages.filter(p => expandedQ.length > 0 && expandedQ.some(w => (p._text||'').includes(w)));
     console.log('instWithText count:', instWithText.length, instWithText.slice(0,8).map(p => p.url.split('/').pop()).join(' | '));
 
     const dyellIn = institutionPages.find(p => p.url.includes('dyellin'));
