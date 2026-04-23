@@ -880,6 +880,7 @@ async function buildContext(message) {
     const isTrainingCourse = /מורי דרך|הכשרת מדריכ|תיירות, פנאי ואתגר|לימודי תיירות/.test(titleC);
     const filterTraining = isTrainingCourse && wantsTours2 && !wantsTraining2;
     // qWords כולל מילות מפתח מורחבות
+    const titleDescLower = (desc + ' ' + (c.title||'')).toLowerCase();
     const textHasQ = qLower2.some(w => (c._text||'').includes(w));
     const hasQword = qLower2.some(w => titleDescLower.includes(w)) ||
                      textHasQ ||
