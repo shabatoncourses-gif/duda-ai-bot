@@ -235,13 +235,20 @@ function searchCourses(message, region) {
         });
 
         // עיר מאזור אחר ללא עיר מהאזור הנכון → סנן
-        if (wrongRegion && !cityMatchCorrect) { seen.add(url); continue; }
+        if (wrongRegion && !cityMatchCorrect && region.slug !== 'online') { seen.add(url); continue; }
 
         // אין קשר לאזור כלל — סנן (אלא אם למידה מרחוק)
         if (!cityMatchCorrect && !wrongRegion) {
-          const isOnline = tdOnly.match(/מרחוק|זום|zoom|אונליין|online|מקוון/i);
-          if (!isOnline) { seen.add(url); continue; }
-          score = Math.max(1, score - 3);
+          const isOnline = tdOnly.match(/מרחוק|זום|zoom|אונליין|online|מקוון/i) ||
+            (page.text||'').match(/מרחוק|זום|zoom|אונליין|online|מקוון/i);
+          if (region.slug === 'online') {
+            // חיפוש מרחוק: הצג רק דפים עם מרחוק/zoom
+            if (!isOnline) { seen.add(url); continue; }
+            score += 3; // העלה ניקוד למרחוק
+          } else {
+            if (!isOnline) { seen.add(url); continue; }
+            score = Math.max(1, score - 3);
+          }
         }
       }
       if (url.includes('shlomit') || url.includes('idit-link')) {
@@ -848,7 +855,7 @@ async function buildContext(message) {
                   if (or2.cities.some(c => c.length > 3 && contentLower.includes(c.toLowerCase()))) wrongReg = true;
                 }
               }
-              if (wrongReg && !rightCity) return null; // אזור שגוי
+              if (wrongReg && !rightCity && region.slug !== 'online') return null;
             }
           }
           const shortName = p.url.split('/').pop();
