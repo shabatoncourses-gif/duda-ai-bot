@@ -515,6 +515,11 @@ async function fetchPageContent(url) {
 
 async function buildContext(message) {
   const region = detectRegion(message);
+  const _reqPhrases = ['הנחיית קבוצות','הנחיה קבוצתית','הדרכת הורים','הדרכה הורית',
+    'הוראה מתואמת','הוראה מתקנת','ניהול כיתה','עיצוב גרפי','בישול בריא','אפייה בריאה',
+    'טיפול זוגי','טיפול משפחתי','פוטו תרפיה','פוטותרפיה','ארומתרפיה','דרמה תרפיה',
+    'תנועה טיפולית','מוזיקה טיפולית','טיפול בבעלי חיים'];
+  const requiredPhrase = _reqPhrases.find(p => message.toLowerCase().includes(p)) || null;
   console.log('region:', region ? region.name : 'none', '| msg:', message.substring(0,30));
   const parts = [];
   const urlToTitle = {}; // מפת URL→שם לpost-processing
