@@ -586,6 +586,13 @@ async function buildContext(message) {
     } catch(e) { console.log('Dati fetch error:', e.message); }
   }
 
+  // בדוק QA לפני הכל — תשובות מוכנות תמיד קודמות
+  const qaFirst = searchQA(message);
+  if (qaFirst) {
+    console.log('QA first match:', qaFirst.id || qaFirst.question);
+    return { context: '=== מידע על שבתון ===\n' + qaFirst.answer, isInfo: true, courseCount: 0, urlToTitle };
+  }
+
   const infoUrls = detectInfoPages(message) || [];
   if (infoUrls.length > 0) {
     let gotContent = false;
@@ -704,7 +711,7 @@ async function buildContext(message) {
   const qaGeneral = searchQA(message);
   if (qaGeneral) {
     console.log('QA general match:', qaGeneral.id || qaGeneral.question);
-    return { context: '=== מידע על שבתון ===\n' + qaGeneral.answer, isInfo: true, courseCount: 0, urlToTitle };
+    return { context: '=== מידע על שבתון ===\n' + qaGeneral.answer + '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)', isInfo: true, courseCount: 0, urlToTitle };
   }
 
   if (fieldKeywords && fieldKeywords.length > 0) {
