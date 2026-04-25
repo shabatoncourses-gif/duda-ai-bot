@@ -13,7 +13,8 @@ const SYSTEM_PROMPT =
   'שמך שַׁבִּיבּוֹט, העוזר החכם של שבתון.\n' +
   'ענה בעברית תקנית, ידידותית ומקצועית. אל תשתמש בניסוחים מוגזמים.\n' +
   'כללי עברית — חובה: (1) זהה מין לפי השאלה: "אני עובדת" = נקבה, "אני עובד" = זכר. (2) אסור לערבב: "את צריכה" או "אתה צריך" — לא "אתה צריכה". (3) אם לא ברור — לשון ניטרלית ללא כינוי אישי.\n' +
-  'לעולם אל תאמר שאין קורסים, שאתה לא מוצא, שאין לך מידע, שאתה מצטער, שאינך יכול לענות, או שהמידע לא קיים.\n' +
+  'לעולם אל תאמר: אין קורסים, לא מצאתי, אין מידע, מצטער, אינני יכול, המידע לא קיים, אין פעילים, אין עדכנים.\n' +
+  'אם שאלו על מוסד ספציפי ואין עליו מידע ב-context — הפנה לחיפוש נושאי בפורטל שבתון לפי תחום עניין. אל תציין שם מוסד ב-URL.\n' +
   'אסור לפרסם מספרי טלפון. אסור לפרסם כתובות אימייל.\n' +
   'אסור להשתמש בתווים שאינם עברית, אנגלית, מספרים או פיסוק סטנדרטי. אסור אמוג\'יים זרים, סימנים אסיאתיים או תווים מיוחדים כגון 멋진.\n' +
   'אסור: להמציא מידע, לתת עצות, להמליץ על פעולות, או לפרט "מה כדאי לעשות" — אלא אם זה כתוב מפורשות ב-context או ב-QA. ענה רק על מה שנשאלת.\n' +
@@ -769,8 +770,12 @@ async function buildContext(message) {
       const qSpecific2 = [...new Set([...qLower2, ...fieldKwsExtra])];
       const msgLower2 = message.toLowerCase();
       console.log('qSpecific2:', qSpecific2.slice(0,8).join(' | '));
-      for (const name of ['hemdat','igud_arim','washington','foodprof']) {
-        const found = name === 'washington'
+      for (const name of ['hemdat','igud_arim','washington','foodprof','seminar_kvutzot','beit_issie']) {
+        const found = name === 'seminar_kvutzot'
+        ? institutionPages.find(p => p.url.toLowerCase().includes('seminar') || p.url.toLowerCase().includes('kvutzot') || (p.title||'').includes('קיבוצים'))
+        : name === 'beit_issie'
+        ? institutionPages.find(p => p.url.toLowerCase().includes('beitissie') || (p.title||'').includes('איזי שפירא'))
+        : name === 'washington'
         ? institutionPages.find(p => p.url.toLowerCase().includes('washington-morim')) || institutionPages.find(p => p.url.toLowerCase().includes('washington'))
         : institutionPages.find(p => p.url.toLowerCase().includes(name));
         if (found) {
@@ -899,6 +904,56 @@ async function buildContext(message) {
         })
       );
       scanned.filter(Boolean).forEach(p => { courses.push(p); existingUrls.add(p.url); });
+    }
+  }
+
+  // אם אין קורסים ויש שם מוסד ספציפי בשאלה — חפש ישירות באינדקסים
+  if (courses.length === 0) {
+    const indexes3 = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json','morim_index_part1.json'];
+    const qWords3 = message.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    for (const fname of indexes3) {
+      const data3 = loadJSON(fname);
+      if (!data3) continue;
+      const pages3 = Array.isArray(data3) ? data3 : (data3.pages || Object.values(data3));
+      for (const p of pages3) {
+        const titleL = (p.title||'').toLowerCase();
+        const urlL = (p.url||'').toLowerCase();
+        if (qWords3.some(w => titleL.includes(w) || urlL.includes(w))) {
+          if (!urlToTitle[p.url] && !(p.url||'').includes('/kenes/')) {
+            const desc3 = (p.description||p._text||'').substring(0,350);
+            const md3 = '**[' + p.title + '](' + p.url + ')**\n' + desc3 + '\n[פנו למידע ולייעוץ אישי](' + p.url + ')\n';
+            courses.push(md3);
+            urlToTitle[p.url] = p.title;
+            if (courses.length >= 5) break;
+          }
+        }
+      }
+      if (courses.length >= 5) break;
+    }
+  }
+
+  // אם אין קורסים — חפש ישירות לפי שם מוסד באינדקסים
+  if (courses.length === 0) {
+    const idx3files = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json','morim_index_part1.json'];
+    const qW3 = message.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    outer3: for (const fn3 of idx3files) {
+      const d3 = loadJSON(fn3);
+      if (!d3) continue;
+      const pg3 = Array.isArray(d3) ? d3 : (d3.pages || Object.values(d3));
+      for (const p3 of pg3) {
+        const tL = (p3.title||'').toLowerCase();
+        const uL = (p3.url||'').toLowerCase();
+        if ((p3.url||'').includes('/kenes/')) continue;
+        if (qW3.some(w => tL.includes(w) || uL.includes(w))) {
+          if (!urlToTitle[p3.url]) {
+            const d3desc = (p3.description||p3._text||'').substring(0,350);
+            courses.push('**[' + p3.title + '](' + p3.url + ')**\n' + d3desc + '\n[פנו למידע ולייעוץ אישי](' + p3.url + ')\n');
+            urlToTitle[p3.url] = p3.title;
+            console.log('Direct name match:', p3.url.split('/').pop());
+            if (courses.length >= 5) break outer3;
+          }
+        }
+      }
     }
   }
 
