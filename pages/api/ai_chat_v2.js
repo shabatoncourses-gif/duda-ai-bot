@@ -699,6 +699,13 @@ async function buildContext(message) {
   const qLower2 = message.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !genericWords2.has(w));
 
   // סרוק דפי מוסדות בזמן אמת לפי תחום
+  // בדוק QA לפני institution scan — גם לשאלות מידע כלליות
+  const qaGeneral = searchQA(message);
+  if (qaGeneral) {
+    console.log('QA general match:', qaGeneral.id || qaGeneral.question);
+    return { context: '=== מידע על שבתון ===\n' + qaGeneral.answer, isInfo: true, courseCount: 0, urlToTitle };
+  }
+
   if (fieldKeywords && fieldKeywords.length > 0) {
     const institutionPages = getInstitutionPagesForField(message);
     // פצל מילות חיפוש מורכבות (כמו פוטותרפיה → פוטו + תרפיה)
