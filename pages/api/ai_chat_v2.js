@@ -1018,7 +1018,7 @@ async function buildContext(message) {
     const fieldName = fieldInfo ? fieldInfo.name : null;
     if (fieldSlug) {
       parts.push(`\nאזור: ${region.name} (slug: ${region.slug})\nתחום: ${fieldName}\n` +
-        `קישור לכל קורסי התחום באזור: https://www.shabaton.online/${region.slug}/${fieldSlug}\n` +
+        `קישור לכל קורסי התחום באזור: ${region.slug === 'online' ? 'https://www.shabaton.online/results-all/' + encodeURIComponent(fieldSlug) : 'https://www.shabaton.online/' + region.slug + '/' + fieldSlug}\n` +
         `קישור לכל קורסי התחום בכל הארץ: https://www.shabaton.online/results-all/${fieldSlug}`);
     } else {
       parts.push(`\nאזור: ${region.name} | slug: ${region.slug}`);
