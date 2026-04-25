@@ -13,10 +13,10 @@ const SYSTEM_PROMPT =
   'שמך שַׁבִּיבּוֹט, העוזר החכם של שבתון.\n' +
   'ענה בעברית תקנית, ידידותית ומקצועית. אל תשתמש בניסוחים מוגזמים.\n' +
   'כללי עברית — חובה: (1) זהה מין לפי השאלה: "אני עובדת" = נקבה, "אני עובד" = זכר. (2) אסור לערבב: "את צריכה" או "אתה צריך" — לא "אתה צריכה". (3) אם לא ברור — לשון ניטרלית ללא כינוי אישי.\n' +
-  'לעולם אל תאמר: אין קורסים, לא מצאתי, אין מידע, מצטער, אינני יכול, המידע לא קיים, אין פעילים, אין עדכנים.\n' +
+  'לעולם אל תאמר: אין קורסים, לא מצאתי, אין מידע, מצטער, אינני יכול, המידע לא קיים, אין פעילים, אין עדכנים, למרבה הצער, לצערי, אין ברשותי.\n' +
   'אם שאלו על מוסד ספציפי ואין עליו מידע ב-context — הפנה לחיפוש נושאי בפורטל שבתון לפי תחום עניין. אל תציין שם מוסד ב-URL.\n' +
   'אסור לפרסם מספרי טלפון. אסור לפרסם כתובות אימייל.\n' +
-  'אסור להשתמש בתווים שאינם עברית, אנגלית, מספרים או פיסוק סטנדרטי. אסור אמוג\'יים זרים, סימנים אסיאתיים או תווים מיוחדים כגון 멋진.\n' +
+  'אסור להשתמש בתווים שאינם עברית, אנגלית, מספרים או פיסוק סטנדרטי. אסור אמוג\'יים זרים או סימנים אסיאתיים. אסור להשתמש ב-__ (double underscore) בכלל — כתוב קישורים רק בפורמט [טקסט](URL).\n' +
   'אסור: להמציא מידע, לתת עצות, להמליץ על פעולות, או לפרט "מה כדאי לעשות" — אלא אם זה כתוב מפורשות ב-context או ב-QA. ענה רק על מה שנשאלת.\n' +
   'כלל ברזל: אל תמציא מידע. אל תתן עצות, המלצות, או מה "כדאי לעשות" שאינם כתובים במפורש ב-context או ב-QA. אם אין מידע — הפנה לקבוצת הווטסאפ.\n' +
 
@@ -46,7 +46,7 @@ const SYSTEM_PROMPT =
   'ה-URL לקישור: השתמש בשורה "קישור לדף: URL" שמופיעה בסוף ה-context. חובה לכלול [לפירוט ולמידע נוסף](URL) בסוף התשובה.\n' +
   'ה-URL: הכתובת שמופיעה אחרי === מידע מ- ב-context.\n' +
   'כותרות — **bold** לנושאים. אסור להוסיף שמות מוסדות, קישורי מוסדות, או **[שם](URL)** בתשובות מידע.\n' +
-  'סיים תמיד עם: [לפירוט ולמידע נוסף](URL) ואחריו footer: 📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton) 💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) 👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)\n';
+  'סיים תמיד עם: [לפירוט ולמידע נוסף](URL) ואחריו footer (ללא __ — רק כך): 📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton) 💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) 👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)\n';
 function loadJSON(filename) {
   if (_cache[filename] !== undefined) return _cache[filename];
   try {
@@ -770,19 +770,33 @@ async function buildContext(message) {
       const qSpecific2 = [...new Set([...qLower2, ...fieldKwsExtra])];
       const msgLower2 = message.toLowerCase();
       console.log('qSpecific2:', qSpecific2.slice(0,8).join(' | '));
-      for (const name of ['hemdat','igud_arim','washington','foodprof','seminar_kvutzot','beit_issie']) {
-        const found = name === 'seminar_kvutzot'
-        ? institutionPages.find(p => p.url.toLowerCase().includes('seminar') || p.url.toLowerCase().includes('kvutzot') || (p.title||'').includes('קיבוצים'))
-        : name === 'beit_issie'
-        ? institutionPages.find(p => p.url.toLowerCase().includes('beitissie') || (p.title||'').includes('איזי שפירא'))
-        : name === 'washington'
-        ? institutionPages.find(p => p.url.toLowerCase().includes('washington-morim')) || institutionPages.find(p => p.url.toLowerCase().includes('washington'))
-        : institutionPages.find(p => p.url.toLowerCase().includes(name));
-        if (found) {
-          const txt = (found._text || '');
-          const hasM = qSpecific2.some(w => txt.includes(w));
-          console.log('CHECK:', name, '| hasMatch:', hasM, '| preview:', txt.substring(0, 150).replace(/[\r\n]+/g, ' '));
-        } else { console.log('NOT IN INDEX:', name); }
+      // חיפוש דינמי לפי title באינדקסים — לכל מוסד, ללא רשימה קשיחה
+      const idxFiles4 = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json','morim_index_part1.json'];
+      const qWords4 = message.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+      const titleHits = [];
+      for (const fn4 of idxFiles4) {
+        const d4 = loadJSON(fn4);
+        if (!d4) continue;
+        const pg4 = Array.isArray(d4) ? d4 : (d4.pages || Object.values(d4));
+        for (const p4 of pg4) {
+          if ((p4.url||'').includes('/kenes/')) continue;
+          const titleL4 = (p4.title||'').toLowerCase();
+          // בדוק אם מילות השאלה מופיעות ב-title
+          const titleScore = qWords4.filter(w => titleL4.includes(w)).length;
+          if (titleScore >= 2 && !existingUrls.has(p4.url)) {
+            titleHits.push({ ...p4, _titleScore: titleScore });
+            existingUrls.add(p4.url);
+          }
+        }
+      }
+      // מיין לפי titleScore ועבד
+      titleHits.sort((a, b) => b._titleScore - a._titleScore);
+      for (const p4 of titleHits.slice(0, 3)) {
+        const d4desc = (p4.description || p4._text || '').substring(0, 350);
+        const md4 = '**[' + p4.title + '](' + p4.url + ')**\n' + d4desc + '\n[פנו למידע ולייעוץ אישי](' + p4.url + ')\n';
+        courses.push(md4);
+        urlToTitle[p4.url] = p4.title;
+        console.log('Title match:', p4.url.split('/').pop(), 'score:', p4._titleScore);
       }
 
       // שלב א: דפים שה-text באינדקס כבר מכיל התאמה — הוסף ישירות בלי fetchPageContent
@@ -929,31 +943,6 @@ async function buildContext(message) {
         }
       }
       if (courses.length >= 5) break;
-    }
-  }
-
-  // אם אין קורסים — חפש ישירות לפי שם מוסד באינדקסים
-  if (courses.length === 0) {
-    const idx3files = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json','morim_index_part1.json'];
-    const qW3 = message.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-    outer3: for (const fn3 of idx3files) {
-      const d3 = loadJSON(fn3);
-      if (!d3) continue;
-      const pg3 = Array.isArray(d3) ? d3 : (d3.pages || Object.values(d3));
-      for (const p3 of pg3) {
-        const tL = (p3.title||'').toLowerCase();
-        const uL = (p3.url||'').toLowerCase();
-        if ((p3.url||'').includes('/kenes/')) continue;
-        if (qW3.some(w => tL.includes(w) || uL.includes(w))) {
-          if (!urlToTitle[p3.url]) {
-            const d3desc = (p3.description||p3._text||'').substring(0,350);
-            courses.push('**[' + p3.title + '](' + p3.url + ')**\n' + d3desc + '\n[פנו למידע ולייעוץ אישי](' + p3.url + ')\n');
-            urlToTitle[p3.url] = p3.title;
-            console.log('Direct name match:', p3.url.split('/').pop());
-            if (courses.length >= 5) break outer3;
-          }
-        }
-      }
     }
   }
 
