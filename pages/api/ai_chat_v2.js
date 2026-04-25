@@ -592,7 +592,6 @@ async function buildContext(message) {
   const qaFirst = searchQA(message);
   // דלג על QA אם שאלו על מוסד ספציפי
   const hasInstQ = /מכללה|אוניברסיטה|מכון|סמינר|אקדמית|קריית|אורנים|בר.?אילן|תלפיות|הרצוג|שנקר|לוינסקי|גורדון|אונו|וינגייט/.test(message);
-  if (qaFirst && infoUrlsForQA.length === 0) {
   if (qaFirst && infoUrlsForQA.length === 0 && !hasInstQ) {
     const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
     return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle };
@@ -719,7 +718,7 @@ async function buildContext(message) {
   // סרוק דפי מוסדות בזמן אמת לפי תחום
   // בדוק QA לפני institution scan — גם לשאלות מידע כלליות
   const qaGeneral = searchQA(message);
-  if (qaGeneral) {
+  if (qaGeneral && !hasInstQ) {
     console.log('QA general match:', qaGeneral.id || qaGeneral.question);
     return { context: '=== מידע על שבתון ===\n' + qaGeneral.answer + '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)', isInfo: true, courseCount: 0, urlToTitle };
   }
@@ -1111,7 +1110,6 @@ function chooseModel(q) {
 }
 
 // ── Handler ────────────────────────────────────────────
-}
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
