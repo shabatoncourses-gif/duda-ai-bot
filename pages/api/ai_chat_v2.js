@@ -586,14 +586,15 @@ async function buildContext(message) {
     } catch(e) { console.log('Dati fetch error:', e.message); }
   }
 
-  // בדוק QA לפני הכל — תשובות מוכנות תמיד קודמות
+  // בדוק QA — אם אין info page → החזר QA מיד. אם יש → המשך לfetch ושלב
+  const infoUrlsForQA = detectInfoPages(message) || [];
   const qaFirst = searchQA(message);
-  if (qaFirst) {
-    console.log('QA first match:', qaFirst.id || qaFirst.question);
-    return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)', isInfo: true, courseCount: 0, urlToTitle };
+  if (qaFirst && infoUrlsForQA.length === 0) {
+    console.log('QA first (no info page):', qaFirst.id || qaFirst.question);
+    const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
+    return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle };
   }
-
-  const infoUrls = detectInfoPages(message) || [];
+  const infoUrls = infoUrlsForQA;
   if (infoUrls.length > 0) {
     let gotContent = false;
     // 0. בדוק info-pages.json (תוכן מהדפים — הכי מדויק)
@@ -659,7 +660,13 @@ async function buildContext(message) {
       }
     }
     // שאלת מידע — אל תמשיך ל-institution scan
-    if (gotContent) return { context: parts.join('\n\n'), isInfo: true, courseCount: 0, urlToTitle };
+    if (gotContent) {
+      // הוסף QA אם קיים — מידע נוסף מוסמך
+      if (qaFirst) {
+        parts.push('=== מידע נוסף (QA) ===\n' + qaFirst.answer);
+      }
+      return { context: parts.join('\n\n'), isInfo: true, courseCount: 0, urlToTitle };
+    }
   }
 
   // אם יש known_institutions לתחום — השתמש בהם ישירות וחזור
@@ -1123,6 +1130,17 @@ export default async function handler(req, res) {
     reply = reply.replace(/[^\u0020-\u007E\u00A0-\u00FF\u0590-\u05FF\u200F\u200E\n\r\t]/g, '');
     console.log('REPLY:', reply.substring(0, 300).replace(/\n/g, '|'));
 
+
+    // הוסף footer תמיד — אם לא כבר קיים
+    const FOOTER_LINKS = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)  \n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)  \n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
+    const hasFooter = reply.includes('shabaton.online/shabaton') || reply.includes('whatsapp.com/FFak');
+    if (!hasFooter) reply += FOOTER_LINKS;
+    // אחרת — וודא שהאייקונים שם
+    else {
+      reply = reply.replace(/\[הרשם לעלון שבתון\]/g, '📩 [הרשם לעלון שבתון]');
+      reply = reply.replace(/\[אפשר לשאול בקבוצת הווטסאפ שבתון\]/g, '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון]');
+      reply = reply.replace(/\[הצטרפו לקבוצת הפייסבוק שלנו\]/g, '👥 [הצטרפו לקבוצת הפייסבוק שלנו]');
+    }
 
     // post-process: הוסף כותרות מוסדות אם Claude לא כתב **[שם](URL)**
     if (typeof urlToTitle !== 'undefined') {
