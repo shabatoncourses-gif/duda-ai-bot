@@ -590,8 +590,10 @@ async function buildContext(message) {
   // בדוק QA — אם אין info page → החזר QA מיד. אם יש → המשך לfetch ושלב
   const infoUrlsForQA = detectInfoPages(message) || [];
   const qaFirst = searchQA(message);
+  // דלג על QA אם שאלו על מוסד ספציפי
+  const hasInstQ = /מכללה|אוניברסיטה|מכון|סמינר|אקדמית|קריית|אורנים|בר.?אילן|תלפיות|הרצוג|שנקר|לוינסקי|גורדון|אונו|וינגייט/.test(message);
   if (qaFirst && infoUrlsForQA.length === 0) {
-    console.log('QA first (no info page):', qaFirst.id || qaFirst.question);
+  if (qaFirst && infoUrlsForQA.length === 0 && !hasInstQ) {
     const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
     return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle };
   }
@@ -1077,8 +1079,7 @@ async function buildContext(message) {
   // הוסף קישורי תואר שני אם נשאל על תואר שני
   const msgL = message.toLowerCase();
   if (/תואר שני|MA|M\.A/.test(message)) {
-    parts.push('\nקישורי תואר שני רלוונטיים:' +
-      '\nכל קורסי לימודי תואר שני בחינוך ובהוראה: https://www.shabaton.online/results-all/%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99%20%D7%91%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%91%D7%94%D7%95%D7%A8%D7%90%D7%94');
+    parts.push('\nקישור לכל תוכניות התואר השני: 🎓 [כל קורסי לימודי תואר שני בחינוך ובהוראה](https://www.shabaton.online/results-all/%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99%20%D7%91%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%91%D7%94%D7%95%D7%A8%D7%90%D7%94)');
   }
 
   // שלח URL אזורי רק אם השאלה מכילה מפורשות מילת אזור
@@ -1110,6 +1111,7 @@ function chooseModel(q) {
 }
 
 // ── Handler ────────────────────────────────────────────
+}
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
