@@ -19,7 +19,7 @@ const SYSTEM_PROMPT =
 
   '=== שאלות קורסים ===\n' +
   'הצג 10-15 מוסדות מהרשימה בcontext. הצג כמה שיותר — אל תקצץ.\n' +
-  'כלל תיאורים: כתוב תיאור קצר ורלוונטי לשאלה — מה שמכיל ב-context. אסור להוסיף מידע שלא קיים. אסור להמציא. עברית תקנית.\n' +
+  'כלל תיאורים: כתוב תיאור קצר ורלוונטי לשאלה. אם הגולש ביקש למידה מרחוק — ציין במפורש אם הקורס מוצע מרחוק/אונליין. אסור להמציא. עברית תקנית.\n' +
   'אל תציג תואר שני אלא אם ביקשו.\n' +
   'בנושא טיולים: הצג רק סמינרים וסיורים שמורים הולכים אליהם — לא קורסי הכשרת מורי דרך.\n\n' +
 
@@ -242,15 +242,8 @@ function searchCourses(message, region) {
           const isOnline = tdOnly.match(/מרחוק|זום|zoom|אונליין|online|מקוון/i) ||
             (page.text||'').match(/מרחוק|זום|zoom|אונליין|online|מקוון/i);
           if (region.slug === 'online') {
-            // חיפוש מרחוק: בדוק גם ב-Jina content (יבדק ב-live scan)
-            // כאן: אם title/desc/text אחד מכיל מרחוק — תקין
-            // אם לא — ייבדק ב-live scan
-            if (!isOnline) {
-              // אל תסנן עדיין — live scan יבדוק Jina content
-              score = Math.max(score, 1);
-            } else {
-              score += 3; // העלה ניקוד למרחוק
-            }
+            // חיפוש מרחוק: אל תסנן — live scan יבדוק Jina ויסמן _isOnline
+            if (isOnline) score += 3; // bonus למי שיש מרחוק ב-index
           } else {
             if (!isOnline) { seen.add(url); continue; }
             score = Math.max(1, score - 3);
@@ -312,7 +305,7 @@ function detectInfoPages(question) {
       url: 'https://www.shabaton.online/Payments_shabaton#1989197642' },
 
     // ביטוח לאומי
-    { kw: ['ביטוח לאומי','בל','דמי ביטוח'],
+    { kw: ['ביטוח לאומי','דמי ביטוח','תשלום ביטוח','ביטוח לאומי בשבתון'],
       url: 'https://www.shabaton.online/btl_shabaton' },
 
     // קבלות להחזר שכר לימוד
@@ -846,13 +839,17 @@ async function buildContext(message) {
           const isAlreadyTextMatch = withTextMatch2.some(tm => tm.url === p.url);
           const contentLower3 = content.toLowerCase();
           const onlineKeywords = /מרחוק|זום|zoom|אונליין|online|מקוון|מתוקשב/;
-          const hasOnlineContent = onlineKeywords.test(contentLower3);
-          // אם חיפוש מרחוק: דרוש גם תוכן מרחוק בJina וגם requiredPhrase
-          const relevant = (region && region.slug === 'online')
-            ? hasOnlineContent && (requiredPhrase ? contentLower3.includes(requiredPhrase) : qSpecific2.some(w => contentLower3.includes(w)))
-            : requiredPhrase
-              ? contentLower3.includes(requiredPhrase)
-              : (isAlreadyTextMatch || (qSpecific2.length > 0 && qSpecific2.some(w => contentLower3.includes(w))));
+          // בדוק מרחוק גם ב-index (title/desc/_text) — לא רק בJina
+          const pageOnline = onlineKeywords.test((p.title||'') + ' ' + (p.description||'') + ' ' + (p._text||''));
+          // בדוק רלוונטיות לנושא
+          const topicMatch = requiredPhrase
+            ? contentLower3.includes(requiredPhrase)
+            : (isAlreadyTextMatch || qSpecific2.some(w => contentLower3.includes(w)));
+          // עבור חיפוש מרחוק: דרוש התאמה לנושא, online = bonus score
+          const relevant = topicMatch;
+          if (relevant && region && region.slug === 'online') {
+            p._isOnline = onlineKeywords.test(contentLower3) || pageOnline;
+          }
           // סנן לפי אזור — אם יש region ואם הדף שייך לאזור אחר
           if (relevant && region) {
             const regD = loadJSON('regions.json');
@@ -874,7 +871,8 @@ async function buildContext(message) {
             console.log('LIVE SCAN:', shortName, 'relevant='+relevant, 'content_len='+(content||'').length);
           }
           if (!relevant) return null;
-          return { title: p.title, url: p.url, description: p.description, score: 2, _liveRelevant: true, _liveContent: content };
+          const onlineScore = (p._isOnline) ? 5 : 2;
+          return { title: p.title, url: p.url, description: p.description, score: onlineScore, _liveRelevant: true, _liveContent: content, _isOnline: p._isOnline };
         })
       );
       scanned.filter(Boolean).forEach(p => { courses.push(p); existingUrls.add(p.url); });
