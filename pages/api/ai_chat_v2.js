@@ -590,7 +590,7 @@ async function buildContext(message) {
   const qaFirst = searchQA(message);
   if (qaFirst) {
     console.log('QA first match:', qaFirst.id || qaFirst.question);
-    return { context: '=== מידע על שבתון ===\n' + qaFirst.answer, isInfo: true, courseCount: 0, urlToTitle };
+    return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)', isInfo: true, courseCount: 0, urlToTitle };
   }
 
   const infoUrls = detectInfoPages(message) || [];
