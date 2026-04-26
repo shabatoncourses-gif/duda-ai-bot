@@ -46,7 +46,7 @@ const SYSTEM_PROMPT =
   'ה-URL לקישור: השתמש בשורה "קישור לדף: URL" שמופיעה בסוף ה-context. חובה לכלול [לפירוט ולמידע נוסף](URL) בסוף התשובה.\n' +
   'ה-URL: הכתובת שמופיעה אחרי === מידע מ- ב-context.\n' +
   'כותרות — **bold** לנושאים. אסור להוסיף שמות מוסדות, קישורי מוסדות, או **[שם](URL)** בתשובות מידע.\n' +
-  'סיים תמיד עם: [לפירוט ולמידע נוסף](URL מ-context). אם שאלו על תואר שני הוסף: 🎓 [כל קורסי לימודי תואר שני בחינוך ובהוראה](https://www.shabaton.online/results-all/%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99%20%D7%91%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%91%D7%94%D7%95%D7%A8%D7%90%D7%94). ואחרי זה footer (ללא __ — רק כך): 📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton) 💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) 👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)\n';
+  'סיים עם: [לפירוט ולמידע נוסף](URL). חובה: אם שאלו על תואר שני — הוסף בשורה נפרדת: 🎓 [כל קורסי לימודי תואר שני בחינוך ובהוראה](https://www.shabaton.online/results-all/%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99%20%D7%91%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%91%D7%94%D7%95%D7%A8%D7%90%D7%94). ואחרי זה footer (ללא __ — רק כך): 📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton) 💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) 👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)\n';
 function loadJSON(filename) {
   if (_cache[filename] !== undefined) return _cache[filename];
   try {
@@ -792,7 +792,7 @@ async function buildContext(message) {
       }
       // מיין לפי titleScore ועבד
       titleHits.sort((a, b) => b._titleScore - a._titleScore);
-      for (const p4 of titleHits.slice(0, 3)) {
+      for (const p4 of titleHits.slice(0, 5)) {
         const d4desc = (p4.description || p4._text || '').substring(0, 350);
         const md4 = '**[' + p4.title + '](' + p4.url + ')**\n' + d4desc + '\n[פנו למידע ולייעוץ אישי](' + p4.url + ')\n';
         courses.push(md4);
@@ -1078,7 +1078,7 @@ async function buildContext(message) {
   // הוסף קישורי תואר שני אם נשאל על תואר שני
   const msgL = message.toLowerCase();
   if (/תואר שני|MA|M\.A/.test(message)) {
-    parts.push('\nקישור לכל תוכניות התואר השני: 🎓 [כל קורסי לימודי תואר שני בחינוך ובהוראה](https://www.shabaton.online/results-all/%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99%20%D7%91%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%91%D7%94%D7%95%D7%A8%D7%90%D7%94)');
+    parts.push('\nחובה לכלול בתשובה — 🎓 [כל קורסי לימודי תואר שני בחינוך ובהוראה](https://www.shabaton.online/results-all/%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99%20%D7%91%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%91%D7%94%D7%95%D7%A8%D7%90%D7%94)');
   }
 
   // שלח URL אזורי רק אם השאלה מכילה מפורשות מילת אזור
