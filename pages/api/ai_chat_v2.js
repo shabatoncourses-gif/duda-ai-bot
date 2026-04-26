@@ -13,7 +13,7 @@ const SYSTEM_PROMPT =
   'שמך שַׁבִּיבּוֹט, העוזר החכם של שבתון.\n' +
   'ענה בעברית תקנית, ידידותית ומקצועית. אל תשתמש בניסוחים מוגזמים.\n' +
   'כללי עברית — חובה: (1) זהה מין לפי השאלה: "אני עובדת" = נקבה, "אני עובד" = זכר. (2) אסור לערבב: "את צריכה" או "אתה צריך" — לא "אתה צריכה". (3) אם לא ברור — לשון ניטרלית ללא כינוי אישי.\n' +
-  'לעולם אל תאמר: אין קורסים, לא מצאתי, אין מידע, מצטער, אינני יכול, המידע לא קיים, אין פעילים, אין עדכנים, למרבה הצער, לצערי, אין ברשותי.\n' +
+  'לעולם אל תאמר: אין קורסים, לא מצאתי, אין מידע, מצטער, אינני יכול, המידע לא קיים, אין פעילים, אין עדכנים, למרבה הצער, לצערי, אין ברשותי, אין לי מידע ספציפי.\n' +
   'אם שאלו על מוסד ספציפי ואין עליו מידע ב-context — הפנה לחיפוש נושאי בפורטל שבתון לפי תחום עניין. אל תציין שם מוסד ב-URL.\n' +
   'אסור לפרסם מספרי טלפון. אסור לפרסם כתובות אימייל. אסור לקשר לאתרים חיצוניים — קישורים רק לדפים ב-shabaton.online או morim.boutique.\n' +
   'אסור להשתמש בתווים שאינם עברית, אנגלית, מספרים או פיסוק סטנדרטי. אסור אמוג\'יים זרים או סימנים אסיאתיים. אסור להשתמש ב-__ (double underscore) בכלל — כתוב קישורים רק בפורמט [טקסט](URL).\n' +
@@ -773,7 +773,7 @@ async function buildContext(message) {
       console.log('qSpecific2:', qSpecific2.slice(0,8).join(' | '));
       // חיפוש דינמי לפי title באינדקסים — לכל מוסד, ללא רשימה קשיחה
       const idxFiles4 = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json','morim_index_part1.json'];
-      const qWords4 = message.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+      const qWords4 = message.toLowerCase().split(/\s+/).filter(w => w.length > 1 && !['של','על','עם','אל','כל','גם','לא','מה','מי','איך','בין','כי','את','אם','הם','הן'].includes(w));
       const titleHits = [];
       for (const fn4 of idxFiles4) {
         const d4 = loadJSON(fn4);
@@ -784,7 +784,7 @@ async function buildContext(message) {
           const titleL4 = (p4.title||'').toLowerCase();
           // בדוק אם מילות השאלה מופיעות ב-title
           const titleScore = qWords4.filter(w => titleL4.includes(w)).length;
-          if (titleScore >= 2 && !existingUrls.has(p4.url)) {
+          if (titleScore >= 1 && !existingUrls.has(p4.url)) {
             titleHits.push({ ...p4, _titleScore: titleScore });
             existingUrls.add(p4.url);
           }
