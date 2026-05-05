@@ -33,6 +33,8 @@ const SYSTEM_PROMPT =
   'לשאלות קורסים: הוסף 📚 [כל קורסי [שם התחום]](URL מה-context). אם אין URL — השמט.\n' +
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
   '👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)\n\n' +
+  '=== מועדי פתיחה ===\n' +
+  'אם ה-context מכיל === מועדי פתיחה קורסים === — ענה על פיו בלבד. ציין מועד מדויק לפי הנתון. אל תמציא תאריכים.\n' +
   '=== כללי אזור ===\n' +
   'אם הגולש לא ציין אזור — אל תוסיף אזור לכותרת ולא ב-footer.\n' +
   'השתמש ב-results-all (כל הארץ) כשאין אזור ספציפי.\n\n' +
@@ -366,6 +368,88 @@ async function fetchPageContent(url) {
   } catch(e2) { return null; }
 }
 
+// ── מועדי פתיחה קורסים ──────────────────────────────
+function getCourseDates(message) {
+  const data = loadJSON('course-dates.json');
+  if (!data || !data.courses) return null;
+  const msgL = message.toLowerCase();
+
+  // בדוק: שאלה על חודש ספציפי
+  const monthMap = {
+    'ינואר': '01', 'פברואר': '02', 'מרץ': '03', 'אפריל': '04',
+    'מאי': '05', 'יוני': '06', 'יולי': '07', 'אוגוסט': '08',
+    'ספטמבר': '09', 'אוקטובר': '10', 'נובמבר': '11', 'דצמבר': '12'
+  };
+  const monthNameMap = {
+    '01': 'ינואר', '02': 'פברואר', '03': 'מרץ', '04': 'אפריל',
+    '05': 'מאי', '06': 'יוני', '07': 'יולי', '08': 'אוגוסט',
+    '09': 'ספטמבר', '10': 'אוקטובר', '11': 'נובמבר', '12': 'דצמבר'
+  };
+
+  let targetMonth = null;
+  let targetYear = null;
+  const yearMatch = msgL.match(/202[6-9]/);
+  if (yearMatch) targetYear = yearMatch[0];
+
+  for (const [heName, num] of Object.entries(monthMap)) {
+    if (msgL.includes(heName)) { targetMonth = num; break; }
+  }
+
+  // בדוק: שאלה על מוסד/קורס ספציפי
+  const results = [];
+
+  if (targetMonth) {
+    // חפש כל קורסים בחודש זה
+    const yr = targetYear || '2026';
+    const key = yr + '-' + targetMonth;
+    for (const c of data.courses) {
+      const matching = c.openings.filter(o => o.month === key);
+      if (matching.length > 0) {
+        results.push({ title: c.title, url: c.url, openings: matching });
+      }
+    }
+    if (results.length > 0) {
+      const monthName = monthNameMap[targetMonth];
+      let text = '=== קורסים הנפתחים ב' + monthName + ' ' + yr + ' ===\n';
+      for (const r of results) {
+        text += '**[' + r.title + '](' + r.url + ')**\n';
+        for (const o of r.openings) {
+          if (o.date_text) text += o.date_text.substring(0, 120) + '\n';
+        }
+        text += '[פנו למידע ולייעוץ אישי](' + r.url + ')\n\n';
+      }
+      return text;
+    }
+  }
+
+  // חפש לפי שם מוסד/קורס
+  const stopW = new Set(['מתי','קורס','קורסים','נפתח','נפתחים','מועד','פתיחה','של','את']);
+  const qWords = msgL.split(/\s+/).filter(w => w.length > 2 && !stopW.has(w));
+  const matched = data.courses.filter(c => {
+    const titleL = c.title.toLowerCase();
+    const urlL = (c.url || '').toLowerCase();
+    return qWords.some(w => titleL.includes(w) || urlL.includes(w));
+  });
+
+  if (matched.length > 0) {
+    let text = '=== מועדי פתיחה קורסים ===\n';
+    for (const c of matched.slice(0, 3)) {
+      text += '**[' + c.title + '](' + c.url + ')**\n';
+      for (const o of c.openings) {
+        const mName = monthNameMap[(o.month || '').split('-')[1]] || o.month;
+        const yr2 = (o.month || '').split('-')[0] || '';
+        text += (mName ? mName + ' ' + yr2 : '') + ': ';
+        if (o.date_text) text += o.date_text.substring(0, 150).replace(/\n/g, ', ');
+        text += '\n';
+      }
+      text += '[פנו למידע ולייעוץ אישי](' + c.url + ')\n\n';
+    }
+    return text;
+  }
+
+  return null;
+}
+
 async function buildContext(message) {
   const region = detectRegion(message);
   const _reqPhrases = ['הנחיית קבוצות','הנחיה קבוצתית','הדרכת הורים','הדרכה הורית',
@@ -374,6 +458,14 @@ async function buildContext(message) {
     'תנועה טיפולית','מוזיקה טיפולית','טיפול בבעלי חיים'];
   const requiredPhrase = _reqPhrases.find(p => message.toLowerCase().includes(p)) || null;
   console.log('region:', region ? region.name : 'none', '| msg:', message.substring(0,30));
+  // בדוק: שאלת מועד/תאריך פתיחה
+  const dateKeywords = /מתי נפתח|מועד פתיחה|מתי מתחיל|מתי מתחילים|נפתח ב|קורסים ב(ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)|נפתחים (ב|ב(ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר))/;
+  if (dateKeywords.test(message)) {
+    const datesCtx = getCourseDates(message);
+    if (datesCtx) parts.push(datesCtx);
+  }
+
+
   const parts = [];
   const urlToTitle = {};
 
