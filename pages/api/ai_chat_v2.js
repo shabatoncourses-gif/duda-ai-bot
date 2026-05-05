@@ -128,7 +128,7 @@ function searchCourses(message, region) {
     for (const page of pages) {
       const url = page.url || page.link || '';
       if (seen.has(url)) continue;
-      if (url.includes('/results-')) continue;
+      if (/\/results-/.test(url)) continue;  // סנן דפי קטגוריה/אזור
       if (/%[Dd][0-9A-Fa-f]/.test(url) || /[\u0590-\u05FF]/.test(url)) continue;
       const titleLower = (page.title || '').toLowerCase();
       if (/סמינר|טיול|סיור|אירוע/.test(titleLower)) continue;
