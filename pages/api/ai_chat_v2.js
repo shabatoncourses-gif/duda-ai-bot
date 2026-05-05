@@ -946,6 +946,10 @@ export default async function handler(req, res) {
 
   } catch(e) {
     console.error('ERROR:', e.message);
-    return res.status(500).json({ error: e.message });
+    const isTransient = /503|502|connect|reset|timeout|upstream/i.test(e.message);
+    const errMsg = isTransient
+      ? 'מצטערים, תקלה טכנית קלה. נסו עוד כמה דקות ואענה בשמחה 😊'
+      : e.message;
+    return res.status(500).json({ error: errMsg });
   }
 }
