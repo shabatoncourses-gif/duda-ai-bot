@@ -34,7 +34,7 @@ const SYSTEM_PROMPT =
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
   '👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)\n\n' +
   '=== מועדי פתיחה ===\n' +
-  'אם ה-context מכיל === מועדי פתיחה קורסים === — ענה על פיו בלבד. ציין מועד מדויק לפי הנתון. אל תמציא תאריכים.\n' +
+  'אם ה-context מכיל === מועדי פתיחה === — הצג קודם מוסדות עם תאריך פתיחה מפורש, ואחריהם (בכותרת נפרדת) מוסדות שצריך לפנות אליהם לברור מועד. אל תמציא תאריכים.\n' +
   '=== כללי אזור ===\n' +
   'אם הגולש לא ציין אזור — אל תוסיף אזור לכותרת ולא ב-footer.\n' +
   'השתמש ב-results-all (כל הארץ) כשאין אזור ספציפי.\n\n' +
@@ -428,7 +428,9 @@ function getCourseDates(message) {
   const matched = data.courses.filter(c => {
     const titleL = c.title.toLowerCase();
     const urlL = (c.url || '').toLowerCase();
-    return qWords.some(w => titleL.includes(w) || urlL.includes(w));
+    // גם חפש ב-course_name של כל opening
+    const courseNames = c.openings.map(o => (o.course_name || '') + ' ' + (o.date_text || '')).join(' ').toLowerCase();
+    return qWords.some(w => titleL.includes(w) || urlL.includes(w) || courseNames.includes(w));
   });
 
   if (matched.length > 0) {
@@ -466,7 +468,10 @@ async function buildContext(message) {
   const dateKeywords = /מתי נפתח|מועד פתיחה|מתי מתחיל|מתי מתחילים|נפתח ב|קורסים ב|נפתחים/;
   if (dateKeywords.test(message)) {
     const datesCtx = getCourseDates(message);
-    if (datesCtx) parts.push(datesCtx);
+    if (datesCtx) {
+      parts.push(datesCtx);
+      parts.push('הנחיה: הצג תחילה מוסדות עם תאריכים מדויקים (מהרשימה למעלה), אחר כך מוסדות שעדיין לא פרסמו תאריך — הוסף להם: "פנו לברור מועד פתיחה".');
+    }
   }
 
 
