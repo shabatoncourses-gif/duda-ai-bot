@@ -19,6 +19,7 @@ const SYSTEM_PROMPT =
   'אסור: להמציא מידע, לתת עצות, להמליץ על פעולות, או לפרט "מה כדאי לעשות" — אלא אם זה כתוב מפורשות ב-context או ב-QA. ענה רק על מה שנשאלת.\n' +
   'כלל ברזל: אל תמציא מידע. אל תוסיף קישורים שאינם ב-context — אם אין URL מ-shabaton.online, אל תכלול קישור.\n' +
   '=== שאלות קורסים ===\n' +
+  'פתח תמיד בפתיח ידידותי וחמים (שורה אחת קצרה) לפני התוצאות. לדוגמה: "בשמחה! הנה מה שמצאתי עבורך:" — אל תעתיק בדיוק, חדש בכל פעם.\n' +
   'הצג 10-15 מוסדות מהרשימה בcontext. הצג כמה שיותר — אל תקצץ.\n' +
   'כלל תיאורים: כתוב תיאור קצר ורלוונטי לשאלה. אם הגולש ביקש למידה מרחוק — ציין במפורש אם הקורס מוצע מרחוק/אונליין. אסור להמציא. עברית תקנית.\n' +
   'אל תציג תואר שני אלא אם ביקשו.\n' +
@@ -34,7 +35,7 @@ const SYSTEM_PROMPT =
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
   '👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)\n\n' +
   '=== מועדי פתיחה ===\n' +
-  'אם ה-context מכיל === מועדי פתיחה === — הצג קודם מוסדות עם תאריך פתיחה מפורש, ואחריהם (בכותרת נפרדת) מוסדות שצריך לפנות אליהם לברור מועד. אל תמציא תאריכים.\n' +
+  'אם ה-context מכיל === מועדי פתיחה === — הצג קודם מוסדות עם תאריך פתיחה מפורש תחת כותרת **מוסדות עם תאריכים מפורשים:**, ואחריהם תחת **מוסדות שיש לפנות לברור מועד:**. אל תמציא תאריכים.\n' +
   '=== כללי אזור ===\n' +
   'אם הגולש לא ציין אזור — אל תוסיף אזור לכותרת ולא ב-footer.\n' +
   'השתמש ב-results-all (כל הארץ) כשאין אזור ספציפי.\n\n' +
@@ -428,14 +429,19 @@ function getCourseDates(message) {
   const matched = data.courses.filter(c => {
     const titleL = c.title.toLowerCase();
     const urlL = (c.url || '').toLowerCase();
-    // גם חפש ב-course_name של כל opening
-    const courseNames = c.openings.map(o => (o.course_name || '') + ' ' + (o.date_text || '')).join(' ').toLowerCase();
-    return qWords.some(w => titleL.includes(w) || urlL.includes(w) || courseNames.includes(w));
+    const openingText = c.openings.map(o => (o.course_name || '') + ' ' + (o.date_text || '')).join(' ').toLowerCase();
+    const allText = titleL + ' ' + urlL + ' ' + openingText;
+    const wordMatches = qWords.filter(w => allText.includes(w)).length;
+    const inOpenings = qWords.some(w => openingText.includes(w));
+    // דרוש 2+ מילים, או מילה אחת ב-openings בלבד
+    return wordMatches >= 2 || (wordMatches >= 1 && inOpenings);
   });
 
   if (matched.length > 0) {
     let text = '=== מועדי פתיחה קורסים ===\n';
-    for (const c of matched.slice(0, 3)) {
+    text += '**מוסדות עם תאריכי פתיחה מפורשים:**\n';
+    let hasExplicit = false;
+    for (const c of matched.slice(0, 5)) {
       text += '**[' + c.title + '](' + c.url + ')**\n';
       for (const o of c.openings) {
         const mName = monthNameMap[(o.month || '').split('-')[1]] || o.month;
@@ -445,7 +451,10 @@ function getCourseDates(message) {
         text += '\n';
       }
       text += '[פנו למידע ולייעוץ אישי](' + c.url + ')\n\n';
+      hasExplicit = true;
     }
+    if (!hasExplicit) text += 'אין מוסדות עם תאריכים מפורשים בנושא זה.\n';
+    text += '\n**מוסדות שטרם פרסמו תאריכים — יש לפנות לברור:**\nראה מוסדות בcontext הקורסים.\n';
     return text;
   }
 
