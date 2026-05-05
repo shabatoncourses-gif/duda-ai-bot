@@ -458,16 +458,17 @@ async function buildContext(message) {
     'תנועה טיפולית','מוזיקה טיפולית','טיפול בבעלי חיים'];
   const requiredPhrase = _reqPhrases.find(p => message.toLowerCase().includes(p)) || null;
   console.log('region:', region ? region.name : 'none', '| msg:', message.substring(0,30));
+
+  const parts = [];
+  const urlToTitle = {};
+
   // בדוק: שאלת מועד/תאריך פתיחה
-  const dateKeywords = /מתי נפתח|מועד פתיחה|מתי מתחיל|מתי מתחילים|נפתח ב|קורסים ב(ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)|נפתחים (ב|ב(ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר))/;
+  const dateKeywords = /מתי נפתח|מועד פתיחה|מתי מתחיל|מתי מתחילים|נפתח ב|קורסים ב|נפתחים/;
   if (dateKeywords.test(message)) {
     const datesCtx = getCourseDates(message);
     if (datesCtx) parts.push(datesCtx);
   }
 
-
-  const parts = [];
-  const urlToTitle = {};
 
   const isDati = /ציבור הדתי|לציבור הדתי|דתיים|חרדי|חרדים|דתי-לאומי/i.test(message);
   if (isDati) {
