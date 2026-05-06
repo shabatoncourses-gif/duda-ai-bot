@@ -474,15 +474,14 @@ async function buildContext(message) {
   const parts = [];
   const urlToTitle = {};
 
-  // בדוק: שאלת מועד/תאריך פתיחה
-  const dateKeywords = /מתי נפתח|מועד פתיחה|מתי מתחיל|מתי מתחילים|נפתח ב|קורסים ב|נפתחים/;
-  if (dateKeywords.test(message)) {
-    const datesCtx = getCourseDates(message);
-    if (datesCtx) {
-      parts.push(datesCtx);
-      parts.push('הנחיה: הצג תחילה מוסדות עם תאריכים מדויקים (מהרשימה למעלה), אחר כך מוסדות שעדיין לא פרסמו תאריך — הוסף להם: "פנו לברור מועד פתיחה".');
-    }
+  // בדוק course-dates — תמיד, גם לשאלות כלליות
+  const datesCtx = getCourseDates(message);
+  if (datesCtx) {
+    parts.push(datesCtx);
   }
+
+
+
 
 
   const isDati = /ציבור הדתי|לציבור הדתי|דתיים|חרדי|חרדים|דתי-לאומי/i.test(message);
