@@ -248,6 +248,7 @@ function detectInfoPages(question) {
     { kw: ['שבתון מלא','חצי שבתון','מלא או חצי','הבדל בין שבתון','שבתון שלם'], url: 'https://www.shabaton.online/halforfull_shabaton' },
     { kw: ['מלגה','מלגות','מלגת לימודים','השתתפות בשכר לימוד'], url: 'https://www.morim.online/milgot-morim' },
     { kw: ['סרטון','וידאו','הסבר מצולם','סרטוני הדרכה'], url: 'https://www.shabaton.online/shabaton-video' },
+    { kw: ['סיום שבתון','חזרה לעבודה','בסוף שבתון','לאחר שבתון','אחרי שבתון','הגשת מסמכים','אישור סיום לימודים','אישור סיום','מה מגישים','מה להגיש','מסמכים לסיום','מה צריך להגיש','הסתיים השבתון','עם סיום','אישור קורס','דיווח לקרן','דיווח בסוף'], url: 'https://www.shabaton.online/end_shabaton#ishur_siyum' },
   ];
   const matched = [];
   for (const p of pages) {
