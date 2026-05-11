@@ -531,8 +531,15 @@ async function buildContext(message) {
   const qaFirst = searchQA(message);
   const hasInstQ = /מכללה|מכללת|אוניברסיטה|אוניברסיטת|מכון|סמינר|אקדמית|קריית|קריה|אורנים|בר.?אילן|תלפיות|הרצוג|שנקר|לוינסקי|גורדון|אונו|וינגייט|בן.?גוריון|עברית|תל.?אביב|חיפה|ירושלים|בגין|ויצמן/.test(message);
   if (qaFirst && infoUrlsForQA.length === 0 && !hasInstQ) {
-    const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
-    return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle };
+    // אם יש keywords לתחום — הוסף הסבר QA לcontext והמשך לחפש קורסים
+    const hasFieldKws = getFieldKeywords(message) && getFieldKeywords(message).length > 0;
+    if (hasFieldKws) {
+      parts.push('=== הסבר על הנושא ===\n' + qaFirst.answer);
+      // המשך לחפש קורסים
+    } else {
+      const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
+      return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle };
+    }
   }
   const infoUrls = infoUrlsForQA;
   if (infoUrls.length > 0) {
@@ -1007,6 +1014,8 @@ export default async function handler(req, res) {
     if (!reply) reply = data.content?.[0]?.text || '';
     console.log(`OK ${model} | ${reply.length} chars`);
     reply = reply.replace(/[^\u0020-\u007E\u00A0-\u00FF\u0590-\u05FF\u200F\u200E\n\r\t]/g, '');
+    // תיקון שגיאות כתיב נפוצות
+    reply = reply.replace(/בישור חינוכי/g, 'בישול חינוכי').replace(/בישור רגשי/g, 'בישול רגשי');
     console.log('REPLY:', reply.substring(0, 300).replace(/\n/g, '|'));
 
     const FOOTER_LINKS = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)  \n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)  \n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
