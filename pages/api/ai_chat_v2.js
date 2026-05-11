@@ -622,7 +622,7 @@ async function buildContext(message) {
   const qLower2 = message.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !genericWords2.has(w));
 
   const qaGeneral = searchQA(message);
-  if (qaGeneral && !hasInstQ) {
+  if (qaGeneral && !hasInstQ && !datesCtx) {
     console.log('QA general match:', qaGeneral.id || qaGeneral.question);
     return { context: '=== מידע על שבתון ===\n' + qaGeneral.answer + '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)', isInfo: true, courseCount: 0, urlToTitle };
   }
