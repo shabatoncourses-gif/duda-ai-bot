@@ -433,11 +433,9 @@ function getCourseDates(message) {
     const openingText = c.openings.map(o => (o.course_name || '') + ' ' + (o.date_text || '')).join(' ').toLowerCase();
     const allText = titleL + ' ' + urlL + ' ' + openingText;
     const wordMatches = qWords.filter(w => allText.includes(w)).length;
-    const inOpenings = qWords.some(w => openingText.includes(w));
-    // דרוש 2+ מילים, או מילה אחת ב-openings בלבד
-    return wordMatches >= 2 || (wordMatches >= 1 && inOpenings);
+    const specificInOpenings = qWords.filter(w => w.length > 3).some(w => openingText.includes(w));
+    return wordMatches >= 2 || specificInOpenings;
   });
-
   if (matched.length > 0) {
     let text = '=== מועדי פתיחה קורסים ===\n';
     text += '**מוסדות עם תאריכי פתיחה מפורשים:**\n';
