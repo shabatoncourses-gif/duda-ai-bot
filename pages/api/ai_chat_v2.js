@@ -992,6 +992,21 @@ export default async function handler(req, res) {
       const hasFooter = reply.includes('whatsapp.com/FFak');
       if (!hasFooter) reply += '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)  \n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)  \n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
       console.log('QA-DIRECT reply len:', reply.length);
+      if (ZAPIER_WEBHOOK_URL) {
+        try {
+          const now = new Date();
+          await fetch(ZAPIER_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              date: now.toLocaleDateString('he-IL',{timeZone:'Asia/Jerusalem'}),
+              time: now.toLocaleTimeString('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit'}),
+              site, question: message, answer: reply, model: 'qa-direct',
+              needs_learning: 'OK'
+            })
+          });
+        } catch(ze) {}
+      }
       return res.status(200).json({ reply, model: 'qa-direct' });
     }
 
