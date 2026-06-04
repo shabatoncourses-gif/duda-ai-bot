@@ -528,7 +528,8 @@ async function buildContext(message) {
   const infoUrlsForQA = detectInfoPages(message) || [];
   const qaFirst = searchQA(message);
   const hasInstQ = /מכללה|מכללת|אוניברסיטה|אוניברסיטת|מכון|סמינר|אקדמית|קריית|קריה|אורנים|בר.?אילן|תלפיות|הרצוג|שנקר|לוינסקי|גורדון|אונו|וינגייט|בן.?גוריון|עברית|תל.?אביב|חיפה|ירושלים|בגין|ויצמן/.test(message);
-  if (qaFirst && infoUrlsForQA.length === 0 && !hasInstQ) {
+  // QA גובר — גם אם detectInfoPages מצא URLs, אם יש QA match ואין field keywords → החזר QA ישירות
+  if (qaFirst && !hasInstQ) {
     // אם יש keywords לתחום — הוסף הסבר QA לcontext והמשך לחפש קורסים
     const hasFieldKws = getFieldKeywords(message) && getFieldKeywords(message).length > 0;
     if (hasFieldKws) {
