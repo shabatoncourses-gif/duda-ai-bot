@@ -40,11 +40,12 @@ const SYSTEM_PROMPT =
   'אם הגולש לא ציין אזור — אל תוסיף אזור לכותרת ולא ב-footer.\n' +
   'השתמש ב-results-all (כל הארץ) כשאין אזור ספציפי.\n\n' +
   '=== שאלות מידע ===\n' +
-  'ענה אך ורק על פי המידע ב-context (שורות === מידע מ-URL ===). אסור להמציא.\n' +
-  'ה-URL לקישור: השתמש בשורה "קישור לדף: URL" שמופיעה בסוף ה-context. חובה לכלול [לפירוט ולמידע נוסף](URL) בסוף התשובה.\n' +
-  'ה-URL: הכתובת שמופיעה אחרי === מידע מ- ב-context.\n' +
+  'כאשר ה-context מכיל === תוכן דף מהאתר === — זהו התוכן הרשמי של האתר.\n' +
+  'חוק ברזל: ענה אך ורק ממה שכתוב בתוכן הדף. אם מידע לא מופיע בדף — אל תכתוב אותו. אסור בהחלט להוסיף מידע מהידע הכללי שלך.\n' +
+  'אם השאלה לא נענית מהתוכן — כתוב: "המידע המלא נמצא בדף:" ותן את הקישור.\n' +
   'כותרות — **bold** לנושאים. אסור להוסיף שמות מוסדות, קישורי מוסדות, או **[שם](URL)** בתשובות מידע.\n' +
-  'סיים עם: [לפירוט ולמידע נוסף](URL). חובה: אם שאלו על תואר שני — הוסף בשורה נפרדת: 🎓 [כל קורסי לימודי תואר שני בחינוך ובהוראה](https://www.shabaton.online/results-all/%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99%20%D7%91%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%91%D7%94%D7%95%D7%A8%D7%90%D7%94). ואחרי זה footer: 📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton) 💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) 👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)\n';
+  'סיים תמיד עם: [לפירוט ולמידע נוסף](URL) — השתמש בשורה "קישור לדף: URL" שמופיעה בסוף ה-context.\n' +
+  'חובה: אם שאלו על תואר שני — הוסף בשורה נפרדת: 🎓 [כל קורסי לימודי תואר שני בחינוך ובהוראה](https://www.shabaton.online/results-all/%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99%20%D7%91%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%91%D7%94%D7%95%D7%A8%D7%90%D7%94). ואחרי זה footer: 📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton) 💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) 👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)\n';
 
 function loadJSON(filename) {
   if (_cache[filename] !== undefined) return _cache[filename];
@@ -347,7 +348,7 @@ async function fetchPageContent(url) {
       else text = text.substring(Math.floor(text.length * 0.3));
       text = text.replace(/\s{3,}/g,'\n\n').trim();
       console.log('Jina OK:', url.split('/').pop(), 'len:', text.length);
-      return text.substring(0, 5000);
+      return text.substring(0, 8000);
     }
     console.log('Jina failed status:', res.status);
   } catch(e) { console.log('Jina error:', e.message); }
@@ -542,28 +543,29 @@ async function buildContext(message) {
   }
   const infoUrls = infoUrlsForQA;
   if (infoUrls.length > 0) {
+    // תמיד קרא את הדף במלואו דרך Jina — לא לסמוך על index חלקי
+    console.log('INFO: fetching pages via Jina:', infoUrls.slice(0,2));
+    const contents = await Promise.all(infoUrls.slice(0, 2).map(u => fetchPageContent(u.split('#')[0])));
     let gotContent = false;
-    const infoPageDB = loadJSON('info-pages.json') || {};
-    for (const url of infoUrls.slice(0, 3)) {
-      const baseUrl = url.split('#')[0];
-      const entry = infoPageDB[url] || infoPageDB[baseUrl] ||
-        Object.values(infoPageDB).find((v, idx) => Object.keys(infoPageDB)[idx].startsWith(baseUrl));
-      if (entry && entry.content && entry.content !== '<<CONTENT_FROM_PAGE>>') {
-        parts.push('=== מידע מ-' + url + ' ===\n' + entry.content);
-        gotContent = true; break;
+    contents.forEach((pageText, i) => {
+      if (pageText && pageText.length > 200) {
+        console.log('INFO page OK:', infoUrls[i], 'len:', pageText.length);
+        parts.push('=== תוכן דף מהאתר (' + infoUrls[i] + ') ===\n' + pageText + '\n\nקישור לדף: ' + infoUrls[i]);
+        gotContent = true;
       }
-    }
+    });
     if (!gotContent) {
+      // fallback: index text
       const indexes2 = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json'];
-      for (const url of infoUrls.slice(0, 2)) {
-        const slug = url.split('/').pop().replace('#', '_');
+      for (const infoUrl of infoUrls.slice(0, 2)) {
+        const slug = infoUrl.split('/').pop().replace('#', '_');
         for (const fname of indexes2) {
           const data = loadJSON(fname);
           if (!data) continue;
           const pages = Array.isArray(data) ? data : (data.pages || []);
-          const found = pages.find(p => p.url && (p.url.includes(slug) || p.url === url));
-          if (found && found._text && found._text.length > 100) {
-            parts.push('=== מידע מ-' + url + ' ===\n' + found._text.substring(0, 5000));
+          const found = pages.find(p => p.url && (p.url.includes(slug) || p.url === infoUrl));
+          if (found && found._text && found._text.length > 200) {
+            parts.push('=== תוכן דף מהאתר (' + infoUrl + ') ===\n' + found._text.substring(0, 6000) + '\n\nקישור לדף: ' + infoUrl);
             gotContent = true; break;
           }
         }
@@ -571,24 +573,10 @@ async function buildContext(message) {
       }
     }
     if (!gotContent) {
-      const contents = await Promise.all(infoUrls.slice(0, 2).map(url => fetchPageContent(url)));
-      contents.forEach((content, i) => {
-        if (content) {
-          console.log('INFO page fetched:', infoUrls[i], 'len:', content.length);
-          console.log('INFO CONTENT:', content.substring(0, 500).replace(/[\n\r]/g,' '));
-          const cleanContent = content.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/https?:\/\/[^\s]+/g, '').replace(/🏫[^\n]*/g, '').trim();
-          parts.push('=== מידע מ-' + infoUrls[i] + ' ===\n' + cleanContent + '\n\nקישור לדף: ' + infoUrls[i]);
-          gotContent = true;
-        }
-      });
-    }
-    if (!gotContent) {
       const qaMatch = searchQA(message);
       if (qaMatch) return { context: '=== מידע על שבתון ===\n' + qaMatch.answer, isInfo: true, isDirectQA: true, courseCount: 0, urlToTitle: {} };
-      else parts.push('=== דפי מידע רלוונטיים ===\n' + infoUrls.map(u => '- ' + u).join('\n'));
     }
     if (gotContent) {
-      if (qaFirst) parts.push('=== מידע נוסף (QA) ===\n' + qaFirst.answer);
       return { context: parts.join('\n\n'), isInfo: true, courseCount: 0, urlToTitle };
     }
   }
