@@ -536,7 +536,7 @@ async function buildContext(message) {
       // המשך לחפש קורסים
     } else {
       const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
-      return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle };
+      return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, isDirectQA: true, courseCount: 0, urlToTitle };
     }
   }
   const infoUrls = infoUrlsForQA;
@@ -583,7 +583,7 @@ async function buildContext(message) {
     }
     if (!gotContent) {
       const qaMatch = searchQA(message);
-      if (qaMatch) return { context: '=== מידע על שבתון ===\n' + qaMatch.answer, isInfo: true, courseCount: 0, urlToTitle: {} };
+      if (qaMatch) return { context: '=== מידע על שבתון ===\n' + qaMatch.answer, isInfo: true, isDirectQA: true, courseCount: 0, urlToTitle: {} };
       else parts.push('=== דפי מידע רלוונטיים ===\n' + infoUrls.map(u => '- ' + u).join('\n'));
     }
     if (gotContent) {
@@ -624,7 +624,7 @@ async function buildContext(message) {
   const qaGeneral = searchQA(message);
   if (qaGeneral && !hasInstQ && !datesCtx) {
     console.log('QA general match:', qaGeneral.id || qaGeneral.question);
-    return { context: '=== מידע על שבתון ===\n' + qaGeneral.answer + '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)', isInfo: true, courseCount: 0, urlToTitle };
+    return { context: '=== מידע על שבתון ===\n' + qaGeneral.answer + '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)', isInfo: true, isDirectQA: true, courseCount: 0, urlToTitle };
   }
 
   if (fieldKeywords && fieldKeywords.length > 0) {
@@ -980,10 +980,19 @@ export default async function handler(req, res) {
 
     console.log(`POST [${site}]: ${message.substring(0,60)}`);
 
-    const { context, isInfo, courseCount, urlToTitle } = await buildContext(message);
+    const { context, isInfo, isDirectQA, courseCount, urlToTitle } = await buildContext(message);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
     const model = chooseModel(message);
+
+    // QA ישיר — החזר בלי Claude, אפס המצאות
+    if (isDirectQA) {
+      let reply = context.replace('=== מידע על שבתון ===\n', '').trim();
+      const hasFooter = reply.includes('whatsapp.com/FFak');
+      if (!hasFooter) reply += '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)  \n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)  \n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
+      console.log('QA-DIRECT reply len:', reply.length);
+      return res.status(200).json({ reply, model: 'qa-direct' });
+    }
 
     const userContent = context ? `${context}\n\n---\nשאלת הגולש: ${message}` : message;
 
