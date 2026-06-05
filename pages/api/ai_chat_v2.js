@@ -271,7 +271,13 @@ function searchQA(question) {
     const direct = (c.answer && c.keywords) ? [c] : [];
     return [...nested, ...direct];
   });
-  return allQ.find(q => (q.keywords || []).some(k => qL.includes(k.toLowerCase()))) || null;
+  // מחזיר את השאלה עם הכי הרבה keywords תואמים (הספציפית ביותר)
+  let best = null, bestCount = 0;
+  for (const q of allQ) {
+    const matches = (q.keywords || []).filter(k => qL.includes(k.toLowerCase())).length;
+    if (matches > bestCount) { best = q; bestCount = matches; }
+  }
+  return best;
 }
 
 function getInstitutionPagesForField(question) {
