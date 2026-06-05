@@ -136,12 +136,14 @@ function searchCourses(message, region) {
       if (/\/results-/.test(url)) continue;  // סנן דפי קטגוריה/אזור
       if (/%[Dd][0-9A-Fa-f]/.test(url) || /[\u0590-\u05FF]/.test(url)) continue;
       const titleLower = (page.title || '').toLowerCase();
-      if (/סמינר|טיול|סיור|אירוע/.test(titleLower)) continue;
+      // סנן דפי סמינר/טיול/סיור רק אם הם דפי קטגוריה — לא דפי מוסדות ספציפיים
+      const isInstitutionPage = url && !url.includes('/results-') && !url.includes('/search-') && (url.split('/').length <= 5);
+      if (/סמינר|טיול|סיור|אירוע/.test(titleLower) && !isInstitutionPage) continue;
       if (/קורסי העשרה|קורסי העצמה|קורסי פנאי|קורסי העצמה אישית/.test(titleLower)) continue;
       if (/^תואר שני/.test(titleLower) && !message.includes('תואר שני')) continue;
       if (/מורי דרך|הכשרת מדריכ|תיירות, פנאי ואתגר|לימודי תיירות/.test(titleLower)) {
-        const wantsTours = /טיול|סיור/.test(message.toLowerCase());
-        const wantsTraining = /מורי דרך|מדריך טיולים|הכשרת מדריך|תיירות/.test(message.toLowerCase());
+        const wantsTours = /^קורסי טיולים$|^טיול$|^סיור$/.test(message.toLowerCase().trim());
+        const wantsTraining = /מורי דרך|מדריך טיולים|הכשרת מדריך|הסבת מורי|קורס מורי|תיירות/.test(message.toLowerCase());
         if (wantsTours && !wantsTraining) continue;
       }
       {
