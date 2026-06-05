@@ -997,7 +997,6 @@ export default async function handler(req, res) {
           });
         } catch(ze) {}
       }
-      reply = '⚠️ _הבוט בהרצה — יש לבדוק את תשובותיו. לשאלות ובירורים: [קבוצת הוואטסאפ שלנו](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)_\n\n' + reply;
       return res.status(200).json({ reply, model: 'qa-direct' });
     }
 
@@ -1072,7 +1071,6 @@ export default async function handler(req, res) {
     reply = reply.replace(/\)\*\*\|+/g, ')**\n');
     reply = reply.replace(/\|\|/g, '\n\n');
     reply = reply.replace(/^---+$/gm, '');
-    reply = '⚠️ _הבוט בהרצה — יש לבדוק את תשובותיו. לשאלות ובירורים: [קבוצת הוואטסאפ שלנו](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)_\n\n' + reply;
     return res.status(200).json({ reply, model });
 
   } catch(e) {
