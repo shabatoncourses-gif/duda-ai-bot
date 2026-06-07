@@ -541,7 +541,9 @@ async function buildContext(message) {
   // QA מופעל רק לשאלות מידע טהורות — שאין בהן תחום לימוד ואין מילות חיפוש קורסים
   const isCourseSearch = !!(getFieldKeywords(message) && getFieldKeywords(message).length > 0) ||
     /קורס|קורסים|תואר|השתלמות|מוסד|מכללה|אוניברסיטה|ספורט|אמנות|יצירה/.test(message);
-  if (qaFirst && !hasInstQ && !isCourseSearch) {
+  // QA גובר אם יש 2+ matches — גם כשיש field keywords
+  const qaMatchCount = qaFirst ? (qaFirst.keywords || []).filter(k => message.toLowerCase().includes(k.toLowerCase())).length : 0;
+  if (qaFirst && !hasInstQ && (!isCourseSearch || qaMatchCount >= 2)) {
     const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
     return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, isDirectQA: true, courseCount: 0, urlToTitle };
   }
