@@ -13,8 +13,7 @@ const SYSTEM_PROMPT =
   'ענה בעברית תקנית, ידידותית ומקצועית. אל תשתמש בניסוחים מוגזמים.\n' +
   'כללי עברית — חובה: (1) זהה מין לפי השאלה: "אני עובדת" = נקבה, "אני עובד" = זכר. (2) אסור לערבב: "את צריכה" או "אתה צריך" — לא "אתה צריכה". (3) אם לא ברור — לשון ניטרלית ללא כינוי אישי.\n' +
   'לעולם אל תאמר: אין קורסים, לא מצאתי, אין מידע, מצטער, אינני יכול, המידע לא קיים, אין פעילים, אין עדכנים, למרבה הצער, לצערי, אין ברשותי, אין לי מידע ספציפי, אין כרגע, אין פרטים, לא נמצאו.\n' +
-  'אם שאלו על מוסד ספציפי וה-context מכיל את דף המוסד — הצג את המידע מהדף. חובה לכלול בסוף: [לפרטים נוספים ולמידע על כל התוכניות](URL של הדף) ואז: "מוזמנ/ת לפנות אליהם באופן ישיר לגבי התוכנית המבוקשת."\n' +
-  'אם שאלו על מוסד ספציפי ואין עליו מידע ב-context — כתוב: "אין מידע לגבי מוסד זה בפורטל שבתון." ואז הצג מוסדות אחרים מה-context באותו תחום לימודים.\n' +
+  'אם שאלו על מוסד ספציפי ואין עליו מידע ב-context — כתוב: "אין מידע לגבי מוסד זה בפורטל שבתון." ואחר כך הצג מוסדות אחרים מה-context באותו תחום לימודים. אל תציין שם המוסד החסר ב-URL.\n' +
   'אסור לפרסם מספרי טלפון. אסור לפרסם כתובות אימייל. אסור לקשר לאתרים חיצוניים — קישורים רק לדפים ב-shabaton.online או morim.boutique.\n' +
   'אסור להשתמש בתווים שאינם עברית, אנגלית, מספרים או פיסוק סטנדרטי. אסור אמוג\'יים זרים או סימנים אסיאתיים. אסור להשתמש ב-__ (double underscore) בכלל — כתוב קישורים רק בפורמט [טקסט](URL).\n' +
   'אסור: להמציא מידע, לתת עצות, להמליץ על פעולות, או לפרט "מה כדאי לעשות" — אלא אם זה כתוב מפורשות ב-context או ב-QA. ענה רק על מה שנשאלת.\n' +
@@ -137,7 +136,17 @@ function searchCourses(message, region) {
       const titleLower = (page.title || '').toLowerCase();
       if (/סמינר|טיול|סיור|אירוע/.test(titleLower)) continue;
       if (/קורסי העשרה|קורסי העצמה|קורסי פנאי|קורסי העצמה אישית/.test(titleLower)) continue;
-      if (/^תואר שני/.test(titleLower) && !message.includes('תואר שני')) continue;
+      // סנן תואר שני רק אם השאלה לא קשורה לתחום שמוצע בתואר שני
+      if (/^תואר שני/.test(titleLower) && !message.includes('תואר שני')) {
+        // בדוק אם הדף רלוונטי לתחום הנשאל — אם כן, אל תסנן
+        const msgDesc = message.toLowerCase();
+        const pageDesc = (page.description || '').toLowerCase();
+        const pageText = (page.text || '').toLowerCase();
+        const isRelevantMa = words.some(w => w.length > 3 && (
+          titleLower.includes(w) || pageDesc.includes(w) || pageText.includes(w)
+        ));
+        if (!isRelevantMa) continue;
+      }
       if (/מורי דרך|הכשרת מדריכ|תיירות, פנאי ואתגר|לימודי תיירות/.test(titleLower)) {
         const wantsTours = /טיול|סיור/.test(message.toLowerCase());
         const wantsTraining = /מורי דרך|מדריך טיולים|הכשרת מדריך|תיירות/.test(message.toLowerCase());
@@ -323,21 +332,6 @@ function getInstitutionPagesForField(question) {
   return [...withTextMatch.slice(0, 20), ...withoutText.slice(0, 20)];
 }
 
-// זיהוי שאלה על מוסד ספציפי — טוען מ-institutions.json
-function detectSpecificInstitution(message) {
-  const data = loadJSON('institutions.json');
-  if (!data || !data.institutions) return null;
-  const msgL = message.toLowerCase();
-  // חפש לפי שם מהארוך לקצר (למנוע התנגשות)
-  const keys = Object.keys(data.institutions).sort((a, b) => b.length - a.length);
-  for (const key of keys) {
-    if (msgL.includes(key.toLowerCase())) {
-      return data.institutions[key]; // { url, title }
-    }
-  }
-  return null;
-}
-
 async function fetchPageContent(url) {
   try {
     const jinaUrl = 'https://r.jina.ai/' + url;
@@ -498,19 +492,6 @@ async function buildContext(message) {
 
 
 
-  // ── זיהוי מוסד ספציפי — עדיפות עליונה ──
-  const specificInst = detectSpecificInstitution(message);
-  if (specificInst) {
-    console.log('SPECIFIC INST found:', specificInst.title);
-    let pageContent = '';
-    const fetched = await fetchPageContent(specificInst.url);
-    if (fetched) pageContent = fetched;
-    const ctx = '=== מידע מ-' + specificInst.url + ' ===\n' +
-      (pageContent ? pageContent.substring(0, 4000) : specificInst.title) +
-      '\n\nקישור לדף: ' + specificInst.url;
-    return { context: ctx, isInfo: true, courseCount: 1, urlToTitle: { [specificInst.url]: specificInst.title } };
-  }
-
   const isDati = /ציבור הדתי|לציבור הדתי|דתיים|חרדי|חרדים|דתי-לאומי/i.test(message);
   if (isDati) {
     const datiUrl = 'https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%D7%9D%20%D7%9C%D7%A6%D7%99%D7%91%D7%95%D7%A8%20%D7%94%D7%93%D7%AA%D7%99';
@@ -558,16 +539,13 @@ async function buildContext(message) {
   const qaFirst = searchQA(message);
   const hasInstQ = /מכללה|מכללת|אוניברסיטה|אוניברסיטת|מכון|סמינר|אקדמית|קריית|קריה|אורנים|בר.?אילן|תלפיות|הרצוג|שנקר|לוינסקי|גורדון|אונו|וינגייט|בן.?גוריון|עברית|תל.?אביב|חיפה|ירושלים|בגין|ויצמן/.test(message);
   if (qaFirst && infoUrlsForQA.length === 0 && !hasInstQ) {
-    const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
-    // אם ה-QA מכיל קישורים למוסדות — תשובה סופית, לא ממשיכים לחפש קורסים
-    const qaHasInstitutions = (qaFirst.answer || '').includes('](https://www.shabaton.online/') ||
-      (qaFirst.answer || '').includes('](https://www.morim.boutique/');
+    // אם יש keywords לתחום — הוסף הסבר QA לcontext והמשך לחפש קורסים
     const hasFieldKws = getFieldKeywords(message) && getFieldKeywords(message).length > 0;
-    if (hasFieldKws && !qaHasInstitutions) {
-      // QA כללי + יש תחום — הוסף הסבר והמשך לקורסים
+    if (hasFieldKws) {
       parts.push('=== הסבר על הנושא ===\n' + qaFirst.answer);
+      // המשך לחפש קורסים
     } else {
-      // QA עם מוסדות, או QA ללא תחום — החזר ישירות
+      const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
       return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle };
     }
   }
