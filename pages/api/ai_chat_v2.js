@@ -20,7 +20,8 @@ const SYSTEM_PROMPT =
   'אסור לכתוב "טיפ:", "עצה:", "המלצה:", "כדאי ש...", "מומלץ ש..." — אסור בהחלט, גם לא בניסוח עקיף.\n' +
   'אסור להזכיר קבוצת וואטסאפ או פייסבוק בגוף התשובה — הם מופיעים אך ורק ב-footer.\n' +
   'אסור להבטיח שקורס כלשהו הוא "ללא תשלום עצמי" או "חינם". כשנשאלים על עלויות — יש לציין: "עלויות, לרבות תוספת תשלום עצמי אם ישנה, יש לברר ישירות מול המוסד".\n' +
-  'כלל קריטי לסמינרים מרוכזים: הצג רק מוסדות שיש להם מועדים מפורשים ב-context. אסור להמציא תוכן סמינרים, מועדים או נושאים למוסד שאינו מופיע ב-context עם תאריכים ספציפיים. וינגייט (wingate_mashlima) אינו מציע סמינרים מרוכזים — אל תזכיר אותו בהקשר של סמינרים.\n' +
+  'כלל קריטי לסמינרים מרוכזים: הצג רק מוסדות שיש להם מועדים מפורשים ב-context. אסור להמציא תוכן סמינרים, מועדים או נושאים למוסד שאינו מופיע ב-context עם תאריכים ספציפיים. wingate_mashlima אינו מציע סמינרים מרוכזים — אל תזכיר אותו לעולם בהקשר של סמינרים.\n' +
+  'כלל פתיח לשאלות עלויות: כשהגולש מבקש "ללא תשלום עצמי" — אל תחזור על הביטוי הזה בפתיח ואל תאשר אותו. כתוב רק: "הנה סמינרים מרוכזים:" ובסוף ציין שעלויות יש לברר ישירות מול כל מוסד.\n' +
   'כלל ברזל: אל תמציא מידע. אל תוסיף קישורים שאינם ב-context — אם אין URL מ-shabaton.online, אל תכלול קישור.\n' +
   '=== שאלות קורסים ===\n' +
   'פתח תמיד בפתיח ידידותי וחמים (שורה אחת קצרה) לפני התוצאות. לדוגמה: "בשמחה! הנה מה שמצאתי עבורך:" — אל תעתיק בדיוק, חדש בכל פעם.\n' +
@@ -534,6 +535,7 @@ async function buildContext(message) {
   if (isSeminarQuery) {
     parts.push('קישור לסמינרים וטיולים: https://www.morim.boutique/trips');
     parts.push('הסבר: סמינרים מרוכזים הם בדרך כלל קורסי טיולים וסמינרים מטיילים בבתי מלון, או קורסי קיץ מרוכזים. עלויות יש לברר ישירות מול כל מוסד.');
+    parts.push('⛔ BLOCKED_INSTITUTION: wingate_mashlima — חסום לחלוטין בשאלות סמינרים. אם URL זה מופיע בכל מקום ב-context — התעלם ממנו לגמרי, אל תזכיר אותו ואל תציג אותו.');
     console.log('Seminar query detected');
   }
 
@@ -891,13 +893,22 @@ async function buildContext(message) {
   }
 
   if (courses.length > 0) {
+    // חסימת מוסדות ספציפיים בשאילתות סמינר — פילטר קוד, לא רק SYSTEM_PROMPT
+    const seminarBlacklist = isSeminarQuery ? ['wingate_mashlima'] : [];
+    const filteredCourses = seminarBlacklist.length > 0
+      ? courses.filter(c => {
+          const url = typeof c === 'string' ? c : (c.url || '');
+          return !seminarBlacklist.some(b => url.includes(b));
+        })
+      : courses;
+
     parts.push('\n=== קורסים שנמצאו ===');
-    for (let i = courses.length - 1; i > 0; i--) {
+    for (let i = filteredCourses.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [courses[i], courses[j]] = [courses[j], courses[i]];
+      [filteredCourses[i], filteredCourses[j]] = [filteredCourses[j], filteredCourses[i]];
     }
     const seenUrls = new Set();
-    const uniqueCourses = courses.filter(c => {
+    const uniqueCourses = filteredCourses.filter(c => {
       if (typeof c === 'string') return true;
       if (seenUrls.has(c.url)) return false;
       seenUrls.add(c.url);
