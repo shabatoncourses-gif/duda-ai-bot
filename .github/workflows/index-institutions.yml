@@ -1,0 +1,162 @@
+name: Index Institution Pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      sites:
+        description: 'אילו אתרים לעדכן?'
+        required: true
+        type: choice
+        default: 'both'
+        options:
+          - shabaton
+          - morim
+          - both
+
+jobs:
+  index-institutions:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout
+      uses: actions/checkout@v4
+
+    - name: Install Puppeteer dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 fonts-liberation wget ca-certificates
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: 📦 Install dependencies
+      run: npm install
+
+    - name: 🏫 Index Shabaton Institutions
+      if: contains(fromJSON('["shabaton","both"]'), github.event.inputs.sites)
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPO: ${{ github.repository }}
+      run: |
+        echo "🏫 מאנדקס דפי מוסדות shabaton.online..."
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/DYellin_Ma"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/akademon"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/asa_ma"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/assif-pub"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/beitberl/masters-degree"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/beitberl/morim"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/beitissie"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/bituy"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/danak"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/dyellin"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/e-yeda"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/educationbiu"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/emef"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/gishot"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/gordon_ma"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/gordon_morim"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/haifa-education-science"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/haifa-ma-edu"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/haifa-ma-lakuyot"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/haifa-ma-leadership-edu"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/haifa-ma-special-edu"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/haifa-math-edu"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/haifa-yiutz"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/haskel"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/hemdat"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/iac"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/igud_arim"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/katedra_ph"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/kishurei-lemida"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/levinsky_hish"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/levinsky_ma"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/levinsky_ma_music"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/lomdiml"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/meyogi"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/nehora"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/ono-education-ma"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/ono-psychology-ma"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/openu_teachers"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/oranim-morim"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/puppet-school"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/raviv"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/retter-college"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/rivka"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/schechter"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/schechter_diplomas"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/shaanan"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/smkb"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/smkb/masters-degree"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/talk2dogs"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/talpiot"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/talpiot_edu"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/talvahomer"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/tau-edu"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/washington-ma"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/washington-morim"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/wingate_ma"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/wingate_mashlima"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/wingate_meditation"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/wingate_morim"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/wingate_sport"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/wingate_tayarut"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/yaelrath"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/yafitm"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/ynr"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/yorly"
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/yozmot"
+
+    - name: 🏫 Index Morim Institutions
+      if: contains(fromJSON('["morim","both"]'), github.event.inputs.sites)
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPO: ${{ github.repository }}
+      run: |
+        echo "🏫 מאנדקס דפי מוסדות morim.boutique..."
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/AquAerobic"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/Avital"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/CeramicsSharona"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/Hasadna-Bakikar"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/Hedva-Amster"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/atid-yarok"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/carmit_art_therapy"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/dream-smith"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/echoplayback"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/efrat-silberman"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/feinGlass"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/focuscenter"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/foodprof"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/galia-cakes"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/galikamil"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/happyvegan"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/hobby"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/idit-link"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/iritorpaz"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/jennypsifas"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/ketzev6"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/levi-bargil"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/li-at-art"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/matok-mehalev"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/merkaz-shefer"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/merkazhahomer"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/musiccathedra"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/ncsisrael"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/omandala"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/oteh_or"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/persona-e"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/sadnanat"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/shesekart"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/shlomit-tamir"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/shukigabay-courses"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/shulamit-ronen"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/stiklaro"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/studio-orly"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/studiomati"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/stylish"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/tami-vardi-nagarut"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/teva"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/woodcraft"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/zofia"
