@@ -36,6 +36,8 @@ const SYSTEM_PROMPT =
   '👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)\n\n' +
   '=== מועדי פתיחה ===\n' +
   'אם ה-context מכיל === מועדי פתיחה === — הצג קודם מוסדות עם תאריך פתיחה מפורש תחת כותרת **מוסדות עם תאריכים מפורשים:**, ואחריהם תחת **מוסדות שיש לפנות לברור מועד:**. אל תמציא תאריכים.\n' +
+  '=== קורסי קיץ / נשארו לי נקודות ===\n' +
+  'אם ה-context מכיל === קורסי קיץ === — מדובר בקורסים שמסתיימים לפני 31 באוגוסט של שנת השבתון הנוכחית. הדגישי זאת בתשובה. אל תציגי קורסים שנפתחים לאחר ספטמבר כי אלה שייכים לשנת שבתון הבאה.\n' +
   '=== כללי אזור ===\n' +
   'אם הגולש לא ציין אזור — אל תוסיף אזור לכותרת ולא ב-footer.\n' +
   'השתמש ב-results-all (כל הארץ) כשאין אזור ספציפי.\n\n' +
@@ -136,17 +138,7 @@ function searchCourses(message, region) {
       const titleLower = (page.title || '').toLowerCase();
       if (/סמינר|טיול|סיור|אירוע/.test(titleLower)) continue;
       if (/קורסי העשרה|קורסי העצמה|קורסי פנאי|קורסי העצמה אישית/.test(titleLower)) continue;
-      // סנן תואר שני רק אם השאלה לא קשורה לתחום שמוצע בתואר שני
-      if (/^תואר שני/.test(titleLower) && !message.includes('תואר שני')) {
-        // בדוק אם הדף רלוונטי לתחום הנשאל — אם כן, אל תסנן
-        const msgDesc = message.toLowerCase();
-        const pageDesc = (page.description || '').toLowerCase();
-        const pageText = (page.text || '').toLowerCase();
-        const isRelevantMa = words.some(w => w.length > 3 && (
-          titleLower.includes(w) || pageDesc.includes(w) || pageText.includes(w)
-        ));
-        if (!isRelevantMa) continue;
-      }
+      if (/^תואר שני/.test(titleLower) && !message.includes('תואר שני')) continue;
       if (/מורי דרך|הכשרת מדריכ|תיירות, פנאי ואתגר|לימודי תיירות/.test(titleLower)) {
         const wantsTours = /טיול|סיור/.test(message.toLowerCase());
         const wantsTraining = /מורי דרך|מדריך טיולים|הכשרת מדריך|תיירות/.test(message.toLowerCase());
@@ -386,6 +378,32 @@ function getCourseDates(message) {
   if (!data || !data.courses) return null;
   const msgL = message.toLowerCase();
 
+  // ── זיהוי שאילתת קיץ: "נשארו לי נקודות" / "עד סוף אוגוסט" ──
+  if (isSummerQuery(message)) {
+    const now = new Date();
+    const curYear = now.getFullYear().toString();
+    const summerMonths = [curYear + '-06', curYear + '-07', curYear + '-08'];
+    const summerResults = [];
+    for (const c of data.courses) {
+      const matching = c.openings.filter(o => summerMonths.includes(o.month));
+      if (matching.length > 0) {
+        summerResults.push({ title: c.title, url: c.url, openings: matching });
+      }
+    }
+    if (summerResults.length > 0) {
+      let text = '=== קורסי קיץ ' + curYear + ' — ניתן להירשם עדיין ===\n';
+      text += '⚠️ קורסים אלה מתאימים לשנת שבתון הנוכחית (מסתיימים לפני 31 באוגוסט ' + curYear + ').\n\n';
+      for (const r of summerResults) {
+        text += '**[' + r.title + '](' + r.url + ')**\n';
+        for (const o of r.openings) {
+          if (o.date_text) text += o.date_text.substring(0, 200).replace(/\n/g, ' | ') + '\n';
+        }
+        text += '[פנו למידע ולייעוץ אישי](' + r.url + ')\n\n';
+      }
+      return text;
+    }
+  }
+
   // בדוק: שאלה על חודש ספציפי
   const monthMap = {
     'ינואר': '01', 'פברואר': '02', 'מרץ': '03', 'אפריל': '04',
@@ -470,6 +488,19 @@ function getCourseDates(message) {
   return null;
 }
 
+// ── זיהוי שאילתת קיץ / "נשארו לי נקודות" ──────────────
+function isSummerQuery(message) {
+  const keywords = [
+    'נשארו לי נקודות', 'נשארו לי שעות', 'נשארו שעות', 'נשארו נקודות',
+    'עדיין יכולה להירשם', 'עדיין יכול להירשם', 'עוד יכולה להירשם',
+    'להשלים השנה', 'לסיים השנה', 'להשלים את השנה',
+    'עד סוף אוגוסט', 'עד אוגוסט', 'לפני סוף השנה',
+    'שנה הנוכחית', 'השנה הנוכחית', 'שבתון הנוכחי',
+    'קורסי קיץ', 'קורס קיץ', 'קיץ 2026'
+  ];
+  return keywords.some(k => message.includes(k));
+}
+
 async function buildContext(message) {
   const region = detectRegion(message);
   const _reqPhrases = ['הנחיית קבוצות','הנחיה קבוצתית','הדרכת הורים','הדרכה הורית',
@@ -486,6 +517,13 @@ async function buildContext(message) {
   const datesCtx = getCourseDates(message);
   if (datesCtx) {
     parts.push(datesCtx);
+  }
+
+  // ניתוב לקטגוריית קורסי קיץ כשיש אינדיקציה לסוף שנה
+  if (isSummerQuery(message)) {
+    const summerUrl = 'https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A7%D7%99%D7%A5';
+    parts.push('קישור לכל קורסי הקיץ: ' + summerUrl);
+    console.log('Summer query detected — routing to קורסי קיץ');
   }
 
 
