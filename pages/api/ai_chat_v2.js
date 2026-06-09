@@ -323,42 +323,19 @@ function getInstitutionPagesForField(question) {
   return [...withTextMatch.slice(0, 20), ...withoutText.slice(0, 20)];
 }
 
-// זיהוי שאלה על מוסד ספציפי — מחזיר את דף המוסד אם קיים ב-index
+// זיהוי שאלה על מוסד ספציפי — טוען מ-institutions.json
 function detectSpecificInstitution(message) {
-  const instKeywords = [
-    'מכללה','מכללת','אוניברסיטה','אוניברסיטת','מכון','סמינר','אקדמית',
-    'קריית','קריה','אורנים','בר אילן','בר-אילן','תלפיות','הרצוג','שנקר',
-    'לוינסקי','גורדון','אונו','וינגייט','בן גוריון','בן-גוריון','עברית',
-    'תל אביב','חיפה','ירושלים','בגין','ויצמן','אחוה','ספיר','סמינר הקיבוצים',
-    'בית ברל','קיי','מכון מנדל','האוניברסיטה הפתוחה'
-  ];
+  const data = loadJSON('institutions.json');
+  if (!data || !data.institutions) return null;
   const msgL = message.toLowerCase();
-  const hasInst = instKeywords.some(k => msgL.includes(k.toLowerCase()));
-  if (!hasInst) return null;
-
-  // חפש בכל האינדקסים — כותרת הדף חייבת להכיל מילה מהשאלה
-  const stopW = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך','קורס','קורסי','לימודי','למורים','בשבתון','תואר','שני','יש','האם','יהיה']);
-  const qWords = msgL.split(/\s+/).filter(w => w.length > 2 && !stopW.has(w));
-  const indexes = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json','morim_index_part1.json'];
-  let best = null, bestScore = 0;
-
-  for (const fname of indexes) {
-    const data = loadJSON(fname);
-    if (!data) continue;
-    const pages = Array.isArray(data) ? data : (data.pages || []);
-    for (const page of pages) {
-      const url = page.url || '';
-      if (!url || url.includes('/results-') || url.includes('/kenes/')) continue;
-      const titleL = (page.title || '').toLowerCase();
-      // ניקוד: כמה מילות השאלה מופיעות בכותרת הדף
-      const titleMatches = qWords.filter(w => w.length > 2 && titleL.includes(w)).length;
-      if (titleMatches >= 2 && titleMatches > bestScore) {
-        bestScore = titleMatches;
-        best = { title: page.title, url, description: page.description || '', text: (page.text||'') };
-      }
+  // חפש לפי שם מהארוך לקצר (למנוע התנגשות)
+  const keys = Object.keys(data.institutions).sort((a, b) => b.length - a.length);
+  for (const key of keys) {
+    if (msgL.includes(key.toLowerCase())) {
+      return data.institutions[key]; // { url, title }
     }
   }
-  return best; // מחזיר את הדף הכי מתאים, או null
+  return null;
 }
 
 async function fetchPageContent(url) {
@@ -525,14 +502,11 @@ async function buildContext(message) {
   const specificInst = detectSpecificInstitution(message);
   if (specificInst) {
     console.log('SPECIFIC INST found:', specificInst.title);
-    // נסה לשלוף תוכן עדכני של הדף
-    let pageContent = specificInst.text || '';
-    if (!pageContent || pageContent.length < 200) {
-      const fetched = await fetchPageContent(specificInst.url);
-      if (fetched) pageContent = fetched;
-    }
+    let pageContent = '';
+    const fetched = await fetchPageContent(specificInst.url);
+    if (fetched) pageContent = fetched;
     const ctx = '=== מידע מ-' + specificInst.url + ' ===\n' +
-      (pageContent ? pageContent.substring(0, 4000) : specificInst.description) +
+      (pageContent ? pageContent.substring(0, 4000) : specificInst.title) +
       '\n\nקישור לדף: ' + specificInst.url;
     return { context: ctx, isInfo: true, courseCount: 1, urlToTitle: { [specificInst.url]: specificInst.title } };
   }
