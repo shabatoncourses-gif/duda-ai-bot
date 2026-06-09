@@ -1,5 +1,5 @@
 {
-  "version": "1.0",
+  "version": "2.0",
   "description": "מיפוי מוסדות ספציפיים לדפים באתר שבתון. לעדכון: הוסיפו/הסירו רשומות. המפתח הוא שם המוסד כפי שנשאלים עליו.",
   "institutions": {
     "אוניברסיטת חיפה": {
@@ -237,6 +237,314 @@
     "אפרת סילברמן": {
       "url": "https://www.morim.boutique/efrat-silberman",
       "title": "אפרת סילברמן - שיטת ביירון קייטי"
+    },
+    "אוניברסיטת תל אביב": {
+      "url": "https://www.shabaton.online/tau-edu",
+      "title": "אוניברסיטת תל אביב - המרכז האקדמי לפיתוח אישי ומקצועי"
+    },
+    "תל אביב חינוך": {
+      "url": "https://www.shabaton.online/tau-edu",
+      "title": "אוניברסיטת תל אביב - המרכז האקדמי לפיתוח אישי ומקצועי"
+    },
+    "האקדמית גורדון": {
+      "url": "https://www.shabaton.online/gordon_morim",
+      "title": "האקדמית גורדון לחינוך - מרכז פיתוח מקצועי"
+    },
+    "גורדון": {
+      "url": "https://www.shabaton.online/gordon_morim",
+      "title": "האקדמית גורדון לחינוך - מרכז פיתוח מקצועי"
+    },
+    "גורדון תואר שני": {
+      "url": "https://www.shabaton.online/gordon_ma",
+      "title": "האקדמית גורדון - תואר שני"
+    },
+    "בית ברל": {
+      "url": "https://www.shabaton.online/beitberl/morim",
+      "title": "בית ברל - בית הספר להשתלמויות"
+    },
+    "בית ברל תואר שני": {
+      "url": "https://www.shabaton.online/beitberl/masters-degree",
+      "title": "בית ברל - תואר שני"
+    },
+    "סמינר הקיבוצים תואר שני": {
+      "url": "https://www.shabaton.online/smkb/masters-degree",
+      "title": "סמינר הקיבוצים - תואר שני"
+    },
+    "וינגייט תואר שני": {
+      "url": "https://www.shabaton.online/wingate_ma",
+      "title": "וינגייט - תואר שני"
+    },
+    "לוינסקי תואר שני": {
+      "url": "https://www.shabaton.online/levinsky_ma",
+      "title": "לוינסקי - תואר שני"
+    },
+    "לוינסקי פיתוח מקצועי": {
+      "url": "https://www.shabaton.online/levinsky_hish",
+      "title": "לוינסקי - פיתוח מקצועי ולימודי תעודה"
+    },
+    "וינגייט רפואה משלימה": {
+      "url": "https://www.shabaton.online/wingate_mashlima",
+      "title": "וינגייט - בית הספר להשתלמויות - רפואה משלימה"
+    },
+    "וינגייט ספורט": {
+      "url": "https://www.shabaton.online/wingate_sport",
+      "title": "וינגייט - הסמכות בספורט"
+    },
+    "וינגייט תיירות": {
+      "url": "https://www.shabaton.online/wingate_tayarut",
+      "title": "וינגייט - בית הספר לתיירות ולפנאי אתגרי"
+    },
+    "דוד ילין": {
+      "url": "https://www.shabaton.online/dyellin",
+      "title": "המכללה האקדמית לחינוך ע\"ש דוד ילין - השתלמויות"
+    },
+    "דוד ילין תואר שני": {
+      "url": "https://www.shabaton.online/DYellin_Ma",
+      "title": "המכללה האקדמית לחינוך ע\"ש דוד ילין - תואר שני"
+    },
+    "תלפיות": {
+      "url": "https://www.shabaton.online/talpiot",
+      "title": "תלפיות - המכללה האקדמית לחינוך"
+    },
+    "תלפיות פיתוח": {
+      "url": "https://www.shabaton.online/talpiot_edu",
+      "title": "תלפיות - המרכז לפיתוח פרופסיונלי"
+    },
+    "אונו": {
+      "url": "https://www.shabaton.online/ono-education-ma",
+      "title": "הקריה האקדמית אונו - תואר שני בחינוך"
+    },
+    "קריה האקדמית אונו": {
+      "url": "https://www.shabaton.online/ono-education-ma",
+      "title": "הקריה האקדמית אונו - תואר שני בחינוך"
+    },
+    "אונו פסיכולוגיה": {
+      "url": "https://www.shabaton.online/ono-psychology-ma",
+      "title": "הקריה האקדמית אונו - תואר שני בפסיכולוגיה"
+    },
+    "אפרתה": {
+      "url": "https://www.shabaton.online/emef",
+      "title": "מכללת אפרתה - מרכז השתלמויות"
+    },
+    "מכללת אפרתה": {
+      "url": "https://www.shabaton.online/emef",
+      "title": "מכללת אפרתה - מרכז השתלמויות"
+    },
+    "רמת גן": {
+      "url": "https://www.shabaton.online/iac",
+      "title": "המכללה האקדמית רמת גן"
+    },
+    "המכללה האקדמית רמת גן": {
+      "url": "https://www.shabaton.online/iac",
+      "title": "המכללה האקדמית רמת גן"
+    },
+    "אורנים": {
+      "url": "https://www.shabaton.online/oranim-morim",
+      "title": "אורנים - היחידה ללימודי תעודה"
+    },
+    "שאנן": {
+      "url": "https://www.shabaton.online/shaanan",
+      "title": "מכללת שאנן - המכללה האקדמית הדתית לחינוך"
+    },
+    "גבעת וושינגטון תואר שני": {
+      "url": "https://www.shabaton.online/washington-ma",
+      "title": "גבעת וושינגטון - תואר שני"
+    },
+    "מכון רביב": {
+      "url": "https://www.shabaton.online/raviv",
+      "title": "מכון רביב לפיתוח כישורי למידה וקשב"
+    },
+    "רביב": {
+      "url": "https://www.shabaton.online/raviv",
+      "title": "מכון רביב לפיתוח כישורי למידה וקשב"
+    },
+    "מכון שכטר": {
+      "url": "https://www.shabaton.online/schechter",
+      "title": "מכון שכטר למדעי היהדות"
+    },
+    "שכטר": {
+      "url": "https://www.shabaton.online/schechter",
+      "title": "מכון שכטר למדעי היהדות"
+    },
+    "שכטר לימודי תעודה": {
+      "url": "https://www.shabaton.online/schechter_diplomas",
+      "title": "מכון שכטר - לימודי תעודה"
+    },
+    "מרכז י.נ.ר": {
+      "url": "https://www.shabaton.online/ynr",
+      "title": "מרכז י.נ.ר"
+    },
+    "ינר": {
+      "url": "https://www.shabaton.online/ynr",
+      "title": "מרכז י.נ.ר"
+    },
+    "מכון איתן": {
+      "url": "https://www.shabaton.online/danak",
+      "title": "מכון איתן - המרכז להכשרה ואימון קוגניטיבי"
+    },
+    "דנה קינד": {
+      "url": "https://www.shabaton.online/danak",
+      "title": "מכון איתן - המרכז להכשרה ואימון קוגניטיבי"
+    },
+    "מכללת יוזמות": {
+      "url": "https://www.shabaton.online/yozmot",
+      "title": "מכללת יוזמות"
+    },
+    "יוזמות": {
+      "url": "https://www.shabaton.online/yozmot",
+      "title": "מכללת יוזמות"
+    },
+    "אקדמון": {
+      "url": "https://www.shabaton.online/akademon",
+      "title": "מכללת אינטלקט אקדמון"
+    },
+    "לומדים מהלב": {
+      "url": "https://www.shabaton.online/lomdiml",
+      "title": "לומדים מהלב"
+    },
+    "בית הספר לבובנאות": {
+      "url": "https://www.shabaton.online/puppet-school",
+      "title": "בית הספר לבובנאות - תיאטרון בובות ואמנות הסיפור"
+    },
+    "ד'ר יפית מורדוף": {
+      "url": "https://www.shabaton.online/yafitm",
+      "title": "ד'ר יפית מורדוף - המרכז לאסטרטגיות הוראה ולמידה"
+    },
+    "קתדרה פרדס חנה": {
+      "url": "https://www.shabaton.online/katedra_ph",
+      "title": "קתדרה פרדס חנה-כרכור"
+    },
+    "בית לצמיחה": {
+      "url": "https://www.shabaton.online/yaelrath",
+      "title": "בית לצמיחה - אודי ויעל רט"
+    },
+    "מיוגי": {
+      "url": "https://www.shabaton.online/meyogi",
+      "title": "מיוגי - בית הספר ליוגה"
+    },
+    "שולמית רונן": {
+      "url": "https://www.morim.boutique/shulamit-ronen",
+      "title": "ד'ר שולמית רונן"
+    },
+    "גבאי שוקי": {
+      "url": "https://www.morim.boutique/shukigabay-courses",
+      "title": "גבאי שוקי - נומרולוג"
+    },
+    "פוקוס צילום": {
+      "url": "https://www.morim.boutique/focuscenter",
+      "title": "פוקוס - המרכז ללימוד צילום"
+    },
+    "גלי קמיל": {
+      "url": "https://www.morim.boutique/galikamil",
+      "title": "הסטודיו לעיצוב בפסיפס - גלי קמיל"
+    },
+    "החברה להגנת הטבע": {
+      "url": "https://www.morim.boutique/teva",
+      "title": "החברה להגנת הטבע"
+    },
+    "NCS תזונה": {
+      "url": "https://www.morim.boutique/ncsisrael",
+      "title": "NCS המכללה למאמני תזונה"
+    },
+    "חדוה אמסטר": {
+      "url": "https://www.morim.boutique/Hedva-Amster",
+      "title": "אמנות התחרה בנייר - חדוה אמסטר"
+    },
+    "זופיה פלד": {
+      "url": "https://www.morim.boutique/zofia",
+      "title": "סטודיו לפסיפס - צופיה פלד"
+    },
+    "חלום צרוף": {
+      "url": "https://www.morim.boutique/dream-smith",
+      "title": "חלום צרוף"
+    },
+    "CeramicsSharona": {
+      "url": "https://www.morim.boutique/CeramicsSharona",
+      "title": "קרמיקה שרונה"
+    },
+    "מתוק מהלב": {
+      "url": "https://www.morim.boutique/matok-mehalev",
+      "title": "מתוק מהלב"
+    },
+    "אירית אורפז": {
+      "url": "https://www.morim.boutique/iritorpaz",
+      "title": "סטודיו אמנות הפסיפס - אירית אורפז"
+    },
+    "שלומית טמיר": {
+      "url": "https://www.morim.boutique/shlomit-tamir",
+      "title": "הסטודיו של שלומית טמיר - עיסת נייר"
+    },
+    "עידית לינק": {
+      "url": "https://www.morim.boutique/idit-link",
+      "title": "עידית לינק - פיסול בעיסת נייר"
+    },
+    "סדנא נעמי טמיר": {
+      "url": "https://www.morim.boutique/sadnanat",
+      "title": "סדנא נעמי טמיר"
+    },
+    "AquAerobic": {
+      "url": "https://www.morim.boutique/AquAerobic",
+      "title": "AquAerobic - פעילות גופנית במים"
+    },
+    "Avital פיסול": {
+      "url": "https://www.morim.boutique/Avital",
+      "title": "Avital - פיסול בחוט ברזל"
+    },
+    "הובי יצירה": {
+      "url": "https://www.morim.boutique/hobby",
+      "title": "הובי - החוויה שביצירה"
+    },
+    "מרכז החומר": {
+      "url": "https://www.morim.boutique/merkazhahomer",
+      "title": "מרכז החומר - סדנת אמנויות בחולון"
+    },
+    "תמי ורדי": {
+      "url": "https://www.morim.boutique/tami-vardi-nagarut",
+      "title": "תמי ורדי - נגרות"
+    },
+    "פיין גלאס": {
+      "url": "https://www.morim.boutique/feinGlass",
+      "title": "פיין גלאס - אמנות הזכוכית"
+    },
+    "בין הכסאות": {
+      "url": "https://www.morim.boutique/woodcraft",
+      "title": "בין הכסאות - סדנת נגרות"
+    },
+    "Jenny פסיפס": {
+      "url": "https://www.morim.boutique/jennypsifas",
+      "title": "Jenny פסיפס - סטודיו לפסיפס ולאמנות"
+    },
+    "סטודיו לי קרמיקה": {
+      "url": "https://www.morim.boutique/studio-orly",
+      "title": "סטודיו לי - עיצוב ופיסול בקרמיקה"
+    },
+    "Stylish תפירה": {
+      "url": "https://www.morim.boutique/stylish",
+      "title": "סטודיו ללימודי תפירה Stylish"
+    },
+    "מטי כושר": {
+      "url": "https://www.morim.boutique/studiomati",
+      "title": "מטי רשת מועדוני כושר"
+    },
+    "קצב 6": {
+      "url": "https://www.morim.boutique/ketzev6",
+      "title": "קצב 6 - לימודי גיטרה, פסנתר ופיתוח קול"
+    },
+    "פוד פרופסור": {
+      "url": "https://www.morim.boutique/foodprof",
+      "title": "פוד פרופסור - דנה אהרמן"
+    },
+    "ליאת שוורצמן": {
+      "url": "https://www.morim.boutique/li-at-art",
+      "title": "ליאת שוורצמן - יומן ויזואלי"
+    },
+    "לוי ברגיל": {
+      "url": "https://www.morim.boutique/levi-bargil",
+      "title": "לוי ברגיל"
+    },
+    "טל וחומר": {
+      "url": "https://www.shabaton.online/talvahomer",
+      "title": "טל וחומר - סדנאות יצירה ואמנות"
     }
   }
 }
