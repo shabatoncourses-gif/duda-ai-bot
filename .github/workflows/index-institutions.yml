@@ -108,6 +108,12 @@ jobs:
         node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/yorly"
         node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/yozmot"
 
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/iac_psychotherapy"
+
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/tallpiot-danak"
+
+        node scripts/autoBuildIndex.js Shabaton "https://www.shabaton.online/tallpiot-yafitm"
+
     - name: 🏫 Index Morim Institutions
       if: contains(fromJSON('["morim","both"]'), github.event.inputs.sites)
       env:
@@ -160,3 +166,4 @@ jobs:
         node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/teva"
         node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/woodcraft"
         node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/zofia"
+        node scripts/autoBuildIndex.js Morim "https://www.morim.boutique/talvahomer"
