@@ -543,7 +543,7 @@
       "title": "לוי ברגיל"
     },
     "טל וחומר": {
-      "url": "https://www.shabaton.online/talvahomer",
+      "url": "https://www.morim.boutique/talvahomer",
       "title": "טל וחומר - סדנאות יצירה ואמנות"
     },
     "אונו טיפול במוסיקה": {
@@ -569,6 +569,26 @@
     "דוד ילין תרפיה במוסיקה": {
       "url": "https://www.shabaton.online/DYellin_Ma",
       "title": "מכללת דוד ילין - תואר שני בתרפיה באמצעות מוסיקה"
+    },
+    "קורסי אמנות ואומנויות": {
+      "url": "https://www.morim.boutique/art",
+      "title": "קורסי אמנות ואומנויות"
+    },
+    "רמת גן פסיכותרפיה": {
+      "url": "https://www.shabaton.online/iac_psychotherapy",
+      "title": "המכללה האקדמית רמת גן - פסיכותרפיה"
+    },
+    "תלפיות פיתוח מקצועי": {
+      "url": "https://www.shabaton.online/tallpiot-danak",
+      "title": "תלפיות - המרכז לפיתוח פרופסיונלי"
+    },
+    "תלפיות דנק": {
+      "url": "https://www.shabaton.online/tallpiot-danak",
+      "title": "תלפיות - המרכז לפיתוח פרופסיונלי"
+    },
+    "תלפיות יפית מורדוף": {
+      "url": "https://www.shabaton.online/tallpiot-yafitm",
+      "title": "תלפיות - המרכז לפיתוח פרופסיונלי"
     }
   }
 }
