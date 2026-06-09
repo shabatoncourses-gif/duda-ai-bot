@@ -12,19 +12,19 @@ const SYSTEM_PROMPT =
   'שמך שַׁבִּיבּוֹט, העוזר החכם של שבתון.\n' +
   'ענה בעברית תקנית, ידידותית ומקצועית. אל תשתמש בניסוחים מוגזמים.\n' +
   'כללי עברית — חובה: (1) זהה מין לפי השאלה: "אני עובדת" = נקבה, "אני עובד" = זכר. (2) אסור לערבב: "את צריכה" או "אתה צריך" — לא "אתה צריכה". (3) אם לא ברור — לשון ניטרלית ללא כינוי אישי.\n' +
-  '=== חוק ברזל — אפס המצאות ===\n' +
-  'אתה יכול לענות רק ממה שכתוב ב-context שקיבלת. אסור בהחלט להוסיף מידע מהידע הכללי שלך.\n' +
-  'אם שאלה לא נענית מה-context: כתוב בדיוק — "לא מצאתי מידע על כך בפורטל שבתון. לשאלות נוספות: [קבוצת הוואטסאפ שלנו](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)" — ועצור. אסור להוסיף עצות, הסברים או מידע כללי.\n' +
-  'אם שאלו על מוסד ספציפי ואין עליו מידע ב-context — כתוב: "אין מידע לגבי מוסד זה בפורטל שבתון." ואחר כך הצג מוסדות אחרים מה-context באותו תחום. אל תציין שם המוסד החסר ב-URL.\n' +
+  'לעולם אל תאמר: אין קורסים, לא מצאתי, אין מידע, מצטער, אינני יכול, המידע לא קיים, אין פעילים, אין עדכנים, למרבה הצער, לצערי, אין ברשותי, אין לי מידע ספציפי, אין כרגע, אין פרטים, לא נמצאו.\n' +
+  'אם שאלו על מוסד ספציפי וה-context מכיל את דף המוסד — הצג את המידע מהדף בלבד, ללא מוסדות אחרים.\n' +
+  'אם שאלו על מוסד ספציפי ואין עליו מידע ב-context — כתוב: "אין מידע לגבי מוסד זה בפורטל שבתון." ואז הצג מוסדות אחרים מה-context באותו תחום לימודים.\n' +
   'אסור לפרסם מספרי טלפון. אסור לפרסם כתובות אימייל. אסור לקשר לאתרים חיצוניים — קישורים רק לדפים ב-shabaton.online או morim.boutique.\n' +
-  'אסור להשתמש ב-__ (double underscore). קישורים רק בפורמט [טקסט](URL).\n' +
-  'קישורי results-all: אסור ליצור קישור results-all אלא אם ה-URL המלא מופיע מפורשות ב-context.\n' +
+  'אסור להשתמש בתווים שאינם עברית, אנגלית, מספרים או פיסוק סטנדרטי. אסור אמוג\'יים זרים או סימנים אסיאתיים. אסור להשתמש ב-__ (double underscore) בכלל — כתוב קישורים רק בפורמט [טקסט](URL).\n' +
+  'אסור: להמציא מידע, לתת עצות, להמליץ על פעולות, או לפרט "מה כדאי לעשות" — אלא אם זה כתוב מפורשות ב-context או ב-QA. ענה רק על מה שנשאלת.\n' +
+  'כלל ברזל: אל תמציא מידע. אל תוסיף קישורים שאינם ב-context — אם אין URL מ-shabaton.online, אל תכלול קישור.\n' +
   '=== שאלות קורסים ===\n' +
   'פתח תמיד בפתיח ידידותי וחמים (שורה אחת קצרה) לפני התוצאות. לדוגמה: "בשמחה! הנה מה שמצאתי עבורך:" — אל תעתיק בדיוק, חדש בכל פעם.\n' +
   'הצג 10-15 מוסדות מהרשימה בcontext. הצג כמה שיותר — אל תקצץ.\n' +
   'כלל תיאורים: כתוב תיאור קצר ורלוונטי לשאלה. אם הגולש ביקש למידה מרחוק — ציין במפורש אם הקורס מוצע מרחוק/אונליין. אסור להמציא. עברית תקנית.\n' +
   'אל תציג תואר שני אלא אם ביקשו.\n' +
-  'בנושא קורסי מורי דרך ותיירות: הצג את כל הקורסים מה-context כולל קורסי הכשרת מורי דרך, מדריכי טיולים ותיירות. מורה דרך = מדריך/מורה דרך בטיולים, לא מורה לנהיגה.\n\n' +
+  'בנושא טיולים: הצג רק סמינרים וסיורים שמורים הולכים אליהם — לא קורסי הכשרת מורי דרך.\n\n' +
   'הקורסים מסופקים כ-markdown מוכן. העתק אותם בדיוק.\n\n' +
   'פורמט לכל מוסד:\n' +
   '**[שם המוסד](URL)**\n' +
@@ -41,12 +41,11 @@ const SYSTEM_PROMPT =
   'אם הגולש לא ציין אזור — אל תוסיף אזור לכותרת ולא ב-footer.\n' +
   'השתמש ב-results-all (כל הארץ) כשאין אזור ספציפי.\n\n' +
   '=== שאלות מידע ===\n' +
-  'כאשר ה-context מכיל === תוכן דף מהאתר === — זהו התוכן הרשמי של האתר.\n' +
-  'חוק ברזל: ענה אך ורק ממה שכתוב בתוכן הדף. אם מידע לא מופיע בדף — אל תכתוב אותו. אסור בהחלט להוסיף מידע מהידע הכללי שלך.\n' +
-  'אם השאלה לא נענית מהתוכן — כתוב: "המידע המלא נמצא בדף:" ותן את הקישור.\n' +
+  'ענה אך ורק על פי המידע ב-context (שורות === מידע מ-URL ===). אסור להמציא.\n' +
+  'ה-URL לקישור: השתמש בשורה "קישור לדף: URL" שמופיעה בסוף ה-context. חובה לכלול [לפירוט ולמידע נוסף](URL) בסוף התשובה.\n' +
+  'ה-URL: הכתובת שמופיעה אחרי === מידע מ- ב-context.\n' +
   'כותרות — **bold** לנושאים. אסור להוסיף שמות מוסדות, קישורי מוסדות, או **[שם](URL)** בתשובות מידע.\n' +
-  'סיים תמיד עם: [לפירוט ולמידע נוסף](URL) — השתמש בשורה "קישור לדף: URL" שמופיעה בסוף ה-context.\n' +
-  'חובה: אם שאלו על תואר שני — הוסף בשורה נפרדת: 🎓 [כל קורסי לימודי תואר שני בחינוך ובהוראה](https://www.shabaton.online/results-all/%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99%20%D7%91%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%91%D7%94%D7%95%D7%A8%D7%90%D7%94). ואחרי זה footer: 📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton) 💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) 👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)\n';
+  'סיים עם: [לפירוט ולמידע נוסף](URL). חובה: אם שאלו על תואר שני — הוסף בשורה נפרדת: 🎓 [כל קורסי לימודי תואר שני בחינוך ובהוראה](https://www.shabaton.online/results-all/%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99%20%D7%91%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%91%D7%94%D7%95%D7%A8%D7%90%D7%94). ואחרי זה footer: 📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton) 💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) 👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)\n';
 
 function loadJSON(filename) {
   if (_cache[filename] !== undefined) return _cache[filename];
@@ -136,14 +135,12 @@ function searchCourses(message, region) {
       if (/\/results-/.test(url)) continue;  // סנן דפי קטגוריה/אזור
       if (/%[Dd][0-9A-Fa-f]/.test(url) || /[\u0590-\u05FF]/.test(url)) continue;
       const titleLower = (page.title || '').toLowerCase();
-      // סנן דפי סמינר/טיול/סיור רק אם הם דפי קטגוריה — לא דפי מוסדות ספציפיים
-      const isInstitutionPage = url && !url.includes('/results-') && !url.includes('/search-') && (url.split('/').length <= 5);
-      if (/סמינר|טיול|סיור|אירוע/.test(titleLower) && !isInstitutionPage) continue;
+      if (/סמינר|טיול|סיור|אירוע/.test(titleLower)) continue;
       if (/קורסי העשרה|קורסי העצמה|קורסי פנאי|קורסי העצמה אישית/.test(titleLower)) continue;
       if (/^תואר שני/.test(titleLower) && !message.includes('תואר שני')) continue;
       if (/מורי דרך|הכשרת מדריכ|תיירות, פנאי ואתגר|לימודי תיירות/.test(titleLower)) {
-        const wantsTours = /^קורסי טיולים$|^טיול$|^סיור$/.test(message.toLowerCase().trim());
-        const wantsTraining = /מורי דרך|מדריך טיולים|הכשרת מדריך|הסבת מורי|קורס מורי|תיירות/.test(message.toLowerCase());
+        const wantsTours = /טיול|סיור/.test(message.toLowerCase());
+        const wantsTraining = /מורי דרך|מדריך טיולים|הכשרת מדריך|תיירות/.test(message.toLowerCase());
         if (wantsTours && !wantsTraining) continue;
       }
       {
@@ -273,13 +270,7 @@ function searchQA(question) {
     const direct = (c.answer && c.keywords) ? [c] : [];
     return [...nested, ...direct];
   });
-  // מחזיר את השאלה עם הכי הרבה keywords תואמים (הספציפית ביותר)
-  let best = null, bestCount = 0;
-  for (const q of allQ) {
-    const matches = (q.keywords || []).filter(k => qL.includes(k.toLowerCase())).length;
-    if (matches > bestCount) { best = q; bestCount = matches; }
-  }
-  return best;
+  return allQ.find(q => (q.keywords || []).some(k => qL.includes(k.toLowerCase()))) || null;
 }
 
 function getInstitutionPagesForField(question) {
@@ -332,6 +323,44 @@ function getInstitutionPagesForField(question) {
   return [...withTextMatch.slice(0, 20), ...withoutText.slice(0, 20)];
 }
 
+// זיהוי שאלה על מוסד ספציפי — מחזיר את דף המוסד אם קיים ב-index
+function detectSpecificInstitution(message) {
+  const instKeywords = [
+    'מכללה','מכללת','אוניברסיטה','אוניברסיטת','מכון','סמינר','אקדמית',
+    'קריית','קריה','אורנים','בר אילן','בר-אילן','תלפיות','הרצוג','שנקר',
+    'לוינסקי','גורדון','אונו','וינגייט','בן גוריון','בן-גוריון','עברית',
+    'תל אביב','חיפה','ירושלים','בגין','ויצמן','אחוה','ספיר','סמינר הקיבוצים',
+    'בית ברל','קיי','מכון מנדל','האוניברסיטה הפתוחה'
+  ];
+  const msgL = message.toLowerCase();
+  const hasInst = instKeywords.some(k => msgL.includes(k.toLowerCase()));
+  if (!hasInst) return null;
+
+  // חפש בכל האינדקסים — כותרת הדף חייבת להכיל מילה מהשאלה
+  const stopW = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך','קורס','קורסי','לימודי','למורים','בשבתון','תואר','שני','יש','האם','יהיה']);
+  const qWords = msgL.split(/\s+/).filter(w => w.length > 2 && !stopW.has(w));
+  const indexes = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json','morim_index.json','morim_index_part1.json'];
+  let best = null, bestScore = 0;
+
+  for (const fname of indexes) {
+    const data = loadJSON(fname);
+    if (!data) continue;
+    const pages = Array.isArray(data) ? data : (data.pages || []);
+    for (const page of pages) {
+      const url = page.url || '';
+      if (!url || url.includes('/results-') || url.includes('/kenes/')) continue;
+      const titleL = (page.title || '').toLowerCase();
+      // ניקוד: כמה מילות השאלה מופיעות בכותרת הדף
+      const titleMatches = qWords.filter(w => w.length > 2 && titleL.includes(w)).length;
+      if (titleMatches >= 2 && titleMatches > bestScore) {
+        bestScore = titleMatches;
+        best = { title: page.title, url, description: page.description || '', text: (page.text||'') };
+      }
+    }
+  }
+  return best; // מחזיר את הדף הכי מתאים, או null
+}
+
 async function fetchPageContent(url) {
   try {
     const jinaUrl = 'https://r.jina.ai/' + url;
@@ -357,7 +386,7 @@ async function fetchPageContent(url) {
       else text = text.substring(Math.floor(text.length * 0.3));
       text = text.replace(/\s{3,}/g,'\n\n').trim();
       console.log('Jina OK:', url.split('/').pop(), 'len:', text.length);
-      return text.substring(0, 8000);
+      return text.substring(0, 5000);
     }
     console.log('Jina failed status:', res.status);
   } catch(e) { console.log('Jina error:', e.message); }
@@ -492,6 +521,22 @@ async function buildContext(message) {
 
 
 
+  // ── זיהוי מוסד ספציפי — עדיפות עליונה ──
+  const specificInst = detectSpecificInstitution(message);
+  if (specificInst) {
+    console.log('SPECIFIC INST found:', specificInst.title);
+    // נסה לשלוף תוכן עדכני של הדף
+    let pageContent = specificInst.text || '';
+    if (!pageContent || pageContent.length < 200) {
+      const fetched = await fetchPageContent(specificInst.url);
+      if (fetched) pageContent = fetched;
+    }
+    const ctx = '=== מידע מ-' + specificInst.url + ' ===\n' +
+      (pageContent ? pageContent.substring(0, 4000) : specificInst.description) +
+      '\n\nקישור לדף: ' + specificInst.url;
+    return { context: ctx, isInfo: true, courseCount: 1, urlToTitle: { [specificInst.url]: specificInst.title } };
+  }
+
   const isDati = /ציבור הדתי|לציבור הדתי|דתיים|חרדי|חרדים|דתי-לאומי/i.test(message);
   if (isDati) {
     const datiUrl = 'https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%D7%9D%20%D7%9C%D7%A6%D7%99%D7%91%D7%95%D7%A8%20%D7%94%D7%93%D7%AA%D7%99';
@@ -538,40 +583,41 @@ async function buildContext(message) {
   const infoUrlsForQA = detectInfoPages(message) || [];
   const qaFirst = searchQA(message);
   const hasInstQ = /מכללה|מכללת|אוניברסיטה|אוניברסיטת|מכון|סמינר|אקדמית|קריית|קריה|אורנים|בר.?אילן|תלפיות|הרצוג|שנקר|לוינסקי|גורדון|אונו|וינגייט|בן.?גוריון|עברית|תל.?אביב|חיפה|ירושלים|בגין|ויצמן/.test(message);
-  // QA מופעל רק לשאלות מידע טהורות — שאין בהן תחום לימוד ואין מילות חיפוש קורסים
-  const isCourseSearch = !!(getFieldKeywords(message) && getFieldKeywords(message).length > 0) ||
-    /קורס|קורסים|תואר|השתלמות|מוסד|מכללה|אוניברסיטה|ספורט|אמנות|יצירה/.test(message);
-  // QA גובר אם יש 2+ matches — גם כשיש field keywords
-  const qaMatchCount = qaFirst ? (qaFirst.keywords || []).filter(k => message.toLowerCase().includes(k.toLowerCase())).length : 0;
-  if (qaFirst && !hasInstQ && (!isCourseSearch || qaMatchCount >= 2)) {
-    const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
-    return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, isDirectQA: true, courseCount: 0, urlToTitle };
+  if (qaFirst && infoUrlsForQA.length === 0 && !hasInstQ) {
+    // אם יש keywords לתחום — הוסף הסבר QA לcontext והמשך לחפש קורסים
+    const hasFieldKws = getFieldKeywords(message) && getFieldKeywords(message).length > 0;
+    if (hasFieldKws) {
+      parts.push('=== הסבר על הנושא ===\n' + qaFirst.answer);
+      // המשך לחפש קורסים
+    } else {
+      const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
+      return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle };
+    }
   }
   const infoUrls = infoUrlsForQA;
   if (infoUrls.length > 0) {
-    // תמיד קרא את הדף במלואו דרך Jina — לא לסמוך על index חלקי
-    console.log('INFO: fetching pages via Jina:', infoUrls.slice(0,2));
-    const contents = await Promise.all(infoUrls.slice(0, 2).map(u => fetchPageContent(u.split('#')[0])));
     let gotContent = false;
-    contents.forEach((pageText, i) => {
-      if (pageText && pageText.length > 200) {
-        console.log('INFO page OK:', infoUrls[i], 'len:', pageText.length);
-        parts.push('=== תוכן דף מהאתר (' + infoUrls[i] + ') ===\n' + pageText + '\n\nקישור לדף: ' + infoUrls[i]);
-        gotContent = true;
+    const infoPageDB = loadJSON('info-pages.json') || {};
+    for (const url of infoUrls.slice(0, 3)) {
+      const baseUrl = url.split('#')[0];
+      const entry = infoPageDB[url] || infoPageDB[baseUrl] ||
+        Object.values(infoPageDB).find((v, idx) => Object.keys(infoPageDB)[idx].startsWith(baseUrl));
+      if (entry && entry.content && entry.content !== '<<CONTENT_FROM_PAGE>>') {
+        parts.push('=== מידע מ-' + url + ' ===\n' + entry.content);
+        gotContent = true; break;
       }
-    });
+    }
     if (!gotContent) {
-      // fallback: index text
       const indexes2 = ['shabaton_index_part1.json','shabaton_index_part2.json','shabaton_index.json'];
-      for (const infoUrl of infoUrls.slice(0, 2)) {
-        const slug = infoUrl.split('/').pop().replace('#', '_');
+      for (const url of infoUrls.slice(0, 2)) {
+        const slug = url.split('/').pop().replace('#', '_');
         for (const fname of indexes2) {
           const data = loadJSON(fname);
           if (!data) continue;
           const pages = Array.isArray(data) ? data : (data.pages || []);
-          const found = pages.find(p => p.url && (p.url.includes(slug) || p.url === infoUrl));
-          if (found && found._text && found._text.length > 200) {
-            parts.push('=== תוכן דף מהאתר (' + infoUrl + ') ===\n' + found._text.substring(0, 6000) + '\n\nקישור לדף: ' + infoUrl);
+          const found = pages.find(p => p.url && (p.url.includes(slug) || p.url === url));
+          if (found && found._text && found._text.length > 100) {
+            parts.push('=== מידע מ-' + url + ' ===\n' + found._text.substring(0, 5000));
             gotContent = true; break;
           }
         }
@@ -579,10 +625,24 @@ async function buildContext(message) {
       }
     }
     if (!gotContent) {
+      const contents = await Promise.all(infoUrls.slice(0, 2).map(url => fetchPageContent(url)));
+      contents.forEach((content, i) => {
+        if (content) {
+          console.log('INFO page fetched:', infoUrls[i], 'len:', content.length);
+          console.log('INFO CONTENT:', content.substring(0, 500).replace(/[\n\r]/g,' '));
+          const cleanContent = content.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/https?:\/\/[^\s]+/g, '').replace(/🏫[^\n]*/g, '').trim();
+          parts.push('=== מידע מ-' + infoUrls[i] + ' ===\n' + cleanContent + '\n\nקישור לדף: ' + infoUrls[i]);
+          gotContent = true;
+        }
+      });
+    }
+    if (!gotContent) {
       const qaMatch = searchQA(message);
-      if (qaMatch) return { context: '=== מידע על שבתון ===\n' + qaMatch.answer, isInfo: true, isDirectQA: true, courseCount: 0, urlToTitle: {} };
+      if (qaMatch) return { context: '=== מידע על שבתון ===\n' + qaMatch.answer, isInfo: true, courseCount: 0, urlToTitle: {} };
+      else parts.push('=== דפי מידע רלוונטיים ===\n' + infoUrls.map(u => '- ' + u).join('\n'));
     }
     if (gotContent) {
+      if (qaFirst) parts.push('=== מידע נוסף (QA) ===\n' + qaFirst.answer);
       return { context: parts.join('\n\n'), isInfo: true, courseCount: 0, urlToTitle };
     }
   }
@@ -619,7 +679,7 @@ async function buildContext(message) {
   const qaGeneral = searchQA(message);
   if (qaGeneral && !hasInstQ && !datesCtx) {
     console.log('QA general match:', qaGeneral.id || qaGeneral.question);
-    return { context: '=== מידע על שבתון ===\n' + qaGeneral.answer + '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)', isInfo: true, isDirectQA: true, courseCount: 0, urlToTitle };
+    return { context: '=== מידע על שבתון ===\n' + qaGeneral.answer + '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)', isInfo: true, courseCount: 0, urlToTitle };
   }
 
   if (fieldKeywords && fieldKeywords.length > 0) {
@@ -975,34 +1035,10 @@ export default async function handler(req, res) {
 
     console.log(`POST [${site}]: ${message.substring(0,60)}`);
 
-    const { context, isInfo, isDirectQA, courseCount, urlToTitle } = await buildContext(message);
+    const { context, isInfo, courseCount, urlToTitle } = await buildContext(message);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
     const model = chooseModel(message);
-
-    // QA ישיר — החזר בלי Claude, אפס המצאות
-    if (isDirectQA) {
-      let reply = context.replace('=== מידע על שבתון ===\n', '').trim();
-      const hasFooter = reply.includes('whatsapp.com/FFak');
-      if (!hasFooter) reply += '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)  \n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)  \n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
-      console.log('QA-DIRECT reply len:', reply.length);
-      if (ZAPIER_WEBHOOK_URL) {
-        try {
-          const now = new Date();
-          await fetch(ZAPIER_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              date: now.toLocaleDateString('he-IL',{timeZone:'Asia/Jerusalem'}),
-              time: now.toLocaleTimeString('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit'}),
-              site, question: message, answer: reply, model: 'qa-direct',
-              needs_learning: 'OK'
-            })
-          });
-        } catch(ze) {}
-      }
-      return res.status(200).json({ reply, model: 'qa-direct' });
-    }
 
     const userContent = context ? `${context}\n\n---\nשאלת הגולש: ${message}` : message;
 
