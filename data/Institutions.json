@@ -1,0 +1,242 @@
+{
+  "version": "1.0",
+  "description": "מיפוי מוסדות ספציפיים לדפים באתר שבתון. לעדכון: הוסיפו/הסירו רשומות. המפתח הוא שם המוסד כפי שנשאלים עליו.",
+  "institutions": {
+    "אוניברסיטת חיפה": {
+      "url": "https://www.shabaton.online/haifa-ma-edu",
+      "title": "אוניברסיטת חיפה - תואר שני בחינוך"
+    },
+    "חיפה": {
+      "url": "https://www.shabaton.online/haifa-ma-edu",
+      "title": "אוניברסיטת חיפה - תואר שני בחינוך"
+    },
+    "אוניברסיטת בר אילן": {
+      "url": "https://www.shabaton.online/educationbiu",
+      "title": "אוניברסיטת בר אילן - הפקולטה לחינוך"
+    },
+    "בר אילן": {
+      "url": "https://www.shabaton.online/educationbiu",
+      "title": "אוניברסיטת בר אילן - הפקולטה לחינוך"
+    },
+    "בר-אילן": {
+      "url": "https://www.shabaton.online/educationbiu",
+      "title": "אוניברסיטת בר אילן - הפקולטה לחינוך"
+    },
+    "האוניברסיטה הפתוחה": {
+      "url": "https://www.shabaton.online/openu_teachers",
+      "title": "האוניברסיטה הפתוחה - היחידה לקידום עובדי הוראה"
+    },
+    "אוניברסיטה פתוחה": {
+      "url": "https://www.shabaton.online/openu_teachers",
+      "title": "האוניברסיטה הפתוחה - היחידה לקידום עובדי הוראה"
+    },
+    "חיפה מדעי הלמידה": {
+      "url": "https://www.shabaton.online/haifa-education-science",
+      "title": "חיפה - מחלקה למדעי הלמידה וההוראה"
+    },
+    "חיפה חינוך מיוחד": {
+      "url": "https://www.shabaton.online/haifa-ma-special-edu",
+      "title": "חיפה - מחלקה לחינוך מיוחד"
+    },
+    "חיפה לקויות למידה": {
+      "url": "https://www.shabaton.online/haifa-ma-lakuyot",
+      "title": "חיפה - מחלקה ללקויות למידה"
+    },
+    "חיפה מנהיגות": {
+      "url": "https://www.shabaton.online/haifa-ma-leadership-edu",
+      "title": "חיפה - מנהיגות ומדיניות בחינוך"
+    },
+    "חיפה חינוך מתמטי": {
+      "url": "https://www.shabaton.online/haifa-math-edu",
+      "title": "חיפה - מחלקה לחינוך מתמטי"
+    },
+    "חיפה ייעוץ": {
+      "url": "https://www.shabaton.online/haifa-yiutz",
+      "title": "חיפה - ייעוץ והתפתחות האדם"
+    },
+    "לוינסקי וינגייט": {
+      "url": "https://www.shabaton.online/wingate_morim",
+      "title": "המרכז האקדמי לוינסקי-וינגייט - בית הספר להשתלמויות"
+    },
+    "לוינסקי-וינגייט": {
+      "url": "https://www.shabaton.online/wingate_morim",
+      "title": "המרכז האקדמי לוינסקי-וינגייט - בית הספר להשתלמויות"
+    },
+    "וינגייט": {
+      "url": "https://www.shabaton.online/wingate_morim",
+      "title": "המרכז האקדמי לוינסקי-וינגייט - בית הספר להשתלמויות"
+    },
+    "וינגייט מדיטציה": {
+      "url": "https://www.shabaton.online/wingate_meditation",
+      "title": "וינגייט - קורס מדריכי מדיטציה"
+    },
+    "גבעת וושינגטון": {
+      "url": "https://www.shabaton.online/washington-morim",
+      "title": "גבעת וושינגטון - לימודי תעודה"
+    },
+    "גבעת ושינגטון": {
+      "url": "https://www.shabaton.online/washington-morim",
+      "title": "גבעת וושינגטון - לימודי תעודה"
+    },
+    "בית רבקה": {
+      "url": "https://www.shabaton.online/rivka",
+      "title": "אשכילה - מכללת בית רבקה"
+    },
+    "אשכילה": {
+      "url": "https://www.shabaton.online/rivka",
+      "title": "אשכילה - מכללת בית רבקה"
+    },
+    "סמינר הקיבוצים": {
+      "url": "https://www.shabaton.online/smkb",
+      "title": "סמינר הקיבוצים"
+    },
+    "חמדת": {
+      "url": "https://www.shabaton.online/hemdat",
+      "title": "חמדת - המכללה האקדמית"
+    },
+    "המכללה האקדמית חמדת": {
+      "url": "https://www.shabaton.online/hemdat",
+      "title": "חמדת - המכללה האקדמית"
+    },
+    "בית איזי שפירא": {
+      "url": "https://www.shabaton.online/beitissie",
+      "title": "בית איזי שפירא - מכון טראמפ"
+    },
+    "מכון טראמפ": {
+      "url": "https://www.shabaton.online/beitissie",
+      "title": "בית איזי שפירא - מכון טראמפ"
+    },
+    "מכון אסיף": {
+      "url": "https://www.shabaton.online/assif-pub",
+      "title": "מכון אסיף לקידום הכתיבה והעריכה"
+    },
+    "אסיף": {
+      "url": "https://www.shabaton.online/assif-pub",
+      "title": "מכון אסיף לקידום הכתיבה והעריכה"
+    },
+    "מכללת ביטוי": {
+      "url": "https://www.shabaton.online/bituy",
+      "title": "מכללת ביטוי לאמנות ועיצוב"
+    },
+    "ביטוי": {
+      "url": "https://www.shabaton.online/bituy",
+      "title": "מכללת ביטוי לאמנות ועיצוב"
+    },
+    "מכללת גישות": {
+      "url": "https://www.shabaton.online/gishot",
+      "title": "מכללת גישות - הנחיה, אימון וייעוץ ארגוני"
+    },
+    "גישות": {
+      "url": "https://www.shabaton.online/gishot",
+      "title": "מכללת גישות - הנחיה, אימון וייעוץ ארגוני"
+    },
+    "מכללת השכל": {
+      "url": "https://www.shabaton.online/haskel",
+      "title": "מכללת השכל"
+    },
+    "השכל": {
+      "url": "https://www.shabaton.online/haskel",
+      "title": "מכללת השכל"
+    },
+    "מכללת רטר": {
+      "url": "https://www.shabaton.online/retter-college",
+      "title": "מכללת רטר ל-NLP ודמיון מודרך"
+    },
+    "רטר": {
+      "url": "https://www.shabaton.online/retter-college",
+      "title": "מכללת רטר ל-NLP ודמיון מודרך"
+    },
+    "כישורי למידה": {
+      "url": "https://www.shabaton.online/kishurei-lemida",
+      "title": "כישורי למידה"
+    },
+    "נתיבי ידע": {
+      "url": "https://www.shabaton.online/e-yeda",
+      "title": "נתיבי ידע - קורסים מתוקשבים"
+    },
+    "נהורא": {
+      "url": "https://www.shabaton.online/nehora",
+      "title": "נהורא בתנועה - יוגה ותנועה לילדים"
+    },
+    "איגוד ערים אשקלון": {
+      "url": "https://www.shabaton.online/igud_arim",
+      "title": "איגוד ערים לאיכות הסביבה נפת אשקלון"
+    },
+    "מדברים עם כלבים": {
+      "url": "https://www.shabaton.online/talk2dogs",
+      "title": "מדברים עם כלבים"
+    },
+    "יזדי": {
+      "url": "https://www.shabaton.online/yorly",
+      "title": "ד\"ר אורלי יזדי - תפקודי למידה וויסות חושי"
+    },
+    "סטיקלרו": {
+      "url": "https://www.morim.boutique/stiklaro",
+      "title": "האקדמיה לחשיבה אחרת - רחל סטיקלרו"
+    },
+    "אקדמיה לחשיבה אחרת": {
+      "url": "https://www.morim.boutique/stiklaro",
+      "title": "האקדמיה לחשיבה אחרת - רחל סטיקלרו"
+    },
+    "קרמית תרפיה": {
+      "url": "https://www.morim.boutique/carmit_art_therapy",
+      "title": "קרמית - ארט תרפיה"
+    },
+    "מרכז שפר": {
+      "url": "https://www.morim.boutique/merkaz-shefer",
+      "title": "מרכז שפר"
+    },
+    "הסדנא בכיכר": {
+      "url": "https://www.morim.boutique/Hasadna-Bakikar",
+      "title": "הסדנא בכיכר - הבית ליצירה אמנותית"
+    },
+    "הקתדרה למוסיקה": {
+      "url": "https://www.morim.boutique/musiccathedra",
+      "title": "הקתדרה למוסיקה"
+    },
+    "עולם המנדלה": {
+      "url": "https://www.morim.boutique/omandala",
+      "title": "עולם המנדלה - בראש העין"
+    },
+    "אקו פלייבק": {
+      "url": "https://www.morim.boutique/echoplayback",
+      "title": "אקו פלייבק"
+    },
+    "עתיד ירוק": {
+      "url": "https://www.morim.boutique/atid-yarok",
+      "title": "עתיד ירוק"
+    },
+    "סטודיו שסק": {
+      "url": "https://www.morim.boutique/shesekart",
+      "title": "סטודיו שסק - פיוזינג, תרפיה באמנות ופסיפס"
+    },
+    "שסק": {
+      "url": "https://www.morim.boutique/shesekart",
+      "title": "סטודיו שסק - פיוזינג, תרפיה באמנות ופסיפס"
+    },
+    "בישול בריא מן הצומח": {
+      "url": "https://www.morim.boutique/happyvegan",
+      "title": "בישול בריא מן הצומח"
+    },
+    "גליה קונדיטוריה": {
+      "url": "https://www.morim.boutique/galia-cakes",
+      "title": "גליה - קונדיטוריה ועוגות מעוצבות"
+    },
+    "מכון פרסונה": {
+      "url": "https://www.morim.boutique/persona-e",
+      "title": "מכון פרסונה"
+    },
+    "פרסונה": {
+      "url": "https://www.morim.boutique/persona-e",
+      "title": "מכון פרסונה"
+    },
+    "עוטה אור": {
+      "url": "https://www.morim.boutique/oteh_or",
+      "title": "סטודיו לאמנות עוטה אור כשלמה"
+    },
+    "אפרת סילברמן": {
+      "url": "https://www.morim.boutique/efrat-silberman",
+      "title": "אפרת סילברמן - שיטת ביירון קייטי"
+    }
+  }
+}
