@@ -19,6 +19,7 @@ const SYSTEM_PROMPT =
   'אסור: להמציא מידע, לתת עצות, להמליץ על פעולות, או לפרט "מה כדאי לעשות" — אלא אם זה כתוב מפורשות ב-context או ב-QA. ענה רק על מה שנשאלת.\n' +
   'אסור לכתוב "טיפ:", "עצה:", "המלצה:", "כדאי ש...", "מומלץ ש..." — אסור בהחלט, גם לא בניסוח עקיף.\n' +
   'אסור להזכיר קבוצת וואטסאפ או פייסבוק בגוף התשובה — הם מופיעים אך ורק ב-footer.\n' +
+  'אסור להבטיח שקורס כלשהו הוא "ללא תשלום עצמי" או "חינם". כשנשאלים על עלויות — יש לציין: "עלויות, לרבות תוספת תשלום עצמי אם ישנה, יש לברר ישירות מול המוסד".\n' +
   'כלל ברזל: אל תמציא מידע. אל תוסיף קישורים שאינם ב-context — אם אין URL מ-shabaton.online, אל תכלול קישור.\n' +
   '=== שאלות קורסים ===\n' +
   'פתח תמיד בפתיח ידידותי וחמים (שורה אחת קצרה) לפני התוצאות. לדוגמה: "בשמחה! הנה מה שמצאתי עבורך:" — אל תעתיק בדיוק, חדש בכל פעם.\n' +
@@ -378,6 +379,32 @@ function getCourseDates(message) {
   if (!data || !data.courses) return null;
   const msgL = message.toLowerCase();
 
+  // ── זיהוי שאילתת קיץ: "נשארו לי נקודות" / "עד סוף אוגוסט" ──
+  if (isSummerQuery(message)) {
+    const now = new Date();
+    const curYear = now.getFullYear().toString();
+    const summerMonths = [curYear + '-06', curYear + '-07', curYear + '-08'];
+    const summerResults = [];
+    for (const c of data.courses) {
+      const matching = c.openings.filter(o => summerMonths.includes(o.month));
+      if (matching.length > 0) {
+        summerResults.push({ title: c.title, url: c.url, openings: matching });
+      }
+    }
+    if (summerResults.length > 0) {
+      let text = '=== קורסי קיץ ' + curYear + ' — ניתן להירשם עדיין ===\n';
+      text += '⚠️ קורסים אלה מסתיימים לפני 31 באוגוסט ' + curYear + ' ומתאימים לשנת השבתון הנוכחית.\n\n';
+      for (const r of summerResults) {
+        text += '**[' + r.title + '](' + r.url + ')**\n';
+        for (const o of r.openings) {
+          if (o.date_text) text += o.date_text.substring(0, 200).replace(/\n/g, ' | ') + '\n';
+        }
+        text += '[פנו למידע ולייעוץ אישי](' + r.url + ')\n\n';
+      }
+      return text;
+    }
+  }
+
   // בדוק: שאלה על חודש ספציפי
   const monthMap = {
     'ינואר': '01', 'פברואר': '02', 'מרץ': '03', 'אפריל': '04',
@@ -462,6 +489,19 @@ function getCourseDates(message) {
   return null;
 }
 
+// ── זיהוי שאילתת קיץ / "נשארו לי נקודות" ──────────────
+function isSummerQuery(message) {
+  const keywords = [
+    'נשארו לי נקודות', 'נשארו לי שעות', 'נשארו שעות', 'נשארו נקודות',
+    'עדיין יכולה להירשם', 'עדיין יכול להירשם', 'עוד יכולה להירשם',
+    'להשלים השנה', 'לסיים השנה', 'להשלים את השנה',
+    'עד סוף אוגוסט', 'עד אוגוסט', 'לפני סוף השנה',
+    'שנה הנוכחית', 'השנה הנוכחית', 'שבתון הנוכחי',
+    'קורסי קיץ', 'קורס קיץ', 'קיץ 2026'
+  ];
+  return keywords.some(k => message.includes(k));
+}
+
 async function buildContext(message) {
   const region = detectRegion(message);
   const _reqPhrases = ['הנחיית קבוצות','הנחיה קבוצתית','הדרכת הורים','הדרכה הורית',
@@ -478,6 +518,29 @@ async function buildContext(message) {
   const datesCtx = getCourseDates(message);
   if (datesCtx) {
     parts.push(datesCtx);
+  }
+
+  // ניתוב לקטגוריית קורסי קיץ
+  if (isSummerQuery(message)) {
+    const summerUrl = 'https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A7%D7%99%D7%A5';
+    parts.push('קישור לכל קורסי הקיץ: ' + summerUrl);
+    parts.push('הנחיה: הצג רק קורסים שמסתיימים לפני 31 באוגוסט. קורסים שנפתחים אחרי ספטמבר שייכים לשנת שבתון הבאה — אל תציג אותם.');
+    console.log('Summer query detected');
+  }
+
+  // ניתוב לסמינרים מרוכזים / סמינרים מטיילים
+  const isSeminarQuery = /סמינר מרוכז|סמינרים מרוכזים|סמינר מטיילים|סמינרים מטיילים|ימי עיון/.test(message);
+  if (isSeminarQuery) {
+    parts.push('קישור לסמינרים וטיולים: https://www.morim.boutique/trips');
+    parts.push('הסבר: סמינרים מרוכזים הם בדרך כלל קורסי טיולים וסמינרים מטיילים בבתי מלון, או קורסי קיץ מרוכזים. עלויות יש לברר ישירות מול כל מוסד.');
+    console.log('Seminar query detected');
+  }
+
+  // כלל עלויות
+  const isCostQuery = /ללא תשלום|ללא עלות|ללא תוספת|חינם|כמה עולה|מחיר|עלות|תשלום עצמי|מה המחיר/.test(message);
+  if (isCostQuery) {
+    parts.push('כלל חשוב לתשובה: אין לציין מחירים מפורשים. יש לציין בבירור שעלויות, לרבות תוספת תשלום עצמי, יש לברר ישירות מול כל מוסד.');
+    console.log('Cost query detected');
   }
 
 
