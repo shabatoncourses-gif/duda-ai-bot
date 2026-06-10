@@ -314,7 +314,7 @@ jobs:
     # ========================================
     - name: 🔄 אינדוקס Morim
       if: |
-        contains(steps.sites.outputs.sites, 'shabaton') && 
+        contains(steps.sites.outputs.sites, 'morim') && 
         github.event.inputs.reindex_mode != 'single-url' &&
         github.event.inputs.reindex_mode != 'remove-url' &&
         github.event.inputs.reindex_mode != 'static-pages-only' &&
