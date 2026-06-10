@@ -1158,6 +1158,19 @@ export default async function handler(req, res) {
     const { context, isInfo, courseCount, urlToTitle } = await buildContext(message);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
+
+    // ── DIRECT QA BYPASS — מחזיר תשובת QA ישירות, ללא Claude ──────
+    const FOOTER_DIRECT = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)  \n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)  \n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
+    if (isInfo && courseCount === 0 && context.startsWith('=== מידע על שבתון ===')) {
+      let directReply = context.replace('=== מידע על שבתון ===\n', '').trim();
+      // הסר footer כפול אם קיים ב-QA, הוסף footer סטנדרטי
+      directReply = directReply.replace(/\n*📩 \[הרשם לעלון שבתון\].*$/s, '').trim();
+      const hasWA = directReply.includes('whatsapp.com/FFak') || directReply.includes('chat.whatsapp.com');
+      if (!hasWA) directReply += FOOTER_DIRECT;
+      console.log('DIRECT QA BYPASS (no Claude) | chars:', directReply.length);
+      return res.json({ reply: directReply });
+    }
+    // ─────────────────────────────────────────────────────────────────
     const model = chooseModel(message);
 
     const userContent = context ? `${context}\n\n---\nשאלת הגולש: ${message}` : message;
