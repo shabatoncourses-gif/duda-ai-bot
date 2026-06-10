@@ -1022,6 +1022,34 @@ async function buildContext(message) {
     parts.push('\nחובה לכלול בתשובה — 🎓 [כל קורסי לימודי תואר שני בחינוך ובהוראה](https://www.shabaton.online/results-all/%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99%20%D7%91%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%91%D7%94%D7%95%D7%A8%D7%90%D7%94)');
   }
 
+  // ניתוב ישיר לפי מסלולים ספציפיים — מונע "אין מידע" על תחומים שאינם באינדקס
+  const specificTermRoutes = [
+    { terms: ['ביבליותרפיה', 'bibliotherapy', 'מקרא ובביבליותרפיה', 'ביבליו'], url: 'https://www.shabaton.online/schechter', label: 'מכון שכטר — ביבליותרפיה ומקרא' },
+    { terms: ['מדעי היהדות', 'שכטר', 'מרפא ליווי רוחני', 'מדרש ואגדה', 'תלמוד והלכה', 'לומדים ומלמדים'], url: 'https://www.shabaton.online/schechter', label: 'מכון שכטר למדעי היהדות' },
+    { terms: ['פסיכותרפיה', 'טיפול קצר מועד', 'cbt', 'iac psychotherapy'], url: 'https://www.shabaton.online/iac_psychotherapy', label: 'המכללה האקדמית רמת גן — פסיכותרפיה' },
+    { terms: ['חינוך מתמטי', 'מתמטיקה בחינוך'], url: 'https://www.shabaton.online/haifa-math-edu', label: 'אוניברסיטת חיפה — חינוך מתמטי' },
+    { terms: ['ייעוץ חינוכי חיפה', 'ייעוץ חינוכי אוניברסיטה'], url: 'https://www.shabaton.online/haifa-yiutz', label: 'אוניברסיטת חיפה — ייעוץ חינוכי' },
+    { terms: ['לקויות למידה חיפה', 'חינוך מיוחד חיפה'], url: 'https://www.shabaton.online/haifa-ma-special-edu', label: 'אוניברסיטת חיפה — חינוך מיוחד' },
+    { terms: ['מדעי הלמידה', 'הוראה ולמידה חיפה'], url: 'https://www.shabaton.online/haifa-education-science', label: 'אוניברסיטת חיפה — מדעי הלמידה' },
+  ];
+
+  for (const route of specificTermRoutes) {
+    if (route.terms.some(t => msgL.includes(t.toLowerCase()))) {
+      try {
+        const content = await fetchPageContent(route.url);
+        if (content) {
+          parts.push(`=== מידע מ-${route.label} ===\n${content.substring(0, 800).trim()}\nקישור לדף: ${route.url}`);
+        } else {
+          parts.push(`מוסד רלוונטי: [${route.label}](${route.url})\n[פנו למידע ולייעוץ אישי](${route.url})`);
+        }
+        console.log('Specific term route:', route.label);
+      } catch(e) {
+        parts.push(`מוסד רלוונטי: [${route.label}](${route.url})\n[פנו למידע ולייעוץ אישי](${route.url})`);
+      }
+      break;
+    }
+  }
+
   const msgContainsRegion = region && (
     (region.keywords || []).some(k => msgL.includes(k.toLowerCase())) ||
     (region.cities || []).some(c => c.length > 3 && msgL.includes(c.toLowerCase()))
@@ -1038,6 +1066,46 @@ async function buildContext(message) {
     }
   } else if (fieldInfo) {
     parts.push(`\nתחום: ${fieldInfo.name}\nקישור לכל קורסי התחום בכל הארץ: https://www.shabaton.online/results-all/${fieldInfo.slug}\nחשוב: הגולש לא ציין אזור — אל תוסיף אזור בכותרת ולא בfooter`);
+  }
+
+  // ── Fallback כללי: אפס תוצאות ← סורק דפי master-degree / קטגוריה ──
+  if (courses.length === 0) {
+    const partsHaveRealContent = parts.some(p => p.length > 200 && (p.includes('===') || p.includes('**[')));
+    if (!partsHaveRealContent) {
+      // נסה QA עוד פעם לפני הכל
+      const fallbackQA = searchQA(message);
+      if (fallbackQA) {
+        const qaFooterFB = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
+          '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
+          '👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
+        console.log('Zero-results fallback: QA match found:', fallbackQA.id);
+        return { context: '=== מידע על שבתון ===\n' + fallbackQA.answer + qaFooterFB, isInfo: true, courseCount: 0, urlToTitle };
+      }
+      // סרוק דף master-degree כ-fallback אקדמי
+      const isAcademicQuery = /תואר|מסלול|לימוד|קורס|השתלמות|הכשרה|מקרא|ביבליו|פסיכו|מחקר|אקדמ/.test(message);
+      if (isAcademicQuery) {
+        try {
+          console.log('Zero-results fallback: fetching master-degree page...');
+          const masterContent = await fetchPageContent('https://www.shabaton.online/master-degree');
+          if (masterContent) {
+            parts.push(`=== רשימת מוסדות ולימודים ===\n${masterContent.substring(0, 1500).trim()}\nקישור לדף: https://www.shabaton.online/master-degree`);
+          }
+        } catch(e) {
+          parts.push('קישור לרשימת כל המוסדות: https://www.shabaton.online/master-degree');
+        }
+      }
+      // סרוק דף קטגוריה אם זוהה תחום
+      if (fieldInfo && fieldInfo.slug && !isAcademicQuery) {
+        try {
+          const catUrl = `https://www.shabaton.online/results-all/${fieldInfo.slug}`;
+          console.log('Zero-results fallback: fetching category page:', catUrl);
+          const catContent = await fetchPageContent(catUrl);
+          if (catContent) {
+            parts.push(`=== קורסים בתחום ${fieldInfo.name} ===\n${catContent.substring(0, 1500).trim()}\nקישור לדף: ${catUrl}`);
+          }
+        } catch(e) {}
+      }
+    }
   }
 
   return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0, courseCount: courses.length, urlToTitle };
