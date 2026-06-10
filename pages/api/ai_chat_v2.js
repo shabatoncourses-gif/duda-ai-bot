@@ -505,7 +505,17 @@ function getCourseDates(message) {
   return null;
 }
 
-// ── זיהוי שאילתת קיץ / "נשארו לי נקודות" ──────────────
+// ── תיקון שגיאות כתיב נפוצות ─────────────────────────
+function fixTypos(msg) {
+  return msg
+    .replace(/בישור/g, 'בישול')
+    .replace(/בבליותרפיה/g, 'ביבליותרפיה')
+    .replace(/ביבליותרפיה/g, 'ביבליותרפיה')  // normalize
+    .replace(/ביבליו תרפיה/g, 'ביבליותרפיה')
+    .replace(/פיטותרפיה/g, 'פיטותרפיה')
+    .replace(/הומיאופטיה/g, 'הומאופתיה')
+    .replace(/קינזיולוגיה/g, 'קינסיולוגיה');
+}
 function isSummerQuery(message) {
   const keywords = [
     'נשארו לי נקודות', 'נשארו לי שעות', 'נשארו שעות', 'נשארו נקודות',
@@ -519,6 +529,7 @@ function isSummerQuery(message) {
 }
 
 async function buildContext(message) {
+  message = fixTypos(message);
   const region = detectRegion(message);
   const _reqPhrases = ['הנחיית קבוצות','הנחיה קבוצתית','הדרכת הורים','הדרכה הורית',
     'הוראה מתואמת','הוראה מתקנת','ניהול כיתה','עיצוב גרפי','בישול בריא','אפייה בריאה',
