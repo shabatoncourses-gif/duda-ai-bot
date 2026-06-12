@@ -1219,7 +1219,7 @@ async function buildContext(message) {
     }
   }
 
-  return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0, courseCount: courses.length, urlToTitle, coursesForClaude };
+  return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0, courseCount: courses.length, urlToTitle, coursesForClaude, categoryUrl: fieldInfo ? `https://www.shabaton.online/results-all/${fieldInfo.slug}` : null, fieldName: fieldInfo ? fieldInfo.name : null };
 }
 
 function chooseModel(q) {
@@ -1250,7 +1250,7 @@ export default async function handler(req, res) {
 
     console.log(`POST [${site}]: ${message.substring(0,60)}`);
 
-    const { context, isInfo, courseCount, urlToTitle, coursesForClaude } = await buildContext(message);
+    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName } = await buildContext(message);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
 
@@ -1329,7 +1329,10 @@ export default async function handler(req, res) {
           if (t && t.length < 80) intro = t;
         }
       } catch(e) { /* use default intro */ }
-      const reply = intro + '\n\n' + courseListText + FOOTER_DIRECT;
+      const catLink = categoryUrl
+        ? `\n\n📚 [כל קורסי ${fieldName || 'התחום'}](${categoryUrl})`
+        : '';
+      const reply = intro + '\n\n' + courseListText + catLink + FOOTER_DIRECT;
       console.log('COURSE LIST BYPASS | courses:', coursesForClaude.length, '| intro:', intro.substring(0, 40));
       await logToZapier(message, reply, 'course-bypass');
       return res.json({ reply });
