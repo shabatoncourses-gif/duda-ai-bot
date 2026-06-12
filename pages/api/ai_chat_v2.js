@@ -769,15 +769,21 @@ async function buildContext(message) {
   }
 
   if (knownOnly) {
-    const kiParts = [];
-    for (const ki of knownOnly) {
-      kiParts.push(`שם: ${ki.title}\nקישור: ${ki.url}${ki.description ? '\nתיאור: ' + ki.description : ''}`);
+    // הגרלת סדר — מוסדות שונים בכל פנייה
+    const shuffledKI = [...knownOnly];
+    for (let i = shuffledKI.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledKI[i], shuffledKI[j]] = [shuffledKI[j], shuffledKI[i]];
     }
+    // פורמט coursesForClaude — מפעיל את COURSE LIST BYPASS
+    const kiForClaude = shuffledKI.map(ki =>
+      `**[${ki.title}](${ki.url})**\n${ki.description ? ki.description.substring(0, 200).trim() + '\n' : ''}[פנו למידע ולייעוץ אישי](${ki.url})`
+    );
     const fieldSlug2 = getFieldSlug(message);
-    const footerUrl2 = fieldSlug2 ? `https://www.shabaton.online/results-all/${encodeURIComponent(fieldSlug2)}` : 'https://www.shabaton.online/search-courses';
-    kiParts.push('\nקישור לעלון שבתון: https://www.shabaton.online/shabaton');
-    kiParts.push('קישור לווטסאפ: https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME');
-    return { context: kiParts.join('\n'), isInfo: false, courseCount: knownOnly.length, urlToTitle: {} };
+    const catUrl2 = fieldSlug2 ? `https://www.shabaton.online/results-all/${fieldSlug2.slug}` : null;
+    const catName2 = fieldSlug2 ? fieldSlug2.name : null;
+    console.log('KNOWN_ONLY path:', knownOnly.length, 'institutions → coursesForClaude');
+    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2 };
   }
 
   const courses = searchCourses(message, region);
