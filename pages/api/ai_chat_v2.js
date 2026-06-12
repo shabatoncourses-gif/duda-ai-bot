@@ -45,7 +45,7 @@ const SYSTEM_PROMPT =
   '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
   '👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)\n\n' +
   '=== מועדי פתיחה ===\n' +
-  'אם ה-context מכיל === מועדי פתיחה === — הצג קודם מוסדות עם תאריך פתיחה מפורש תחת כותרת **מוסדות עם תאריכים מפורשים:**, ואחריהם תחת **מוסדות שיש לפנות לברור מועד:**. אל תמציא תאריכים.\n' +
+  'אם ה-context מכיל === מועדי פתיחה === — השתמש בתאריכים רק כשהגולש שאל במפורש על מועדים, חודש ספציפי, או "מתי נפתח". בשאלות חיפוש רגילות — הצג את כל המוסדות ברשימה אחת ללא חלוקה לפי תאריכים. אל תמציא תאריכים.\n' +
   '=== כללי אזור ===\n' +
   'אם הגולש לא ציין אזור — אל תוסיף אזור לכותרת ולא ב-footer.\n' +
   'השתמש ב-results-all (כל הארץ) כשאין אזור ספציפי.\n\n' +
@@ -544,8 +544,9 @@ async function buildContext(message) {
   const parts = [];
   const urlToTitle = {};
 
-  // בדוק course-dates — תמיד, גם לשאלות כלליות
-  const datesCtx = getCourseDates(message);
+  // בדוק course-dates — רק כשהשאלה עוסקת בתזמון ספציפי
+  const isTimingQuery = /מתי|מועד|אוקטובר|נובמבר|דצמבר|ספטמבר|יוני|יולי|אוגוסט|ינואר|פברואר|מרץ|אפריל|מאי|בקרוב|חודש|תאריך|נפתח|פתיחה|מאיזה/.test(message);
+  const datesCtx = (isTimingQuery || isSummerQuery(message)) ? getCourseDates(message) : null;
   if (datesCtx) {
     parts.push(datesCtx);
   }
@@ -1020,7 +1021,7 @@ async function buildContext(message) {
         const j = Math.floor(Math.random() * (i + 1));
         [coursesForClaude[i], coursesForClaude[j]] = [coursesForClaude[j], coursesForClaude[i]];
       }
-      const claudeFinal = coursesForClaude.slice(0, 15);
+      const claudeFinal = coursesForClaude.slice(0, 20);
       if (claudeFinal.length > 0) parts.push(claudeFinal.join('\n'));
     }
   }
