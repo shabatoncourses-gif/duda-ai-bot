@@ -18,6 +18,7 @@ const SYSTEM_PROMPT =
   'אסור להשתמש בתווים שאינם עברית, אנגלית, מספרים או פיסוק סטנדרטי. אסור אמוג\'יים זרים או סימנים אסיאתיים. אסור להשתמש ב-__ (double underscore) בכלל — כתוב קישורים רק בפורמט [טקסט](URL).\n' +
   'כלל חיפוש מסלולים: כשמוזכר שם מסלול ספציפי (ביבליותרפיה, מקרא, תלמוד, NLP, פסיכודרמה וכו\') — חפש את המוסד המציע אותו לפי שמות המסלולים ב-context, ולא לפי הקטגוריה הכללית. "לימודי" היא מילת קישור כללית — התייחס לשמות המסלולים הספציפיים.\n' +
   '⛔ כלל יסוד מוחלט: אסור בהחלט להמציא. אסור לייחס לקורס תכונות שאינן כתובות מפורשות בתיאורו ב-context. דוגמאות אסורות: לכתוב "בלמידה מרחוק" אם זה לא כתוב; לכתוב "מוכר לשבתון" אם זה לא כתוב; לכתוב שעות או ימים שלא צוינו; לכתוב "בזום" אם לא כתוב. אם המידע לא ב-context — לא כותבים אותו. נקודה.\n' +
+  '⛔ ענה אך ורק על בסיס המידע שב-context. אסור להשתמש במידע כללי שלא מופיע ב-context. אם ה-context אינו מכיל מידע לשאלה — כתוב בדיוק: "לשאלה זו ניתן לפנות לקבוצת הוואטסאפ שבתון" ותצרף את הקישור.\n' +
   'אסור להמציא מספרים, שעות, אחוזים או נוסחאות חישוב שאינם ב-context. עובדות נכונות: שבתון מלא = 8 עד 16 ש"ש (תמיד כתוב "8 עד 16", אף פעם לא "816"); 1 ש"ש = 28 שעות; בעלי תואר שני זכאים לחלוקה: 50% חובה ו-50% רשות; מי שלומד לתואר שני בשבתון — כל לימודיו חובה; החזר שכ"ל עד גובה שנה אוניברסיטאית.\n' +
   'אסור לחשב כמה שעות נשארו לגולש ללמוד, אסור להתייחס לשעות שנלמדו בתואר הראשון, ואסור בכלל לעסוק בחישובי שעות — זה תפקיד יועצת הקרן בלבד.\n' +
   'אסור לכתוב "טיפ:", "עצה:", "המלצה:", "כדאי ש...", "מומלץ ש..." — אסור בהחלט, גם לא בניסוח עקיף.\n' +
@@ -531,6 +532,7 @@ function isSummerQuery(message) {
 
 async function buildContext(message) {
   message = fixTypos(message);
+  let coursesForClaude = []; // מוכרז ברמת הפונקציה לאפשר החזרה
   const region = detectRegion(message);
   const _reqPhrases = ['הנחיית קבוצות','הנחיה קבוצתית','הדרכת הורים','הדרכה הורית',
     'הוראה מתואמת','הוראה מתקנת','ניהול כיתה','עיצוב גרפי','בישול בריא','אפייה בריאה',
@@ -944,7 +946,7 @@ async function buildContext(message) {
       seenUrls.add(c.url);
       return true;
     });
-    const coursesForClaude = [];
+    let coursesForClaude = [];
     uniqueCourses.forEach(c => {
       if (typeof c === 'string') { coursesForClaude.push(c); return; }
       let desc = (c.description || '').trim();
@@ -1124,7 +1126,7 @@ async function buildContext(message) {
     }
   }
 
-  return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0, courseCount: courses.length, urlToTitle };
+  return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0, courseCount: courses.length, urlToTitle, coursesForClaude };
 }
 
 function chooseModel(q) {
@@ -1155,7 +1157,7 @@ export default async function handler(req, res) {
 
     console.log(`POST [${site}]: ${message.substring(0,60)}`);
 
-    const { context, isInfo, courseCount, urlToTitle } = await buildContext(message);
+    const { context, isInfo, courseCount, urlToTitle, coursesForClaude } = await buildContext(message);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
 
@@ -1163,17 +1165,51 @@ export default async function handler(req, res) {
     const FOOTER_DIRECT = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)  \n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)  \n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
     if (isInfo && courseCount === 0 && context.startsWith('=== מידע על שבתון ===')) {
       let directReply = context.replace('=== מידע על שבתון ===\n', '').trim();
-      // הסר footer כפול אם קיים ב-QA, הוסף footer סטנדרטי
       directReply = directReply.replace(/\n*📩 \[הרשם לעלון שבתון\].*$/s, '').trim();
       const hasWA = directReply.includes('whatsapp.com/FFak') || directReply.includes('chat.whatsapp.com');
       if (!hasWA) directReply += FOOTER_DIRECT;
       console.log('DIRECT QA BYPASS (no Claude) | chars:', directReply.length);
       return res.json({ reply: directReply });
     }
+
+    // ── COURSE LIST BYPASS — רשימת קורסים נבנית בקוד, Claude רק פתיח ──
+    if (courseCount > 0 && coursesForClaude && coursesForClaude.length > 0) {
+      const courseListText = coursesForClaude.join('\n\n');
+      let intro = 'הנה קורסים רלוונטיים:';
+      try {
+        const introRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001', max_tokens: 60,
+            system: 'כתוב משפט פתיחה אחד קצר בעברית (עד 12 מילים). אל תזכיר שמות קורסים, מוסדות, קישורים או שעות.',
+            messages: [{ role: 'user', content: `שאלה: "${message}"` }]
+          })
+        });
+        if (introRes.ok) {
+          const d = await introRes.json();
+          const t = d.content?.[0]?.text?.trim();
+          if (t && t.length < 80) intro = t;
+        }
+      } catch(e) { /* use default intro */ }
+      const reply = intro + '\n\n' + courseListText + FOOTER_DIRECT;
+      console.log('COURSE LIST BYPASS | courses:', coursesForClaude.length, '| intro:', intro.substring(0, 40));
+      return res.json({ reply });
+    }
     // ─────────────────────────────────────────────────────────────────
     const model = chooseModel(message);
 
-    const userContent = context ? `${context}\n\n---\nשאלת הגולש: ${message}` : message;
+    // אם אין context מספק — שלוף דף מידע ראשי מshבatον
+    let finalContext = context;
+    if (!context || context.trim().length < 100) {
+      try {
+        console.log('Empty context — fetching shabaton main info page');
+        const mainContent = await fetchPageContent('https://www.shabaton.online/important');
+        if (mainContent) finalContext = '=== מידע כללי על שנת שבתון ===\n' + mainContent.substring(0, 2000);
+      } catch(e) {}
+    }
+
+    const userContent = finalContext ? `${finalContext}\n\n---\nשאלת הגולש: ${message}` : message;
 
     console.log('CONTEXT SAMPLE:', (context||'').substring(0, 400));
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1181,8 +1217,7 @@ export default async function handler(req, res) {
       headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model, max_tokens: 3000, system: SYSTEM_PROMPT,
-        messages: [...history.slice(-6), { role: 'user', content: userContent }],
-        ...(isInfoQuestion ? { tools: [{ type: 'web_search_20250305', name: 'web_search' }], tool_choice: { type: 'auto' } } : {})
+        messages: [...history.slice(-6), { role: 'user', content: userContent }]
       })
     });
 
