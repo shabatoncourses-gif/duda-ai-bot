@@ -1278,6 +1278,24 @@ export default async function handler(req, res) {
     if (isInfo && courseCount === 0 && context.startsWith('=== מידע על שבתון ===')) {
       let directReply = context.replace('=== מידע על שבתון ===\n', '').trim();
       directReply = directReply.replace(/\n*📩 \[הרשם לעלון שבתון\].*$/s, '').trim();
+
+      // הגרלת מוסדות — אם יש בלוקים של 🏫 ביניהם \n\n, ערבבם
+      if (directReply.includes('🏫')) {
+        const beforeFirst = directReply.substring(0, directReply.indexOf('🏫'));
+        const afterLast = directReply.substring(directReply.lastIndexOf('\n\n**') || directReply.lastIndexOf('\n\n📚'));
+        const instBlock = directReply.substring(directReply.indexOf('🏫'), directReply.lastIndexOf('\n\n📚') > 0 ? directReply.lastIndexOf('\n\n📚') : directReply.lastIndexOf('\n\n💬'));
+        const instItems = instBlock.split('\n\n🏫 ').map((item, i) => i === 0 ? item : '🏫 ' + item);
+        for (let i = instItems.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [instItems[i], instItems[j]] = [instItems[j], instItems[i]];
+        }
+        const footerStart = directReply.lastIndexOf('\n\n**סינכרוני') > 0
+          ? directReply.lastIndexOf('\n\n**סינכרוני')
+          : directReply.lastIndexOf('\n\n📚');
+        const footer = footerStart > 0 ? directReply.substring(footerStart) : '';
+        directReply = beforeFirst + instItems.join('\n\n') + footer;
+      }
+
       const hasWA = directReply.includes('whatsapp.com/FFak') || directReply.includes('chat.whatsapp.com');
       if (!hasWA) directReply += FOOTER_DIRECT;
       console.log('DIRECT QA BYPASS (no Claude) | chars:', directReply.length);
