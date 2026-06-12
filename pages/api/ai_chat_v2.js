@@ -98,12 +98,75 @@ function getFieldSlug(question) {
     for (const f of items) {
       const kws = f.keywords || [];
       if (kws.some(k => qL.includes(k.toLowerCase()))) {
-        return { name: f.name, slug: encodeURIComponent(f.slug), fetchFromUrl: f.fetchFromUrl || false, categoryUrl: f.categoryUrl || null };
+        return { name: f.name, slug: encodeURIComponent(f.slug), fetchFromUrl: f.fetchFromUrl || false, categoryUrl: f.categoryUrl || null, known_institutions: f.known_institutions || [] };
       }
     }
   } catch(e) {}
   return null;
 }
+
+// ── חיפוש מוסדות מדפי Results באינדקס ─────────────────────
+// פתרון ארכיטקטורי: כל תחום × אזור → דף results → מוסדות
+function getInstitutionsFromCategoryIndex(fieldName, regionSlug) {
+  const encoded = encodeURIComponent(fieldName);
+  const urls = regionSlug && regionSlug !== 'all'
+    ? [
+        `https://www.shabaton.online/search-results-${regionSlug}/${fieldName}`,
+        `https://www.shabaton.online/search-results-${regionSlug}/${encoded}`,
+      ]
+    : [
+        `https://www.shabaton.online/results-all/${fieldName}`,
+        `https://www.shabaton.online/results-all/${encoded}`,
+      ];
+
+  const indexFiles = [
+    'shabaton_index.json', 'shabaton_index_part1.json',
+    'shabaton_index_part2.json', 'morim_index.json', 'morim_index_part1.json'
+  ];
+
+  for (const fn of indexFiles) {
+    const data = loadJSON(fn);
+    if (!data) continue;
+    const pages = Array.isArray(data) ? data : (data.pages || Object.values(data));
+    for (const p of pages) {
+      const pUrl = (p.url || '').toLowerCase();
+      if (urls.some(u => pUrl === u.toLowerCase() || pUrl.startsWith(u.toLowerCase()))) {
+        if (p._text && p._text.length > 100) {
+          console.log('CATEGORY INDEX HIT:', fn, '|', p.url, '| text len:', p._text.length);
+          return { url: p.url, text: p._text, title: p.title };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+// חילוץ מוסדות מטקסט של דף results
+function parseInstitutionsFromCategoryText(text, fieldName, maxResults = 15) {
+  if (!text) return [];
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const results = [];
+  const seen = new Set();
+  // חפש שמות מוסדות: שורות עם קישור shabaton.online/ או morim.boutique/
+  const urlPattern = /https?:\/\/(www\.shabaton\.online|www\.morim\.boutique)\/([^\s\])"']+)/g;
+  let match;
+  while ((match = urlPattern.exec(text)) !== null) {
+    const url = match[0].replace(/[)\].,;]+$/, '');
+    if (url.includes('/kenes/') || url.includes('/results') || url.includes('/search-results') || seen.has(url)) continue;
+    seen.add(url);
+    // מצא כותרת לפני ה-URL
+    const urlIdx = text.indexOf(match[0]);
+    const before = text.substring(Math.max(0, urlIdx - 200), urlIdx);
+    const titleMatch = before.match(/([^\n\r]{5,60})\s*$/);
+    const title = titleMatch ? titleMatch[1].trim() : url.split('/').pop();
+    if (title && title.length > 2) {
+      results.push({ title, url });
+      if (results.length >= maxResults) break;
+    }
+  }
+  return results;
+}
+
 
 function getFieldKeywords(question) {
   try {
@@ -1027,13 +1090,42 @@ async function buildContext(message) {
   }
 
   const fieldInfo = getFieldSlug(message);
-  if (fieldInfo && fieldInfo.fetchFromUrl && fieldInfo.categoryUrl && courses.length < 3) {
-    try {
-      const catContent = await fetchPageContent(fieldInfo.categoryUrl);
-      if (catContent) {
-        parts.push(`=== קורסים לציבור הדתי (מדף הקטגוריה) ===\n${catContent}`);
+
+  // ── פתרון ארכיטקטורי: חיפוש מוסדות מדפי Results שכבר באינדקס ──
+  // עובד אוטומטית לכל 53 תחומים × 7 אזורים — ללא תחזוקה ידנית
+  if (fieldInfo && courses.length < 5) {
+    const regionForCat = detectRegion(message);
+    const regionSlugForCat = regionForCat ? regionForCat.slug : null;
+    const categoryData = getInstitutionsFromCategoryIndex(fieldInfo.name, regionSlugForCat);
+    if (categoryData && categoryData.text) {
+      const institutions = parseInstitutionsFromCategoryText(categoryData.text, fieldInfo.name, 15);
+      if (institutions.length > 0) {
+        // הגרלת סדר — מוסדות שונים בכל פנייה
+        for (let i = institutions.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [institutions[i], institutions[j]] = [institutions[j], institutions[i]];
+        }
+        const instLines = institutions.map(ki =>
+          `**[${ki.title}](${ki.url})**\n[פנו למידע ולייעוץ אישי](${ki.url})`
+        ).join('\n\n');
+        parts.push(`=== מוסדות בתחום ${fieldInfo.name} ===\n${instLines}`);
+        const catUrlForField = regionSlugForCat
+          ? `https://www.shabaton.online/search-results-${regionSlugForCat}/${encodeURIComponent(fieldInfo.name)}`
+          : `https://www.shabaton.online/results-all/${encodeURIComponent(fieldInfo.name)}`;
+        parts.push(`קישור לכל הקורסים בתחום זה: ${catUrlForField}`);
+        console.log('CATEGORY INDEX FALLBACK:', fieldInfo.name, regionSlugForCat || 'all', '| institutions:', institutions.length);
       }
-    } catch(e) {}
+    }
+
+    // fetchFromUrl — שמור לציבור הדתי בלבד
+    if (fieldInfo.fetchFromUrl && fieldInfo.categoryUrl && institutions.length === 0) {
+      try {
+        const catContent = await fetchPageContent(fieldInfo.categoryUrl);
+        if (catContent) {
+          parts.push(`=== קורסים (מדף הקטגוריה) ===\n${catContent}`);
+        }
+      } catch(e) {}
+    }
   }
 
   const msgL = message.toLowerCase();
@@ -1175,7 +1267,13 @@ export default async function handler(req, res) {
 
     // ── COURSE LIST BYPASS — רשימת קורסים נבנית בקוד, Claude רק פתיח ──
     if (courseCount > 0 && coursesForClaude && coursesForClaude.length > 0) {
-      const courseListText = coursesForClaude.join('\n\n');
+      // הגרלה — כל שאלה מציגה מוסדות בסדר שונה
+      const shuffled = [...coursesForClaude];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      const courseListText = shuffled.join('\n\n');
       let intro = 'הנה קורסים רלוונטיים:';
       try {
         const introRes = await fetch('https://api.anthropic.com/v1/messages', {
