@@ -1256,12 +1256,32 @@ export default async function handler(req, res) {
 
     // ── DIRECT QA BYPASS — מחזיר תשובת QA ישירות, ללא Claude ──────
     const FOOTER_DIRECT = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)  \n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)  \n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
+
+    // פונקציית לוגינג לזאפייר — נקראת מכל נתיב תגובה
+    const logToZapier = async (q, ans, mdl) => {
+      if (!ZAPIER_WEBHOOK_URL) return;
+      try {
+        const now = new Date();
+        await fetch(ZAPIER_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: now.toLocaleDateString('he-IL',{timeZone:'Asia/Jerusalem'}),
+            time: now.toLocaleTimeString('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit'}),
+            site, question: q, answer: ans, model: mdl || 'bypass',
+            needs_learning: (ans.includes('לא נמצאו') || ans.includes('אין מידע')) ? 'YES' : 'OK'
+          })
+        });
+      } catch(ze) { console.error('Zapier error:', ze.message); }
+    };
+
     if (isInfo && courseCount === 0 && context.startsWith('=== מידע על שבתון ===')) {
       let directReply = context.replace('=== מידע על שבתון ===\n', '').trim();
       directReply = directReply.replace(/\n*📩 \[הרשם לעלון שבתון\].*$/s, '').trim();
       const hasWA = directReply.includes('whatsapp.com/FFak') || directReply.includes('chat.whatsapp.com');
       if (!hasWA) directReply += FOOTER_DIRECT;
       console.log('DIRECT QA BYPASS (no Claude) | chars:', directReply.length);
+      await logToZapier(message, directReply, 'qa-bypass');
       return res.json({ reply: directReply });
     }
 
@@ -1293,6 +1313,7 @@ export default async function handler(req, res) {
       } catch(e) { /* use default intro */ }
       const reply = intro + '\n\n' + courseListText + FOOTER_DIRECT;
       console.log('COURSE LIST BYPASS | courses:', coursesForClaude.length, '| intro:', intro.substring(0, 40));
+      await logToZapier(message, reply, 'course-bypass');
       return res.json({ reply });
     }
     // ─────────────────────────────────────────────────────────────────
@@ -1359,19 +1380,7 @@ export default async function handler(req, res) {
     }
 
     if (ZAPIER_WEBHOOK_URL) {
-      try {
-        const now = new Date();
-        await fetch(ZAPIER_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            date: now.toLocaleDateString('he-IL',{timeZone:'Asia/Jerusalem'}),
-            time: now.toLocaleTimeString('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit'}),
-            site, question: message, answer: reply, model,
-            needs_learning: reply.includes('לא נמצאו') ? 'YES' : 'OK'
-          })
-        });
-      } catch(ze) {}
+      await logToZapier(message, reply, model);
     }
 
     reply = reply.replace(/^#+\s*/gm, '');
