@@ -760,10 +760,16 @@ async function buildContext(message) {
   let knownOnly = null;
   if (sfForKI) {
     const msgLKI2 = message.toLowerCase();
+    let bestLen = 0;
+    // מחפש keyword הכי ארוך — לא הראשון (כמו searchQA)
     for (const sfItem of (sfForKI.studyFields || [])) {
       const kws = sfItem.keywords || [];
-      if (kws.some(k => msgLKI2.includes(k.toLowerCase())) && sfItem.known_institutions && sfItem.known_institutions.length > 0) {
-        knownOnly = sfItem.known_institutions; break;
+      if (!sfItem.known_institutions || sfItem.known_institutions.length === 0) continue;
+      for (const k of kws) {
+        if (msgLKI2.includes(k.toLowerCase()) && k.length > bestLen) {
+          bestLen = k.length;
+          knownOnly = sfItem.known_institutions;
+        }
       }
     }
   }
