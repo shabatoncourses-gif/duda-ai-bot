@@ -775,8 +775,25 @@ async function buildContext(message) {
   }
 
   if (knownOnly) {
+    // סנן URLs לא תקינים (WhatsApp, חיצוניים וכו')
+    const validKI = knownOnly.filter(ki => {
+      const u = ki.url || '';
+      return u.includes('shabaton.online/') || u.includes('morim.boutique/');
+    });
+    if (validKI.length === 0) { knownOnly = null; }
+    else { knownOnly = validKI; }
+  }
+
+  if (knownOnly) {
+    // סנן URLs שאינם של הפורטל (WhatsApp, Facebook וכד')
+    const validKI = knownOnly.filter(ki => {
+      const url = (ki.url || '').toLowerCase();
+      return url.includes('shabaton.online') || url.includes('morim.boutique');
+    });
+    if (validKI.length === 0) { /* אין מוסדות תקניים — המשך לחיפוש */ }
+    else {
     // הגרלת סדר — מוסדות שונים בכל פנייה
-    const shuffledKI = [...knownOnly];
+    const shuffledKI = [...validKI];
     for (let i = shuffledKI.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffledKI[i], shuffledKI[j]] = [shuffledKI[j], shuffledKI[i]];
@@ -788,8 +805,9 @@ async function buildContext(message) {
     const fieldSlug2 = getFieldSlug(message);
     const catUrl2 = fieldSlug2 ? `https://www.shabaton.online/results-all/${fieldSlug2.slug}` : null;
     const catName2 = fieldSlug2 ? fieldSlug2.name : null;
-    console.log('KNOWN_ONLY path:', knownOnly.length, 'institutions → coursesForClaude');
+    console.log('KNOWN_ONLY path:', validKI.length, 'institutions → coursesForClaude');
     return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2 };
+    } // end else validKI
   }
 
   const courses = searchCourses(message, region);
@@ -1374,6 +1392,7 @@ export default async function handler(req, res) {
     }
 
     console.log('CONTEXT SAMPLE:', (context||'').substring(0, 400));
+    const userContent = finalContext ? `${finalContext}\n\n---\nשאלת הגולש: ${message}` : message;
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
