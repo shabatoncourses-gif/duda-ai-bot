@@ -102,6 +102,18 @@ def normalize(s):
     return s.lower()
 
 
+VALID_URL_PREFIXES = (
+    'https://www.shabaton.online/',
+    'https://www.morim.boutique/',
+    'https://shabaton.online/',
+    'https://morim.boutique/',
+)
+
+def is_valid_institution_url(url):
+    """Only accept shabaton.online or morim.boutique URLs."""
+    return any(str(url).startswith(p) for p in VALID_URL_PREFIXES)
+
+
 def build_institutions_from_excel(excel_path):
     df = pd.read_excel(excel_path)
     field_institutions = {}  # {sf_field_name: {url: entry}}
@@ -122,7 +134,7 @@ def build_institutions_from_excel(excel_path):
 
         if sf_field not in field_institutions:
             field_institutions[sf_field] = {}
-        if url and url not in field_institutions[sf_field]:
+        if url and url not in field_institutions[sf_field] and is_valid_institution_url(url):
             field_institutions[sf_field][url] = {
                 'title': name,
                 'url': url,
