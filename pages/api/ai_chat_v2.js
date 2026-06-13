@@ -1356,7 +1356,16 @@ export default async function handler(req, res) {
       } catch(e) {}
     }
 
-    const userContent = finalContext ? `${finalContext}\n\n---\nשאלת הגולש: ${message}` : message;
+    // אם context ריק לחלוטין — הפנה לוואטסאפ ישירות, ללא Claude
+    if (!finalContext || finalContext.trim().length < 50) {
+      const noResultReply = 
+        'לא נמצא מידע ספציפי על הנושא בפורטל שבתון.\n\n' +
+        '💬 [שאל בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) — הצוות יוכל לעזור\n' +
+        '📚 [כל הקורסים בפורטל שבתון](https://www.shabaton.online/search-courses)\n' +
+        '👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
+      await logToZapier(message, noResultReply, 'no-results');
+      return res.json({ reply: noResultReply });
+    }
 
     console.log('CONTEXT SAMPLE:', (context||'').substring(0, 400));
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
