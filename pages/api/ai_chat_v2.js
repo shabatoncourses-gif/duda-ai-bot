@@ -582,6 +582,25 @@ function fixTypos(msg) {
     .replace(/הומיאופטיה/g, 'הומאופתיה')
     .replace(/קינזיולוגיה/g, 'קינסיולוגיה');
 }
+
+// ── זיהוי מוסד מ-Institutions.json ─────────────────────
+// מחזיר { found: true, url, title } אם נמצאה התאמה מדויקת ב-147 ה-aliases.
+// אם לא נמצא — מחזיר null (ולא מנחש שם מוסד; הניחוש מטקסט עברי לא אמין).
+function lookupInstitution(message) {
+  const data = loadJSON('Institutions.json');
+  if (!data || !data.institutions) return null;
+  const msgL = message.toLowerCase();
+
+  // ממיין לפי אורך מפתח (מהארוך לקצר) כדי למצוא את ההתאמה הספציפית ביותר
+  const keys = Object.keys(data.institutions).sort((a, b) => b.length - a.length);
+  for (const key of keys) {
+    if (msgL.includes(key.toLowerCase())) {
+      return { found: true, ...data.institutions[key], matchedKey: key };
+    }
+  }
+  return null; // לא מנחש — מסתמך על ה-zero-results fallback הכללי
+}
+
 function isSummerQuery(message) {
   const keywords = [
     'נשארו לי נקודות', 'נשארו לי שעות', 'נשארו שעות', 'נשארו נקודות',
@@ -1286,6 +1305,9 @@ export default async function handler(req, res) {
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
 
+    // ── INSTITUTION LOOKUP — פתרון כללי דרך Institutions.json ──
+    const instLookup = lookupInstitution(fixTypos(message));
+
     // ── DIRECT QA BYPASS — מחזיר תשובת QA ישירות, ללא Claude ──────
     const FOOTER_DIRECT = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)  \n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)  \n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
 
@@ -1306,6 +1328,16 @@ export default async function handler(req, res) {
         });
       } catch(ze) { console.error('Zapier error:', ze.message); }
     };
+
+    // אם זוהה מוסד ידוע (מתוך 147 ה-aliases) אך אין קורסים מהחיפוש — נתב ישירות לדף המוסד
+    if (instLookup && instLookup.found === true && courseCount === 0 && !context.startsWith('=== מידע על שבתון ===')) {
+      const directInstReply =
+        `**[${instLookup.title}](${instLookup.url})**\n\n` +
+        `[פנו למידע ולייעוץ אישי](${instLookup.url})${FOOTER_DIRECT}`;
+      console.log('INSTITUTION DIRECT MATCH:', instLookup.matchedKey, '→', instLookup.url);
+      await logToZapier(message, directInstReply, 'institution-direct');
+      return res.json({ reply: directInstReply });
+    }
 
     if (isInfo && courseCount === 0 && context.startsWith('=== מידע על שבתון ===')) {
       let directReply = context.replace('=== מידע על שבתון ===\n', '').trim();
