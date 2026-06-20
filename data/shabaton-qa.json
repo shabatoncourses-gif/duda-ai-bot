@@ -7,6 +7,16 @@
       "name": "כללי",
       "questions": [
         {
+          "id": "institution_not_in_portal",
+          "priority": true,
+          "question": "מוסד שאינו מופיע בפורטל שבתון",
+          "keywords": [
+            "תעצומות",
+            "מכללת תעצומות"
+          ],
+          "answer": "מוסד זה אינו מופיע בפורטל שבתון, ולכן אין לנו מידע האם הקורסים בו מוכרים כחובה או כרשות.\n\n💬 [אפשר לשאול בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)"
+        },
+        {
           "id": "not_found_enrichment",
           "priority": true,
           "question": "קורסים שלא נמצאו בפורטל — לימודי העשרה",
