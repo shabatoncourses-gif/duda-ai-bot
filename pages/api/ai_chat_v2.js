@@ -587,6 +587,13 @@ function fixTypos(msg) {
 // ── זיהוי מוסד מ-Institutions.json ─────────────────────
 // מחזיר { found: true, url, title } אם נמצאה התאמה מדויקת ב-147 ה-aliases.
 // אם לא נמצא — מחזיר null (ולא מנחש שם מוסד; הניחוש מטקסט עברי לא אמין).
+//
+// הגנה מפני aliases דו-משמעיים: "חיפה", "רמת גן", "אונו", "אורנים" הם גם
+// שמות עיר/אזור. הם מותרים בהתאמה רק אם מילת-מוסד (מכללת/מכון/אוניברסיטת/מרכז/קמפוס)
+// מופיעה ממש לפניהם בהודעה — אחרת ייתכן שזו שאלת חיפוש לפי אזור, לא בקשת מוסד ישירה.
+const AMBIGUOUS_REGION_ALIASES = new Set(['חיפה', 'רמת גן', 'תל אביב', 'תל-אביב', 'ירושלים', 'אונו', 'אורנים']);
+const INSTITUTION_PREFIX_RE = /(מכללת|מכון|אוניברסיטת|המכללה|האוניברסיטה|מרכז|המרכז|קמפוס)\s*$/;
+
 function lookupInstitution(message) {
   const data = loadJSON('Institutions.json');
   if (!data || !data.institutions) return null;
@@ -595,9 +602,18 @@ function lookupInstitution(message) {
   // ממיין לפי אורך מפתח (מהארוך לקצר) כדי למצוא את ההתאמה הספציפית ביותר
   const keys = Object.keys(data.institutions).sort((a, b) => b.length - a.length);
   for (const key of keys) {
-    if (msgL.includes(key.toLowerCase())) {
-      return { found: true, ...data.institutions[key], matchedKey: key };
+    const idx = msgL.indexOf(key.toLowerCase());
+    if (idx === -1) continue;
+
+    if (AMBIGUOUS_REGION_ALIASES.has(key)) {
+      const before = message.substring(0, idx);
+      const atStart = idx === 0; // בתחילת ההודעה — סביר שזה שם המוסד, לא אזור
+      if (!atStart && !INSTITUTION_PREFIX_RE.test(before)) {
+        continue; // דו-משמעי, באמצע משפט, וללא מילת-מוסד לפניו — דלג
+      }
     }
+
+    return { found: true, ...data.institutions[key], matchedKey: key };
   }
   return null; // לא מנחש — מסתמך על ה-zero-results fallback הכללי
 }
