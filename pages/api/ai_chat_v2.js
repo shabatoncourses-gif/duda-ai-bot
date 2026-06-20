@@ -1302,18 +1302,11 @@ export default async function handler(req, res) {
 
     console.log(`POST [${site}]: ${message.substring(0,60)}`);
 
-    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName } = await buildContext(message);
-    const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
-    const isInfoQuestion = !!(isInfo && !isCourseQ);
-
-    // ── INSTITUTION LOOKUP — פתרון כללי דרך Institutions.json ──
-    const instLookup = lookupInstitution(fixTypos(message));
-
-    // ── DIRECT QA BYPASS — מחזיר תשובת QA ישירות, ללא Claude ──────
+    // ── INSTITUTION LOOKUP — רץ ראשון, לפני buildContext, בלי תלות בחיפוש קורסים ──
+    const cleanMsg = fixTypos(message);
+    const instLookup = lookupInstitution(cleanMsg);
     const FOOTER_DIRECT = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)  \n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)  \n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
-
-    // פונקציית לוגינג לזאפייר — נקראת מכל נתיב תגובה
-    const logToZapier = async (q, ans, mdl) => {
+    const logToZapierEarly = async (q, ans, mdl) => {
       if (!ZAPIER_WEBHOOK_URL) return;
       try {
         const now = new Date();
@@ -1324,21 +1317,26 @@ export default async function handler(req, res) {
             date: now.toLocaleDateString('he-IL',{timeZone:'Asia/Jerusalem'}),
             time: now.toLocaleTimeString('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit'}),
             site, question: q, answer: ans, model: mdl || 'bypass',
-            needs_learning: (ans.includes('לא נמצאו') || ans.includes('אין מידע')) ? 'YES' : 'OK'
+            needs_learning: 'OK'
           })
         });
       } catch(ze) { console.error('Zapier error:', ze.message); }
     };
-
-    // אם זוהה מוסד ידוע (מתוך 147 ה-aliases) אך אין קורסים מהחיפוש — נתב ישירות לדף המוסד
-    if (instLookup && instLookup.found === true && courseCount === 0 && !context.startsWith('=== מידע על שבתון ===')) {
+    if (instLookup && instLookup.found === true) {
       const directInstReply =
         `**[${instLookup.title}](${instLookup.url})**\n\n` +
         `[פנו למידע ולייעוץ אישי](${instLookup.url})${FOOTER_DIRECT}`;
-      console.log('INSTITUTION DIRECT MATCH:', instLookup.matchedKey, '→', instLookup.url);
-      await logToZapier(message, directInstReply, 'institution-direct');
+      console.log('INSTITUTION DIRECT MATCH (pre-buildContext):', instLookup.matchedKey, '→', instLookup.url);
+      await logToZapierEarly(message, directInstReply, 'institution-direct');
       return res.json({ reply: directInstReply });
     }
+
+    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName } = await buildContext(message);
+    const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
+    const isInfoQuestion = !!(isInfo && !isCourseQ);
+
+    // פונקציית לוגינג לזאפייר — נקראת מכל נתיב תגובה
+    const logToZapier = logToZapierEarly;
 
     if (isInfo && courseCount === 0 && context.startsWith('=== מידע על שבתון ===')) {
       let directReply = context.replace('=== מידע על שבתון ===\n', '').trim();
