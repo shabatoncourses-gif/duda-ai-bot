@@ -7,6 +7,30 @@
       "name": "כללי",
       "questions": [
         {
+          "id": "not_found_enrichment",
+          "priority": true,
+          "question": "קורסים שלא נמצאו בפורטל — לימודי העשרה",
+          "keywords": [
+            "הצגות",
+            "סרטים",
+            "קולנוע",
+            "בישול בחו\"ל",
+            "טיול מאורגן",
+            "קורס בישול בסין",
+            "מטבח",
+            "ציד",
+            "דיג",
+            "נהיגה",
+            "כדורסל",
+            "כדורגל",
+            "שחמט",
+            "לוח",
+            "עבודת עץ",
+            "נגרות"
+          ],
+          "answer": "**קורסי העשרה לשנת שבתון:**\n\nלא נמצאו קורסים ספציפיים בנושא זה בפורטל שבתון.\n\nניתן לחפש קורסים המתאימים בדפי ההעשרה:\n\n🎨 [לימודי העשרה — morim.boutique](https://www.morim.boutique/)\n🎭 [קורסי דרמה, פסיכודרמה ותיאטרון](https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%93%D7%A8%D7%9E%D7%94%2C%20%D7%A4%D7%A1%D7%99%D7%9B%D7%95%D7%93%D7%A8%D7%9E%D7%94%2C%20%D7%AA%D7%99%D7%90%D7%98%D7%A8%D7%95%D7%9F%20%D7%91%D7%95%D7%91%D7%95%D7%AA)\n🌟 [תרבות, העשרה ואקטואליה](https://www.shabaton.online/results-all/%D7%AA%D7%A8%D7%91%D7%95%D7%AA%20%D7%94%D7%A2%D7%A9%D7%A8%D7%94%20%D7%95%D7%90%D7%A7%D7%98%D7%95%D7%90%D7%9C%D7%99%D7%94)\n\n💬 [אפשר לשאול בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)"
+        },
+        {
           "id": "sport_membership_not_recognized",
           "priority": true,
           "question": "האם מנוי לחדר כושר / מועדון ספורט מוכר לשבתון",
@@ -746,6 +770,16 @@
             "ריקוד טיפולי"
           ],
           "answer": "**קורסי ספורט, מחול ותנועה לשבתון:**\n\n📚 [דף קורסי ספורט בשבתון](https://www.shabaton.online/sport)\n📚 [כל קורסי ספורט, מחול ותנועה](https://www.shabaton.online/results-all/%D7%A1%D7%A4%D7%95%D7%A8%D7%98%2C%20%D7%9E%D7%97%D7%95%D7%9C%20%D7%95%D7%AA%D7%A0%D7%95%D7%A2%D7%94)\n\n💬 [אפשר לשאול בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)"
+        },
+        {
+          "id": "logotherapy_course",
+          "priority": true,
+          "question": "קורס לוגותרפיה",
+          "keywords": [
+            "לוגותרפיה",
+            "logotherapy"
+          ],
+          "answer": "**[אוניברסיטת תל-אביב — המרכז האקדמי לפיתוח אישי ומקצועי](https://www.shabaton.online/tau-edu)**\n\nלוגותרפיה — תוכנית פנים אל פנים.\n\n[פנו למידע ולייעוץ אישי](https://www.shabaton.online/tau-edu)\n\n📚 [כל קורסי תרפיה וטיפול](https://www.shabaton.online/results-all/%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%A8%D7%A4%D7%99%D7%94%20%D7%95%D7%98%D7%99%D7%A4%D7%95%D7%9C)\n💬 [אפשר לשאול בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)"
         }
       ]
     },
