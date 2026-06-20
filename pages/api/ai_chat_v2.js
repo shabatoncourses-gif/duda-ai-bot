@@ -1169,6 +1169,7 @@ async function buildContext(message) {
     { terms: ['ביבליותרפיה', 'bibliotherapy', 'מקרא ובביבליותרפיה', 'ביבליו'], url: 'https://www.shabaton.online/schechter', label: 'מכון שכטר — ביבליותרפיה ומקרא' },
     { terms: ['מדעי היהדות', 'שכטר', 'מרפא ליווי רוחני', 'מדרש ואגדה', 'תלמוד והלכה', 'לומדים ומלמדים'], url: 'https://www.shabaton.online/schechter', label: 'מכון שכטר למדעי היהדות' },
     { terms: ['פסיכותרפיה', 'טיפול קצר מועד', 'cbt', 'iac psychotherapy'], url: 'https://www.shabaton.online/iac_psychotherapy', label: 'המכללה האקדמית רמת גן — פסיכותרפיה' },
+    { terms: ['לוגותרפיה', 'logotherapy'], url: 'https://www.shabaton.online/tau-edu', label: 'אוניברסיטת תל-אביב — לוגותרפיה' },
     { terms: ['חינוך מתמטי', 'מתמטיקה בחינוך'], url: 'https://www.shabaton.online/haifa-math-edu', label: 'אוניברסיטת חיפה — חינוך מתמטי' },
     { terms: ['ייעוץ חינוכי חיפה', 'ייעוץ חינוכי אוניברסיטה'], url: 'https://www.shabaton.online/haifa-yiutz', label: 'אוניברסיטת חיפה — ייעוץ חינוכי' },
     { terms: ['לקויות למידה חיפה', 'חינוך מיוחד חיפה'], url: 'https://www.shabaton.online/haifa-ma-special-edu', label: 'אוניברסיטת חיפה — חינוך מיוחד' },
@@ -1381,12 +1382,15 @@ export default async function handler(req, res) {
       } catch(e) {}
     }
 
-    // אם context ריק לחלוטין — הפנה לוואטסאפ ישירות, ללא Claude
+    // אם context ריק לחלוטין — הפנה לעשרה + וואטסאפ, ללא Claude
     if (!finalContext || finalContext.trim().length < 50) {
-      const noResultReply = 
-        'לא נמצא מידע ספציפי על הנושא בפורטל שבתון.\n\n' +
-        '💬 [שאל בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME) — הצוות יוכל לעזור\n' +
-        '📚 [כל הקורסים בפורטל שבתון](https://www.shabaton.online/search-courses)\n' +
+      const noResultReply =
+        'לא נמצאו קורסים ספציפיים בנושא זה בפורטל שבתון.\n\n' +
+        'ניתן לחפש קורסים המתאימים בדפי ההעשרה:\n\n' +
+        '🎨 [לימודי העשרה — morim.boutique](https://www.morim.boutique/)\n' +
+        '🌟 [תרבות, העשרה ואקטואליה](https://www.shabaton.online/results-all/%D7%AA%D7%A8%D7%91%D7%95%D7%AA%20%D7%94%D7%A2%D7%A9%D7%A8%D7%94%20%D7%95%D7%90%D7%A7%D7%98%D7%95%D7%90%D7%9C%D7%99%D7%94)\n' +
+        '🎭 [קורסי דרמה ותיאטרון](https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%93%D7%A8%D7%9E%D7%94%2C%20%D7%A4%D7%A1%D7%99%D7%9B%D7%95%D7%93%D7%A8%D7%9E%D7%94%2C%20%D7%AA%D7%99%D7%90%D7%98%D7%A8%D7%95%D7%9F%20%D7%91%D7%95%D7%91%D7%95%D7%AA)\n\n' +
+        '💬 [אפשר לשאול בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
         '👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
       await logToZapier(message, noResultReply, 'no-results');
       return res.json({ reply: noResultReply });
