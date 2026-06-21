@@ -885,9 +885,8 @@ async function buildContext(message) {
       // במקום להציג רשימה לאומית מבולבלת.
       const liveLinkUrl = buildRegionCategoryUrl(regionForKI.slug, fieldSlug2.slug);
       const directLinkMsg =
-        `לצפייה ברשימה המדויקת והמעודכנת של ${fieldSlug2.name} באזור ${regionForKI.name} (כולל אפשרויות בלמידה מרחוק):\n\n` +
-        `📍 [לחצו כאן לרשימה המסוננת באזור ${regionForKI.name}](${liveLinkUrl})\n\n` +
-        `הקישור מציג ישירות מהפורטל את כל המוסדות הרלוונטיים לאזורכם.`;
+        `📍 [לחצו כאן](${liveLinkUrl}) לרשימת המוסדות באזור ${regionForKI.name}, ` +
+        `ופנו ישירות ליועצי הלימודים שלהם למידע ולייעוץ אישי עבורכם.`;
       return { context: '=== מידע על שבתון ===\n' + directLinkMsg, isInfo: true, courseCount: 0, urlToTitle: {} };
     }
 
