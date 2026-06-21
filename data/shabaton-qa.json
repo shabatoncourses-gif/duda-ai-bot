@@ -7,6 +7,21 @@
       "name": "כללי",
       "questions": [
         {
+          "id": "morim_maanakim",
+          "priority": true,
+          "question": "מענק יובל / מענק תמרוץ ותגמול / מענקי שעות",
+          "keywords": [
+            "מענק יובל",
+            "מענק תמרוץ",
+            "מענק תגמול",
+            "מענקי שעות",
+            "מענק שעות",
+            "תמרוץ ותגמול",
+            "מענק תמרוץ ותגמול"
+          ],
+          "answer": "📋 [מענקים למורים](https://www.morim.online/morim-maanakim)\n\n💬 [אפשר לשאול בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)"
+        },
+        {
           "id": "hoveret_shabaton",
           "priority": true,
           "question": "חוברת לימודים בשבתון",
