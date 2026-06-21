@@ -113,8 +113,8 @@ function getInstitutionsFromCategoryIndex(fieldName, regionSlug) {
   const encoded = encodeURIComponent(fieldName);
   const urls = regionSlug && regionSlug !== 'all'
     ? [
-        `https://www.shabaton.online/search-results-${regionSlug}/${fieldName}`,
-        `https://www.shabaton.online/search-results-${regionSlug}/${encoded}`,
+        `https://www.shabaton.online/results-${regionSlug}/${fieldName}`,
+        `https://www.shabaton.online/results-${regionSlug}/${encoded}`,
       ]
     : [
         `https://www.shabaton.online/results-all/${fieldName}`,
@@ -840,10 +840,15 @@ async function buildContext(message) {
       `**[${ki.title}](${ki.url})**\n${ki.description ? ki.description.substring(0, 200).trim() + '\n' : ''}[פנו למידע ולייעוץ אישי](${ki.url})`
     );
     const fieldSlug2 = getFieldSlug(message);
-    const catUrl2 = fieldSlug2 ? `https://www.shabaton.online/results-all/${fieldSlug2.slug}` : null;
+    const regionForKI = detectRegion(message);
+    const catUrl2 = fieldSlug2
+      ? (regionForKI
+          ? `https://www.shabaton.online/results-${regionForKI.slug}/${fieldSlug2.slug}`
+          : `https://www.shabaton.online/results-all/${fieldSlug2.slug}`)
+      : null;
     const catName2 = fieldSlug2 ? fieldSlug2.name : null;
-    console.log('KNOWN_ONLY path:', validKI.length, 'institutions → coursesForClaude');
-    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2 };
+    console.log('KNOWN_ONLY path:', validKI.length, 'institutions → coursesForClaude | region:', regionForKI ? regionForKI.slug : 'all');
+    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: regionForKI ? regionForKI.name : null };
     } // end else validKI
   }
 
@@ -1177,7 +1182,7 @@ async function buildContext(message) {
         ).join('\n\n');
         parts.push(`=== מוסדות בתחום ${fieldInfo.name} ===\n${instLines}`);
         const catUrlForField = regionSlugForCat
-          ? `https://www.shabaton.online/search-results-${regionSlugForCat}/${encodeURIComponent(fieldInfo.name)}`
+          ? `https://www.shabaton.online/results-${regionSlugForCat}/${encodeURIComponent(fieldInfo.name)}`
           : `https://www.shabaton.online/results-all/${encodeURIComponent(fieldInfo.name)}`;
         parts.push(`קישור לכל הקורסים בתחום זה: ${catUrlForField}`);
         console.log('CATEGORY INDEX FALLBACK:', fieldInfo.name, regionSlugForCat || 'all', '| institutions:', institutions.length);
@@ -1287,7 +1292,7 @@ async function buildContext(message) {
     }
   }
 
-  return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0, courseCount: courses.length, urlToTitle, coursesForClaude, categoryUrl: fieldInfo ? `https://www.shabaton.online/results-all/${fieldInfo.slug}` : null, fieldName: fieldInfo ? fieldInfo.name : null };
+  return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0, courseCount: courses.length, urlToTitle, coursesForClaude, categoryUrl: fieldInfo ? (region ? `https://www.shabaton.online/results-${region.slug}/${fieldInfo.slug}` : `https://www.shabaton.online/results-all/${fieldInfo.slug}`) : null, fieldName: fieldInfo ? fieldInfo.name : null, regionName: region ? region.name : null };
 }
 
 function chooseModel(q) {
@@ -1347,7 +1352,7 @@ export default async function handler(req, res) {
       return res.json({ reply: directInstReply });
     }
 
-    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName } = await buildContext(message);
+    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName } = await buildContext(message);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
 
@@ -1391,25 +1396,32 @@ export default async function handler(req, res) {
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
       const courseListText = shuffled.join('\n\n');
-      let intro = 'הנה קורסים רלוונטיים:';
-      try {
-        const introRes = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-          body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001', max_tokens: 60,
-            system: 'כתוב משפט פתיחה אחד קצר בעברית (עד 12 מילים). אל תזכיר שמות קורסים, מוסדות, קישורים או שעות.',
-            messages: [{ role: 'user', content: `שאלה: "${message}"` }]
-          })
-        });
-        if (introRes.ok) {
-          const d = await introRes.json();
-          const t = d.content?.[0]?.text?.trim();
-          if (t && t.length < 80) intro = t;
-        }
-      } catch(e) { /* use default intro */ }
+      let intro;
+      if (fieldName && regionName) {
+        intro = `פה תוכלו למצוא מידע על ${fieldName} באזור ${regionName} ובלמידה מרחוק, ולפנות ישירות למוסדות לשאלות ולייעוץ אישי:`;
+      } else if (fieldName) {
+        intro = `פה תוכלו למצוא מידע על ${fieldName}, ולפנות ישירות למוסדות לשאלות ולייעוץ אישי:`;
+      } else {
+        intro = 'פה תוכלו למצוא מידע ולפנות ישירות למוסדות לשאלות ולייעוץ אישי:';
+        try {
+          const introRes = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({
+              model: 'claude-haiku-4-5-20251001', max_tokens: 60,
+              system: 'כתוב משפט פתיחה אחד קצר בעברית (עד 12 מילים). אל תזכיר שמות קורסים, מוסדות, קישורים או שעות.',
+              messages: [{ role: 'user', content: `שאלה: "${message}"` }]
+            })
+          });
+          if (introRes.ok) {
+            const d = await introRes.json();
+            const t = d.content?.[0]?.text?.trim();
+            if (t && t.length < 80) intro = t;
+          }
+        } catch(e) { /* use default intro */ }
+      }
       const catLink = categoryUrl
-        ? `\n\n📚 [כל קורסי ${fieldName || 'התחום'}](${categoryUrl})`
+        ? `\n\n📚 [כל קורסי ${fieldName || 'התחום'}${regionName ? ' באזור ' + regionName : ''}](${categoryUrl})`
         : '';
       const reply = intro + '\n\n' + courseListText + catLink + FOOTER_DIRECT;
       console.log('COURSE LIST BYPASS | courses:', coursesForClaude.length, '| intro:', intro.substring(0, 40));
