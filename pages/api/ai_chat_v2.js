@@ -879,7 +879,16 @@ async function buildContext(message) {
         console.log('REGION-SPECIFIC HIT (preferred over knownOnly):', regionForKI.slug, '|', regionInst.length, 'institutions');
         return { context: '', isInfo: false, courseCount: kiForClaudeRegion.length, urlToTitle: {}, coursesForClaude: kiForClaudeRegion, categoryUrl: catUrlRegion, fieldName: fieldSlug2.name, regionName: regionForKI.name };
       }
-      console.log('Region-specific page truly empty (index + live) — falling back to national list, dropping region claim');
+      console.log('Region-specific page truly empty (index + live) — giving direct link instead of unfiltered national list');
+      // לא מצליחים לחלץ רשימה אוטומטית (דפי Wix דינמיים, רינדור JS) —
+      // אבל הסינון האזורי קיים ועובד באתר בפועל, אז מפנים ישירות לדף החי המדויק
+      // במקום להציג רשימה לאומית מבולבלת.
+      const liveLinkUrl = buildRegionCategoryUrl(regionForKI.slug, fieldSlug2.slug);
+      const directLinkMsg =
+        `לצפייה ברשימה המדויקת והמעודכנת של ${fieldSlug2.name} באזור ${regionForKI.name} (כולל אפשרויות בלמידה מרחוק):\n\n` +
+        `📍 [לחצו כאן לרשימה המסוננת באזור ${regionForKI.name}](${liveLinkUrl})\n\n` +
+        `הקישור מציג ישירות מהפורטל את כל המוסדות הרלוונטיים לאזורכם.`;
+      return { context: '=== מידע על שבתון ===\n' + directLinkMsg, isInfo: true, courseCount: 0, urlToTitle: {} };
     }
 
     // הגרלת סדר — מוסדות שונים בכל פנייה
