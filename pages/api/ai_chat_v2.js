@@ -109,12 +109,21 @@ function getFieldSlug(question) {
 
 // ── חיפוש מוסדות מדפי Results באינדקס ─────────────────────
 // פתרון ארכיטקטורי: כל תחום × אזור → דף results → מוסדות
+// ── בניית URL לקטגוריה/אזור — חסין לפורמטים לא אחידים ב-regions.json ──
+// חלק מה-slugs הם בארים (Zafon) וחלק כוללים את ה-prefix המלא (search-results-merkaz).
+// לכן בודקים אם ה-slug כבר מכיל "results-" ולא מוסיפים prefix נוסף.
+function buildRegionCategoryUrl(regionSlug, fieldPath) {
+  if (!regionSlug) return `https://www.shabaton.online/results-all/${fieldPath}`;
+  const pathSegment = /results-/i.test(regionSlug) ? regionSlug : `results-${regionSlug}`;
+  return `https://www.shabaton.online/${pathSegment}/${fieldPath}`;
+}
+
 function getInstitutionsFromCategoryIndex(fieldName, regionSlug) {
   const encoded = encodeURIComponent(fieldName);
   const urls = regionSlug && regionSlug !== 'all'
     ? [
-        `https://www.shabaton.online/results-${regionSlug}/${fieldName}`,
-        `https://www.shabaton.online/results-${regionSlug}/${encoded}`,
+        buildRegionCategoryUrl(regionSlug, fieldName),
+        buildRegionCategoryUrl(regionSlug, encoded),
       ]
     : [
         `https://www.shabaton.online/results-all/${fieldName}`,
@@ -829,6 +838,32 @@ async function buildContext(message) {
     });
     if (validKI.length === 0) { /* אין מוסדות תקניים — המשך לחיפוש */ }
     else {
+
+    const fieldSlug2 = getFieldSlug(message);
+    const regionForKI = detectRegion(message);
+
+    // אם יש אזור מזוהה — ננסה קודם את דף האזור האמיתי באינדקס (מסונן באמת לאזור)
+    // לפני שמשתמשים ברשימה הלאומית הסטטית, שאינה מסוננת לפי אזור.
+    if (regionForKI && fieldSlug2) {
+      const regionPageData = getInstitutionsFromCategoryIndex(fieldSlug2.name, regionForKI.slug);
+      if (regionPageData && regionPageData.text) {
+        const regionInst = parseInstitutionsFromCategoryText(regionPageData.text, fieldSlug2.name, 20);
+        if (regionInst.length > 0) {
+          for (let i = regionInst.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [regionInst[i], regionInst[j]] = [regionInst[j], regionInst[i]];
+          }
+          const kiForClaudeRegion = regionInst.map(ki =>
+            `**[${ki.title}](${ki.url})**\n[פנו למידע ולייעוץ אישי](${ki.url})`
+          );
+          const catUrlRegion = buildRegionCategoryUrl(regionForKI.slug, fieldSlug2.slug);
+          console.log('REGION-SPECIFIC INDEX HIT (preferred over knownOnly):', regionForKI.slug, '|', regionInst.length, 'institutions');
+          return { context: '', isInfo: false, courseCount: kiForClaudeRegion.length, urlToTitle: {}, coursesForClaude: kiForClaudeRegion, categoryUrl: catUrlRegion, fieldName: fieldSlug2.name, regionName: regionForKI.name };
+        }
+      }
+      console.log('Region-specific index empty — falling back to national list, dropping region claim');
+    }
+
     // הגרלת סדר — מוסדות שונים בכל פנייה
     const shuffledKI = [...validKI];
     for (let i = shuffledKI.length - 1; i > 0; i--) {
@@ -839,16 +874,11 @@ async function buildContext(message) {
     const kiForClaude = shuffledKI.map(ki =>
       `**[${ki.title}](${ki.url})**\n${ki.description ? ki.description.substring(0, 200).trim() + '\n' : ''}[פנו למידע ולייעוץ אישי](${ki.url})`
     );
-    const fieldSlug2 = getFieldSlug(message);
-    const regionForKI = detectRegion(message);
-    const catUrl2 = fieldSlug2
-      ? (regionForKI
-          ? `https://www.shabaton.online/results-${regionForKI.slug}/${fieldSlug2.slug}`
-          : `https://www.shabaton.online/results-all/${fieldSlug2.slug}`)
-      : null;
+    const catUrl2 = fieldSlug2 ? `https://www.shabaton.online/results-all/${fieldSlug2.slug}` : null;
     const catName2 = fieldSlug2 ? fieldSlug2.name : null;
-    console.log('KNOWN_ONLY path:', validKI.length, 'institutions → coursesForClaude | region:', regionForKI ? regionForKI.slug : 'all');
-    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: regionForKI ? regionForKI.name : null };
+    // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, גם אם זוהה אזור בשאלה
+    console.log('KNOWN_ONLY path (national list):', validKI.length, 'institutions → coursesForClaude');
+    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null };
     } // end else validKI
   }
 
@@ -1182,7 +1212,7 @@ async function buildContext(message) {
         ).join('\n\n');
         parts.push(`=== מוסדות בתחום ${fieldInfo.name} ===\n${instLines}`);
         const catUrlForField = regionSlugForCat
-          ? `https://www.shabaton.online/results-${regionSlugForCat}/${encodeURIComponent(fieldInfo.name)}`
+          ? buildRegionCategoryUrl(regionSlugForCat, encodeURIComponent(fieldInfo.name))
           : `https://www.shabaton.online/results-all/${encodeURIComponent(fieldInfo.name)}`;
         parts.push(`קישור לכל הקורסים בתחום זה: ${catUrlForField}`);
         console.log('CATEGORY INDEX FALLBACK:', fieldInfo.name, regionSlugForCat || 'all', '| institutions:', institutions.length);
@@ -1292,7 +1322,7 @@ async function buildContext(message) {
     }
   }
 
-  return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0, courseCount: courses.length, urlToTitle, coursesForClaude, categoryUrl: fieldInfo ? (region ? `https://www.shabaton.online/results-${region.slug}/${fieldInfo.slug}` : `https://www.shabaton.online/results-all/${fieldInfo.slug}`) : null, fieldName: fieldInfo ? fieldInfo.name : null, regionName: region ? region.name : null };
+  return { context: parts.join('\n\n'), isInfo: infoUrls.length > 0, courseCount: courses.length, urlToTitle, coursesForClaude, categoryUrl: fieldInfo ? (region ? buildRegionCategoryUrl(region.slug, fieldInfo.slug) : `https://www.shabaton.online/results-all/${fieldInfo.slug}`) : null, fieldName: fieldInfo ? fieldInfo.name : null, regionName: region ? region.name : null };
 }
 
 function chooseModel(q) {
