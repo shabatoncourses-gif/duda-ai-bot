@@ -91,6 +91,39 @@ function detectRegion(q) {
   return null;
 }
 
+// ── סינון מוסדות לפי מונח ספציפי מתוך השאלה ─────────────
+// כשתחום שלם (לדוגמה "תרפיה וטיפול") מתאים לשאלה ספציפית יותר (לדוגמה
+// "הידרותרפיה"), אין להציג את כל המוסדות בתחום — רק את אלו שבאמת
+// מזכירים את המונח הספציפי בתיאור שלהם.
+function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeywords) {
+  const msgL = message.toLowerCase();
+  const stopwords = new Set([
+    'קורס','קורסים','לימודי','לימוד','לימודים','בתחום','אזור','מה','יש','של',
+    'על','עם','גם','כל','אני','את','אתה','אילו','איזה','מוסדות','שמציעים',
+    'מציעים','להציג','רק','ללא','תלות','להלן','שלהלן','בפורטל','שבתון'
+  ]);
+  // מילים שהן חלק משם התחום/keywords שלו עצמו — לא נחשבות "מונח מייחד"
+  const fieldWordsL = new Set(
+    (fieldOwnKeywords || []).flatMap(k => (k || '').toLowerCase().match(/[\u05D0-\u05EA]{2,}/g) || [])
+  );
+  const words = msgL.match(/[\u05D0-\u05EA]{4,}/g) || [];
+  const significantWords = [...new Set(words)].filter(w => !stopwords.has(w) && !fieldWordsL.has(w));
+  if (significantWords.length === 0) return institutions;
+
+  for (const term of significantWords) {
+    const matched = institutions.filter(ki => {
+      const text = ((ki.title||'') + ' ' + (ki.description||'')).toLowerCase();
+      return text.includes(term);
+    });
+    // אם המונח מצוי בחלק מהמוסדות (לא כולם, לא אף אחד) — זה מונח מייחד, סנן אליו
+    if (matched.length > 0 && matched.length < institutions.length) {
+      console.log('SPECIFIC TERM FILTER:', term, '|', matched.length, '/', institutions.length, 'institutions');
+      return matched;
+    }
+  }
+  return institutions; // לא נמצא מונח ספציפי שמייחד תת-קבוצה — הצג את כל התחום
+}
+
 function getFieldSlug(question) {
   try {
     const data = loadJSON('study-fields.json');
@@ -807,6 +840,7 @@ async function buildContext(message) {
 
   const sfForKI = loadJSON('study-fields.json');
   let knownOnly = null;
+  let matchedFieldKeywords = [];
   if (sfForKI) {
     const msgLKI2 = message.toLowerCase();
     let bestLen = 0;
@@ -818,6 +852,7 @@ async function buildContext(message) {
         if (msgLKI2.includes(k.toLowerCase()) && k.length > bestLen) {
           bestLen = k.length;
           knownOnly = sfItem.known_institutions;
+          matchedFieldKeywords = [sfItem.name];
         }
       }
     }
@@ -835,10 +870,12 @@ async function buildContext(message) {
 
   if (knownOnly) {
     // סנן URLs שאינם של הפורטל (WhatsApp, Facebook וכד')
-    const validKI = knownOnly.filter(ki => {
+    let validKI = knownOnly.filter(ki => {
       const url = (ki.url || '').toLowerCase();
       return url.includes('shabaton.online') || url.includes('morim.boutique');
     });
+    // סנן לפי מונח ספציפי מהשאלה — לא להציג את כל התחום אם נשאלים על נושא-משנה
+    validKI = filterInstitutionsBySpecificTerm(validKI, message, matchedFieldKeywords);
     if (validKI.length === 0) { /* אין מוסדות תקניים — המשך לחיפוש */ }
     else {
 
