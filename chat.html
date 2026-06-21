@@ -101,10 +101,8 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
       <p><strong>שלום! אני שַׁבָּתוֹן-בּוֹט</strong> 🤖<br>
       העוזר הוירטואלי שלכם לשנת השבתון.<br>
       אעזור לכם למצוא קורסים ומידע חשוב על שנת השבתון.</p>
-      <div style="margin-top:10px;padding:10px 14px;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;direction:rtl">
-        <p style="font-size:13px;font-weight:700;color:#856404;margin:0 0 4px">⚠️ הבוט בהרצה — יש לבדוק את תשובותיו</p>
-        <p style="font-size:12px;color:#856404;margin:0">לשאלות ובירורים: <a href="https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME" target="_blank" style="color:#0982bc;font-weight:600">קבוצת הוואטסאפ שלנו</a></p>
-      </div>
+      <p class="example" style="border-top:1px solid #eee;padding-top:10px;margin-top:8px;font-size:13px;color:#999;line-height:1.7">
+      שימו לב, רק רציתי לעדכן שאני בוט בהרצה. 🤖 אני עדיין מתאמן על התשובות שלי, אז אם משהו לא עובד חלק – אני כבר עובד על זה. אשמח לעזור!</p>
     </div>
   </div>
   <div class="disclaimer">הצ'אט מבוסס AI ומספק מידע כללי בלבד. אין לראות בתשובות תחליף לייעוץ מקצועי.</div>
@@ -172,6 +170,9 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
         try { url = new URL(url).href; } catch(e2) {}
         if (link.isRaw) return '<a href="'+url+'" target="_blank" style="color:#0982bc">'+url+'</a>';
         var ll = link.label.toLowerCase();
+        var ctaLabels = ['לחצו כאן', 'לחץ כאן', 'לחצי כאן', 'לרשימה המסוננת', 'לרשימת המוסדות'];
+        if (ctaLabels.some(function(w){ return ll.indexOf(w)!==-1; }))
+          return '<a href="'+url+'" target="_blank" style="display:inline-block;background:#e8630a;color:#fff;padding:7px 18px;border-radius:24px;font-weight:700;text-decoration:none;margin:6px 0">'+link.label+'</a>';
         if (footerKw.some(function(w){ return ll.indexOf(w.toLowerCase())!==-1; }))
           return '<span style="display:inline-flex;align-items:center;gap:3px;margin:2px 4px"><a href="'+url+'" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline">'+link.label+'</a></span>';
         if (ll.indexOf('פייסבוק')!==-1 || ll.indexOf('הצטרפ')!==-1)
