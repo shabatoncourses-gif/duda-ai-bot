@@ -846,26 +846,40 @@ async function buildContext(message) {
     const regionForKI = detectRegion(message);
 
     // אם יש אזור מזוהה (ולא "למידה מרחוק" — אין לו דף results נפרד) —
-    // ננסה קודם את דף האזור האמיתי באינדקס (מסונן באמת לאזור)
-    // לפני שמשתמשים ברשימה הלאומית הסטטית, שאינה מסוננת לפי אזור.
+    // ננסה קודם את דף האזור האמיתי באינדקס (מסונן באמת לאזור, כולל למידה מרחוק
+    // שמוצגת תמיד גם היא בדפי ה-results-X של הפורטל).
     if (regionForKI && regionForKI.slug !== 'online' && fieldSlug2) {
       const regionPageData = getInstitutionsFromCategoryIndex(fieldSlug2.name, regionForKI.slug);
-      if (regionPageData && regionPageData.text) {
-        const regionInst = parseInstitutionsFromCategoryText(regionPageData.text, fieldSlug2.name, 20);
-        if (regionInst.length > 0) {
-          for (let i = regionInst.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [regionInst[i], regionInst[j]] = [regionInst[j], regionInst[i]];
+      let regionInst = (regionPageData && regionPageData.text)
+        ? parseInstitutionsFromCategoryText(regionPageData.text, fieldSlug2.name, 20)
+        : [];
+
+      // האינדקס הסטטי לא תמיד מכיל את הדף — הסינון האזורי קיים בפועל באתר,
+      // אז ננסה לסרוק את הדף החי לפני שמרימים ידיים.
+      if (regionInst.length === 0) {
+        try {
+          const liveUrl = buildRegionCategoryUrl(regionForKI.slug, encodeURIComponent(fieldSlug2.name));
+          console.log('Region index empty — trying live fetch:', liveUrl);
+          const liveContent = await fetchPageContent(liveUrl);
+          if (liveContent && liveContent.length > 100) {
+            regionInst = parseInstitutionsFromCategoryText(liveContent, fieldSlug2.name, 20);
           }
-          const kiForClaudeRegion = regionInst.map(ki =>
-            `**[${ki.title}](${ki.url})**\n[פנו למידע ולייעוץ אישי](${ki.url})`
-          );
-          const catUrlRegion = buildRegionCategoryUrl(regionForKI.slug, fieldSlug2.slug);
-          console.log('REGION-SPECIFIC INDEX HIT (preferred over knownOnly):', regionForKI.slug, '|', regionInst.length, 'institutions');
-          return { context: '', isInfo: false, courseCount: kiForClaudeRegion.length, urlToTitle: {}, coursesForClaude: kiForClaudeRegion, categoryUrl: catUrlRegion, fieldName: fieldSlug2.name, regionName: regionForKI.name };
-        }
+        } catch(e) { /* live fetch failed — continue to fallback below */ }
       }
-      console.log('Region-specific index empty — falling back to national list, dropping region claim');
+
+      if (regionInst.length > 0) {
+        for (let i = regionInst.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [regionInst[i], regionInst[j]] = [regionInst[j], regionInst[i]];
+        }
+        const kiForClaudeRegion = regionInst.map(ki =>
+          `**[${ki.title}](${ki.url})**\n[פנו למידע ולייעוץ אישי](${ki.url})`
+        );
+        const catUrlRegion = buildRegionCategoryUrl(regionForKI.slug, fieldSlug2.slug);
+        console.log('REGION-SPECIFIC HIT (preferred over knownOnly):', regionForKI.slug, '|', regionInst.length, 'institutions');
+        return { context: '', isInfo: false, courseCount: kiForClaudeRegion.length, urlToTitle: {}, coursesForClaude: kiForClaudeRegion, categoryUrl: catUrlRegion, fieldName: fieldSlug2.name, regionName: regionForKI.name };
+      }
+      console.log('Region-specific page truly empty (index + live) — falling back to national list, dropping region claim');
     }
 
     // הגרלת סדר — מוסדות שונים בכל פנייה
@@ -1435,10 +1449,10 @@ export default async function handler(req, res) {
         // אזור מאומת — דף האזור האמיתי נמצא והרשימה באמת מסוננת אליו
         intro = `פה תוכלו למצוא מידע על ${fieldName} באזור ${regionName} ובלמידה מרחוק, ולפנות ישירות למוסדות לשאלות ולייעוץ אישי:`;
       } else if (fieldName && requestedRegionName) {
-        // ביקשת אזור ספציפי, אך לא נמצא דף אזורי מסונן — מציגים רשימה ארצית בכנות
-        intro = `ביקשת מידע על ${fieldName} באזור ${requestedRegionName}. לא נמצא מידע מסונן לאזור זה בלבד, כך שלהלן רשימה ארצית של מוסדות (חלקם מציעים גם למידה מרחוק) — מומלץ לבדוק זמינות באזור ${requestedRegionName} ישירות מול כל מוסד:`;
+        // ביקשת אזור ספציפי; ננסה גם דף אינדקס וגם סריקה חיה, ובכל זאת לא נמצא מידע מסונן — מציגים רשימה ארצית בכנות
+        intro = `ביקשת מידע על ${fieldName} באזור ${requestedRegionName}. כרגע לא הצלחנו לאתר מידע מסונן ספציפית לאזור זה, כך שלהלן רשימה ארצית של מוסדות (חלקם מציעים גם למידה מרחוק) — מומלץ לבדוק זמינות באזור ${requestedRegionName} ישירות מול כל מוסד:`;
       } else if (fieldName) {
-        intro = `פה תוכלו למצוא מידע על ${fieldName}, ולפנות ישירות למוסדות לשאלות ולייעוץ אישי:`;
+        intro = `פה תוכלו למצוא מידע על ${fieldName} מכל הארץ, כולל אפשרויות בלמידה מרחוק. באיזה אזור הייתם מעדיפים ללמוד? (מרכז / צפון / שרון / ירושלים / דרום) — כתבו לי והבא לכם רשימה מסוננת לאזורכם. בינתיים, ניתן לפנות ישירות למוסדות שלהלן לשאלות ולייעוץ אישי:`;
       } else {
         intro = 'פה תוכלו למצוא מידע ולפנות ישירות למוסדות לשאלות ולייעוץ אישי:';
         try {
