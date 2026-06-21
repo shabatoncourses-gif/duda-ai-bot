@@ -110,10 +110,13 @@ function getFieldSlug(question) {
 // ── חיפוש מוסדות מדפי Results באינדקס ─────────────────────
 // פתרון ארכיטקטורי: כל תחום × אזור → דף results → מוסדות
 // ── בניית URL לקטגוריה/אזור — חסין לפורמטים לא אחידים ב-regions.json ──
-// חלק מה-slugs הם בארים (Zafon) וחלק כוללים את ה-prefix המלא (search-results-merkaz).
-// לכן בודקים אם ה-slug כבר מכיל "results-" ולא מוסיפים prefix נוסף.
+// 5 מתוך 6 האזורים ב-regions.json מכילים "results-" ב-slug (Zafon, Sharon,
+// jerusalem, shfea-darom, search-results-merkaz). היחיד שלא: "למידה מרחוק"
+// עם slug="online" — אין לו דף results-online; חוזרים ל-results-all במקרה זה.
 function buildRegionCategoryUrl(regionSlug, fieldPath) {
-  if (!regionSlug) return `https://www.shabaton.online/results-all/${fieldPath}`;
+  if (!regionSlug || regionSlug === 'online') {
+    return `https://www.shabaton.online/results-all/${fieldPath}`;
+  }
   const pathSegment = /results-/i.test(regionSlug) ? regionSlug : `results-${regionSlug}`;
   return `https://www.shabaton.online/${pathSegment}/${fieldPath}`;
 }
@@ -842,9 +845,10 @@ async function buildContext(message) {
     const fieldSlug2 = getFieldSlug(message);
     const regionForKI = detectRegion(message);
 
-    // אם יש אזור מזוהה — ננסה קודם את דף האזור האמיתי באינדקס (מסונן באמת לאזור)
+    // אם יש אזור מזוהה (ולא "למידה מרחוק" — אין לו דף results נפרד) —
+    // ננסה קודם את דף האזור האמיתי באינדקס (מסונן באמת לאזור)
     // לפני שמשתמשים ברשימה הלאומית הסטטית, שאינה מסוננת לפי אזור.
-    if (regionForKI && fieldSlug2) {
+    if (regionForKI && regionForKI.slug !== 'online' && fieldSlug2) {
       const regionPageData = getInstitutionsFromCategoryIndex(fieldSlug2.name, regionForKI.slug);
       if (regionPageData && regionPageData.text) {
         const regionInst = parseInstitutionsFromCategoryText(regionPageData.text, fieldSlug2.name, 20);
@@ -876,9 +880,9 @@ async function buildContext(message) {
     );
     const catUrl2 = fieldSlug2 ? `https://www.shabaton.online/results-all/${fieldSlug2.slug}` : null;
     const catName2 = fieldSlug2 ? fieldSlug2.name : null;
-    // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, גם אם זוהה אזור בשאלה
+    // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, אבל נזכיר שביקשת אזור זה
     console.log('KNOWN_ONLY path (national list):', validKI.length, 'institutions → coursesForClaude');
-    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null };
+    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null, requestedRegionName: regionForKI ? regionForKI.name : null };
     } // end else validKI
   }
 
@@ -1382,7 +1386,7 @@ export default async function handler(req, res) {
       return res.json({ reply: directInstReply });
     }
 
-    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName } = await buildContext(message);
+    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName } = await buildContext(message);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
 
@@ -1428,7 +1432,11 @@ export default async function handler(req, res) {
       const courseListText = shuffled.join('\n\n');
       let intro;
       if (fieldName && regionName) {
+        // אזור מאומת — דף האזור האמיתי נמצא והרשימה באמת מסוננת אליו
         intro = `פה תוכלו למצוא מידע על ${fieldName} באזור ${regionName} ובלמידה מרחוק, ולפנות ישירות למוסדות לשאלות ולייעוץ אישי:`;
+      } else if (fieldName && requestedRegionName) {
+        // ביקשת אזור ספציפי, אך לא נמצא דף אזורי מסונן — מציגים רשימה ארצית בכנות
+        intro = `ביקשת מידע על ${fieldName} באזור ${requestedRegionName}. לא נמצא מידע מסונן לאזור זה בלבד, כך שלהלן רשימה ארצית של מוסדות (חלקם מציעים גם למידה מרחוק) — מומלץ לבדוק זמינות באזור ${requestedRegionName} ישירות מול כל מוסד:`;
       } else if (fieldName) {
         intro = `פה תוכלו למצוא מידע על ${fieldName}, ולפנות ישירות למוסדות לשאלות ולייעוץ אישי:`;
       } else {
