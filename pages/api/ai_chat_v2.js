@@ -181,11 +181,21 @@ function getFieldSlug(question) {
     if (!data) return null;
     const items = data.studyFields || (Array.isArray(data) ? data : []);
     const qL = question.toLowerCase();
+    // בוחר את ה-keyword הארוך ביותר שמתאים — לא את ההתאמה הראשונה לפי סדר הקובץ
+    // (עקבי עם הלוגיקה ב-knownOnly/searchQA/lookupInstitution)
+    let best = null;
+    let bestLen = 0;
     for (const f of items) {
       const kws = f.keywords || [];
-      if (kws.some(k => qL.includes(k.toLowerCase()))) {
-        return { name: f.name, slug: encodeURIComponent(f.slug), fetchFromUrl: f.fetchFromUrl || false, categoryUrl: f.categoryUrl || null, known_institutions: f.known_institutions || [] };
+      for (const k of kws) {
+        if (qL.includes(k.toLowerCase()) && k.length > bestLen) {
+          bestLen = k.length;
+          best = f;
+        }
       }
+    }
+    if (best) {
+      return { name: best.name, slug: encodeURIComponent(best.slug), fetchFromUrl: best.fetchFromUrl || false, categoryUrl: best.categoryUrl || null, known_institutions: best.known_institutions || [] };
     }
   } catch(e) {}
   return null;
