@@ -133,28 +133,44 @@ function detectRegion(q) {
 function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeywords) {
   const msgL = message.toLowerCase();
   const stopwords = new Set([
-    'קורס','קורסים','לימודי','לימוד','לימודים','בתחום','אזור','מה','יש','של',
+    'קורס','קורסי','קורסים','לימודי','לימוד','לימודים','בתחום','אזור','מה','יש','של',
     'על','עם','גם','כל','אני','את','אתה','אילו','איזה','מוסדות','שמציעים',
-    'מציעים','להציג','רק','ללא','תלות','להלן','שלהלן','בפורטל','שבתון'
+    'מציעים','להציג','רק','ללא','תלות','להלן','שלהלן','בפורטל','שבתון','באמצעות'
   ]);
-  // מילים שהן חלק משם התחום/keywords שלו עצמו — לא נחשבות "מונח מייחד"
+  // מילים שהן חלק משם התחום עצמו — לא נחשבות "מונח מייחד"
   const fieldWordsL = new Set(
     (fieldOwnKeywords || []).flatMap(k => (k || '').toLowerCase().match(/[\u05D0-\u05EA]{2,}/g) || [])
   );
-  const words = msgL.match(/[\u05D0-\u05EA]{4,}/g) || [];
-  const significantWords = [...new Set(words)].filter(w => !stopwords.has(w) && !fieldWordsL.has(w));
-  if (significantWords.length === 0) return institutions;
+  // מילים גולמיות לפי סדר הופעה — לבניית צירופי 2 מילים (כמו "בעלי חיים")
+  const rawWords = msgL.match(/[\u05D0-\u05EA]{2,}/g) || [];
+  const isStop = (w) => stopwords.has(w) || fieldWordsL.has(w);
 
-  for (const term of significantWords) {
+  const candidates = [];
+  for (let i = 0; i < rawWords.length - 1; i++) {
+    const w1 = rawWords[i], w2 = rawWords[i+1];
+    if (isStop(w1) || isStop(w2)) continue;
+    candidates.push(w1 + ' ' + w2); // צירוף דו-מילתי קודם — סביר שיהיה ספציפי יותר
+  }
+  const singleWords = [...new Set(rawWords.filter(w => w.length >= 4 && !isStop(w)))];
+  candidates.push(...singleWords);
+  if (candidates.length === 0) return institutions;
+
+  // בודקים את כל המועמדים, ובוחרים את ההתאמה הצרה ביותר (לא הראשונה שנמצאה)
+  let best = null;
+  for (const term of candidates) {
     const matched = institutions.filter(ki => {
       const text = ((ki.title||'') + ' ' + (ki.description||'')).toLowerCase();
       return text.includes(term);
     });
-    // אם המונח מצוי בחלק מהמוסדות (לא כולם, לא אף אחד) — זה מונח מייחד, סנן אליו
     if (matched.length > 0 && matched.length < institutions.length) {
-      console.log('SPECIFIC TERM FILTER:', term, '|', matched.length, '/', institutions.length, 'institutions');
-      return matched;
+      if (!best || matched.length < best.matched.length) {
+        best = { matched, term };
+      }
     }
+  }
+  if (best) {
+    console.log('SPECIFIC TERM FILTER:', best.term, '|', best.matched.length, '/', institutions.length, 'institutions');
+    return best.matched;
   }
   return institutions; // לא נמצא מונח ספציפי שמייחד תת-קבוצה — הצג את כל התחום
 }
