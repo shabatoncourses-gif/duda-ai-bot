@@ -67,21 +67,22 @@ function loadJSON(filename) {
   return _cache[filename];
 }
 
+// דורש שה-term יופיע כמילה שלמה — אבל מתיר עד 2 אותיות-יחס עבריות
+// נפוצות לפני המילה (ב/ל/מ/כ/ה/ו/ש - כמו "בחיפה", "ולחיפה"), כי בעברית
+// מילות יחס מתחברות ישירות בלי רווח. בסוף המילה נדרש גבול אמיתי —
+// כך מילים קצרות (כמו "קוד", "אי") לא יתאימו כ-substring בתוך מילה לא
+// קשורה (לדוגמה "קוד" בתוך "הנקודות", או "אי" בתוך "באיזור").
+function wordBoundaryIncludes(text, term) {
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('(^|[^\\u05D0-\\u05EA])[בלמכהוש]{0,2}' + escaped + '($|[^\\u05D0-\\u05EA])');
+  return re.test(text);
+}
+
 function detectRegion(q) {
   try {
     const data = loadJSON('regions.json');
     if (!data || !data.regions) return null;
     const qL = q.toLowerCase();
-
-    // דורש שה-term יופיע כמילה שלמה — אבל מתיר עד 2 אותיות-יחס עבריות
-    // נפוצות לפני המילה (ב/ל/מ/כ/ה/ו/ש - כמו "בחיפה", "ולחיפה"), כי בעברית
-    // מילות יחס מתחברות ישירות בלי רווח. בסוף המילה נדרש גבול אמיתי —
-    // כך "אי" לא יתאים בתוך "באיזור" (כי אחרי "אי" יש "ז", לא גבול).
-    function wordBoundaryIncludes(text, term) {
-      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp('(^|[^\\u05D0-\\u05EA])[בלמכהוש]{0,2}' + escaped + '($|[^\\u05D0-\\u05EA])');
-      return re.test(text);
-    }
 
     const toRegionObj = (region) => ({ name: region.name, slug: region.slug, cities: region.cities || [], keywords: region.keywords });
 
@@ -182,13 +183,17 @@ function getFieldSlug(question) {
     const items = data.studyFields || (Array.isArray(data) ? data : []);
     const qL = question.toLowerCase();
     // בוחר את ה-keyword הארוך ביותר שמתאים — לא את ההתאמה הראשונה לפי סדר הקובץ
-    // (עקבי עם הלוגיקה ב-knownOnly/searchQA/lookupInstitution)
+    // (עקבי עם הלוגיקה ב-knownOnly/searchQA/lookupInstitution).
+    // עבור keywords קצרים (4 תווים ומטה) — דורש גבול מילה, כי הם עלולים
+    // להתאים בטעות כ-substring בתוך מילה לא קשורה (כמו "קוד" בתוך "הנקודות").
     let best = null;
     let bestLen = 0;
     for (const f of items) {
       const kws = f.keywords || [];
       for (const k of kws) {
-        if (qL.includes(k.toLowerCase()) && k.length > bestLen) {
+        const kL = k.toLowerCase();
+        const isMatch = k.length <= 4 ? wordBoundaryIncludes(qL, kL) : qL.includes(kL);
+        if (isMatch && k.length > bestLen) {
           bestLen = k.length;
           best = f;
         }
@@ -451,11 +456,15 @@ function searchQA(question) {
     return [...nested, ...direct];
   });
   // מחזיר את ה-match הכי ספציפי (keyword ארוך ביותר) ולא הראשון
+  // עבור keywords קצרים (4 תווים ומטה) — דורש גבול מילה, כדי למנוע
+  // התאמות שגויות כמו "קוד" בתוך "הנקודות".
   let bestMatch = null;
   let bestKeywordLength = 0;
   for (const q of allQ) {
     for (const k of (q.keywords || [])) {
-      if (qL.includes(k.toLowerCase()) && k.length > bestKeywordLength) {
+      const kL = k.toLowerCase();
+      const isMatch = k.length <= 4 ? wordBoundaryIncludes(qL, kL) : qL.includes(kL);
+      if (isMatch && k.length > bestKeywordLength) {
         bestKeywordLength = k.length;
         bestMatch = q;
       }
@@ -906,11 +915,14 @@ async function buildContext(message) {
     const msgLKI2 = message.toLowerCase();
     let bestLen = 0;
     // מחפש keyword הכי ארוך — לא הראשון (כמו searchQA)
+    // עבור keywords קצרים (4 תווים ומטה) — דורש גבול מילה, כמו ב-getFieldSlug
     for (const sfItem of (sfForKI.studyFields || [])) {
       const kws = sfItem.keywords || [];
       if (!sfItem.known_institutions || sfItem.known_institutions.length === 0) continue;
       for (const k of kws) {
-        if (msgLKI2.includes(k.toLowerCase()) && k.length > bestLen) {
+        const kL = k.toLowerCase();
+        const isMatch = k.length <= 4 ? wordBoundaryIncludes(msgLKI2, kL) : msgLKI2.includes(kL);
+        if (isMatch && k.length > bestLen) {
           bestLen = k.length;
           knownOnly = sfItem.known_institutions;
           matchedFieldKeywords = [sfItem.name];
