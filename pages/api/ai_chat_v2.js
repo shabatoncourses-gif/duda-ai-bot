@@ -72,21 +72,56 @@ function detectRegion(q) {
     const data = loadJSON('regions.json');
     if (!data || !data.regions) return null;
     const qL = q.toLowerCase();
+
+    // דורש שה-term יופיע כמילה שלמה — אבל מתיר עד 2 אותיות-יחס עבריות
+    // נפוצות לפני המילה (ב/ל/מ/כ/ה/ו/ש - כמו "בחיפה", "ולחיפה"), כי בעברית
+    // מילות יחס מתחברות ישירות בלי רווח. בסוף המילה נדרש גבול אמיתי —
+    // כך "אי" לא יתאים בתוך "באיזור" (כי אחרי "אי" יש "ז", לא גבול).
+    function wordBoundaryIncludes(text, term) {
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp('(^|[^\\u05D0-\\u05EA])[בלמכהוש]{0,2}' + escaped + '($|[^\\u05D0-\\u05EA])');
+      return re.test(text);
+    }
+
+    const toRegionObj = (region) => ({ name: region.name, slug: region.slug, cities: region.cities || [], keywords: region.keywords });
+
+    // שלב 1: keywords מפורשים — הביטויים שנכתבו בכוונה לזהות אזור (substring סביר, הם ייחודיים מספיק)
+    // בודקים את כל האזורים ובוחרים את ההתאמה הארוכה ביותר — לא את הראשונה לפי סדר הקובץ
+    let best = null;
     for (const region of data.regions) {
-      if (region.keywords && region.keywords.some(k => qL.includes(k.toLowerCase()))) {
-        return { name: region.name, slug: region.slug, cities: region.cities || [], keywords: region.keywords };
+      for (const k of (region.keywords || [])) {
+        if (qL.includes(k.toLowerCase()) && (!best || k.length > best.len)) {
+          best = { region, len: k.length };
+        }
       }
-      if (region.cities && region.cities.some(c => qL.includes(c.toLowerCase()))) {
-        return { name: region.name, slug: region.slug, cities: region.cities, keywords: region.keywords };
+    }
+    if (best) return toRegionObj(best.region);
+
+    // שלב 2: שמות ערים — דורש גבול מילה (שמות ערים יכולים להיות קצרים יחסית)
+    best = null;
+    for (const region of data.regions) {
+      for (const c of (region.cities || [])) {
+        if (wordBoundaryIncludes(qL, c.toLowerCase()) && (!best || c.length > best.len)) {
+          best = { region, len: c.length };
+        }
       }
-      if (region.abbreviations) {
-        for (const [city, abbrs] of Object.entries(region.abbreviations)) {
-          if (abbrs.some(a => qL.includes(a.toLowerCase()))) {
-            return { name: region.name, slug: region.slug, cities: region.cities, keywords: region.keywords };
+    }
+    if (best) return toRegionObj(best.region);
+
+    // שלב 3: קיצורים — דורש גבול מילה בהחלט (קצרים מאוד, מסוכנים מאוד ל-false positives)
+    best = null;
+    for (const region of data.regions) {
+      if (!region.abbreviations) continue;
+      for (const abbrs of Object.values(region.abbreviations)) {
+        for (const a of abbrs) {
+          if (wordBoundaryIncludes(qL, a.toLowerCase()) && (!best || a.length > best.len)) {
+            best = { region, len: a.length };
           }
         }
       }
     }
+    if (best) return toRegionObj(best.region);
+
   } catch(e) {}
   return null;
 }
