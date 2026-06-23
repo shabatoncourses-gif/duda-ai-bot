@@ -85,6 +85,17 @@ function cleanDescription(desc) {
     .trim();
 }
 
+// חיתוך טקסט ארוך, אבל בגבול שורה (\n) כשאפשר — לא באמצע מילה/קורס.
+// בלי זה, קורסים שמופיעים בסוף רשימה ארוכה (לדוגמה "טבע ובריאות ביערות הכרמל"
+// של עתיד ירוק) נחתכים שיטתית ולעולם לא נראים למשתמש.
+function smartTruncate(text, limit) {
+  if (!text || text.length <= limit) return text || '';
+  const cut = text.substring(0, limit);
+  const lastNl = cut.lastIndexOf('\n');
+  if (lastNl > limit * 0.5) return cut.substring(0, lastNl).trim();
+  return cut.trim();
+}
+
 // דורש שה-term יופיע כמילה שלמה — אבל מתיר עד 2 אותיות-יחס עבריות
 // נפוצות לפני המילה (ב/ל/מ/כ/ה/ו/ש - כמו "בחיפה", "ולחיפה"), כי בעברית
 // מילות יחס מתחברות ישירות בלי רווח. בסוף המילה נדרש גבול אמיתי —
@@ -1043,7 +1054,7 @@ async function buildContext(message) {
     }
     // פורמט coursesForClaude — מפעיל את COURSE LIST BYPASS
     const kiForClaude = shuffledKI.map(ki => {
-      const cleanDesc = cleanDescription(ki.description).substring(0, 200).trim();
+      const cleanDesc = smartTruncate(cleanDescription(ki.description), 800).trim();
       return `**[${ki.title}](${ki.url})**\n${cleanDesc ? cleanDesc + '\n' : ''}[פנו למידע ולייעוץ אישי](${ki.url})`;
     });
     const catUrl2 = fieldSlug2 ? `https://www.shabaton.online/results-all/${fieldSlug2.slug}` : null;
