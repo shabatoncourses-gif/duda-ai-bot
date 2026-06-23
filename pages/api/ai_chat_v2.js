@@ -67,6 +67,24 @@ function loadJSON(filename) {
   return _cache[filename];
 }
 
+// ── ניקוי HTML גולמי מתיאורי מוסדות (מקור: עמודת התיאור באקסל) ──
+// <strong>/<b> הופכים ל-markdown bold, <br>/<li> להפרדת שורות, ושאר
+// תגים מוסרים. כך הגולש לא רואה "<strong>" כטקסט גולמי בתשובת הבוט.
+function cleanDescription(desc) {
+  if (!desc) return '';
+  return desc
+    .replace(/<strong>/gi, '**').replace(/<\/strong>/gi, '**')
+    .replace(/<b>/gi, '**').replace(/<\/b>/gi, '**')
+    .replace(/<em>/gi, '_').replace(/<\/em>/gi, '_')
+    .replace(/<i>/gi, '_').replace(/<\/i>/gi, '_')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<li>/gi, '• ').replace(/<\/li>/gi, '\n')
+    .replace(/<ul>/gi, '').replace(/<\/ul>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // דורש שה-term יופיע כמילה שלמה — אבל מתיר עד 2 אותיות-יחס עבריות
 // נפוצות לפני המילה (ב/ל/מ/כ/ה/ו/ש - כמו "בחיפה", "ולחיפה"), כי בעברית
 // מילות יחס מתחברות ישירות בלי רווח. בסוף המילה נדרש גבול אמיתי —
@@ -1015,9 +1033,10 @@ async function buildContext(message) {
       [shuffledKI[i], shuffledKI[j]] = [shuffledKI[j], shuffledKI[i]];
     }
     // פורמט coursesForClaude — מפעיל את COURSE LIST BYPASS
-    const kiForClaude = shuffledKI.map(ki =>
-      `**[${ki.title}](${ki.url})**\n${ki.description ? ki.description.substring(0, 200).trim() + '\n' : ''}[פנו למידע ולייעוץ אישי](${ki.url})`
-    );
+    const kiForClaude = shuffledKI.map(ki => {
+      const cleanDesc = cleanDescription(ki.description).substring(0, 200).trim();
+      return `**[${ki.title}](${ki.url})**\n${cleanDesc ? cleanDesc + '\n' : ''}[פנו למידע ולייעוץ אישי](${ki.url})`;
+    });
     const catUrl2 = fieldSlug2 ? `https://www.shabaton.online/results-all/${fieldSlug2.slug}` : null;
     const catName2 = fieldSlug2 ? fieldSlug2.name : null;
     // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, אבל נזכיר שביקשת אזור זה
@@ -1292,7 +1311,7 @@ async function buildContext(message) {
       const finalHasQ = !filterTraining && !isGenericPage && !isMaDegree && (c._liveRelevant || hasQword || textHasQ || hasScore);
       if (finalHasQ) console.log('PASS TO CLAUDE:', (c.title||'').substring(0,30), '| url:', (c.url||'').split('/').pop());
       if (finalHasQ) {
-        let descFull = (desc || '').trim();
+        let descFull = cleanDescription(desc || '').trim();
         const searchTerms = requiredPhrase ? [requiredPhrase, ...qLower2] : qLower2;
         const sourceText = c._liveContent || c._text || '';
         if (sourceText) {
@@ -1316,7 +1335,7 @@ async function buildContext(message) {
     if (knownOnly && knownOnly.length > 0 && coursesForClaude.length === 0) {
       const kiScanned = await Promise.all(knownOnly.map(async ki => {
         const content = await fetchPageContent(ki.url);
-        if (!content) return `**[${ki.title}](${ki.url})**\n${ki.description || ''}`;
+        if (!content) return `**[${ki.title}](${ki.url})**\n${cleanDescription(ki.description)}`;
         return `**[${ki.title}](${ki.url})**\n${content.substring(0, 400).trim()}\n[פנו למידע ולייעוץ אישי](${ki.url})`;
       }));
       parts.push(kiScanned.join('\n'));
