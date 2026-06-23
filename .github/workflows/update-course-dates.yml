@@ -1,0 +1,62 @@
+name: עדכון מועדי קורסים מ-Excel
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_message:
+        description: 'הודעת commit (אופציונלי)'
+        required: false
+        default: '🔄 עדכון course-dates מ-Excel'
+  push:
+    paths:
+      - 'data/Dates.xlsx'
+      - 'data/dates.xlsx'
+
+jobs:
+  update-course-dates:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 📥 Checkout
+      uses: actions/checkout@v4
+
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: 📦 Install dependencies
+      run: pip install pandas openpyxl
+
+    - name: 🔄 הרצת update_course_dates.py
+      run: |
+        # חיפוש לא-רגיש לאותיות גדולות/קטנות — מונע באג של "קובץ לא נמצא"
+        # עקב חוסר התאמה בין שם הקובץ בריפו לשם שצפינו לו (כמו שקרה עם מסד_דודא.xlsx).
+        EXCEL_FILE=$(find data -maxdepth 1 -iname "dates.xlsx" | head -n 1)
+        if [ -n "$EXCEL_FILE" ]; then
+          echo "📊 נמצא קובץ: $EXCEL_FILE"
+          echo "📊 מריץ update_course_dates.py..."
+          python scripts/update_course_dates.py \
+            "$EXCEL_FILE" \
+            "data/course-dates.json"
+        else
+          echo "❌ קובץ Excel לא נמצא בתיקיית data/ (חיפשתי dates.xlsx, לא תלוי רישיות)"
+          echo "📂 תוכן תיקיית data/:"
+          ls -la data/ | grep -i xlsx || echo "  (לא נמצאו קבצי xlsx)"
+          exit 1
+        fi
+
+    - name: 💾 שמירה ל-GitHub
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add data/course-dates.json
+        if git diff --cached --quiet; then
+          echo "⏭️ אין שינויים ב-course-dates.json"
+        else
+          MSG="${{ github.event.inputs.commit_message }}"
+          [ -z "$MSG" ] && MSG="🔄 עדכון course-dates מ-Excel"
+          git commit -m "$MSG"
+          git push
+          echo "✅ course-dates.json עודכן ונשמר"
+        fi
