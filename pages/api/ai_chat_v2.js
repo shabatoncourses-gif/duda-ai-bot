@@ -717,9 +717,17 @@ function lookupInstitution(message) {
   // ממיין לפי אורך מפתח (מהארוך לקצר) כדי למצוא את ההתאמה הספציפית ביותר
   const keys = Object.keys(data.institutions).sort((a, b) => b.length - a.length);
   for (const key of keys) {
-    const idx = msgL.indexOf(key.toLowerCase());
-    if (idx === -1) continue;
+    const keyL = key.toLowerCase();
 
+    // מפתחות קצרים (4 תווים ומטה) — דורש גבול מילה, כי הם נוטים להתאים
+    // בטעות כ-substring בתוך מילה לא קשורה (לדוגמה "ינר" בתוך "לסמינר").
+    if (key.length <= 4) {
+      if (!wordBoundaryIncludes(msgL, keyL)) continue;
+    } else {
+      if (!msgL.includes(keyL)) continue;
+    }
+
+    const idx = msgL.indexOf(keyL);
     if (AMBIGUOUS_REGION_ALIASES.has(key)) {
       const before = message.substring(0, idx);
       const atStart = idx === 0; // בתחילת ההודעה — סביר שזה שם המוסד, לא אזור
@@ -844,7 +852,7 @@ async function buildContext(message) {
     const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
     // priority:true = תשובה ישירה ספציפית לא ממשיכים לחפש קורסים
     if (qaFirst.priority) {
-      return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle };
+      return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle, qaId: qaFirst.id };
     }
     // אם יש keywords לתחום — הוסף הסבר QA לcontext והמשך לחפש קורסים
     const hasFieldKws = getFieldKeywords(message) && getFieldKeywords(message).length > 0;
@@ -852,7 +860,7 @@ async function buildContext(message) {
       parts.push('=== הסבר על הנושא ===\n' + qaFirst.answer);
       // המשך לחפש קורסים
     } else {
-      return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle };
+      return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle, qaId: qaFirst.id };
     }
   }
   const infoUrls = infoUrlsForQA;
@@ -1026,7 +1034,7 @@ async function buildContext(message) {
   const qaGeneral = searchQA(message);
   if (qaGeneral && !hasInstQ && !datesCtx) {
     console.log('QA general match:', qaGeneral.id || qaGeneral.question);
-    return { context: '=== מידע על שבתון ===\n' + qaGeneral.answer + '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)', isInfo: true, courseCount: 0, urlToTitle };
+    return { context: '=== מידע על שבתון ===\n' + qaGeneral.answer + '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)', isInfo: true, courseCount: 0, urlToTitle, qaId: qaGeneral.id };
   }
 
   if (fieldKeywords && fieldKeywords.length > 0) {
@@ -1429,7 +1437,7 @@ async function buildContext(message) {
           '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
           '👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
         console.log('Zero-results fallback: QA match found:', fallbackQA.id);
-        return { context: '=== מידע על שבתון ===\n' + fallbackQA.answer + qaFooterFB, isInfo: true, courseCount: 0, urlToTitle };
+        return { context: '=== מידע על שבתון ===\n' + fallbackQA.answer + qaFooterFB, isInfo: true, courseCount: 0, urlToTitle, qaId: fallbackQA.id };
       }
       // סרוק דף master-degree כ-fallback אקדמי
       const isAcademicQuery = /תואר|מסלול|לימוד|קורס|השתלמות|הכשרה|מקרא|ביבליו|פסיכו|מחקר|אקדמ/.test(message);
@@ -1518,12 +1526,16 @@ export default async function handler(req, res) {
       return res.json({ reply: directInstReply });
     }
 
-    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName } = await buildContext(message);
+    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName, qaId } = await buildContext(message);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
 
     // פונקציית לוגינג לזאפייר — נקראת מכל נתיב תגובה
     const logToZapier = logToZapierEarly;
+
+    // תיוג מיוחד לקריאות שדורשות פעולת מעקב מהצוות (לדוגמה: מוסד לא עונה לגולש)
+    const SPECIAL_TAG_QA_IDS = { institution_not_responding: 'institution-complaint' };
+    const zapierModelTag = (qaId && SPECIAL_TAG_QA_IDS[qaId]) || 'qa-bypass';
 
     if (isInfo && courseCount === 0 && context.startsWith('=== מידע על שבתון ===')) {
       let directReply = context.replace('=== מידע על שבתון ===\n', '').trim();
@@ -1548,8 +1560,8 @@ export default async function handler(req, res) {
 
       const hasWA = directReply.includes('whatsapp.com/FFak') || directReply.includes('chat.whatsapp.com');
       if (!hasWA) directReply += FOOTER_DIRECT;
-      console.log('DIRECT QA BYPASS (no Claude) | chars:', directReply.length);
-      await logToZapier(message, directReply, 'qa-bypass');
+      console.log('DIRECT QA BYPASS (no Claude) | chars:', directReply.length, '| tag:', zapierModelTag);
+      await logToZapier(message, directReply, zapierModelTag);
       return res.json({ reply: directReply });
     }
 
