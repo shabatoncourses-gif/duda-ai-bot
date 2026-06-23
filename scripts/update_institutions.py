@@ -114,8 +114,23 @@ def is_valid_institution_url(url):
     return any(str(url).startswith(p) for p in VALID_URL_PREFIXES)
 
 
+def smart_truncate(s, limit=800):
+    """
+    חותך תיאור ארוך, אבל מנסה לחתוך בגבול שורה (\\n) קרוב לסוף, ולא באמצע מילה/קורס.
+    המגבלה הקודמת (200 תווים) קטעה בפועל קורסים שלמים שמופיעים בסוף רשימות ארוכות
+    (לדוגמה: "טבע ובריאות ביערות הכרמל" של עתיד ירוק, שמופיע אחרי תו 200).
+    """
+    if len(s) <= limit:
+        return s
+    cut = s[:limit]
+    last_nl = cut.rfind('\n')
+    if last_nl > limit * 0.5:
+        return cut[:last_nl].rstrip()
+    return cut.rstrip()
+
+
 def build_institutions_from_excel(excel_path):
-    df = pd.read_excel(excel_path)
+    df = pd.read_excel(excel_path, sheet_name='גיליון1')
     field_institutions = {}  # {sf_field_name: {url: entry}}
 
     for _, row in df.iterrows():
@@ -130,7 +145,7 @@ def build_institutions_from_excel(excel_path):
         url  = str(row.get('CompanyDudaURL', '')).strip()
         name = str(row.get('CompanyName', '')).strip()
         desc = str(row.get('ItemsShortSummery', '')).strip() if str(row.get('ItemsShortSummery','')) != 'nan' else ''
-        desc = desc[:200]
+        desc = smart_truncate(desc, 800)
 
         if sf_field not in field_institutions:
             field_institutions[sf_field] = {}
