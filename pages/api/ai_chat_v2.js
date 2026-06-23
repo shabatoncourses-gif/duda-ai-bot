@@ -866,7 +866,11 @@ async function buildContext(message) {
   const infoUrlsForQA = detectInfoPages(message) || [];
   const qaFirst = searchQA(message);
   const hasInstQ = /מכללה|מכללת|אוניברסיטה|אוניברסיטת|מכון|סמינר|אקדמית|קריית|קריה|אורנים|בר.?אילן|תלפיות|הרצוג|שנקר|לוינסקי|גורדון|אונו|וינגייט|בן.?גוריון|עברית|תל.?אביב|חיפה|ירושלים|בגין|ויצמן/.test(message);
-  if (qaFirst && infoUrlsForQA.length === 0 && !hasInstQ) {
+  // QA-ים מסוג תלונה/הסלמה (לדוגמה: מוסד לא עונה) — חייבים להיתפס גם אם
+  // מוזכרת בהודעה מילת-מוסד כמו "סמינר"/"מכללה", כי המשתמש מתלונן על מוסד ספציפי.
+  const ALWAYS_PRIORITY_QA_IDS = new Set(['institution_not_responding']);
+  const isEscalationQA = qaFirst && ALWAYS_PRIORITY_QA_IDS.has(qaFirst.id);
+  if (qaFirst && infoUrlsForQA.length === 0 && (!hasInstQ || isEscalationQA)) {
     const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
     // priority:true = תשובה ישירה ספציפית לא ממשיכים לחפש קורסים
     if (qaFirst.priority) {
@@ -1517,8 +1521,13 @@ export default async function handler(req, res) {
     console.log(`POST [${site}]: ${message.substring(0,60)}`);
 
     // ── INSTITUTION LOOKUP — רץ ראשון, לפני buildContext, בלי תלות בחיפוש קורסים ──
+    // חריג: אם ההודעה היא תלונה ("לא עונה לי", "לא חוזרים אליי" וכו') — לא לקצר-דרך
+    // לכרטיס מוסד ישיר, אלא לאפשר ל-buildContext לתפוס את QA ההסלמה (institution_not_responding)
+    // ולהפעיל את מנגנון הדיווח/בקשת הפרטים.
+    const COMPLAINT_RE = /לא עונ(ה|ים)\s*לי|לא חוזר(ים)?\s*אל(י|יי)|אין מענה|לא קיבלתי תשובה|לא קיבלתי מענה|לא ענ(ה|ו)\s*לי|לא מתקשרים\s*אל(י|יי)|לא התקשרו\s*אל(י|יי)|לא מחזירים\s*לי|לא חזרו\s*אל(י|יי)|מתעלמ(ים|ת)?\s*ממני|לא מגיב(ים)?\s*לי|לא עונ(ה|ים)\s*ל(טלפון|הודעות|וואטסאפ|ווצאפ)|לא זוכ(ה|ית)\s*ל(מענה|תשובה)|שלחתי\s*(כמה\s*)?הודעות\s*ו(אין מענה|לא)|פניתי\s*כמה\s*פעמים\s*ולא|כבר\s*(שבוע|שבועיים|חודש)\s*ולא|מתייאש(ת)?\s*מהמוסד|נואש(ת)?\s*מהמוסד|מתעצבנ(ת)?\s*שלא\s*עונים|אף\s*אחד\s*לא\s*(עונה|חוזר\s*אל(י|יי))|לא\s*מצליח(ה)?\s*(להשיג|ליצור קשר)|לא\s*עוזרים\s*לי/;
+    const isComplaintMsg = COMPLAINT_RE.test(message);
     const cleanMsg = fixTypos(message);
-    const instLookup = lookupInstitution(cleanMsg);
+    const instLookup = isComplaintMsg ? null : lookupInstitution(cleanMsg);
     const FOOTER_DIRECT = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)  \n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)  \n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
     const logToZapierEarly = async (q, ans, mdl) => {
       if (!ZAPIER_WEBHOOK_URL) return;
