@@ -92,6 +92,11 @@ function cleanDescription(desc) {
 // קשורה (לדוגמה "קוד" בתוך "הנקודות", או "אי" בתוך "באיזור").
 function wordBoundaryIncludes(text, term) {
   const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // מונח לטיני/אנגלי (כמו "ma", "nlp") — גבול-מילה אמיתי (\b), לא תלוי בעברית.
+  // בלי זה, "ma" מתאים בטעות בתוך "gmail.com" כי g/i (לא-עבריים) נחשבו כ"גבול".
+  if (/^[a-z0-9]+$/i.test(term)) {
+    return new RegExp('\\b' + escaped + '\\b', 'i').test(text);
+  }
   const re = new RegExp('(^|[^\\u05D0-\\u05EA])[בלמכהוש]{0,2}' + escaped + '($|[^\\u05D0-\\u05EA])');
   return re.test(text);
 }
@@ -1519,6 +1524,38 @@ export default async function handler(req, res) {
     if (!message) return res.status(400).json({ error: 'message required' });
 
     console.log(`POST [${site}]: ${message.substring(0,60)}`);
+
+    // ── זיהוי "הגשת פרטים" כתגובה למוסד-לא-עונה ──
+    // אם בהודעה הקודמת של הבוט הוא ביקש שם/אימייל/טלפון (QA: institution_not_responding),
+    // וההודעה הנוכחית מכילה פרטי קשר (אימייל/טלפון) — זו תגובת המשך, לא שאלה חדשה.
+    // יש לאשר קבלה ולדווח לזאפייר, ולא לחפש קורסים על סמך תוכן הפרטים.
+    const DETAILS_REQUEST_MARKER = 'נעביר את הבקשה שלך ישירות';
+    const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+    const PHONE_RE = /0\d{1,2}[-\s]?\d{6,8}/;
+    const lastAssistantMsg = [...history].reverse().find(h => h && h.role === 'assistant' && typeof h.content === 'string');
+    const wasAskedForDetails = lastAssistantMsg && lastAssistantMsg.content.includes(DETAILS_REQUEST_MARKER);
+    const looksLikeContactDetails = EMAIL_RE.test(message) || PHONE_RE.test(message);
+    if (wasAskedForDetails && looksLikeContactDetails) {
+      const confirmReply = 'תודה רבה! 🙏 קיבלנו את הפרטים ונעביר אותם ישירות למוסד בהקדם, ונבקש שיחזרו אליך בהקדם האפשרי.' +
+        '\n\n💬 [אפשר גם לפנות בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)';
+      console.log('DETAILS SUBMISSION after institution complaint — confirming + logging to Zapier');
+      if (ZAPIER_WEBHOOK_URL) {
+        try {
+          const now = new Date();
+          await fetch(ZAPIER_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              date: now.toLocaleDateString('he-IL',{timeZone:'Asia/Jerusalem'}),
+              time: now.toLocaleTimeString('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit'}),
+              site, question: message, answer: confirmReply, model: 'institution-complaint-details',
+              needs_learning: 'OK'
+            })
+          });
+        } catch(ze) { console.error('Zapier error:', ze.message); }
+      }
+      return res.json({ reply: confirmReply });
+    }
 
     // ── INSTITUTION LOOKUP — רץ ראשון, לפני buildContext, בלי תלות בחיפוש קורסים ──
     // חריג: אם ההודעה היא תלונה ("לא עונה לי", "לא חוזרים אליי" וכו') — לא לקצר-דרך
