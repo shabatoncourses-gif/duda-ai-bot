@@ -178,7 +178,19 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
   );
   // מילים גולמיות לפי סדר הופעה — לבניית צירופי 2 מילים (כמו "בעלי חיים")
   const rawWords = msgL.match(/[\u05D0-\u05EA]{2,}/g) || [];
-  const isStop = (w) => stopwords.has(w) || fieldWordsL.has(w);
+  // תומך בזיהוי מילה גם עם תחילית עברית (ב/ל/מ/כ/ה/ו/ש, עד 2 תווים) —
+  // למשל "ברפואה" צריך להיחשב שייך לשם השדה "רפואה משלימה", לא כ"מונח ספציפי" נפרד.
+  const isStop = (w) => {
+    if (stopwords.has(w) || fieldWordsL.has(w)) return true;
+    for (let n = 1; n <= 2; n++) {
+      const stripped = w.slice(n);
+      if (stripped.length >= 2 && (stopwords.has(stripped) || fieldWordsL.has(stripped)) &&
+          /^[בלמכהוש]{1,2}$/.test(w.slice(0, n))) {
+        return true;
+      }
+    }
+    return false;
+  };
 
   const candidates = [];
   for (let i = 0; i < rawWords.length - 1; i++) {
@@ -188,7 +200,7 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
   }
   const singleWords = [...new Set(rawWords.filter(w => w.length >= 4 && !isStop(w)))];
   candidates.push(...singleWords);
-  if (candidates.length === 0) return institutions;
+  if (candidates.length === 0) return { result: institutions, noMatchForSpecificTerm: false };
 
   // בודקים את כל המועמדים, ובוחרים את ההתאמה הצרה ביותר (לא הראשונה שנמצאה)
   let best = null;
@@ -205,9 +217,12 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
   }
   if (best) {
     console.log('SPECIFIC TERM FILTER:', best.term, '|', best.matched.length, '/', institutions.length, 'institutions');
-    return best.matched;
+    return { result: best.matched, noMatchForSpecificTerm: false };
   }
-  return institutions; // לא נמצא מונח ספציפי שמייחד תת-קבוצה — הצג את כל התחום
+  // היו מילים ספציפיות בשאלה (לא רק עיון כללי בתחום), אבל שום מוסד לא הכיל אותן —
+  // כנראה נושא-משנה שלא קיים במאגר (כמו "ארומתרפיה"). מסמנים את זה לקורא,
+  // כדי שיוכל להציע מוסד-ברירת-מחדל לתחום במקום רשימה לא-קשורה.
+  return { result: institutions, noMatchForSpecificTerm: true };
 }
 
 function getFieldSlug(question) {
@@ -957,6 +972,7 @@ async function buildContext(message) {
   const sfForKI = loadJSON('study-fields.json');
   let knownOnly = null;
   let matchedFieldKeywords = [];
+  let matchedFieldObj = null;
   if (sfForKI) {
     const msgLKI2 = message.toLowerCase();
     let bestLen = 0;
@@ -972,6 +988,7 @@ async function buildContext(message) {
           bestLen = k.length;
           knownOnly = sfItem.known_institutions;
           matchedFieldKeywords = [sfItem.name];
+          matchedFieldObj = sfItem;
         }
       }
     }
@@ -994,7 +1011,19 @@ async function buildContext(message) {
       return url.includes('shabaton.online') || url.includes('morim.boutique');
     });
     // סנן לפי מונח ספציפי מהשאלה — לא להציג את כל התחום אם נשאלים על נושא-משנה
-    validKI = filterInstitutionsBySpecificTerm(validKI, message, matchedFieldKeywords);
+    const filterRes = filterInstitutionsBySpecificTerm(validKI, message, matchedFieldKeywords);
+    validKI = filterRes.result;
+    // נושא-משנה ספציפי נשאל (כמו "ארומתרפיה") אבל לא נמצא לו מוסד תואם —
+    // אם לתחום הוגדר מוסד-ברירת-מחדל (fallbackInstitution), נציג אותו בלבד
+    // במקום רשימה לא-קשורה של כל המוסדות בתחום.
+    if (filterRes.noMatchForSpecificTerm && matchedFieldObj && matchedFieldObj.fallbackInstitution) {
+      const fbUrl = matchedFieldObj.fallbackInstitution.url;
+      const fbKi = validKI.find(ki => ki.url === fbUrl);
+      if (fbKi) {
+        console.log('FALLBACK INSTITUTION (no specific match):', fbKi.title);
+        validKI = [fbKi];
+      }
+    }
     if (validKI.length === 0) { /* אין מוסדות תקניים — המשך לחיפוש */ }
     else {
 
@@ -1061,7 +1090,7 @@ async function buildContext(message) {
     const catName2 = fieldSlug2 ? fieldSlug2.name : null;
     // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, אבל נזכיר שביקשת אזור זה
     console.log('KNOWN_ONLY path (national list):', validKI.length, 'institutions → coursesForClaude');
-    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null, requestedRegionName: regionForKI ? regionForKI.name : null };
+    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null, requestedRegionName: regionForKI ? regionForKI.name : null, usedFallbackInstitution: !!(filterRes.noMatchForSpecificTerm && validKI.length === 1) };
     } // end else validKI
   }
 
@@ -1602,7 +1631,7 @@ export default async function handler(req, res) {
       return res.json({ reply: directInstReply });
     }
 
-    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName, qaId } = await buildContext(message);
+    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName, qaId, usedFallbackInstitution } = await buildContext(message);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
 
@@ -1651,7 +1680,11 @@ export default async function handler(req, res) {
       }
       const courseListText = shuffled.join('\n\n');
       let intro;
-      if (fieldName && regionName) {
+      if (usedFallbackInstitution && fieldName) {
+        // לא נמצא מוסד שמלמד בפועל את הנושא הספציפי שנשאל — מציגים מוסד מומלץ
+        // לכל תחום ה-${fieldName}, בכנות, ולא כתוצאה מסוננת מדויקת.
+        intro = `לא מצאנו במאגר שלנו מוסד שמתמחה ספציפית בנושא שביקשת, אך בתחום ${fieldName} מומלץ לפנות למוסד הבא לבדוק זמינות, ובנוסף ניתן לעיין בכל הקורסים בתחום:`;
+      } else if (fieldName && regionName) {
         // אזור מאומת — דף האזור האמיתי נמצא והרשימה באמת מסוננת אליו
         intro = `פה תוכלו למצוא מידע על ${fieldName} באזור ${regionName} ובלמידה מרחוק, ולפנות ישירות למוסדות לשאלות ולייעוץ אישי:`;
       } else if (fieldName && requestedRegionName) {
