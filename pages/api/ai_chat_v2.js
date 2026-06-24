@@ -974,6 +974,8 @@ async function buildContext(message) {
   let matchedFieldKeywords = [];
   let matchedFieldObj = null;
   let combinedNote = null;
+  let wasCombined = false;
+  let combinedFieldInfo = null;
   if (sfForKI) {
     const msgLKI2 = message.toLowerCase();
     let bestLen = 0;
@@ -1018,6 +1020,8 @@ async function buildContext(message) {
           }
           knownOnly = merged;
           matchedFieldKeywords.push(otherField.name);
+          wasCombined = true;
+          combinedFieldInfo = { name: otherField.name, slug: otherField.slug };
           if (combo.note) combinedNote = combo.note;
         }
       }
@@ -1040,8 +1044,13 @@ async function buildContext(message) {
       const url = (ki.url || '').toLowerCase();
       return url.includes('shabaton.online') || url.includes('morim.boutique');
     });
-    // סנן לפי מונח ספציפי מהשאלה — לא להציג את כל התחום אם נשאלים על נושא-משנה
-    const filterRes = filterInstitutionsBySpecificTerm(validKI, message, matchedFieldKeywords);
+    // סנן לפי מונח ספציפי מהשאלה — לא להציג את כל התחום אם נשאלים על נושא-משנה.
+    // אבל אם בוצע איחוד שדות (combinesWith) — השאלה כללית/חוצת-תחומים מטבעה,
+    // וסינון נוסף עלול לצמצם בטעות לכמה מוסדות שמקריות מכילים מילה כמו "כושר" בשם
+    // (שהיא בעצמה מילת-מפתח כללית של התחום, לא מונח-משנה ספציפי).
+    const filterRes = wasCombined
+      ? { result: validKI, noMatchForSpecificTerm: false }
+      : filterInstitutionsBySpecificTerm(validKI, message, matchedFieldKeywords);
     validKI = filterRes.result;
     // נושא-משנה ספציפי נשאל (כמו "ארומתרפיה") אבל לא נמצא לו מוסד תואם —
     // אם לתחום הוגדר מוסד-ברירת-מחדל (fallbackInstitution), נציג אותו בלבד
@@ -1118,6 +1127,12 @@ async function buildContext(message) {
     });
     const catUrl2 = fieldSlug2 ? `https://www.shabaton.online/results-all/${fieldSlug2.slug}` : null;
     const catName2 = fieldSlug2 ? fieldSlug2.name : null;
+    // קישור "כל הקורסים" גם לתחום המשלים, כשהיה איחוד שדות — לא רק לתחום הראשי
+    if (wasCombined && combinedFieldInfo) {
+      const catUrl3 = `https://www.shabaton.online/results-all/${combinedFieldInfo.slug}`;
+      const extraLink = `📚 [כל קורסי ${combinedFieldInfo.name}](${catUrl3})`;
+      combinedNote = combinedNote ? combinedNote + '\n' + extraLink : extraLink;
+    }
     // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, אבל נזכיר שביקשת אזור זה
     console.log('KNOWN_ONLY path (national list):', validKI.length, 'institutions → coursesForClaude');
     return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null, requestedRegionName: regionForKI ? regionForKI.name : null, usedFallbackInstitution: !!(filterRes.noMatchForSpecificTerm && validKI.length === 1), combinedNote };
