@@ -1125,11 +1125,11 @@ async function buildContext(message) {
       const cleanDesc = smartTruncate(cleanDescription(ki.description), 800).trim();
       return `**[${ki.title}](${ki.url})**\n${cleanDesc ? cleanDesc + '\n' : ''}[פנו למידע ולייעוץ אישי](${ki.url})`;
     });
-    const catUrl2 = fieldSlug2 ? `https://www.shabaton.online/results-all/${fieldSlug2.slug}` : null;
+    const catUrl2 = fieldSlug2 ? `https://www.shabaton.online/results-all/${encodeURIComponent(fieldSlug2.slug)}` : null;
     const catName2 = fieldSlug2 ? fieldSlug2.name : null;
     // קישור "כל הקורסים" גם לתחום המשלים, כשהיה איחוד שדות — לא רק לתחום הראשי
     if (wasCombined && combinedFieldInfo) {
-      const catUrl3 = `https://www.shabaton.online/results-all/${combinedFieldInfo.slug}`;
+      const catUrl3 = `https://www.shabaton.online/results-all/${encodeURIComponent(combinedFieldInfo.slug)}`;
       const extraLink = `📚 [כל קורסי ${combinedFieldInfo.name}](${catUrl3})`;
       combinedNote = combinedNote ? combinedNote + '\n' + extraLink : extraLink;
     }
