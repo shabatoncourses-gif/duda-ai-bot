@@ -973,6 +973,7 @@ async function buildContext(message) {
   let knownOnly = null;
   let matchedFieldKeywords = [];
   let matchedFieldObj = null;
+  let combinedNote = null;
   if (sfForKI) {
     const msgLKI2 = message.toLowerCase();
     let bestLen = 0;
@@ -989,6 +990,35 @@ async function buildContext(message) {
           knownOnly = sfItem.known_institutions;
           matchedFieldKeywords = [sfItem.name];
           matchedFieldObj = sfItem;
+        }
+      }
+    }
+
+    // ── איחוד עם תחום משלים (combinesWith) ──
+    // לדוגמה: שאלה על "אורח חיים בריא, כושר" שייכת גם לבריאות-ותזונה וגם לספורט.
+    // אם לתחום שזוהה כראשי מוגדר combinesWith, ונמצאה גם התאמת מילת-מפתח אמיתית
+    // לתחום המשלים (לא רק שיתוף מילה מקרי) — מאחדים את רשימות המוסדות (ללא כפילויות),
+    // ומוסיפים הערה רלוונטית (כמו האזהרה על מנוי מועדון ספורט) אם הוגדרה.
+    if (matchedFieldObj && Array.isArray(matchedFieldObj.combinesWith)) {
+      for (const combo of matchedFieldObj.combinesWith) {
+        const otherField = (sfForKI.studyFields || []).find(f => f.name === combo.field);
+        if (!otherField || !otherField.known_institutions || otherField.known_institutions.length === 0) continue;
+        let otherBestLen = 0;
+        for (const k of (otherField.keywords || [])) {
+          const kL = k.toLowerCase();
+          const isMatch = k.length <= 4 ? wordBoundaryIncludes(msgLKI2, kL) : msgLKI2.includes(kL);
+          if (isMatch && k.length > otherBestLen) otherBestLen = k.length;
+        }
+        if (otherBestLen > 0) {
+          console.log('COMBINED FIELDS:', matchedFieldObj.name, '+', otherField.name);
+          const seenUrls = new Set(knownOnly.map(ki => ki.url));
+          const merged = [...knownOnly];
+          for (const ki of otherField.known_institutions) {
+            if (!seenUrls.has(ki.url)) { merged.push(ki); seenUrls.add(ki.url); }
+          }
+          knownOnly = merged;
+          matchedFieldKeywords.push(otherField.name);
+          if (combo.note) combinedNote = combo.note;
         }
       }
     }
@@ -1090,7 +1120,7 @@ async function buildContext(message) {
     const catName2 = fieldSlug2 ? fieldSlug2.name : null;
     // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, אבל נזכיר שביקשת אזור זה
     console.log('KNOWN_ONLY path (national list):', validKI.length, 'institutions → coursesForClaude');
-    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null, requestedRegionName: regionForKI ? regionForKI.name : null, usedFallbackInstitution: !!(filterRes.noMatchForSpecificTerm && validKI.length === 1) };
+    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null, requestedRegionName: regionForKI ? regionForKI.name : null, usedFallbackInstitution: !!(filterRes.noMatchForSpecificTerm && validKI.length === 1), combinedNote };
     } // end else validKI
   }
 
@@ -1631,7 +1661,7 @@ export default async function handler(req, res) {
       return res.json({ reply: directInstReply });
     }
 
-    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName, qaId, usedFallbackInstitution } = await buildContext(message);
+    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName, qaId, usedFallbackInstitution, combinedNote } = await buildContext(message);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
 
@@ -1678,7 +1708,7 @@ export default async function handler(req, res) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
-      const courseListText = shuffled.join('\n\n');
+      const courseListText = shuffled.join('\n\n') + (combinedNote ? '\n\n' + combinedNote : '');
       let intro;
       if (usedFallbackInstitution && fieldName) {
         // לא נמצא מוסד שמלמד בפועל את הנושא הספציפי שנשאל — מציגים מוסד מומלץ
