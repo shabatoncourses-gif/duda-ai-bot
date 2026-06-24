@@ -887,7 +887,6 @@
         },
         {
           "id": "sport_courses",
-          "priority": true,
           "question": "קורסי ספורט בשבתון",
           "keywords": [
             "ספורט",
