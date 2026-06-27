@@ -1055,12 +1055,14 @@ async function buildContext(message) {
     // נושא-משנה ספציפי נשאל (כמו "ארומתרפיה") אבל לא נמצא לו מוסד תואם —
     // אם לתחום הוגדר מוסד-ברירת-מחדל (fallbackInstitution), נציג אותו בלבד
     // במקום רשימה לא-קשורה של כל המוסדות בתחום.
+    let fallbackInstitutionApplied = false;
     if (filterRes.noMatchForSpecificTerm && matchedFieldObj && matchedFieldObj.fallbackInstitution) {
       const fbUrl = matchedFieldObj.fallbackInstitution.url;
       const fbKi = validKI.find(ki => ki.url === fbUrl);
       if (fbKi) {
         console.log('FALLBACK INSTITUTION (no specific match):', fbKi.title);
         validKI = [fbKi];
+        fallbackInstitutionApplied = true;
       }
     }
     if (validKI.length === 0) { /* אין מוסדות תקניים — המשך לחיפוש */ }
@@ -1135,7 +1137,7 @@ async function buildContext(message) {
     }
     // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, אבל נזכיר שביקשת אזור זה
     console.log('KNOWN_ONLY path (national list):', validKI.length, 'institutions → coursesForClaude');
-    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null, requestedRegionName: regionForKI ? regionForKI.name : null, usedFallbackInstitution: !!(filterRes.noMatchForSpecificTerm && validKI.length === 1), combinedNote };
+    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null, requestedRegionName: regionForKI ? regionForKI.name : null, usedFallbackInstitution: fallbackInstitutionApplied, combinedNote };
     } // end else validKI
   }
 
