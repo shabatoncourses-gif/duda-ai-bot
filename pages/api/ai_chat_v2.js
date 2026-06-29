@@ -225,12 +225,24 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
   return { result: institutions, noMatchForSpecificTerm: true };
 }
 
+// מסיר תיאורי-תנאי-קדם ("לבעלי תעודת הוראה ותואר שני") מהודעה לפני התאמת תחום —
+// אלה מתארים את מבקש השאלה (קהל המטרה), לא את נושא הלימוד המבוקש, ולכן לא
+// צריכים "לנצח" במנגנון "המילה הארוכה ביותר מנצחת" על חשבון הנושא האמיתי
+// (לדוגמה: "בימוי תיאטרון לבעלי תעודת הוראה ותואר שני" אמור להתאים לתיאטרון,
+// לא ל"תעודת הוראה" או "תואר שני" שהן רק תנאי-קדם). משמש בכל מקומות התאמת
+// התחום (getFieldSlug, knownOnly, filterInstitutionsBySpecificTerm) כדי שהתוצאה
+// תהיה עקבית בכל הקוד.
+function stripPrerequisiteQualifiers(message) {
+  const stripped = message.replace(/ל?בעלי\s+[^.?!]*$/u, '').trim();
+  return stripped || message;
+}
+
 function getFieldSlug(question) {
   try {
     const data = loadJSON('study-fields.json');
     if (!data) return null;
     const items = data.studyFields || (Array.isArray(data) ? data : []);
-    const qL = question.toLowerCase();
+    const qL = stripPrerequisiteQualifiers(question).toLowerCase();
     // בוחר את ה-keyword הארוך ביותר שמתאים — לא את ההתאמה הראשונה לפי סדר הקובץ
     // (עקבי עם הלוגיקה ב-knownOnly/searchQA/lookupInstitution).
     // עבור keywords קצרים (4 תווים ומטה) — דורש גבול מילה, כי הם עלולים
@@ -976,8 +988,9 @@ async function buildContext(message) {
   let combinedNote = null;
   let wasCombined = false;
   let combinedFieldInfo = null;
+  const msgForFieldMatch = stripPrerequisiteQualifiers(message);
   if (sfForKI) {
-    const msgLKI2 = message.toLowerCase();
+    const msgLKI2 = msgForFieldMatch.toLowerCase();
     let bestLen = 0;
     // מחפש keyword הכי ארוך — לא הראשון (כמו searchQA)
     // עבור keywords קצרים (4 תווים ומטה) — דורש גבול מילה, כמו ב-getFieldSlug
@@ -1050,7 +1063,7 @@ async function buildContext(message) {
     // (שהיא בעצמה מילת-מפתח כללית של התחום, לא מונח-משנה ספציפי).
     const filterRes = wasCombined
       ? { result: validKI, noMatchForSpecificTerm: false }
-      : filterInstitutionsBySpecificTerm(validKI, message, matchedFieldKeywords);
+      : filterInstitutionsBySpecificTerm(validKI, msgForFieldMatch, matchedFieldKeywords);
     validKI = filterRes.result;
     // נושא-משנה ספציפי נשאל (כמו "ארומתרפיה") אבל לא נמצא לו מוסד תואם —
     // אם לתחום הוגדר מוסד-ברירת-מחדל (fallbackInstitution), נציג אותו בלבד
