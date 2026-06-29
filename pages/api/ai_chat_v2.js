@@ -809,13 +809,35 @@ function isSummerQuery(message) {
     'להשלים השנה', 'לסיים השנה', 'להשלים את השנה',
     'עד סוף אוגוסט', 'עד אוגוסט', 'לפני סוף השנה',
     'שנה הנוכחית', 'השנה הנוכחית', 'שבתון הנוכחי',
-    'קורסי קיץ', 'קורס קיץ', 'קיץ 2026'
+    'קורסי קיץ', 'קורס קיץ', 'קיץ 2026', 'קיץ'
   ];
   return keywords.some(k => message.includes(k));
 }
 
-async function buildContext(message) {
+async function buildContext(message, history) {
   message = fixTypos(message);
+
+  // ── זיהוי הודעת-המשך קצרה ("ועם בן זוג", "ומה לגבי הצפון") ──
+  // הודעות כאלה, בלי הקשר, מתפרשות לגמרי לא נכון ע"י כל לוגיקת ההתאמה (אזור/QA/
+  // שדה/מוסד) — כי כולה פועלת אך ורק על תוכן ההודעה הנוכחית, בלי שום זיכרון שיחה.
+  // ה-COURSE LIST BYPASS (הנתיב הנפוץ ביותר) אפילו לא מגיע לקריאה ל-Claude שמקבלת
+  // את ה-history — אז בלי תיקון כאן, הקשר השיחה הולך לאיבוד לחלוטין בכל מקרה כזה.
+  // היוריסטיקה: הודעה קצרה (≤5 מילים) שמתחילה במילת-חיבור ("ו"/"גם"/"או") ככל הנראה
+  // ממשיכה את ההודעה הקודמת של אותו משתמש — משלבים אותה איתה רק לצורך ההתאמה.
+  if (Array.isArray(history) && history.length > 0) {
+    const wordCount = message.trim().split(/\s+/).length;
+    const firstWord = message.trim().split(/\s+/)[0] || '';
+    const FOLLOWUP_STARTERS = new Set(['ו','גם','או','אז','וגם','ועם','ומה','ואיך','ואם','ובאיזה','ולגבי','ובמה']);
+    const looksLikeFollowUp = wordCount <= 6 && FOLLOWUP_STARTERS.has(firstWord);
+    if (looksLikeFollowUp) {
+      const lastUserMsg = [...history].reverse().find(h => h && h.role === 'user' && typeof h.content === 'string');
+      if (lastUserMsg && lastUserMsg.content) {
+        console.log('FOLLOW-UP DETECTED — merging with previous user message for matching:', lastUserMsg.content.substring(0,50));
+        message = lastUserMsg.content.trim() + ' ' + message.trim();
+      }
+    }
+  }
+
   let coursesForClaude = []; // מוכרז ברמת הפונקציה לאפשר החזרה
   const region = detectRegion(message);
   const _reqPhrases = ['הנחיית קבוצות','הנחיה קבוצתית','הדרכת הורים','הדרכה הורית',
@@ -836,8 +858,13 @@ async function buildContext(message) {
   }
 
   // ניתוב לקטגוריית קורסי קיץ
+  // (summerNote נשמר גם בנפרד מ-parts, כי נתיב KNOWN_ONLY/known_institutions
+  // לא משתמש ב-parts כלל ומחזיר context משלו — בלי זה ההערה הזו "נעלמת"
+  // בכל פעם שהשאלה גם תואמת תחום לימוד/מוסד, בדיוק כמו שקרה עם QA-ים אחרים).
+  let summerNote = null;
   if (isSummerQuery(message)) {
     const summerUrl = 'https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%A7%D7%99%D7%A5';
+    summerNote = `📚 [כל קורסי הקיץ](${summerUrl})\n⚠️ קורסי קיץ מוכרים רק אם הם מסתיימים לפני 31 באוגוסט — קורסים שנפתחים אחרי ספטמבר שייכים לשנת שבתון הבאה.`;
     parts.push('קישור לכל קורסי הקיץ: ' + summerUrl);
     parts.push('הנחיה: הצג רק קורסים שמסתיימים לפני 31 באוגוסט. קורסים שנפתחים אחרי ספטמבר שייכים לשנת שבתון הבאה — אל תציג אותם.');
     console.log('Summer query detected');
@@ -1150,7 +1177,8 @@ async function buildContext(message) {
     }
     // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, אבל נזכיר שביקשת אזור זה
     console.log('KNOWN_ONLY path (national list):', validKI.length, 'institutions → coursesForClaude');
-    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null, requestedRegionName: regionForKI ? regionForKI.name : null, usedFallbackInstitution: fallbackInstitutionApplied, combinedNote };
+    const finalNote = [combinedNote, summerNote].filter(Boolean).join('\n\n') || null;
+    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null, requestedRegionName: regionForKI ? regionForKI.name : null, usedFallbackInstitution: fallbackInstitutionApplied, combinedNote: finalNote };
     } // end else validKI
   }
 
@@ -1691,7 +1719,7 @@ export default async function handler(req, res) {
       return res.json({ reply: directInstReply });
     }
 
-    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName, qaId, usedFallbackInstitution, combinedNote } = await buildContext(message);
+    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName, qaId, usedFallbackInstitution, combinedNote } = await buildContext(message, history);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
 
