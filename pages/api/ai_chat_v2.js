@@ -1614,16 +1614,22 @@ async function buildContext(message, history) {
         `קישור לכל קורסי התחום באזור: ${region.slug === 'online' ? 'https://www.shabaton.online/results-all/' + encodeURIComponent(fieldSlug) : 'https://www.shabaton.online/' + region.slug + '/' + fieldSlug}\n` +
         `קישור לכל קורסי התחום בכל הארץ: https://www.shabaton.online/results-all/${fieldSlug}`);
     } else {
-      // אזור מזוהה אבל ללא תחום לימוד ספציפי — מפנים ישירות לדף כל הקורסים באזור.
-      // חשוב: המשתמש ציין עיר ספציפית — אפשר להוסיף הסבר שהדף מציג את כל
-      // המוסדות באזור וכדאי לסנן/לחפש שם לפי שם הישוב.
+      // אזור מזוהה אבל ללא תחום לימוד ספציפי — מחזירים תשובה ישירה, דטרמיניסטית.
+      // אסור לסמוך על קלוד כאן — הוא משתמש בידע הפנימי שלו על ערים (שגוי)
+      // ומתעלם מ-regions.json. למשל: "מודיעין = תל אביב" לפי קלוד, אבל = ירושלים לפי הפורטל.
       const regionUrl = region.slug === 'online'
         ? 'https://www.shabaton.online/results-all/'
         : `https://www.shabaton.online/${region.slug}/`;
-      parts.push(`\nאזור: ${region.name} | slug: ${region.slug}\nקישור לכל הקורסים באזור: ${regionUrl}\n` +
-        `הנחיה: הגולש שאל על עיר ספציפית. הסבר שהפורטל מציג קורסים לפי אזורים (לא לפי עיר ספציפית), ` +
-        `ושב-${region.name} יש קורסים רבים. תן את הקישור לכל הקורסים באזור ` +
-        `והפנה לחיפוש לפי שם הישוב ישירות בדף.`);
+      const footer = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
+        '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
+        '👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
+      const directReply = `הפורטל של שבתון מציג קורסים לפי אזורים. ` +
+        `הישוב שציינת נמצא באזור **${region.name}**, ` +
+        `שם תוכלו למצוא קורסים רבים — חלקם פיזיים וחלקם בלמידה מרחוק.\n\n` +
+        `📚 [כל הקורסים באזור ${region.name}](${regionUrl})\n\n` +
+        `בדף הקורסים ניתן לחפש לפי שם הישוב הספציפי ולסנן לפי נושא.` + footer;
+      console.log('CITY-NO-FIELD direct reply:', region.name, regionUrl);
+      return { context: '=== תגובה ישירה ===\n' + directReply, isInfo: true, courseCount: 0, urlToTitle: {} };
     }
   } else if (fieldInfo) {
     parts.push(`\nתחום: ${fieldInfo.name}\nקישור לכל קורסי התחום בכל הארץ: https://www.shabaton.online/results-all/${fieldInfo.slug}\nחשוב: הגולש לא ציין אזור — אל תוסיף אזור בכותרת ולא בfooter`);
