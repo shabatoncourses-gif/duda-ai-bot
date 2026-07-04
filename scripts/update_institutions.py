@@ -147,14 +147,24 @@ def build_institutions_from_excel(excel_path):
         desc = str(row.get('ItemsShortSummery', '')).strip() if str(row.get('ItemsShortSummery','')) != 'nan' else ''
         desc = smart_truncate(desc, 800)
 
+        # CompanySnifim — רשימת מיקומים/סניפים (למשל "מודיעין, תל אביב, למידה מרחוק")
+        # חיוני לסינון לפי עיר/אזור: בלעדיו, אי אפשר לזהות "קורס במודיעין".
+        snifim_raw = str(row.get('CompanySnifim', '')).strip()
+        locations = []
+        if snifim_raw and snifim_raw != 'nan':
+            locations = [s.strip() for s in snifim_raw.split(',') if s.strip()]
+
         if sf_field not in field_institutions:
             field_institutions[sf_field] = {}
         if url and url not in field_institutions[sf_field] and is_valid_institution_url(url):
-            field_institutions[sf_field][url] = {
+            entry = {
                 'title': name,
                 'url': url,
                 'description': desc,
             }
+            if locations:
+                entry['locations'] = locations
+            field_institutions[sf_field][url] = entry
 
     return {k: list(v.values()) for k, v in field_institutions.items()}
 
