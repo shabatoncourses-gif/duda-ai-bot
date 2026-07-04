@@ -275,7 +275,7 @@ function getFieldSlug(question) {
 // פתרון ארכיטקטורי: כל תחום × אזור → דף results → מוסדות
 // ── בניית URL לקטגוריה/אזור — חסין לפורמטים לא אחידים ב-regions.json ──
 // 5 מתוך 6 האזורים ב-regions.json מכילים "results-" ב-slug (Zafon, Sharon,
-// jerusalem, shfea-darom, search-results-merkaz). היחיד שלא: "למידה מרחוק"
+// jerusalem, shfea-darom, results-merkaz). היחיד שלא: "למידה מרחוק"
 // עם slug="online" — אין לו דף results-online; חוזרים ל-results-all במקרה זה.
 function buildRegionCategoryUrl(regionSlug, fieldPath) {
   if (!regionSlug || regionSlug === 'online') {
@@ -1659,14 +1659,13 @@ async function buildContext(message, history) {
         }).join('\n\n');
         directReply = `פה תוכלו למצוא מידע על קורסים ב${cityName}, ולפנות ישירות למוסדות לשאלות ולייעוץ אישי:\n\n` +
           kiText + '\n\n' +
-          `📚 [כל הקורסים באזור ${region.name}](${regionUrl})` + footer;
+          `📚 [לכל הקורסים — חיפוש לפי אזור ותחום](https://www.shabaton.online/search-courses)` + footer;
       } else {
-        // לא נמצאו מוסדות ספציפיים לעיר — קישור לאזור בלבד
+        // לא נמצאו מוסדות ספציפיים לעיר — מפנים לדף חיפוש כללי
         directReply = `הפורטל של שבתון מציג קורסים לפי אזורים. ` +
-          `הישוב שציינת נמצא באזור **${region.name}**, ` +
-          `שם תוכלו למצוא קורסים רבים — חלקם פיזיים וחלקם בלמידה מרחוק.\n\n` +
-          `📚 [כל הקורסים באזור ${region.name}](${regionUrl})\n\n` +
-          `בדף הקורסים ניתן לחפש לפי שם הישוב הספציפי ולסנן לפי נושא.` + footer;
+          `הישוב שציינת נמצא באזור **${region.name}**.\n\n` +
+          `📚 [חפשו קורסים לפי אזור ותחום](https://www.shabaton.online/search-courses)\n\n` +
+          `בדף החיפוש תוכלו לסנן לפי אזור, תחום לימוד, ומועד פתיחה.` + footer;
       }
       console.log('CITY-NO-FIELD direct reply:', region.name, regionUrl);
       return { context: '=== מידע על שבתון ===\n' + directReply, isInfo: true, courseCount: 0, urlToTitle: {} };
