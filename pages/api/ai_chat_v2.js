@@ -734,19 +734,20 @@ function getCourseDates(message, filterUrls) {
     }
   }
 
-  // חפש לפי שם מוסד/קורס
-  const stopW = new Set(['מתי','קורס','קורסים','נפתח','נפתחים','מועד','פתיחה','של','את']);
+  // חפש לפי שם מוסד/קורס — מעדיף התאמת כותרת על פני תוכן פתיחות
+  const stopW = new Set(['מתי','קורס','קורסים','נפתח','נפתחים','מועד','פתיחה','של','את','יש','מה']);
   const qWords = msgL.split(/\s+/).filter(w => w.length > 2 && !stopW.has(w));
+  const specificWords = qWords.filter(w => w.length > 4);
   const matched = data.courses.filter(c => {
-    // אם סופק filterUrls — הצג רק מוסדות מהרשימה הספציפית
     if (filterUrls && filterUrls.length > 0 && !filterUrls.includes(c.url)) return false;
     const titleL = c.title.toLowerCase();
-    const urlL = (c.url || '').toLowerCase();
     const openingText = c.openings.map(o => (o.course_name || '') + ' ' + (o.date_text || '')).join(' ').toLowerCase();
-    const allText = titleL + ' ' + urlL + ' ' + openingText;
-    const wordMatches = qWords.filter(w => allText.includes(w)).length;
-    const specificInOpenings = qWords.filter(w => w.length > 3).some(w => openingText.includes(w));
-    return wordMatches >= 2 || specificInOpenings;
+    // התאמת כותרת: ≥2 מילים בכותרת — חזקה
+    const titleMatches = qWords.filter(w => titleL.includes(w)).length;
+    if (titleMatches >= 2) return true;
+    // מילה ספציפית (>4 תווים) בכותרת — גם חזקה
+    if (specificWords.some(w => titleL.includes(w))) return true;
+    return false;
   });
   const GENERIC_PHRASES = [
     'שלחו טופס', 'פנו לברור', 'פנו לבירור', 'ההרשמה בעיצומה',
@@ -1270,9 +1271,8 @@ async function buildContext(message, history) {
     }
     // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, אבל נזכיר שביקשת אזור זה
     console.log('KNOWN_ONLY path (national list):', validKI.length, 'institutions → coursesForClaude');
-    const kiUrls = shuffledKI.map(ki => ki.url);
     const finalNote = [
-      getCourseDates(message, kiUrls),
+      getCourseDates(message),
       combinedNote,
       summerNote
     ].filter(Boolean).join('\n\n') || null;
@@ -1922,7 +1922,7 @@ export default async function handler(req, res) {
       }
       const courseListText = shuffled.join('\n\n') + (combinedNote ? '\n\n' + combinedNote : '');
       let intro;
-      if (getCourseDates(message, kiUrls) && courseCount <= 3) {
+      if (getCourseDates(message) && courseCount <= 3) {
         // שאלת תזמון + מוסד ספציפי נמצא עם מועדים — פתיח ממוקד
         intro = `מצאנו מועדי פתיחה לקורס המבוקש, ולהלן פרטי המוסד ופרטי הפתיחה:`;
       } else if (usedFallbackInstitution && fieldName) {
