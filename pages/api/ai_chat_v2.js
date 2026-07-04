@@ -655,7 +655,7 @@ async function fetchPageContent(url) {
 }
 
 // ── מועדי פתיחה קורסים ──────────────────────────────
-function getCourseDates(message) {
+function getCourseDates(message, filterUrls) {
   const data = loadJSON('course-dates.json');
   if (!data || !data.courses) return null;
   const msgL = message.toLowerCase();
@@ -738,6 +738,8 @@ function getCourseDates(message) {
   const stopW = new Set(['מתי','קורס','קורסים','נפתח','נפתחים','מועד','פתיחה','של','את']);
   const qWords = msgL.split(/\s+/).filter(w => w.length > 2 && !stopW.has(w));
   const matched = data.courses.filter(c => {
+    // אם סופק filterUrls — הצג רק מוסדות מהרשימה הספציפית
+    if (filterUrls && filterUrls.length > 0 && !filterUrls.includes(c.url)) return false;
     const titleL = c.title.toLowerCase();
     const urlL = (c.url || '').toLowerCase();
     const openingText = c.openings.map(o => (o.course_name || '') + ' ' + (o.date_text || '')).join(' ').toLowerCase();
@@ -746,24 +748,32 @@ function getCourseDates(message) {
     const specificInOpenings = qWords.filter(w => w.length > 3).some(w => openingText.includes(w));
     return wordMatches >= 2 || specificInOpenings;
   });
+  const GENERIC_PHRASES = [
+    'שלחו טופס', 'פנו לברור', 'פנו לבירור', 'ההרשמה בעיצומה',
+    'מועדים שונים', 'לאורך השנה', 'בזמן ובמקום', 'עצמאי ומקוון'
+  ];
+  const isGeneric = (txt) => GENERIC_PHRASES.some(p => txt.includes(p));
+
   if (matched.length > 0) {
     let text = '=== מועדי פתיחה קורסים ===\n';
-    text += '**מוסדות עם תאריכי פתיחה מפורשים:**\n';
-    let hasExplicit = false;
+    let hasAny = false;
     for (const c of matched.slice(0, 5)) {
+      // מסנן רק פתיחות עם תאריכים מפורשים (לא "שלחו טופס" וכד')
+      const explicitOpenings = c.openings.filter(o => o.date_text && !isGeneric(o.date_text));
+      if (explicitOpenings.length === 0) continue;
       text += '**[' + c.title + '](' + c.url + ')**\n';
-      for (const o of c.openings) {
+      for (const o of explicitOpenings) {
         const mName = monthNameMap[(o.month || '').split('-')[1]] || o.month;
         const yr2 = (o.month || '').split('-')[0] || '';
-        text += (mName ? mName + ' ' + yr2 : '') + ': ';
-        if (o.date_text) text += o.date_text.substring(0, 150).replace(/\n/g, ', ');
-        text += '\n';
+        text += (mName ? '**' + mName + ' ' + yr2 + ':**' : '') + '\n';
+        // כל תאריך בשורה נפרדת
+        text += o.date_text.trim().replace(/,\s*/g, '\n') + '\n';
       }
       text += '[פנו למידע ולייעוץ אישי](' + c.url + ')\n\n';
-      hasExplicit = true;
+      hasAny = true;
     }
-    if (!hasExplicit) text += 'אין מוסדות עם תאריכים מפורשים בנושא זה.\n';
-    text += '\n**מוסדות שטרם פרסמו תאריכים — יש לפנות לברור:**\nראה מוסדות בcontext הקורסים.\n';
+    if (!hasAny) return null;
+    text += '📚 [קורסים הנפתחים בקרוב](https://www.shabaton.online/bekarov)';
     return text;
   }
 
@@ -1260,8 +1270,9 @@ async function buildContext(message, history) {
     }
     // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, אבל נזכיר שביקשת אזור זה
     console.log('KNOWN_ONLY path (national list):', validKI.length, 'institutions → coursesForClaude');
+    const kiUrls = shuffledKI.map(ki => ki.url);
     const finalNote = [
-      getCourseDates(message),
+      getCourseDates(message, kiUrls),
       combinedNote,
       summerNote
     ].filter(Boolean).join('\n\n') || null;
@@ -1911,7 +1922,7 @@ export default async function handler(req, res) {
       }
       const courseListText = shuffled.join('\n\n') + (combinedNote ? '\n\n' + combinedNote : '');
       let intro;
-      if (getCourseDates(message) && courseCount <= 3) {
+      if (getCourseDates(message, kiUrls) && courseCount <= 3) {
         // שאלת תזמון + מוסד ספציפי נמצא עם מועדים — פתיח ממוקד
         intro = `מצאנו מועדי פתיחה לקורס המבוקש, ולהלן פרטי המוסד ופרטי הפתיחה:`;
       } else if (usedFallbackInstitution && fieldName) {
