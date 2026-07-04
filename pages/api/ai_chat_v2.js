@@ -1086,6 +1086,32 @@ async function buildContext(message, history) {
     });
     if (validKI.length === 0) { knownOnly = null; }
     else { knownOnly = validKI; }
+
+    // ── סינון לפי עיר ספציפית ──
+    // כשבהודעה מוזכרת עיר (למשל "מודיעין", "חיפה"), ויש ל-known_institutions
+    // שדה locations (שמגיע מ-CompanySnifim ב-Excel) — מסננים ומציגים רק
+    // מוסדות שמקיימים פעילות בעיר הזו. כך הגולש מקבל תשובה רלוונטית
+    // ("הנה קורסים ב___") במקום רשימה ארצית כללית.
+    if (knownOnly) {
+      const detectedRegion = detectRegion(msgForFieldMatch);
+      if (detectedRegion) {
+        const regionCities = (detectedRegion.cities || []).map(c => c.toLowerCase());
+        // מחפשים את העיר הספציפית (ולא רק האזור) שהוזכרה בהודעה
+        const mentionedCity = regionCities.find(c =>
+          c.length >= 4 && wordBoundaryIncludes(msgForFieldMatch.toLowerCase(), c)
+        );
+        if (mentionedCity) {
+          const cityFiltered = knownOnly.filter(ki =>
+            (ki.locations || []).some(loc => loc.toLowerCase().includes(mentionedCity))
+          );
+          if (cityFiltered.length > 0) {
+            console.log(`CITY FILTER: "${mentionedCity}" → ${cityFiltered.length}/${knownOnly.length} institutions`);
+            knownOnly = cityFiltered;
+            knownOnly._cityFilterApplied = mentionedCity; // דגל — מונע region-page fetch מיותר
+          }
+        }
+      }
+    }
   }
 
   if (knownOnly) {
@@ -1124,7 +1150,9 @@ async function buildContext(message, history) {
     // אם יש אזור מזוהה (ולא "למידה מרחוק" — אין לו דף results נפרד) —
     // ננסה קודם את דף האזור האמיתי באינדקס (מסונן באמת לאזור, כולל למידה מרחוק
     // שמוצגת תמיד גם היא בדפי ה-results-X של הפורטל).
-    if (regionForKI && regionForKI.slug !== 'online' && fieldSlug2) {
+    // חריג: אם כבר בוצע סינון לפי עיר ספציפית מ-known_institutions (cityFilterApplied),
+    // אין צורך ב-Jina — יש לנו כבר בדיוק את המוסדות הנכונים.
+    if (regionForKI && regionForKI.slug !== 'online' && fieldSlug2 && !knownOnly._cityFilterApplied) {
       const regionPageData = getInstitutionsFromCategoryIndex(fieldSlug2.name, regionForKI.slug);
       let regionInst = (regionPageData && regionPageData.text)
         ? parseInstitutionsFromCategoryText(regionPageData.text, fieldSlug2.name, 20)
@@ -1586,7 +1614,16 @@ async function buildContext(message, history) {
         `קישור לכל קורסי התחום באזור: ${region.slug === 'online' ? 'https://www.shabaton.online/results-all/' + encodeURIComponent(fieldSlug) : 'https://www.shabaton.online/' + region.slug + '/' + fieldSlug}\n` +
         `קישור לכל קורסי התחום בכל הארץ: https://www.shabaton.online/results-all/${fieldSlug}`);
     } else {
-      parts.push(`\nאזור: ${region.name} | slug: ${region.slug}`);
+      // אזור מזוהה אבל ללא תחום לימוד ספציפי — מפנים ישירות לדף כל הקורסים באזור.
+      // חשוב: המשתמש ציין עיר ספציפית — אפשר להוסיף הסבר שהדף מציג את כל
+      // המוסדות באזור וכדאי לסנן/לחפש שם לפי שם הישוב.
+      const regionUrl = region.slug === 'online'
+        ? 'https://www.shabaton.online/results-all/'
+        : `https://www.shabaton.online/${region.slug}/`;
+      parts.push(`\nאזור: ${region.name} | slug: ${region.slug}\nקישור לכל הקורסים באזור: ${regionUrl}\n` +
+        `הנחיה: הגולש שאל על עיר ספציפית. הסבר שהפורטל מציג קורסים לפי אזורים (לא לפי עיר ספציפית), ` +
+        `ושב-${region.name} יש קורסים רבים. תן את הקישור לכל הקורסים באזור ` +
+        `והפנה לחיפוש לפי שם הישוב ישירות בדף.`);
     }
   } else if (fieldInfo) {
     parts.push(`\nתחום: ${fieldInfo.name}\nקישור לכל קורסי התחום בכל הארץ: https://www.shabaton.online/results-all/${fieldInfo.slug}\nחשוב: הגולש לא ציין אזור — אל תוסיף אזור בכותרת ולא בfooter`);
