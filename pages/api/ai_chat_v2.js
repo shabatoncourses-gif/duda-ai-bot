@@ -176,10 +176,14 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
     // מילות ש"ש ופורמט — לא נושא
     'שש','חובה','רשות','נקודות','שעות','ש"ש'
   ]);
-  // מילים שהן חלק משם התחום עצמו — לא נחשבות "מונח מייחד"
-  const fieldWordsL = new Set(
-    (fieldOwnKeywords || []).flatMap(k => (k || '').toLowerCase().match(/[\u05D0-\u05EA]{2,}/g) || [])
+  // מילים שהן חלק משם התחום עצמו — לא נחשבות "מונח מייחד".
+  // חשוב: משתמשים רק במילות שם השדה (fieldOwnKeywords[0] = שם השדה), לא בכל ה-keywords.
+  // אחרת מונחי-משנה ספציפיים כמו "נגרות" (keyword של "אמנות ואומנויות") יוחרגו בטעות
+  // ולא ישמשו לסינון, מה שגורם להצגת כל התחום במקום רק מוסדות הנגרות.
+  const fieldNameWords = new Set(
+    ((fieldOwnKeywords || [])[0] || '').toLowerCase().match(/[\u05D0-\u05EA]{2,}/g) || []
   );
+  const fieldWordsL = fieldNameWords;
   // מילים גולמיות לפי סדר הופעה — לבניית צירופי 2 מילים (כמו "בעלי חיים")
   const rawWords = msgL.match(/[\u05D0-\u05EA]{2,}/g) || [];
   // תומך בזיהוי מילה גם עם תחילית עברית (ב/ל/מ/כ/ה/ו/ש, עד 2 תווים) —
@@ -1159,12 +1163,27 @@ async function buildContext(message, history) {
     const fieldSlug2 = getFieldSlug(message);
     const regionForKI = detectRegion(message);
 
+    // ── שלב מקדים לפני Jina: בדיקת סינון ספציפי מ-known_institutions ──
+    // אם קיים מונח ספציפי מאוד בשאלה (כמו "נגרות", "מוזיאון") שמצמצם
+    // את known_institutions לקבוצה קטנה (≤5) — מציגים אותה ישירות, בלי Jina.
+    // Jina נועד לשאלות כלליות שאין להן תשובה ב-known_institutions; כאן יש.
+    if (!wasCombined && !fallbackInstitutionApplied) {
+      const preFilterRes = filterInstitutionsBySpecificTerm(validKI, msgForFieldMatch, matchedFieldKeywords);
+      if (!preFilterRes.noMatchForSpecificTerm && preFilterRes.result.length > 0 && preFilterRes.result.length <= 5) {
+        validKI = preFilterRes.result;
+        console.log('PRE-JINA SPECIFIC FILTER: skipping Jina, showing', validKI.length, 'specific institutions');
+        // מאפסים את regionForKI כדי לדלג על בלוק Jina ולהמשיך ישר ל-KNOWN_ONLY
+        // (validKI כבר מסונן לפי המונח הספציפי, ולא צריכים Jina)
+      }
+    }
+
     // אם יש אזור מזוהה (ולא "למידה מרחוק" — אין לו דף results נפרד) —
     // ננסה קודם את דף האזור האמיתי באינדקס (מסונן באמת לאזור, כולל למידה מרחוק
     // שמוצגת תמיד גם היא בדפי ה-results-X של הפורטל).
     // חריג: אם כבר בוצע סינון לפי עיר ספציפית מ-known_institutions (cityFilterApplied),
     // אין צורך ב-Jina — יש לנו כבר בדיוק את המוסדות הנכונים.
-    if (regionForKI && regionForKI.slug !== 'online' && fieldSlug2 && !knownOnly._cityFilterApplied) {
+    if (regionForKI && regionForKI.slug !== 'online' && fieldSlug2 && !knownOnly._cityFilterApplied &&
+        validKI === knownOnly) { // validKI שונה מ-knownOnly רק אחרי pre-filter — כבר סוננו, מדלגים
       const regionPageData = getInstitutionsFromCategoryIndex(fieldSlug2.name, regionForKI.slug);
       let regionInst = (regionPageData && regionPageData.text)
         ? parseInstitutionsFromCategoryText(regionPageData.text, fieldSlug2.name, 20)
