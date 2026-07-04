@@ -202,7 +202,19 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
     if (isStop(w1) || isStop(w2)) continue;
     candidates.push(w1 + ' ' + w2); // צירוף דו-מילתי קודם — סביר שיהיה ספציפי יותר
   }
-  const singleWords = [...new Set(rawWords.filter(w => w.length >= 4 && !isStop(w)))];
+  // מנרמל מילה על ידי הסרת תחילית עברית (ב/ל/מ/כ/ה/ו/ש) כשהיא מקדימה שורש ≥3 אותיות.
+  // בלי זה, "במוזיאון" לא יתאים ל-"מוזיאון" בתיאורי המוסדות.
+  const stripPrefix = (w) => {
+    if (w.length < 5) return w;
+    const rest = w.slice(1);
+    if (rest.length >= 3 && /^[בלמכהוש]$/.test(w[0])) return rest;
+    if (w.length >= 6) {
+      const rest2 = w.slice(2);
+      if (rest2.length >= 3 && /^[בלמכהוש]{2}$/.test(w.slice(0,2))) return rest2;
+    }
+    return w;
+  };
+  const singleWords = [...new Set(rawWords.filter(w => w.length >= 4 && !isStop(w)).map(stripPrefix))];
   candidates.push(...singleWords);
   if (candidates.length === 0) return { result: institutions, noMatchForSpecificTerm: false };
 
@@ -1183,10 +1195,9 @@ async function buildContext(message, history) {
         console.log('REGION-SPECIFIC HIT (preferred over knownOnly):', regionForKI.slug, '|', regionInst.length, 'institutions');
         return { context: '', isInfo: false, courseCount: kiForClaudeRegion.length, urlToTitle: {}, coursesForClaude: kiForClaudeRegion, categoryUrl: catUrlRegion, fieldName: fieldSlug2.name, regionName: regionForKI.name };
       }
-      console.log('Region-specific page truly empty (index + live) — giving direct link instead of unfiltered national list');
-      // לא מצליחים לחלץ רשימה אוטומטית (דפי Wix דינמיים, רינדור JS) —
-      // אבל הסינון האזורי קיים ועובד באתר בפועל, אז מפנים ישירות לדף החי המדויק
-      // במקום להציג רשימה לאומית מבולבלת.
+      // הדף האזורי ריק (Wix/JS דינמי, Jina לא מצליח לסרוק) —
+      // מפנים ישירות לדף החי באתר, שהגולש יכול לגלוש אליו ולראות את הקורסים שם.
+      console.log('Region-specific page truly empty (index + live) — giving direct link');
       const liveLinkUrl = buildRegionCategoryUrl(regionForKI.slug, fieldSlug2.slug);
       const directLinkMsg =
         `📍 [לחצו כאן](${liveLinkUrl}) לרשימת המוסדות באזור ${regionForKI.name}, ` +
