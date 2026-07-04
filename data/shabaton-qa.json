@@ -7,6 +7,21 @@
       "name": "כללי",
       "questions": [
         {
+          "id": "shabaton_rules_general",
+          "question": "מהם הכללים לשנת שבתון?",
+          "keywords": [
+            "כללים לשנת שבתון",
+            "כללי שבתון",
+            "חשוב לדעת שבתון",
+            "מה צריך לדעת על שבתון",
+            "מידע על שבתון",
+            "כיצד פועל שבתון",
+            "כל המידע על שבתון",
+            "תרשום את הכללים"
+          ],
+          "answer": "כל המידע החשוב על שנת השבתון נמצא בדפי המידע של הפורטל:\n\n📎 [חשוב לדעת — כל מה שצריך לדעת לפני ובמהלך השבתון](https://www.shabaton.online/important)\n📎 [לוח זמנים לשנת שבתון](https://www.shabaton.online/luz_shabaton)\n📎 [תוכניות לימודים ואישורים](https://www.shabaton.online/learning_programs_shabaton)\n📎 [מענק שבתון — פרטים ואחוזים](https://www.shabaton.online/grant)\n\n💬 [שאלות נוספות? אפשר לשאול בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)"
+        },
+        {
           "id": "course_approval_who",
           "priority": true,
           "question": "למי שולחים קורסים לאישור",
