@@ -881,7 +881,9 @@ async function buildContext(message, history) {
   // בדוק course-dates — רק כשהשאלה עוסקת בתזמון ספציפי
   const isTimingQuery = /מתי|מועד|אוקטובר|נובמבר|דצמבר|ספטמבר|יוני|יולי|אוגוסט|ינואר|פברואר|מרץ|אפריל|מאי|בקרוב|חודש|תאריך|נפתח|פתיחה|מאיזה/.test(message);
   const datesCtx = (isTimingQuery || isSummerQuery(message)) ? getCourseDates(message) : null;
+  let datesNote = null; // יישמר בנפרד מ-parts כדי שיגיע גם לנתיב KNOWN_ONLY
   if (datesCtx) {
+    datesNote = datesCtx;
     parts.push(datesCtx);
   }
 
@@ -1260,7 +1262,7 @@ async function buildContext(message, history) {
     }
     // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, אבל נזכיר שביקשת אזור זה
     console.log('KNOWN_ONLY path (national list):', validKI.length, 'institutions → coursesForClaude');
-    const finalNote = [combinedNote, summerNote].filter(Boolean).join('\n\n') || null;
+    const finalNote = [datesNote, combinedNote, summerNote].filter(Boolean).join('\n\n') || null;
     return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null,
       requestedRegionName: (fallbackInstitutionApplied || !fieldSlug2 || !regionExplicitlyMentioned) ? null : (regionForKI ? regionForKI.name : null),
       usedFallbackInstitution: false, combinedNote: finalNote };
@@ -1907,7 +1909,10 @@ export default async function handler(req, res) {
       }
       const courseListText = shuffled.join('\n\n') + (combinedNote ? '\n\n' + combinedNote : '');
       let intro;
-      if (usedFallbackInstitution && fieldName) {
+      if (datesNote && courseCount <= 3) {
+        // שאלת תזמון + מוסד ספציפי נמצא עם מועדים — פתיח ממוקד
+        intro = `מצאנו מועדי פתיחה לקורס המבוקש, ולהלן פרטי המוסד ופרטי הפתיחה:`;
+      } else if (usedFallbackInstitution && fieldName) {
         // לא נמצא מוסד שמלמד בפועל את הנושא הספציפי שנשאל — מציגים מוסד מומלץ
         // לכל תחום ה-${fieldName}, בכנות, ולא כתוצאה מסוננת מדויקת.
         intro = `לא מצאנו במאגר שלנו מוסד שמתמחה ספציפית בנושא שביקשת, אך בתחום ${fieldName} מומלץ לפנות למוסד הבא לבדוק זמינות, ובנוסף ניתן לעיין בכל הקורסים בתחום:`;
