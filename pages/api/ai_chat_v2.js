@@ -1614,20 +1614,60 @@ async function buildContext(message, history) {
         `קישור לכל קורסי התחום באזור: ${region.slug === 'online' ? 'https://www.shabaton.online/results-all/' + encodeURIComponent(fieldSlug) : 'https://www.shabaton.online/' + region.slug + '/' + fieldSlug}\n` +
         `קישור לכל קורסי התחום בכל הארץ: https://www.shabaton.online/results-all/${fieldSlug}`);
     } else {
-      // אזור מזוהה אבל ללא תחום לימוד ספציפי — מחזירים תשובה ישירה, דטרמיניסטית.
-      // אסור לסמוך על קלוד כאן — הוא משתמש בידע הפנימי שלו על ערים (שגוי)
-      // ומתעלם מ-regions.json. למשל: "מודיעין = תל אביב" לפי קלוד, אבל = ירושלים לפי הפורטל.
+      // אזור מזוהה אבל ללא תחום לימוד ספציפי.
+      // שלב 1: חיפוש מוסדות שיש להם locations תואמת לעיר שהוזכרה.
       const regionUrl = region.slug === 'online'
         ? 'https://www.shabaton.online/results-all/'
         : `https://www.shabaton.online/${region.slug}/`;
       const footer = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n' +
         '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
         '👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
-      const directReply = `הפורטל של שבתון מציג קורסים לפי אזורים. ` +
-        `הישוב שציינת נמצא באזור **${region.name}**, ` +
-        `שם תוכלו למצוא קורסים רבים — חלקם פיזיים וחלקם בלמידה מרחוק.\n\n` +
-        `📚 [כל הקורסים באזור ${region.name}](${regionUrl})\n\n` +
-        `בדף הקורסים ניתן לחפש לפי שם הישוב הספציפי ולסנן לפי נושא.` + footer;
+
+      // חיפוש עיר ספציפית בהודעה
+      const regionCitiesAll = (region.cities || []).map(c => c.toLowerCase());
+      const mentionedCityForNoField = regionCitiesAll.find(c =>
+        c.length >= 4 && wordBoundaryIncludes(msgForFieldMatch.toLowerCase(), c)
+      ) || (region.keywords || []).map(k=>k.toLowerCase()).find(k =>
+        k.length >= 4 && wordBoundaryIncludes(msgForFieldMatch.toLowerCase(), k)
+      );
+
+      // חיפוש מוסדות שמציעים קורסים בעיר הספציפית (מכל התחומים)
+      let cityInstitutions = [];
+      if (mentionedCityForNoField) {
+        const sfAll = loadJSON('study-fields.json');
+        const seenUrls = new Set();
+        for (const sfItem of (sfAll ? sfAll.studyFields || [] : [])) {
+          for (const ki of (sfItem.known_institutions || [])) {
+            if (!seenUrls.has(ki.url) &&
+                (ki.url || '').match(/shabaton\.online|morim\.boutique/) &&
+                (ki.locations || []).some(loc => loc.toLowerCase().includes(mentionedCityForNoField))) {
+              cityInstitutions.push({ ...ki, fieldName: sfItem.name });
+              seenUrls.add(ki.url);
+            }
+          }
+        }
+        console.log(`CITY-NO-FIELD institutions in "${mentionedCityForNoField}":`, cityInstitutions.length);
+      }
+
+      let directReply;
+      if (cityInstitutions.length > 0) {
+        // נמצאו מוסדות עם קורסים בעיר הספציפית
+        const cityName = mentionedCityForNoField;
+        let kiText = cityInstitutions.map(ki => {
+          const cleanDesc = smartTruncate(cleanDescription(ki.description), 400).trim();
+          return `**[${ki.title}](${ki.url})**\n${cleanDesc ? cleanDesc + '\n' : ''}[פנו למידע ולייעוץ אישי](${ki.url})`;
+        }).join('\n\n');
+        directReply = `פה תוכלו למצוא מידע על קורסים ב${cityName}, ולפנות ישירות למוסדות לשאלות ולייעוץ אישי:\n\n` +
+          kiText + '\n\n' +
+          `📚 [כל הקורסים באזור ${region.name}](${regionUrl})` + footer;
+      } else {
+        // לא נמצאו מוסדות ספציפיים לעיר — קישור לאזור בלבד
+        directReply = `הפורטל של שבתון מציג קורסים לפי אזורים. ` +
+          `הישוב שציינת נמצא באזור **${region.name}**, ` +
+          `שם תוכלו למצוא קורסים רבים — חלקם פיזיים וחלקם בלמידה מרחוק.\n\n` +
+          `📚 [כל הקורסים באזור ${region.name}](${regionUrl})\n\n` +
+          `בדף הקורסים ניתן לחפש לפי שם הישוב הספציפי ולסנן לפי נושא.` + footer;
+      }
       console.log('CITY-NO-FIELD direct reply:', region.name, regionUrl);
       return { context: '=== מידע על שבתון ===\n' + directReply, isInfo: true, courseCount: 0, urlToTitle: {} };
     }
