@@ -1261,7 +1261,7 @@ async function buildContext(message, history) {
     // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, אבל נזכיר שביקשת אזור זה
     console.log('KNOWN_ONLY path (national list):', validKI.length, 'institutions → coursesForClaude');
     const finalNote = [
-      (isTimingQuery || isSummerQuery(message)) ? getCourseDates(message) : null,
+      getCourseDates(message),
       combinedNote,
       summerNote
     ].filter(Boolean).join('\n\n') || null;
@@ -1911,7 +1911,7 @@ export default async function handler(req, res) {
       }
       const courseListText = shuffled.join('\n\n') + (combinedNote ? '\n\n' + combinedNote : '');
       let intro;
-      if ((isTimingQuery || isSummerQuery(message)) && courseCount <= 3) {
+      if (getCourseDates(message) && courseCount <= 3) {
         // שאלת תזמון + מוסד ספציפי נמצא עם מועדים — פתיח ממוקד
         intro = `מצאנו מועדי פתיחה לקורס המבוקש, ולהלן פרטי המוסד ופרטי הפתיחה:`;
       } else if (usedFallbackInstitution && fieldName) {
