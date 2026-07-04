@@ -1140,14 +1140,30 @@ async function buildContext(message, history) {
     // אבל אם בוצע איחוד שדות (combinesWith) — השאלה כללית/חוצת-תחומים מטבעה,
     // וסינון נוסף עלול לצמצם בטעות לכמה מוסדות שמקריות מכילים מילה כמו "כושר" בשם
     // (שהיא בעצמה מילת-מפתח כללית של התחום, לא מונח-משנה ספציפי).
-    const filterRes = wasCombined
+    let fallbackInstitutionApplied = false;
+
+    // ── שלב מקדים: בדיקת סינון ספציפי לפני הכל ──
+    // אם קיים מונח ספציפי מאוד (כמו "נגרות", "מוזיאון") שמצמצם ל-≤5 מוסדות —
+    // מציגים אותם ישירות, ומדלגים גם על Jina וגם על ה-regular filter.
+    let preSpecificFilterDone = false;
+    if (!wasCombined) {
+      const preFilterRes = filterInstitutionsBySpecificTerm(validKI, msgForFieldMatch, matchedFieldKeywords);
+      if (!preFilterRes.noMatchForSpecificTerm && preFilterRes.result.length > 0 && preFilterRes.result.length <= 5) {
+        validKI = preFilterRes.result;
+        fallbackInstitutionApplied = true;
+        preSpecificFilterDone = true;
+        console.log('PRE-SPECIFIC FILTER: showing', validKI.length, 'specific institutions, skip Jina+regular filter');
+      }
+    }
+
+    // regular filter — רק אם לא עשינו pre-filter ספציפי
+    const filterRes = (wasCombined || preSpecificFilterDone)
       ? { result: validKI, noMatchForSpecificTerm: false }
       : filterInstitutionsBySpecificTerm(validKI, msgForFieldMatch, matchedFieldKeywords);
     validKI = filterRes.result;
     // נושא-משנה ספציפי נשאל (כמו "ארומתרפיה") אבל לא נמצא לו מוסד תואם —
     // אם לתחום הוגדר מוסד-ברירת-מחדל (fallbackInstitution), נציג אותו בלבד
     // במקום רשימה לא-קשורה של כל המוסדות בתחום.
-    let fallbackInstitutionApplied = false;
     if (filterRes.noMatchForSpecificTerm && matchedFieldObj && matchedFieldObj.fallbackInstitution) {
       const fbUrl = matchedFieldObj.fallbackInstitution.url;
       const fbKi = validKI.find(ki => ki.url === fbUrl);
@@ -1162,20 +1178,6 @@ async function buildContext(message, history) {
 
     const fieldSlug2 = getFieldSlug(message);
     const regionForKI = detectRegion(message);
-
-    // ── שלב מקדים לפני Jina: בדיקת סינון ספציפי מ-known_institutions ──
-    // אם קיים מונח ספציפי מאוד בשאלה (כמו "נגרות", "מוזיאון") שמצמצם
-    // את known_institutions לקבוצה קטנה (≤5) — מציגים אותה ישירות, בלי Jina.
-    // Jina נועד לשאלות כלליות שאין להן תשובה ב-known_institutions; כאן יש.
-    if (!wasCombined && !fallbackInstitutionApplied) {
-      const preFilterRes = filterInstitutionsBySpecificTerm(validKI, msgForFieldMatch, matchedFieldKeywords);
-      if (!preFilterRes.noMatchForSpecificTerm && preFilterRes.result.length > 0 && preFilterRes.result.length <= 5) {
-        validKI = preFilterRes.result;
-        console.log('PRE-JINA SPECIFIC FILTER: skipping Jina, showing', validKI.length, 'specific institutions');
-        // מאפסים את regionForKI כדי לדלג על בלוק Jina ולהמשיך ישר ל-KNOWN_ONLY
-        // (validKI כבר מסונן לפי המונח הספציפי, ולא צריכים Jina)
-      }
-    }
 
     // אם יש אזור מזוהה (ולא "למידה מרחוק" — אין לו דף results נפרד) —
     // ננסה קודם את דף האזור האמיתי באינדקס (מסונן באמת לאזור, כולל למידה מרחוק
@@ -1235,7 +1237,7 @@ async function buildContext(message, history) {
       const cleanDesc = smartTruncate(cleanDescription(ki.description), 800).trim();
       return `**[${ki.title}](${ki.url})**\n${cleanDesc ? cleanDesc + '\n' : ''}[פנו למידע ולייעוץ אישי](${ki.url})`;
     });
-    const catUrl2 = fieldSlug2 ? `https://www.shabaton.online/results-all/${encodeURIComponent(fieldSlug2.slug)}` : null;
+    const catUrl2 = fieldSlug2 ? `https://www.shabaton.online/results-all/${fieldSlug2.slug}` : null;
     const catName2 = fieldSlug2 ? fieldSlug2.name : null;
     // קישור "כל הקורסים" גם לתחום המשלים, כשהיה איחוד שדות — לא רק לתחום הראשי
     if (wasCombined && combinedFieldInfo) {
@@ -1246,7 +1248,10 @@ async function buildContext(message, history) {
     // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, אבל נזכיר שביקשת אזור זה
     console.log('KNOWN_ONLY path (national list):', validKI.length, 'institutions → coursesForClaude');
     const finalNote = [combinedNote, summerNote].filter(Boolean).join('\n\n') || null;
-    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null, requestedRegionName: regionForKI ? regionForKI.name : null, usedFallbackInstitution: fallbackInstitutionApplied, combinedNote: finalNote };
+    return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null,
+      // כשfallbackInstitutionApplied=true עקב pre-Jina filter — לא מראים "לא הצלחנו לאתר"
+      requestedRegionName: (fallbackInstitutionApplied && regionForKI) ? null : (regionForKI ? regionForKI.name : null),
+      usedFallbackInstitution: false, combinedNote: finalNote };
     } // end else validKI
   }
 
