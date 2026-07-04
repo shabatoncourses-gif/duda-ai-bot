@@ -174,7 +174,9 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
     // מילות אמצעי-לימוד — מתארות איך ללמוד, לא מה ללמוד
     'מקוון','מרחוק','אונליין','online','היברידי','זום','סינכרוני','א-סינכרוני',
     // מילות ש"ש ופורמט — לא נושא
-    'שש','חובה','רשות','נקודות','שעות','ש"ש'
+    'שש','חובה','רשות','נקודות','שעות','ש"ש',
+    // מילות פעולה לימודיות כלליות — לא נושא
+    'ללמוד','למוד','ולמוד','ללמד','ולמד','להכשיר','לרכוש','לפתח','לרכוש'
   ]);
   // מילים שהן חלק משם התחום עצמו — לא נחשבות "מונח מייחד".
   // חשוב: משתמשים רק במילות שם השדה (fieldOwnKeywords[0] = שם השדה), לא בכל ה-keywords.
@@ -1179,13 +1181,24 @@ async function buildContext(message, history) {
     const fieldSlug2 = getFieldSlug(message);
     const regionForKI = detectRegion(message);
 
+    // בדיקת "ציון אזור מפורש" — בדיקה שכבר נדרשת לכניסה ל-Jina.
+    // שמורה כדגל כי נצטרך אותה גם ב-requestedRegionName ב-return.
+    const regionExplicitlyMentioned = regionForKI && (
+      (regionForKI.keywords || []).some(k => {
+        const kL = k.toLowerCase(); const msgL2 = msgForFieldMatch.toLowerCase();
+        return k.length <= 4 ? wordBoundaryIncludes(msgL2, kL) : msgL2.includes(kL);
+      }) || (regionForKI.cities || []).some(c =>
+        c.length >= 4 && wordBoundaryIncludes(msgForFieldMatch.toLowerCase(), c.toLowerCase())
+      )
+    );
+
     // אם יש אזור מזוהה (ולא "למידה מרחוק" — אין לו דף results נפרד) —
     // ננסה קודם את דף האזור האמיתי באינדקס (מסונן באמת לאזור, כולל למידה מרחוק
     // שמוצגת תמיד גם היא בדפי ה-results-X של הפורטל).
     // חריג: אם כבר בוצע סינון לפי עיר ספציפית מ-known_institutions (cityFilterApplied),
     // אין צורך ב-Jina — יש לנו כבר בדיוק את המוסדות הנכונים.
     if (regionForKI && regionForKI.slug !== 'online' && fieldSlug2 && !knownOnly._cityFilterApplied &&
-        validKI === knownOnly) { // validKI שונה מ-knownOnly רק אחרי pre-filter — כבר סוננו, מדלגים
+        !preSpecificFilterDone && regionExplicitlyMentioned) {
       const regionPageData = getInstitutionsFromCategoryIndex(fieldSlug2.name, regionForKI.slug);
       let regionInst = (regionPageData && regionPageData.text)
         ? parseInstitutionsFromCategoryText(regionPageData.text, fieldSlug2.name, 20)
@@ -1249,8 +1262,7 @@ async function buildContext(message, history) {
     console.log('KNOWN_ONLY path (national list):', validKI.length, 'institutions → coursesForClaude');
     const finalNote = [combinedNote, summerNote].filter(Boolean).join('\n\n') || null;
     return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null,
-      // כשfallbackInstitutionApplied=true עקב pre-Jina filter — לא מראים "לא הצלחנו לאתר"
-      requestedRegionName: (fallbackInstitutionApplied && regionForKI) ? null : (regionForKI ? regionForKI.name : null),
+      requestedRegionName: (fallbackInstitutionApplied || !fieldSlug2 || !regionExplicitlyMentioned) ? null : (regionForKI ? regionForKI.name : null),
       usedFallbackInstitution: false, combinedNote: finalNote };
     } // end else validKI
   }
