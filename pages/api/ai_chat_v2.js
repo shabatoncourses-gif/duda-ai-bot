@@ -736,22 +736,40 @@ function getCourseDates(message, filterUrls) {
 
   // חפש לפי שם מוסד/קורס — מעדיף התאמת כותרת על פני תוכן פתיחות
   const stopW = new Set(['מתי','קורס','קורסים','נפתח','נפתחים','מועד','פתיחה','של','את','יש','מה']);
-  const qWords = msgL.split(/\s+/).filter(w => w.length > 2 && !stopW.has(w));
-  const specificWords = qWords.filter(w => w.length > 4);
+  const stripPfx = (w) => {
+    if (w.length < 5) return w;
+    const rest = w.slice(1);
+    if (rest.length >= 3 && /^[בלמכהוש]$/.test(w[0])) return rest;
+    return w;
+  };
+  const qWords = msgL.split(/\s+/)
+    .map(w => w.replace(/[?!.,;:'"״"'()[\]]/g, '')) // הסרת פיסוק
+    .filter(w => w.length > 2 && !stopW.has(w))
+    .flatMap(w => { const s = stripPfx(w); return s !== w ? [w, s] : [w]; });
+  const specificWords = [...new Set(qWords.filter(w => w.length > 4))];
   const matched = data.courses.filter(c => {
     if (filterUrls && filterUrls.length > 0 && !filterUrls.includes(c.url)) return false;
     const titleL = c.title.toLowerCase();
     const openingText = c.openings.map(o => (o.course_name || '') + ' ' + (o.date_text || '')).join(' ').toLowerCase();
-    // התאמת כותרת: ≥2 מילים בכותרת — חזקה
+    // התאמת כותרת: ≥2 מילים מהשאלה מופיעות בכותרת המוסד — התאמה חזקה
     const titleMatches = qWords.filter(w => titleL.includes(w)).length;
     if (titleMatches >= 2) return true;
-    // מילה ספציפית (>4 תווים) בכותרת — גם חזקה
-    if (specificWords.some(w => titleL.includes(w))) return true;
+    // כל המילות הספציפיות חייבות להיות בכותרת (גם בגרסה המנוקה ללא תחילית).
+    // מונע false positives: "בובנאות ואמנות" מתאים ל"אמנות" אבל לא ל"תחרה",
+    // ולכן לא יופיע כשמחפשים "אמנות התחרה".
+    if (specificWords.length > 0) {
+      const allSpecificMatch = specificWords.every(w => {
+        const stripped = stripPfx(w);
+        return titleL.includes(w) || titleL.includes(stripped);
+      });
+      if (allSpecificMatch) return true;
+    }
     return false;
   });
   const GENERIC_PHRASES = [
     'שלחו טופס', 'פנו לברור', 'פנו לבירור', 'ההרשמה בעיצומה',
-    'מועדים שונים', 'לאורך השנה', 'בזמן ובמקום', 'עצמאי ומקוון'
+    'מועדים שונים', 'לאורך השנה', 'בזמן ובמקום', 'עצמאי ומקוון',
+    'נפתחים בקרוב', 'בקרוב', 'יפתח בקרוב', 'פנו למידע'
   ];
   const isGeneric = (txt) => GENERIC_PHRASES.some(p => txt.includes(p));
 
