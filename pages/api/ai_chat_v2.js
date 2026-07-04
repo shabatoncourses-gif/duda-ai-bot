@@ -1629,7 +1629,7 @@ async function buildContext(message, history) {
         `📚 [כל הקורסים באזור ${region.name}](${regionUrl})\n\n` +
         `בדף הקורסים ניתן לחפש לפי שם הישוב הספציפי ולסנן לפי נושא.` + footer;
       console.log('CITY-NO-FIELD direct reply:', region.name, regionUrl);
-      return { context: '=== תגובה ישירה ===\n' + directReply, isInfo: true, courseCount: 0, urlToTitle: {} };
+      return { context: '=== מידע על שבתון ===\n' + directReply, isInfo: true, courseCount: 0, urlToTitle: {} };
     }
   } else if (fieldInfo) {
     parts.push(`\nתחום: ${fieldInfo.name}\nקישור לכל קורסי התחום בכל הארץ: https://www.shabaton.online/results-all/${fieldInfo.slug}\nחשוב: הגולש לא ציין אזור — אל תוסיף אזור בכותרת ולא בfooter`);
