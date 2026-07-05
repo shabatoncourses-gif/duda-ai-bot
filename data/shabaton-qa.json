@@ -733,6 +733,25 @@
       "name": "תוכנית לימודים",
       "questions": [
         {
+          "id": "nlp_courses",
+          "priority": true,
+          "question": "האם קורס NLP נחשב לימודי חובה?",
+          "keywords": [
+            "nlp",
+            "נלפ",
+            "NLP",
+            "קורס nlp",
+            "קורסי nlp",
+            "אימון nlp"
+          ],
+          "variations": [
+            "האם קורס NLP נחשב לימודי חובה בשנת שבתון",
+            "NLP חובה או רשות?",
+            "אילו קורסי NLP מוכרים לשבתון?"
+          ],
+          "answer": "קיימים קורסי NLP שמוכרים כ**לימודי חובה** ואחרים שמוכרים כ**לימודי השלמה** — זה תלוי במוסד הספציפי ובמסגרת שבה הקורס מוגש לקרן.\n\nמוסדות המציעים קורסי NLP:\n\n[אורנים — NLP](https://www.shabaton.online/oranim-morim)\n[אשכילה / מכללת בית רבקה](https://www.shabaton.online/rivka)\n[האקדמיה לחשיבה אחרת — רחל סטיקלרו](https://www.morim.boutique/stiklaro)\n[האקדמית חמדת](https://www.shabaton.online/hemdat)\n[וינגייט — בית הספר להשתלמויות](https://www.shabaton.online/wingate_morim)\n[מכללת יוזמות](https://www.shabaton.online/yozmot)\n[מכללת רטר ל-NLP](https://www.shabaton.online/retter-college)\n[מרכז י.נ.ר](https://www.shabaton.online/ynr)\n[נתיבי ידע — קורסים מתוקשבים](https://www.shabaton.online/e-yeda)\n[סמינר הקיבוצים](https://www.shabaton.online/smkb/morim)\n[תלפיות — המרכז לפיתוח פרופסיונלי](https://www.shabaton.online/talpiot_edu)\n[דוד ילין — השתלמויות](https://www.shabaton.online/dyellin)\n\n**המלצה:** פנו ישירות לכל מוסד ובררו האם הקורס שלו מוכר כחובה או כרשות — זה יכול להשתנות בין מוסד למוסד ולפי הפרופיל האישי שלכם.\n\n💬 [אפשר לשאול בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)"
+        },
+        {
           "id": "study_hovot",
           "question": "כמה שעות לימוד חייבים בשבתון?",
           "keywords": [
