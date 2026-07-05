@@ -1163,6 +1163,40 @@ async function buildContext(message, history) {
     }
   }
 
+  // ── Multi-field: "הוראה מתקנת וגם הדרכת הורים" ──
+  // כשהשאלה מכילה "וגם"/"וכן" בין שני נושאים ששייכים לשדות שונים,
+  // מזהים את השדה השני ומאחדים את המוסדות שלו עם השדה הראשי.
+  if (knownOnly && sfForKI && matchedFieldObj && /וגם|וכן/.test(msgForFieldMatch)) {
+    const connParts = msgForFieldMatch.split(/\s+(?:וגם|וכן)\s+/);
+    for (const part of connParts) {
+      const partL = part.toLowerCase().trim();
+      let bestExtraLen = 0, bestExtraField = null;
+      for (const sfItem of sfForKI.studyFields) {
+        if (sfItem.name === matchedFieldObj.name) continue;
+        if (!sfItem.known_institutions?.length) continue;
+        for (const k of (sfItem.keywords || [])) {
+          const kL = k.toLowerCase();
+          const m = k.length <= 4 ? wordBoundaryIncludes(partL, kL) : partL.includes(kL);
+          if (m && k.length > bestExtraLen) { bestExtraLen = k.length; bestExtraField = sfItem; }
+        }
+      }
+      if (bestExtraField && bestExtraLen >= 4) {
+        const seen = new Set(knownOnly.map(ki => ki.url));
+        let added = 0;
+        for (const ki of bestExtraField.known_institutions) {
+          if (!seen.has(ki.url) && (ki.url||'').match(/shabaton\.online|morim\.boutique/)) {
+            knownOnly.push(ki); seen.add(ki.url); added++;
+          }
+        }
+        if (added > 0) {
+          wasCombined = true;
+          matchedFieldKeywords.push(bestExtraField.name);
+          console.log('MULTI-FIELD (וגם):', bestExtraField.name, '+', added, 'institutions');
+        }
+      }
+    }
+  }
+
   if (knownOnly) {
     // סנן URLs לא תקינים (WhatsApp, חיצוניים וכו')
     const validKI = knownOnly.filter(ki => {
@@ -1992,6 +2026,9 @@ export default async function handler(req, res) {
       if (getCourseDates(message) && courseCount <= 3) {
         // שאלת תזמון + מוסד ספציפי נמצא עם מועדים — פתיח ממוקד
         intro = `מצאנו מועדי פתיחה לקורס המבוקש, ולהלן פרטי המוסד ופרטי הפתיחה:`;
+      } else if (/חובה|רשות|חובה או רשות|חובה ורשות|נחשב חובה|נחשב קורס חובה/.test(message) && fieldName) {
+        // שאלת חובה/רשות — אין תשובה חד-משמעית, מפנים למוסדות לבירור ישיר
+        intro = `בתחום **${fieldName}** יש קורסים שמוכרים כחובה ויש שמוכרים כרשות — תלוי במוסד הספציפי ובפרופיל האישי. מומלץ לפנות לכל מוסד ולוודא מול קרן ההשתלמות:`;
       } else if (usedFallbackInstitution && fieldName) {
         // לא נמצא מוסד שמלמד בפועל את הנושא הספציפי שנשאל — מציגים מוסד מומלץ
         // לכל תחום ה-${fieldName}, בכנות, ולא כתוצאה מסוננת מדויקת.
