@@ -1291,7 +1291,9 @@ async function buildContext(message, history) {
     // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, אבל נזכיר שביקשת אזור זה
     console.log('KNOWN_ONLY path (national list):', validKI.length, 'institutions → coursesForClaude');
     const finalNote = [
-      getCourseDates(message),
+      ((/מתי|מועד|נפתח|פתיחה|תאריך|חודש|מאיזה|בקרוב/.test(message)) ||
+       (/(^|\s)[בלמכ]?(יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר|ינואר|פברואר|מרץ|אפריל|מאי|יוני)(\s|$|\?)/.test(message)) ||
+       isSummerQuery(message)) ? getCourseDates(message) : null,
       combinedNote,
       summerNote
     ].filter(Boolean).join('\n\n') || null;
