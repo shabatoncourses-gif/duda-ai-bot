@@ -706,7 +706,17 @@
             "הגשת תוכנית לימודים",
             "הגשת קבלות",
             "פורטל עובדי הוראה",
-            "פורטל עו\"ה"
+            "פורטל עו\"ה",
+            "לאן לעלות",
+            "איפה להעלות",
+            "לאן מעלים",
+            "לאן מגישים",
+            "איפה מגישים",
+            "להעלות תוכנית",
+            "העלאת תוכנית",
+            "העלאת אישור",
+            "לעלות תוכנית",
+            "תוכנית לימודים לאן"
           ],
           "variations": [
             "איפה אני מעלה אישור לשבתון לשנה הבאה?",
@@ -714,7 +724,8 @@
             "איפה מעלים קבלות לשבתון?",
             "איפה מגישים אישורים לשבתון הבא?"
           ],
-          "answer": "כל נושא הגשת תוכניות הלימודים, אישורים, והגשת קבלות מתבצע **בפורטל עובדי ההוראה**.\n\n📎 [הדרכה בדף תוכניות הלימודים](https://www.shabaton.online/learning_programs_shabaton)\n📎 [הדרכה בדף לוח הזמנים](https://www.shabaton.online/luz_shabaton#1080507921)\n\n💬 [אפשר לשאול בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)"
+          "answer": "כל נושא הגשת תוכניות הלימודים, אישורים, והגשת קבלות מתבצע **בפורטל עובדי ההוראה**.\n\n📎 [הדרכה בדף תוכניות הלימודים](https://www.shabaton.online/learning_programs_shabaton)\n📎 [הדרכה בדף לוח הזמנים](https://www.shabaton.online/luz_shabaton#1080507921)\n\n💬 [אפשר לשאול בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)",
+          "priority": true
         }
       ]
     },
