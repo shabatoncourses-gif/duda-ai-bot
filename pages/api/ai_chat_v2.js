@@ -177,7 +177,10 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
     // מילות ש"ש ופורמט — לא נושא
     'שש','חובה','רשות','נקודות','שעות','ש"ש',
     // מילות פעולה לימודיות כלליות — לא נושא
-    'ללמוד','למוד','ולמוד','ללמד','ולמד','להכשיר','לרכוש','לפתח','לרכוש'
+    'ללמוד','למוד','ולמוד','ללמד','ולמד','להכשיר','לרכוש','לפתח','לרכוש',
+    // מילות אזור/מיקום — לא נושא לימוד
+    'באיזור','באזור','איזור','אזור','פרדס','כרכור','רכור','חנה','פרונטלי','פרונטל','פנים',
+    'ירושלים','תל אביב','חיפה','באר שבע'
   ]);
   // מילים שהן חלק משם התחום עצמו — לא נחשבות "מונח מייחד".
   // חשוב: משתמשים רק במילות שם השדה (fieldOwnKeywords[0] = שם השדה), לא בכל ה-keywords.
@@ -1142,27 +1145,36 @@ async function buildContext(message, history) {
     else { knownOnly = validKI; }
 
     // ── סינון לפי עיר ספציפית ──
-    // כשבהודעה מוזכרת עיר (למשל "מודיעין", "חיפה"), ויש ל-known_institutions
-    // שדה locations (שמגיע מ-CompanySnifim ב-Excel) — מסננים ומציגים רק
-    // מוסדות שמקיימים פעילות בעיר הזו. כך הגולש מקבל תשובה רלוונטית
-    // ("הנה קורסים ב___") במקום רשימה ארצית כללית.
+    // אוסף ערים מ-כל האזורים (לא רק מהאזור שזוהה), כי detectRegion עלול לטעות.
     if (knownOnly) {
-      const detectedRegion = detectRegion(msgForFieldMatch);
-      if (detectedRegion) {
-        const regionCities = (detectedRegion.cities || []).map(c => c.toLowerCase());
-        // מחפשים את העיר הספציפית (ולא רק האזור) שהוזכרה בהודעה
-        const mentionedCity = regionCities.find(c =>
-          c.length >= 4 && wordBoundaryIncludes(msgForFieldMatch.toLowerCase(), c)
+      const sfRegions = loadJSON('regions.json');
+      const allRegionCities = sfRegions ? sfRegions.regions.flatMap(r => r.cities || []) : [];
+      const msgLower = msgForFieldMatch.toLowerCase();
+      const mentionedCity = allRegionCities.find(c =>
+        c.length >= 4 && wordBoundaryIncludes(msgLower, c.toLowerCase())
+      );
+      if (mentionedCity) {
+        const cityFiltered = knownOnly.filter(ki =>
+          (ki.locations || []).some(loc => loc.toLowerCase().includes(mentionedCity.toLowerCase()))
         );
-        if (mentionedCity) {
-          const cityFiltered = knownOnly.filter(ki =>
-            (ki.locations || []).some(loc => loc.toLowerCase().includes(mentionedCity))
-          );
-          if (cityFiltered.length > 0) {
-            console.log(`CITY FILTER: "${mentionedCity}" → ${cityFiltered.length}/${knownOnly.length} institutions`);
-            knownOnly = cityFiltered;
-            knownOnly._cityFilterApplied = mentionedCity; // דגל — מונע region-page fetch מיותר
-          }
+        if (cityFiltered.length > 0) {
+          console.log(`CITY FILTER (all-regions): "${mentionedCity}" → ${cityFiltered.length}/${knownOnly.length} institutions`);
+          knownOnly = cityFiltered;
+          knownOnly._cityFilterApplied = mentionedCity;
+        }
+      }
+      // ── פרונטלי filter: כשמבקשים פרונטלי, הסר מוסדות שמציעים רק למידה מרחוק ──
+      const wantsFrontal = /פרונטל|פנים אל פנים|לא מרחוק|לא מקוון/.test(msgForFieldMatch);
+      if (wantsFrontal && knownOnly.length > 1) {
+        const frontalFiltered = knownOnly.filter(ki => {
+          const locs = (ki.locations || []);
+          if (locs.length === 0) return true; // אין מידע → לא מסנן
+          const onlyRemote = locs.every(l => l.includes('למידה מרחוק') || l.includes('מקוון') || l.includes('אונליין') || l === 'online');
+          return !onlyRemote;
+        });
+        if (frontalFiltered.length > 0) {
+          console.log(`FRONTAL FILTER: ${frontalFiltered.length}/${knownOnly.length} (removed remote-only)`);
+          knownOnly = frontalFiltered;
         }
       }
     }
