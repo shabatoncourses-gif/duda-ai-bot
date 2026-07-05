@@ -1239,6 +1239,33 @@ async function buildContext(message, history) {
           knownOnly = frontalFiltered;
         }
       }
+      // ── סינון לפי אזור (keyword) כשלא צוינה עיר ספציפית ──
+      // "גרה באזור הצפון" → מסנן מוסדות לפי ערי האזור, גם בלי שם עיר מפורש
+      if (knownOnly && !knownOnly._cityFilterApplied) {
+        const sfReg2 = loadJSON('regions.json');
+        const mL2 = msgForFieldMatch.toLowerCase();
+        if (sfReg2) {
+          for (const rg of sfReg2.regions) {
+            if (rg.slug === 'online') continue;
+            const kwMatch = (rg.keywords || []).find(k => {
+              const kl = k.toLowerCase();
+              return k.length <= 4 ? wordBoundaryIncludes(mL2, kl) : mL2.includes(kl);
+            });
+            if (kwMatch) {
+              const rgCities = (rg.cities || []).map(c => c.toLowerCase());
+              const rgFiltered = knownOnly.filter(ki =>
+                (ki.locations || []).some(loc => rgCities.some(c => c.length >= 4 && loc.toLowerCase().includes(c)))
+              );
+              if (rgFiltered.length > 0 && rgFiltered.length < knownOnly.length) {
+                console.log(`REGION KEYWORD FILTER: "${kwMatch}" (${rg.name}) → ${rgFiltered.length}/${knownOnly.length}`);
+                knownOnly = rgFiltered;
+                knownOnly._cityFilterApplied = kwMatch;
+              }
+              break;
+            }
+          }
+        }
+      }
     }
   }
 
@@ -1257,8 +1284,35 @@ async function buildContext(message, history) {
     // ── שלב מקדים: בדיקת סינון ספציפי לפני הכל ──
     // אם קיים מונח ספציפי מאוד (כמו "נגרות", "מוזיאון") שמצמצם ל-≤5 מוסדות —
     // מציגים אותם ישירות, ומדלגים גם על Jina וגם על ה-regular filter.
-    let preSpecificFilterDone = false;
-    if (!wasCombined) {
+    // ── סינון לפי אזור (keyword) כשלא צוינה עיר ספציפית ──
+    // "אני גרה באזור הצפון" → מסנן מוסדות לפי ערי הצפון, גם בלי שם עיר מפורש
+    if (knownOnly && !knownOnly._cityFilterApplied) {
+      const sfRegions2 = loadJSON('regions.json');
+      const msgLower2 = msgForFieldMatch.toLowerCase();
+      if (sfRegions2) {
+        for (const rg of sfRegions2.regions) {
+          if (rg.slug === 'online') continue;
+          const kwMatch = (rg.keywords || []).find(k => {
+            const kl = k.toLowerCase();
+            return k.length <= 4 ? wordBoundaryIncludes(msgLower2, kl) : msgLower2.includes(kl);
+          });
+          if (kwMatch) {
+            const rgCities = (rg.cities || []).map(c => c.toLowerCase());
+            const rgFiltered = knownOnly.filter(ki =>
+              (ki.locations || []).some(loc => rgCities.some(c => c.length >= 4 && loc.toLowerCase().includes(c)))
+            );
+            if (rgFiltered.length > 0 && rgFiltered.length < knownOnly.length) {
+              console.log(`REGION KEYWORD FILTER: "${kwMatch}" (${rg.name}) → ${rgFiltered.length}/${knownOnly.length}`);
+              knownOnly = rgFiltered;
+              knownOnly._cityFilterApplied = kwMatch;
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    let preSpecificFilterDone = false;    if (!wasCombined) {
       const preFilterRes = filterInstitutionsBySpecificTerm(validKI, msgForFieldMatch, matchedFieldKeywords);
       if (!preFilterRes.noMatchForSpecificTerm && preFilterRes.result.length > 0 && preFilterRes.result.length <= 5) {
         validKI = preFilterRes.result;
@@ -2046,6 +2100,9 @@ export default async function handler(req, res) {
           // ביקשת אזור ספציפי; ננסה גם דף אינדקס וגם סריקה חיה, ובכל זאת לא נמצא מידע מסונן — מציגים רשימה ארצית בכנות
           intro = `ביקשת מידע על ${fieldName} באזור ${requestedRegionName}. כרגע לא הצלחנו לאתר מידע מסונן ספציפית לאזור זה, כך שלהלן רשימה ארצית של מוסדות (חלקם מציעים גם למידה מרחוק) — מומלץ לבדוק זמינות באזור ${requestedRegionName} ישירות מול כל מוסד:`;
         }
+      } else if (/ספורט|מחול|תנועה|פילאטיס|יוגה|שחייה|אירובי|כושר/.test(fieldName || '') && fieldName) {
+        // שדה ספורט — מוסיפים טיפ על קורסי ספורט קרוב לבית
+        intro = `פה תוכלו למצוא מידע על ${fieldName} מכל הארץ, כולל אפשרויות בלמידה מרחוק.\n\n💡 **טיפ:** ניתן לקחת קורס ספורט קרוב לבית ולהגיש בקשה לאישורו בתוכנית הלימודים מול קרן ההשתלמות — גם אם המוסד אינו ברשימה זו. פנו למוסד הקרוב אליכם לבדיקה.\n\nמוסדות שיש עליהם מידע בפורטל:`;
       } else if (fieldName) {
         intro = `פה תוכלו למצוא מידע על ${fieldName} מכל הארץ, כולל אפשרויות בלמידה מרחוק. באיזה אזור הייתם מעדיפים ללמוד? (מרכז / צפון / שרון / ירושלים / דרום) — כתבו לי והבא לכם רשימה מסוננת לאזורכם. בינתיים, ניתן לפנות ישירות למוסדות שלהלן לשאלות ולייעוץ אישי:`;
       } else {
