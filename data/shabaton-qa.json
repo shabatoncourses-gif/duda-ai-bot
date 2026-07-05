@@ -733,20 +733,6 @@
       "name": "תוכנית לימודים",
       "questions": [
         {
-          "id": "nlp_courses",
-          "priority": true,
-          "question": "האם קורס NLP נחשב לימודי חובה?",
-          "keywords": [
-            "nlp",
-            "נלפ",
-            "NLP",
-            "קורס nlp",
-            "קורסי nlp",
-            "אימון nlp"
-          ],
-          "answer": "ישנם מוסדות רבים המציעים קורסי NLP. חלק מהקורסים מוכרים כ**חובה** וחלק כ**השלמה** — הדבר תלוי במוסד הספציפי ובפרופיל האישי שלך.\n\n📚 [כל קורסי אימון - NLP](https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%90%D7%99%D7%9E%D7%95%D7%9F%20-%20NLP)\n\n**פנו ישירות לכל מוסד** ובררו האם הקורס שלו מוכר כחובה או כהשלמה:\n\n[אוניברסיטת בר אילן - הפקולטה לחינוך, היחידה לפיתוח מקצועי](https://www.shabaton.online/educationbiu)\n[אוניברסיטת תל-אביב - המרכז האקדמי לפיתוח אישי ומקצועי בחינוך ובחברה](https://www.shabaton.online/tau-edu)\n[אורנים, היחידה ללימודי תעודה ולימודי המשך](https://www.shabaton.online/oranim-morim)\n[אשכילה  - מכללת  בית רבקה - המרכז ללימודי המשך והשתלמויות](https://www.shabaton.online/rivka)\n[האקדמיה לחשיבה אחרת - רחל סטיקלרו](https://www.morim.boutique/stiklaro)\n[האקדמית חמדת - לימודי חוץ](https://www.shabaton.online/hemdat)\n[המרכז האקדמי לוינסקי-וינגייט, קמפוס וינגייט  - בית הספר להשתלמויות](https://www.shabaton.online/wingate_morim)\n[מכון איתן - המרכז להכשרה ואימון קוגניטיבי בהובלת דנה קינד](https://www.shabaton.online/danak)\n[מכללת ביטוי לאמנות ועיצוב - שיטת נוביצקי](https://www.shabaton.online/bituy)\n[מכללת גישות – להנחיה, אימון ,ניהול, ייעוץ ארגוני וייעוץ עסקי על פי מודל המצוינות של ד'ר צבי ברק](https://www.shabaton.online/gishot)\n[מכללת יוזמות](https://www.shabaton.online/yozmot)\n[מכללת רטר ל-NLP ודמיון מודרך](https://www.shabaton.online/retter-college)\n[מרכז י.נ.ר](https://www.shabaton.online/ynr)\n[נתיבי ידע - קורסים מתוקשבים](https://www.shabaton.online/e-yeda)\n[סמינר הקיבוצים -  השתלמויות ולימודי תעודה](https://www.shabaton.online/smkb/morim)\n[תלפיות - המרכז לפיתוח פרופסיונלי](https://www.shabaton.online/talpiot_edu)\n[NCS המכללה למאמני תזונה](https://www.morim.boutique/ncsisrael)\n[המכללה האקדמית לחינוך עש דוד ילין - השתלמויות עובדי הוראה](https://www.shabaton.online/dyellin)\n\n💡 מורה שמעוניין בקורס שאינו ברשימה המאושרת יכול לפנות לקרן ההשתלמות בבקשה מיוחדת להכרה אישית.\n\n💬 [אפשר לשאול בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)"
-        },
-        {
           "id": "study_hovot",
           "question": "כמה שעות לימוד חייבים בשבתון?",
           "keywords": [
@@ -1028,10 +1014,8 @@
           "keywords": [
             "קורסי חובה",
             "קורסים חובה",
-            "לימודי חובה",
             "אילו קורסי חובה",
-            "מה זה קורס חובה",
-            "אילו תחומים חובה"
+            "מה זה קורס חובה"
           ],
           "variations": [
             "אני מחפש קורסי חובה. מה אתה מציע?",
@@ -1047,8 +1031,6 @@
           "keywords": [
             "קורסי רשות",
             "קורסים רשות",
-            "לימודי רשות",
-            "אילו תחומים רשות",
             "מה זה קורס רשות"
           ],
           "variations": [
