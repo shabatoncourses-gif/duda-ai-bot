@@ -228,6 +228,34 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
   candidates.push(...singleWords);
   if (candidates.length === 0) return { result: institutions, noMatchForSpecificTerm: false };
 
+  // ── OR logic: כשיש "או" בהודעה, מחפשים לפי כל חלק בנפרד ומאחדים ──
+  // "פסיכולוגיה חיובית או ACT" → מוסדות שיש בהם פסיכולוגיה חיובית + מוסדות עם ACT
+  const orParts = msgL.split(/\s+(?:או|or)\s+/i).filter(p => p.trim());
+  if (orParts.length > 1) {
+    const seenUrls = new Set();
+    const orMatched = [];
+    for (const part of orParts) {
+      const partWords = (part.match(/[\u05D0-\u05EA]{2,}|[a-zA-Z]{2,}/g) || [])
+        .filter(w => w.length >= 2 && !isStop(w.toLowerCase())).map(stripPrefix);
+      const partRaw = part.match(/[a-zA-Z]{2,}/g) || []; // גם מילים לטיניות
+      const allPartTerms = [...new Set([...partWords, ...partRaw.map(w => w.toLowerCase())])];
+      if (allPartTerms.length === 0) continue;
+      for (const ki of institutions) {
+        if (seenUrls.has(ki.url)) continue;
+        const text = ((ki.title||'') + ' ' + (ki.description||'')).toLowerCase();
+        const matched = allPartTerms.some(term => term.length >= 2 && text.includes(term));
+        if (matched) {
+          orMatched.push(ki);
+          seenUrls.add(ki.url);
+        }
+      }
+    }
+    if (orMatched.length > 0 && orMatched.length < institutions.length) {
+      console.log('OR FILTER:', orParts.map(p=>p.trim()).join(' | '), '→', orMatched.length, '/', institutions.length);
+      return { result: orMatched, noMatchForSpecificTerm: false };
+    }
+  }
+
   // בודקים את כל המועמדים, ובוחרים את ההתאמה הצרה ביותר (לא הראשונה שנמצאה)
   let best = null;
   for (const term of candidates) {
