@@ -190,8 +190,8 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
     ((fieldOwnKeywords || [])[0] || '').toLowerCase().match(/[\u05D0-\u05EA]{2,}/g) || []
   );
   const fieldWordsL = fieldNameWords;
-  // מילים גולמיות לפי סדר הופעה — לבניית צירופי 2 מילים (כמו "בעלי חיים")
-  const rawWords = msgL.match(/[\u05D0-\u05EA]{2,}/g) || [];
+  // מילים גולמיות לפי סדר הופעה — עברית + לטינית (כדי לתפוס "AI", "NLP", "CBT" וכו')
+  const rawWords = (msgL.match(/[\u05D0-\u05EA]{2,}|[a-z]{2,}/gi) || []);
   // תומך בזיהוי מילה גם עם תחילית עברית (ב/ל/מ/כ/ה/ו/ש, עד 2 תווים) —
   // למשל "ברפואה" צריך להיחשב שייך לשם השדה "רפואה משלימה", לא כ"מונח ספציפי" נפרד.
   const isStop = (w) => {
@@ -224,7 +224,10 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
     }
     return w;
   };
-  const singleWords = [...new Set(rawWords.filter(w => w.length >= 4 && !isStop(w)).map(stripPrefix))];
+  const singleWords = [...new Set(rawWords.filter(w => {
+    const isLatin = /^[a-z]+$/i.test(w);
+    return (isLatin ? w.length >= 2 : w.length >= 4) && !isStop(w);
+  }).map(stripPrefix))];
   candidates.push(...singleWords);
   if (candidates.length === 0) return { result: institutions, noMatchForSpecificTerm: false };
 
@@ -776,9 +779,12 @@ function getCourseDates(message, filterUrls) {
   };
   const qWords = msgL.split(/\s+/)
     .map(w => w.replace(/[?!.,;:'"״"'()[\]]/g, '')) // הסרת פיסוק
-    .filter(w => w.length > 2 && !stopW.has(w))
+    .filter(w => (w.length > 2 || (/^[a-z]{2,}$/i.test(w))) && !stopW.has(w))
     .flatMap(w => { const s = stripPfx(w); return s !== w ? [w, s] : [w]; });
-  const specificWords = [...new Set(qWords.filter(w => w.length > 4))];
+  const specificWords = [...new Set(qWords.filter(w => {
+    if (/^[a-z]+$/i.test(w)) return w.length >= 2; // מילים לטיניות: AI, NLP, CBT, VR וכו'
+    return w.length > 4; // עברית: דורש 5+ תווים כבעבר
+  }))];
   const matched = data.courses.filter(c => {
     if (filterUrls && filterUrls.length > 0 && !filterUrls.includes(c.url)) return false;
     const titleL = c.title.toLowerCase();
@@ -786,13 +792,14 @@ function getCourseDates(message, filterUrls) {
     // התאמת כותרת: ≥2 מילים מהשאלה מופיעות בכותרת המוסד — התאמה חזקה
     const titleMatches = qWords.filter(w => titleL.includes(w)).length;
     if (titleMatches >= 2) return true;
-    // כל המילות הספציפיות חייבות להיות בכותרת (גם בגרסה המנוקה ללא תחילית).
-    // מונע false positives: "בובנאות ואמנות" מתאים ל"אמנות" אבל לא ל"תחרה",
-    // ולכן לא יופיע כשמחפשים "אמנות התחרה".
+    // כל המילות הספציפיות חייבות להיות בכותרת או בתיאור.
+    // בודק כותרת תחילה (התאמה חזקה) ואחר כך תיאור — מאפשר "AI" בתיאורים.
     if (specificWords.length > 0) {
+      const descL = (ki.description || '').toLowerCase();
       const allSpecificMatch = specificWords.every(w => {
         const stripped = stripPfx(w);
-        return titleL.includes(w) || titleL.includes(stripped);
+        return titleL.includes(w) || titleL.includes(stripped) ||
+               descL.includes(w) || descL.includes(stripped);
       });
       if (allSpecificMatch) return true;
     }
