@@ -852,6 +852,10 @@ function fixTypos(msg) {
     .replace(/פרשס חנה/g, 'פרדס חנה')
     .replace(/\bהרכור\b/g, 'כרכור')
     .replace(/פרונטחי/g, 'פרונטלי')
+    .replace(/\bAI\b/g, 'בינה מלאכותית')
+    .replace(/\bai\b/g, 'בינה מלאכותית')
+    .replace(/chatgpt/gi, 'בינה מלאכותית')
+    .replace(/chat gpt/gi, 'בינה מלאכותית')
     .replace(/\bלנפש\b/g, 'להעצמה')
     .replace(/משהו לנפש/g, 'העצמה אישית')
     .replace(/לנוח לנפש/g, 'העצמה אישית');
