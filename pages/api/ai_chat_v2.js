@@ -795,7 +795,7 @@ function getCourseDates(message, filterUrls) {
     // כל המילות הספציפיות חייבות להיות בכותרת או בתיאור.
     // בודק כותרת תחילה (התאמה חזקה) ואחר כך תיאור — מאפשר "AI" בתיאורים.
     if (specificWords.length > 0) {
-      const descL = (ki.description || '').toLowerCase();
+      const descL = (c.description || '').toLowerCase();
       const allSpecificMatch = specificWords.every(w => {
         const stripped = stripPfx(w);
         return titleL.includes(w) || titleL.includes(stripped) ||
