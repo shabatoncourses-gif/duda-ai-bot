@@ -1430,7 +1430,15 @@ async function buildContext(message, history) {
       const cleanDesc = smartTruncate(cleanDescription(ki.description), 800).trim();
       return `**[${ki.title}](${ki.url})**\n${cleanDesc ? cleanDesc + '\n' : ''}[פנו למידע ולייעוץ אישי](${ki.url})`;
     });
-    const catUrl2 = fieldSlug2 ? `https://www.shabaton.online/results-all/${fieldSlug2.slug}` : null;
+    const catUrl2 = (() => {
+      if (!fieldSlug2) return null;
+      // URL אזורי — כשיש region keyword filter (ירושלים, צפון וכד') שהשתמש בו
+      const rg = detectRegion(msgForFieldMatch);
+      if (rg && rg.slug !== 'online' && knownOnly._cityFilterApplied && regionExplicitlyMentioned) {
+        return `https://www.shabaton.online/${rg.slug}/${fieldSlug2.slug}`;
+      }
+      return `https://www.shabaton.online/results-all/${fieldSlug2.slug}`;
+    })();
     const catName2 = fieldSlug2 ? fieldSlug2.name : null;
     // קישור "כל הקורסים" גם לתחום המשלים, כשהיה איחוד שדות — לא רק לתחום הראשי
     if (wasCombined && combinedFieldInfo) {
