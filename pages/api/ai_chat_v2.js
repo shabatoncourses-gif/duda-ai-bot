@@ -2101,7 +2101,10 @@ export default async function handler(req, res) {
       }
       const courseListText = shuffled.join('\n\n') + (combinedNote ? '\n\n' + combinedNote : '');
       let intro;
-      if (getCourseDates(message) && courseCount <= 3) {
+      if (getCourseDates(message) && courseCount <= 3 &&
+          (/מתי|מועד|נפתח|פתיחה|תאריך|חודש|מאיזה|בקרוב/.test(message) ||
+           /(^|\s)[בלמכ]?(יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר|ינואר|פברואר|מרץ|אפריל|מאי|יוני)(\s|$|\?)/.test(message) ||
+           isSummerQuery(message))) {
         // שאלת תזמון + מוסד ספציפי נמצא עם מועדים — פתיח ממוקד
         intro = `מצאנו מועדי פתיחה לקורס המבוקש, ולהלן פרטי המוסד ופרטי הפתיחה:`;
       } else if (/חובה|רשות|חובה או רשות|חובה ורשות|נחשב חובה|נחשב קורס חובה/.test(message) && fieldName) {
