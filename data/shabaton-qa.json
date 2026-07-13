@@ -7,6 +7,18 @@
       "name": "כללי",
       "questions": [
         {
+          "id": "half_shabaton_work_less",
+          "priority": true,
+          "question": "בחצי שבתון אפשר לעבוד פחות מחצי משרה?",
+          "keywords": [
+            "פחות מחצי משרה",
+            "פחות מחצי שבתון",
+            "כמה עובדים בחצי שבתון",
+            "אחוז משרה חצי שבתון"
+          ],
+          "answer": "📎 [שבתון מלא או חצי שבתון — פרטים מלאים](https://www.shabaton.online/halforfull_shabaton)\n\n💬 [אפשר לשאול בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)"
+        },
+        {
           "id": "contact_fund_advisor",
           "priority": true,
           "question": "איך מגיעים ליועצת קרן ההשתלמות?",
