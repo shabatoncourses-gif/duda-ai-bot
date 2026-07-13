@@ -1270,8 +1270,9 @@ async function buildContext(message, history) {
             });
             if (kwMatch) {
               const rgCities = (rg.cities || []).map(c => c.toLowerCase());
+              const normLoc = loc => loc.toLowerCase().replace(/-/g, ' '); // נרמול מקף→רווח ("תל-אביב"→"תל אביב")
               const rgFiltered = knownOnly.filter(ki =>
-                (ki.locations || []).some(loc => rgCities.some(c => c.length >= 4 && loc.toLowerCase().includes(c)))
+                (ki.locations || []).some(loc => rgCities.some(c => c.length >= 4 && normLoc(loc).includes(c)))
               );
               if (rgFiltered.length > 0 && rgFiltered.length < knownOnly.length) {
                 console.log(`REGION KEYWORD FILTER: "${kwMatch}" (${rg.name}) → ${rgFiltered.length}/${knownOnly.length}`);
@@ -1283,6 +1284,7 @@ async function buildContext(message, history) {
           }
         }
       }
+      // ─────────────────────────────────────────────────────
     }
   }
 
@@ -1336,6 +1338,18 @@ async function buildContext(message, history) {
         fallbackInstitutionApplied = true;
         preSpecificFilterDone = true;
         console.log('PRE-SPECIFIC FILTER: showing', validKI.length, 'specific institutions, skip Jina+regular filter');
+        // ── Niche Fallback: אחרי pre-specific filter, אם נשארו ≤2 מוסדות ו-region filter פעל ──
+        // מרחיב לחיפוש ארצי כי התחום מאד ספציפי (כמו "כלבנות טיפולית")
+        if (knownOnly._cityFilterApplied && validKI.length <= 2 && matchedFieldObj) {
+          const allKI = (matchedFieldObj.known_institutions || []).filter(ki =>
+            (ki.url||'').match(/shabaton\.online|morim\.boutique/)
+          );
+          if (allKI.length > validKI.length) {
+            console.log(`NICHE FALLBACK: only ${validKI.length} regional → national (${allKI.length})`);
+            validKI = allKI;
+            preSpecificFilterDone = false; // הרחבנו — מאפשר regular filter לרוץ על הרשימה המלאה
+          }
+        }
       }
     }
 
