@@ -822,6 +822,20 @@
       "name": "תוכנית לימודים",
       "questions": [
         {
+          "id": "canine_therapy_courses",
+          "priority": true,
+          "question": "לימודי כלבנות טיפולית",
+          "keywords": [
+            "כלבנות טיפולית",
+            "כלבנות",
+            "טיפול בכלבים",
+            "טיפול בעזרת כלבים",
+            "כלב טיפולי",
+            "כלבנות שיקומית"
+          ],
+          "answer": "מוסדות המציעים לימודי כלבנות טיפולית ושיקום בעזרת כלבים:\n\n🏫 [מדברים עם כלבים](https://www.shabaton.online/talk2dogs)\nחינוך, סיוע ושיקום בעזרת כלבים\n\n🏫 [המכללה האקדמית לחינוך עש דוד ילין - השתלמויות עובדי הוראה](https://www.shabaton.online/dyellin)\nכלבנות טיפולית והכשרת כלבי שירות\n\n🏫 [אוניברסיטת תל-אביב - המרכז האקדמי לפיתוח אישי ומקצועי](https://www.shabaton.online/tau-edu)\nפסיכותרפיה הנעזרת בבעלי חיים בגישה הדדית\n\n📚 [כל קורסי תרפיה וטיפול](https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%20%D7%AA%D7%A8%D7%A4%D7%99%D7%94%20%D7%95%D7%98%D7%99%D7%A4%D7%95%D7%9C)\n\n💬 [אפשר לשאול בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)"
+        },
+        {
           "id": "ma_any_field",
           "priority": true,
           "question": "האם בשנת שבתון ניתן לעשות תואר שני בכל תחום?",
