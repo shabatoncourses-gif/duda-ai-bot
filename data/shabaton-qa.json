@@ -7,6 +7,22 @@
       "name": "כללי",
       "questions": [
         {
+          "id": "contact_fund_advisor",
+          "priority": true,
+          "question": "איך מגיעים ליועצת קרן ההשתלמות?",
+          "keywords": [
+            "יועצת הקרן",
+            "לפנות לקרן",
+            "איך מגיעים לקרן",
+            "טלפון קרן",
+            "צור קשר קרן",
+            "פרטי קשר קרן",
+            "יועצת שבתון",
+            "ליצור קשר עם הקרן"
+          ],
+          "answer": "לפרטי הקשר של יועצות קרן ההשתלמות:\n\n📞 [טלפונים ואנשי קשר — קרנות ההשתלמות](https://www.shabaton.online/phones_shabaton#histadrut)\n\n💬 [אפשר לשאול בקבוצת הוואטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)"
+        },
+        {
           "id": "supporting_document_for_sabbatical",
           "priority": true,
           "question": "איך מוציאים מסמך תומך לבקשת יציאה לשבתון?",
