@@ -261,11 +261,18 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
   }
 
   // בודקים את כל המועמדים, ובוחרים את ההתאמה הצרה ביותר (לא הראשונה שנמצאה)
+  // aliasing: מונחים עם וריאציות נפוצות
+  const termAliases = { 'אומנות': ['אומנות','אמנות'], 'אמנות': ['אמנות','אומנות'],
+    'טיפולי': ['טיפולי','טיפול','טיפולית'], 'טיפולית': ['טיפולית','טיפול','טיפולי'] };
+  const hasTermInText = (text, term) => {
+    const aliases = termAliases[term] || [term];
+    return aliases.some(a => text.includes(a));
+  };
   let best = null;
   for (const term of candidates) {
     const matched = institutions.filter(ki => {
       const text = ((ki.title||'') + ' ' + (ki.description||'')).toLowerCase();
-      return text.includes(term);
+      return hasTermInText(text, term);
     });
     if (matched.length > 0 && matched.length < institutions.length) {
       if (!best || matched.length < best.matched.length) {
@@ -275,7 +282,7 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
   }
   if (best) {
     console.log('SPECIFIC TERM FILTER:', best.term, '|', best.matched.length, '/', institutions.length, 'institutions');
-    return { result: best.matched, noMatchForSpecificTerm: false };
+    return { result: best.matched, noMatchForSpecificTerm: false, matchedTerm: best.term };
   }
   // היו מילים ספציפיות בשאלה (לא רק עיון כללי בתחום), אבל שום מוסד לא הכיל אותן —
   // כנראה נושא-משנה שלא קיים במאגר (כמו "ארומתרפיה"). מסמנים את זה לקורא,
@@ -797,10 +804,20 @@ function getCourseDates(message, filterUrls) {
     // בודק כותרת תחילה (התאמה חזקה) ואחר כך תיאור — מאפשר "AI" בתיאורים.
     if (specificWords.length > 0) {
       const descL = (c.description || '').toLowerCase();
+      const fullText = titleL + ' ' + descL;
+      // aliasing: אמנות↔אומנות (שני כתיבים לאותו תחום)
+      // aliasing: טיפולי↔טיפול (שם עצם/תואר לאותו שורש)
+      const aliases = w => {
+        if (w === 'אמנות') return ['אמנות', 'אומנות'];
+        if (w === 'אומנות') return ['אומנות', 'אמנות'];
+        if (w === 'טיפולי') return ['טיפולי', 'טיפול', 'טיפולית'];
+        if (w === 'טיפולית') return ['טיפולית', 'טיפול', 'טיפולי'];
+        return [w];
+      };
       const allSpecificMatch = specificWords.every(w => {
         const stripped = stripPfx(w);
-        return titleL.includes(w) || titleL.includes(stripped) ||
-               descL.includes(w) || descL.includes(stripped);
+        return aliases(w).some(a => fullText.includes(a)) ||
+               aliases(stripped).some(a => fullText.includes(a));
       });
       if (allSpecificMatch) return true;
     }
@@ -1338,16 +1355,19 @@ async function buildContext(message, history) {
         fallbackInstitutionApplied = true;
         preSpecificFilterDone = true;
         console.log('PRE-SPECIFIC FILTER: showing', validKI.length, 'specific institutions, skip Jina+regular filter');
-        // ── Niche Fallback: אחרי pre-specific filter, אם נשארו ≤2 מוסדות ו-region filter פעל ──
-        // מרחיב לחיפוש ארצי כי התחום מאד ספציפי (כמו "כלבנות טיפולית")
-        if (knownOnly._cityFilterApplied && validKI.length <= 2 && matchedFieldObj) {
+        // ── Niche Fallback ──
+        // 1) תמיד: ≤1 מוסד → הרחב לכל השדה
+        // 2) ≤2 מוסדות שנמצאו דרך bigram (מונח מרובה-מילים) → הרחב לכל השדה
+        //    (דוגמה: "ככלי טיפולי" צר מדי, מציג 2 אבל 34 רלוונטיים)
+        const matchedTerm = preFilterRes?.matchedTerm || '';
+        const isBigram = matchedTerm.includes(' ');
+        if ((validKI.length <= 1 || (validKI.length <= 2 && isBigram)) && matchedFieldObj) {
           const allKI = (matchedFieldObj.known_institutions || []).filter(ki =>
             (ki.url||'').match(/shabaton\.online|morim\.boutique/)
           );
           if (allKI.length > validKI.length) {
-            console.log(`NICHE FALLBACK: only ${validKI.length} regional → national (${allKI.length})`);
+            console.log(`NICHE FALLBACK (${isBigram?'bigram':'single'}): ${validKI.length} → full field (${allKI.length})`);
             validKI = allKI;
-            preSpecificFilterDone = false; // הרחבנו — מאפשר regular filter לרוץ על הרשימה המלאה
           }
         }
       }
