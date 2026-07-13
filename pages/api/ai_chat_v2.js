@@ -1355,18 +1355,48 @@ async function buildContext(message, history) {
         fallbackInstitutionApplied = true;
         preSpecificFilterDone = true;
         console.log('PRE-SPECIFIC FILTER: showing', validKI.length, 'specific institutions, skip Jina+regular filter');
-        // ── Niche Fallback ──
-        // 1) תמיד: ≤1 מוסד → הרחב לכל השדה
-        // 2) ≤2 מוסדות שנמצאו דרך bigram (מונח מרובה-מילים) → הרחב לכל השדה
-        //    (דוגמה: "ככלי טיפולי" צר מדי, מציג 2 אבל 34 רלוונטיים)
+        // ── Niche Fallback (bigram) ──
+        // כש-bigram נותן ≤2 תוצאות: מרחיב לכל השדה ומחפש מילה בודדת מתאימה
         const matchedTerm = preFilterRes?.matchedTerm || '';
-        const isBigram = matchedTerm.includes(' ');
-        if ((validKI.length <= 1 || (validKI.length <= 2 && isBigram)) && matchedFieldObj) {
+        if (validKI.length <= 2 && matchedTerm.includes(' ') && matchedFieldObj) {
           const allKI = (matchedFieldObj.known_institutions || []).filter(ki =>
             (ki.url||'').match(/shabaton\.online|morim\.boutique/)
           );
           if (allKI.length > validKI.length) {
-            console.log(`NICHE FALLBACK (${isBigram?'bigram':'single'}): ${validKI.length} → full field (${allKI.length})`);
+            // מחפש את הword הספציפית הטובה ביותר (לא bigram) שנותנת 3-20 תוצאות
+            const msgWords = msgForFieldMatch.toLowerCase()
+              .match(/[\u05D0-\u05EA]{4,}|[a-zA-Z]{3,}/g) || [];
+            const stopW2 = new Set(['מחפש','מחפשת','רוצה','רוצים','לרצות','קורס','קורסי','קורסים','לימוד','לימודי','שבתון','ללמוד','ולמוד']);
+            const termAliasesLocal = { 'אומנות':['אומנות','אמנות'], 'אמנות':['אמנות','אומנות'],
+              'טיפולי':['טיפולי','טיפול','טיפולית'], 'טיפולית':['טיפולית','טיפול','טיפולי'] };
+            let bestSingle = null;
+            for (const w of msgWords) {
+              if (stopW2.has(w) || matchedFieldKeywords.includes(w)) continue;
+              const toCheck = termAliasesLocal[w] || [w];
+              const singleMatched = allKI.filter(ki => {
+                const txt = ((ki.title||'')+(ki.description||'')).toLowerCase();
+                return toCheck.some(a => txt.includes(a));
+              });
+              if (singleMatched.length > 2 && singleMatched.length <= 20) {
+                if (!bestSingle || singleMatched.length < bestSingle.length) {
+                  bestSingle = singleMatched;
+                }
+              }
+            }
+            if (bestSingle) {
+              console.log(`NICHE RE-FILTER (single word): ${bestSingle.length} institutions`);
+              validKI = bestSingle;
+            } else {
+              console.log(`NICHE FALLBACK (bigram): ${validKI.length} → full field (${allKI.length})`);
+              validKI = allKI;
+            }
+          }
+        } else if (validKI.length <= 1 && matchedFieldObj) {
+          const allKI = (matchedFieldObj.known_institutions || []).filter(ki =>
+            (ki.url||'').match(/shabaton\.online|morim\.boutique/)
+          );
+          if (allKI.length > 1) {
+            console.log(`NICHE FALLBACK (single): ${validKI.length} → full field (${allKI.length})`);
             validKI = allKI;
           }
         }
