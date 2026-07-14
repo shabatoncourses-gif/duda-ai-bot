@@ -2197,6 +2197,12 @@ export default async function handler(req, res) {
           // Jina נכשל ואין מוסדות מסוננים — מציגים רשימה ארצית בכנות
           intro = `ביקשת מידע על ${fieldName} באזור ${requestedRegionName}. כרגע לא הצלחנו לאתר מידע מסונן ספציפית לאזור זה, כך שלהלן רשימה ארצית של מוסדות (חלקם מציעים גם למידה מרחוק) — מומלץ לבדוק זמינות באזור ${requestedRegionName} ישירות מול כל מוסד:`;
         }
+      } else if (fieldName && categoryUrl && !categoryUrl.includes('results-all') && courseCount > 0) {
+        // categoryUrl אזורי (results-jerusalem, results-Zafon וכו') — מוסדות מסוננים לפי אזור
+        // גם אם requestedRegionName לא הגיע, הURL מעיד על סינון אזורי
+        const regionLabel = requestedRegionName || (categoryUrl.match(/results-([^/]+)\//) || [])[1] || '';
+        const regionDisplay = regionLabel ? ` באזור ${regionLabel.replace(/results-/i,'').replace(/-/g,' ')}` : '';
+        intro = `פה תוכלו למצוא מוסדות ${fieldName}${regionDisplay}, ולפנות ישירות לשאלות ולייעוץ אישי:`;
       } else if (/ספורט|מחול|תנועה|פילאטיס|יוגה|שחייה|אירובי|כושר/.test(fieldName || '') && fieldName) {
         // שדה ספורט — מוסיפים טיפ על קורסי ספורט קרוב לבית + קישור לדף כללי הספורט
         intro = `פה תוכלו למצוא מידע על ${fieldName} מכל הארץ.\n\n💡 **טיפ:** ניתן לקחת קורס ספורט קרוב לבית ולהגיש בקשה לאישורו בתוכנית הלימודים מול קרן ההשתלמות — גם אם המוסד אינו ברשימה זו.\n📚 [קורסי ספורט מוכרים לשבתון](https://www.shabaton.online/sport)\n\nמוסדות שיש עליהם מידע בפורטל:`;
