@@ -612,6 +612,73 @@ function tryCalculateShaShFromMessage(message) {
     `לאימות סופי ולשאלות נוספות [אפשר לפנות לקבוצת הוואטסאפ של שבתון](${SHASH_WHATSAPP_LINK}).`;
 }
 
+// ── חיפוש תאריך פתיחה לקורס ספציפי ──
+// כשנשאלים "מתי נפתח קורס X", מחלצים את שם הקורס ומחפשים אותו כטקסט חופשי
+// בתוך course-dates.json (לא רק לפי כותרת מוסד — גם בתוך הבלוקים המרוכזים
+// של כמה קורסים תחת אותו מוסד/חודש). אם נמצא תאריך מפורש — מחזירים אותו.
+// אם לא נמצא תאריך אבל הקורס מזוהה תחת מוסד ידוע (לפי study-fields.json) —
+// מפנים לדף המוסד ומציעים לפנות לברור המועד, במקום להשאיר בלי תשובה או
+// להחזיר תוצאות לא קשורות. הערה: נמנעים במכוון מ-\b על טקסט עברי — הוא לא
+// מזהה אותיות עבריות כתווי-מילה ונכשל בשקט (בדיוק כמו הבאג שתוקן במקומות
+// אחרים בקובץ הזה).
+function tryFindCourseOpeningDate(message) {
+  const msgL = message.toLowerCase();
+  const isDateQuestion = /מתי\s*נפתח|מתי\s*מתחיל|תאריך\s*פתיחה|באיזה\s*תאריך|מועד\s*פתיחה|מתי\s*מתחילים|מתי\s*יוצא/.test(msgL);
+  if (!isDateQuestion) return null;
+
+  let courseQuery = message
+    .replace(/מתי\s*נפתח/g, '')
+    .replace(/מתי\s*מתחיל(ים)?/g, '')
+    .replace(/תאריך\s*פתיחה\s*(של)?/g, '')
+    .replace(/באיזה\s*תאריך/g, '')
+    .replace(/מועד\s*פתיחה\s*(של)?/g, '')
+    .replace(/מתי\s*יוצא/g, '')
+    .replace(/הקורס(?=\s|$)/g, '')
+    .replace(/^\s*(של\s+)?/g, '')
+    .replace(/^\s*קורס(?=\s|$)\s*/g, '')
+    .replace(/^\s*ה(?=[א-ת])/g, '')
+    .trim();
+  courseQuery = courseQuery.replace(/[?!.,]+$/g, '').trim();
+  if (courseQuery.length < 3) return null; // אין שם קורס ברור מספיק לחיפוש
+
+  const courseQueryL = courseQuery.toLowerCase();
+
+  // 1. חיפוש שורה-שורה בתוך course-dates.json — כולל בתוך בלוקים מרוכזים
+  const datesData = loadJSON('course-dates.json');
+  if (datesData && datesData.courses) {
+    for (const c of datesData.courses) {
+      for (const o of (c.openings || [])) {
+        const courseNameText = o.course_name || '';
+        const lines = courseNameText.split('\n');
+        for (const line of lines) {
+          if (line.trim() && line.toLowerCase().includes(courseQueryL)) {
+            return `📅 **${courseQuery}**\n\n${line.trim()}\n\n[פנו למידע ולייעוץ אישי](${c.url})`;
+          }
+        }
+      }
+    }
+  }
+
+  // 2. לא נמצא תאריך מפורש — בודקים אם הקורס מזוהה תחת מוסד ידוע
+  const sfData = loadJSON('study-fields.json');
+  if (sfData && sfData.studyFields) {
+    for (const field of sfData.studyFields) {
+      for (const inst of (field.known_institutions || [])) {
+        const desc = (inst.description || '').toLowerCase();
+        if (desc.includes(courseQueryL)) {
+          return `לא מצאתי תאריך פתיחה מפורש לקורס **${courseQuery}** כרגע.\n\n` +
+            `הקורס מוצע על ידי **[${inst.title}](${inst.url})** — ` +
+            `מומלץ לפנות ישירות דרך הדף שלהם לברור המועד המדויק.\n\n` +
+            `[פנו למידע ולייעוץ אישי](${inst.url})`;
+        }
+      }
+    }
+  }
+
+  // 3. לא נמצא בשום מקום — משאירים לזרימה הרגילה לטפל (לא עונים ישירות)
+  return null;
+}
+
 function detectInfoPages(question) {
   const q = question.toLowerCase();
   const pages = [
@@ -2133,6 +2200,13 @@ export default async function handler(req, res) {
     if (shaShReply) {
       console.log('SHASH CALCULATOR — direct reply');
       return res.json({ reply: shaShReply });
+    }
+
+    // ── שאלה על תאריך פתיחה של קורס ספציפי ──
+    const courseDateReply = tryFindCourseOpeningDate(message);
+    if (courseDateReply) {
+      console.log('COURSE OPENING DATE LOOKUP — direct reply');
+      return res.json({ reply: courseDateReply });
     }
 
     // ── זיהוי "הגשת פרטים" כתגובה למוסד-לא-עונה ──
