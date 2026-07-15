@@ -551,6 +551,67 @@ function searchCourses(message, region) {
   return results.sort((a,b) => b.score - a.score).slice(0, 25);
 }
 
+// ── מחשבון המרת שעות קורס לש"ש ──
+// עונה רק כשמזוהה בבירור בקשת המרה לש"ש (לא שאלות כלליות כמו "מה זה ש"ש",
+// שאלה כזו ממשיכה לטפל בה ה-QA הקיים). אין חלקי ש"ש — התוצאה תמיד מעוגלת
+// כלפי מטה. אין הפניה ליועצת קרן ההשתלמות — לשאלות/אימות נוסף מפנים
+// לקבוצת הוואטסאפ של שבתון בלבד.
+const SHASH_WHATSAPP_LINK = 'https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME';
+const SHASH_ACADEMIC_MINUTES = 45; // דקות בשעה אקדמית אחת
+const SHASH_HOURS_PER_UNIT = 28;   // שעות אקדמיות ב-1 ש"ש
+
+function tryCalculateShaShFromMessage(message) {
+  const m = message || '';
+  // חייב להזכיר ש"ש במפורש — לא מטפלים בשאלות כלליות שלא ביקשו המרה
+  const mentionsShaSh = /ש"ש|ש''ש|שעה שבועית|שעות שבועיות/.test(m);
+  if (!mentionsShaSh) return null;
+  // חייב להכיל תיאור של משך הקורס (מפגשים/שעות/דקות) — אחרת זו שאלה כללית
+  // ("מה זה ש"ש", "כמה שעות רשות צריך") ולא בקשת חישוב, ויש להשאיר את זה ל-QA הרגיל
+  const hasTimingWords = /מפגש|מפגשים|דקות|שעות\s*אקדמי|שעות\s*לימוד/.test(m);
+  if (!hasTimingWords) return null;
+
+  const meetingsMatch = m.match(/(\d+)\s*מפגשים/);
+  const hoursPerMeetingMatch = m.match(/(\d+)\s*שעות(?:\s*של)?/);
+  const minutesMatch = m.match(/(\d+)\s*דקות/);
+  const academicHoursDirectMatch = m.match(/(\d+)\s*שעות\s*אקדמי/);
+
+  let totalMinutes = null;
+
+  if (meetingsMatch && hoursPerMeetingMatch) {
+    // תבנית: X מפגשים, Y שעות במפגש, Z דקות לשעה (ברירת מחדל 60 דקות אם לא צוין)
+    const meetings = parseInt(meetingsMatch[1], 10);
+    const hoursPerMeeting = parseInt(hoursPerMeetingMatch[1], 10);
+    const minutesPerHour = minutesMatch ? parseInt(minutesMatch[1], 10) : 60;
+    totalMinutes = meetings * hoursPerMeeting * minutesPerHour;
+  } else if (academicHoursDirectMatch) {
+    // תבנית: X שעות אקדמיות ישירות
+    totalMinutes = parseInt(academicHoursDirectMatch[1], 10) * SHASH_ACADEMIC_MINUTES;
+  } else if (minutesMatch && !meetingsMatch) {
+    // תבנית: X דקות בסה"כ, ללא מפגשים/שעות
+    totalMinutes = parseInt(minutesMatch[1], 10);
+  }
+
+  if (totalMinutes === null || isNaN(totalMinutes) || totalMinutes <= 0) {
+    // זוהתה בקשת המרה, אך לא ניתן היה לחלץ נתונים ברורים מההודעה —
+    // מחזירים את כלל ההמרה הכללי בלבד, ומפנים לקבוצת הוואטסאפ (לא ליועצת קרן)
+    return '📐 **כלל ההמרה לש"ש:**\n\n' +
+      `• שעה אקדמית = ${SHASH_ACADEMIC_MINUTES} דקות\n` +
+      `• 1 ש"ש = ${SHASH_HOURS_PER_UNIT} שעות אקדמיות\n\n` +
+      'לא הצלחתי לזהות בבירור את מספר המפגשים ואורך כל מפגש מההודעה שלך.\n\n' +
+      `אפשר לשלוח את הפרטים המדויקים (מספר מפגשים, אורך כל מפגש) [בקבוצת הוואטסאפ של שבתון](${SHASH_WHATSAPP_LINK}) ונעזור בחישוב.`;
+  }
+
+  const academicHours = totalMinutes / SHASH_ACADEMIC_MINUTES;
+  const shaShFloor = Math.floor(academicHours / SHASH_HOURS_PER_UNIT);
+
+  return '📐 **חישוב ש"ש:**\n\n' +
+    `• סה"כ דקות לימוד: ${totalMinutes}\n` +
+    `• שעות אקדמיות (${SHASH_ACADEMIC_MINUTES} דקות כל אחת): ${academicHours.toFixed(2)}\n` +
+    `• ש"ש (${SHASH_HOURS_PER_UNIT} שעות אקדמיות = 1 ש"ש): **${shaShFloor} ש"ש**\n\n` +
+    '⚠️ אין חלקי ש"ש — התוצאה מעוגלת תמיד כלפי מטה.\n\n' +
+    `לאימות סופי ולשאלות נוספות [אפשר לפנות לקבוצת הוואטסאפ של שבתון](${SHASH_WHATSAPP_LINK}).`;
+}
+
 function detectInfoPages(question) {
   const q = question.toLowerCase();
   const pages = [
@@ -2066,6 +2127,13 @@ export default async function handler(req, res) {
     if (!message) return res.status(400).json({ error: 'message required' });
 
     console.log(`POST [${site}]: ${message.substring(0,60)}`);
+
+    // ── מחשבון המרת שעות קורס לש"ש — עדיפות ראשונה, לפני כל עיבוד אחר ──
+    const shaShReply = tryCalculateShaShFromMessage(message);
+    if (shaShReply) {
+      console.log('SHASH CALCULATOR — direct reply');
+      return res.json({ reply: shaShReply });
+    }
 
     // ── זיהוי "הגשת פרטים" כתגובה למוסד-לא-עונה ──
     // אם בהודעה הקודמת של הבוט הוא ביקש שם/אימייל/טלפון (QA: institution_not_responding),
