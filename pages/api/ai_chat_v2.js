@@ -35,7 +35,7 @@ const SYSTEM_PROMPT =
   '=== שאלות קורסים ===\n' +
   'פתח תמיד בפתיח ידידותי וחמים (שורה אחת קצרה) לפני התוצאות. לדוגמה: "בשמחה! הנה מה שמצאתי עבורך:" — אל תעתיק בדיוק, חדש בכל פעם.\n' +
   'הצג 10-15 מוסדות מהרשימה בcontext. הצג כמה שיותר — אל תקצץ.\n' +
-  'כלל תיאורים: כתוב תיאור קצר ורלוונטי לשאלה. אם הגולש ביקש למידה מרחוק — ציין במפורש אם הקורס מוצע מרחוק/אונליין. אסור להמציא. עברית תקנית.\n' +
+  'כלל תיאורים: התיאור שמסופק לכל מוסד כבר סונן מראש בקוד ומכיל רק את הקורס/ים הרלוונטיים לשאלה — העתק אותו כפי שהוא, בלי לקצר, לנסח מחדש או להוסיף עליו. אם הגולש ביקש למידה מרחוק — ציין במפורש אם הקורס מוצע מרחוק/אונליין, רק אם זה כתוב בתיאור עצמו. אסור להמציא.\n' +
   'אל תציג תואר שני אלא אם ביקשו.\n' +
   'בנושא טיולים: הצג רק סמינרים וסיורים שמורים הולכים אליהם — לא קורסי הכשרת מורי דרך.\n\n' +
   'הקורסים מסופקים כ-markdown מוכן. העתק אותם בדיוק.\n\n' +
@@ -96,6 +96,90 @@ function smartTruncate(text, limit) {
   const lastNl = cut.lastIndexOf('\n');
   if (lastNl > limit * 0.5) return cut.substring(0, lastNl).trim();
   return cut.trim();
+}
+
+// ── חילוץ "מונחים ספציפיים" מתוך הודעה (מילים/צירופי-מילים שאינם stopwords ──
+// או שם השדה עצמו). זהו עותק מכוון (לא refactor) של לוגיקת חילוץ המועמדים
+// שבתוך filterInstitutionsBySpecificTerm — נשמר נפרד ולא מוזג לתוכה כדי לא
+// לגעת בפונקציה הקיימת (שמכוונת בעדינות רבה למקרי-קצה רבים, ראו התיעוד שם).
+// משמש רק לסינון שורות-תיאור בתוך מוסד (filterDescriptionLinesByTerms) —
+// לא לבחירת אילו מוסדות להציג, לכן אין כאן צורך במנגנוני fallback/OR/best-match.
+function extractSpecificTerms(message, fieldOwnKeywords) {
+  const msgL = message.toLowerCase();
+  const stopwords = new Set([
+    'קורס','קורסי','קורסים','לימודי','לימוד','לימודים','בתחום','אזור','מה','יש','של',
+    'על','עם','גם','כל','אני','את','אתה','אילו','איזה','מוסדות','שמציעים',
+    'מציעים','להציג','רק','ללא','תלות','להלן','שלהלן','בפורטל','שבתון','באמצעות',
+    'מקוון','מרחוק','אונליין','online','היברידי','זום','סינכרוני','א-סינכרוני',
+    'שש','חובה','רשות','נקודות','שעות','ש"ש',
+    'ללמוד','למוד','ולמוד','ללמד','ולמד','להכשיר','לרכוש','לפתח','לרכוש',
+    'באיזור','באזור','איזור','אזור','פרדס','כרכור','רכור','חנה','פרונטלי','פרונטל','פנים',
+    'ירושלים','תל אביב','חיפה','באר שבע'
+  ]);
+  const fieldNameWords = new Set(
+    ((fieldOwnKeywords || [])[0] || '').toLowerCase().match(/[\u05D0-\u05EA]{2,}/g) || []
+  );
+  const rawWords = (msgL.match(/[\u05D0-\u05EA]{2,}|[a-z]{2,}/gi) || []);
+  const isStop = (w) => {
+    if (stopwords.has(w) || fieldNameWords.has(w)) return true;
+    for (let n = 1; n <= 2; n++) {
+      const stripped = w.slice(n);
+      if (stripped.length >= 2 && (stopwords.has(stripped) || fieldNameWords.has(stripped)) &&
+          /^[בלמכהוש]{1,2}$/.test(w.slice(0, n))) {
+        return true;
+      }
+    }
+    return false;
+  };
+  const stripPrefix = (w) => {
+    if (w.length < 5) return w;
+    const rest = w.slice(1);
+    if (rest.length >= 3 && /^[בלמכהוש]$/.test(w[0])) return rest;
+    if (w.length >= 6) {
+      const rest2 = w.slice(2);
+      if (rest2.length >= 3 && /^[בלמכהוש]{2}$/.test(w.slice(0,2))) return rest2;
+    }
+    return w;
+  };
+  const candidates = [];
+  for (let i = 0; i < rawWords.length - 1; i++) {
+    const w1 = rawWords[i], w2 = rawWords[i+1];
+    if (isStop(w1) || isStop(w2)) continue;
+    candidates.push(w1 + ' ' + w2);
+  }
+  const singleWords = rawWords.filter(w => {
+    const isLatin = /^[a-z]+$/i.test(w);
+    return (isLatin ? w.length >= 2 : w.length >= 4) && !isStop(w);
+  }).map(stripPrefix);
+  candidates.push(...singleWords);
+  // שם אדם עם תואר מקצועי ("ד"ר X") — מונח ספציפי מאוד גם לסינון שורות
+  const titledNameMatch = msgL.match(/(?:דוקטור|ד"ר|ד'ר|פרופ'|פרופסור)\s+([\u05D0-\u05EA]{2,}(?:\s+[\u05D0-\u05EA]{2,}){0,2})/);
+  if (titledNameMatch) candidates.push(titledNameMatch[1].trim());
+  return [...new Set(candidates)];
+}
+
+// ── משאיר, מתוך תיאור מוסד מרובה-שורות (קורס אחד לכל שורה בד"כ), רק את ──
+// השורות שמכילות לפחות אחד מהמונחים הספציפיים שחולצו מהשאלה. כך במקום
+// להציג תחת כל מוסד את *כל* הקורסים שלו בתחום, מציגים רק את הקורס/ים
+// שרלוונטיים בפועל לחיפוש של הגולש.
+// נופל חזרה לתיאור המלא כשאין מה לסנן (שאילתה כללית על התחום), כשיש רק
+// שורה אחת ממילא, או כשאף שורה לא תואמת (למשל כשהמונח מופיע רק בכותרת
+// המוסד עצמו ולא בפירוט הקורסים) — עדיף מוסד עם "יותר מדי" מידע מאשר
+// תיאור ריק, בהתאם לכלל הברזל "אסור להמציא / אסור למחוק מידע קיים".
+function filterDescriptionLinesByTerms(description, terms) {
+  if (!description || !terms || terms.length === 0) return description;
+  const lines = description.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length <= 1) return description;
+  const termAliases = { 'אומנות': ['אומנות','אמנות'], 'אמנות': ['אמנות','אומנות'],
+    'טיפולי': ['טיפולי','טיפול','טיפולית'], 'טיפולית': ['טיפולית','טיפול','טיפולי'] };
+  const expandedTerms = [...new Set(terms.flatMap(t => termAliases[t.toLowerCase()] || [t]))]
+    .map(t => t.toLowerCase()).filter(t => t.length >= 2);
+  if (expandedTerms.length === 0) return description;
+  const matching = lines.filter(line => {
+    const lineL = line.toLowerCase();
+    return expandedTerms.some(t => lineL.includes(t));
+  });
+  return matching.length > 0 ? matching.join('\n') : description;
 }
 
 // דורש שה-term יופיע כמילה שלמה — אבל מתיר עד 2 אותיות-יחס עבריות
@@ -1704,8 +1788,13 @@ async function buildContext(message, history) {
       [shuffledKI[i], shuffledKI[j]] = [shuffledKI[j], shuffledKI[i]];
     }
     // פורמט coursesForClaude — מפעיל את COURSE LIST BYPASS
+    // מחלצים מונחים ספציפיים מההודעה כדי להציג תחת כל מוסד רק את הקורס/ים
+    // הרלוונטיים לחיפוש (ולא את כל רשימת הקורסים של המוסד בתחום). באיחוד
+    // שדות (wasCombined) השאלה כללית מטבעה — לא מסננים.
+    const specificTermsForDesc = wasCombined ? [] : extractSpecificTerms(msgForFieldMatch, matchedFieldKeywords);
     const kiForClaude = shuffledKI.map(ki => {
-      const cleanDesc = smartTruncate(cleanDescription(ki.description), 800).trim();
+      const relevantDesc = filterDescriptionLinesByTerms(ki.description, specificTermsForDesc);
+      const cleanDesc = smartTruncate(cleanDescription(relevantDesc), 800).trim();
       return `**[${ki.title}](${ki.url})**\n${cleanDesc ? cleanDesc + '\n' : ''}[פנו למידע ולייעוץ אישי](${ki.url})`;
     });
     const catUrl2 = (() => {
