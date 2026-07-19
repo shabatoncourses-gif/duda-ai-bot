@@ -548,7 +548,8 @@ function searchCourses(message, region) {
       results.push({ title: page.title, url, description: snippet, score, _text: text });
     }
   }
-  return results.sort((a,b) => b.score - a.score).slice(0, 25);
+  const filtered = filterExcludedResults(results, extractExclusionTerms(message));
+  return filtered.sort((a,b) => b.score - a.score).slice(0, 25);
 }
 
 // ── מחשבון המרת שעות קורס לש"ש ──
@@ -677,6 +678,56 @@ function tryFindCourseOpeningDate(message) {
 
   // 3. לא נמצא בשום מקום — משאירים לזרימה הרגילה לטפל (לא עונים ישירות)
   return null;
+}
+
+// ── חילוץ "חריגי החרגה" מהודעה — "חוץ מ-X", "מלבד X", "לא כולל X" וכו' ──
+// כשמישהי מבקשת "חוץ ממרכז החומר, איפה עוד אפשר ללמוד אמנות?" היא לא רוצה
+// לראות שוב את מרכז החומר ברשימת התוצאות. מחזיר מערך של מחרוזות (באותיות
+// קטנות) שיש לסנן מכל רשימת מוסדות/קורסים לפני הצגתה.
+function extractExclusionTerms(message) {
+  const excluded = [];
+  const patterns = [
+    /חוץ\s*מ-?\s*([^.,!?\n]+)/g,
+    /מלבד\s+([^.,!?\n]+)/g,
+    /לא\s*כולל\s+([^.,!?\n]+)/g,
+    /פרט\s*ל-?\s*([^.,!?\n]+)/g,
+    /בלי\s+([^.,!?\n]+)/g
+  ];
+  for (const re of patterns) {
+    let m;
+    while ((m = re.exec(message)) !== null) {
+      let term = m[1].trim().replace(/[?!.,]+$/, '').trim();
+      // חותכים במילת עצירה טבעית אם יש (כדי לא לחתוך משפט שלם בטעות)
+      term = term.split(/\s+(?:איפה|היכן|מה|אילו|מי|כיצד|איך)\b/)[0].trim();
+      if (term.length >= 2) excluded.push(term.toLowerCase());
+    }
+  }
+  return excluded;
+}
+
+// מסנן רשימת מוסדות/תוצאות לפי חריגי ההחרגה שחולצו מההודעה. פועל על כל
+// שדה טקסט סביר (title/url) כדי לתפוס גם ניסוח חלקי של שם המוסד.
+// לא מסתפקים בהתאמת-תת-מחרוזת מלאה: "חוץ ממרכז החומר בחולון" מחלץ את
+// הביטוי "מרכז החומר בחולון" (כולל העיר, שהיא הקשר ולא חלק משם המוסד),
+// בעוד שהכותרת בפועל היא "מרכז החומר - סדנת אמנויות בחולון" — אין שם
+// התאמת-תת-מחרוזת מלאה כי "בחולון" לא צמוד ל"החומר" בכותרת. לכן מנסים
+// גם קידומות הולכות ומתקצרות של הביטוי (ממילה אחרונה כלפי פנים) עד
+// שנמצאת התאמה, כדי לתפוס את גרעין שם המוסד גם כשיש טקסט נוסף בין
+// החלקים בכותרת האמיתית.
+function filterExcludedResults(list, excludeTerms) {
+  if (!excludeTerms || excludeTerms.length === 0 || !list || list.length === 0) return list;
+  return list.filter(item => {
+    const hay = ((item.title || '') + ' ' + (item.url || '')).toLowerCase();
+    return !excludeTerms.some(term => {
+      if (hay.includes(term)) return true;
+      const words = term.split(/\s+/).filter(Boolean);
+      for (let cut = words.length; cut >= Math.min(2, words.length); cut--) {
+        const prefix = words.slice(0, cut).join(' ');
+        if (prefix.length >= 3 && hay.includes(prefix)) return true;
+      }
+      return false;
+    });
+  });
 }
 
 function detectInfoPages(question) {
@@ -1602,6 +1653,9 @@ async function buildContext(message, history) {
         } catch(e) { /* live fetch failed — continue to fallback below */ }
       }
 
+      // מסננים מוסדות שהמשתמשת ביקשה במפורש להחריג ("חוץ ממרכז החומר...")
+      regionInst = filterExcludedResults(regionInst, extractExclusionTerms(message));
+
       if (regionInst.length > 0) {
         for (let i = regionInst.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
@@ -1984,7 +2038,10 @@ async function buildContext(message, history) {
     const regionSlugForCat = regionForCat ? regionForCat.slug : null;
     const categoryData = getInstitutionsFromCategoryIndex(fieldInfo.name, regionSlugForCat);
     if (categoryData && categoryData.text) {
-      const institutions = parseInstitutionsFromCategoryText(categoryData.text, fieldInfo.name, 15);
+      const institutions = filterExcludedResults(
+        parseInstitutionsFromCategoryText(categoryData.text, fieldInfo.name, 15),
+        extractExclusionTerms(message)
+      );
       if (institutions.length > 0) {
         // הגרלת סדר — מוסדות שונים בכל פנייה
         for (let i = institutions.length - 1; i > 0; i--) {
