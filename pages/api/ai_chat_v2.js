@@ -230,6 +230,25 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
     return (isLatin ? w.length >= 2 : w.length >= 4) && !isStop(w);
   }).map(stripPrefix))];
   candidates.push(...singleWords);
+
+  // ── שם אדם עם תואר מקצועי ("ד"ר X", "דוקטור X", "פרופ' X") ──
+  // שם מלווה בתואר הוא סימן חד-משמעי לזהות מוסד ספציפי — בדרך כלל מוסד
+  // הנקרא על שם אותו אדם. אם השם מופיע ב-**כותרת** של מוסד (לא רק
+  // בתיאור שלו — כי אדם יכול להיות מוזכר בתיאור של מוסד אחר כמרצה אורח,
+  // כמו "קורסים עם ד"ר X" תחת מוסד אחר), זו כמעט ודאות שזה המוסד המבוקש.
+  // לכן זה מוכרע באופן החלטי *לפני* מנגנון "ההתאמה הצרה ביותר" הרגיל —
+  // אחרת ביטוי-נושא מקרי (כמו "בשפה וחשבון") עלול "לנצח" רק כי הוא נותן
+  // צמצום מספרי צר יותר, למרות שהשם המפורש הוא הסימן האמין יותר.
+  const titledNameMatch = msgL.match(/(?:דוקטור|ד"ר|ד'ר|פרופ'|פרופסור)\s+([\u05D0-\u05EA]{2,}(?:\s+[\u05D0-\u05EA]{2,}){0,2})/);
+  if (titledNameMatch) {
+    const fullName = titledNameMatch[1].trim();
+    const titleOnlyMatches = institutions.filter(ki => (ki.title || '').toLowerCase().includes(fullName));
+    if (titleOnlyMatches.length > 0 && titleOnlyMatches.length < institutions.length) {
+      console.log('TITLED NAME MATCH (institution title):', fullName, '→', titleOnlyMatches.length, '/', institutions.length);
+      return { result: titleOnlyMatches, noMatchForSpecificTerm: false, matchedTerm: fullName };
+    }
+  }
+
   if (candidates.length === 0) return { result: institutions, noMatchForSpecificTerm: false };
 
   // ── OR logic: כשיש "או" בהודעה, מחפשים לפי כל חלק בנפרד ומאחדים ──
