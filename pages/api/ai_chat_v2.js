@@ -2432,7 +2432,16 @@ export default async function handler(req, res) {
       } catch(ze) { console.error('Zapier error:', ze.message); }
     };
     if (instLookup && instLookup.found === true) {
+      // אם השאלה עסקה בחובה/רשות — מוסיפים את משפט ההבהרה הסטנדרטי גם כאן,
+      // כי הנתיב הזה עוקף לגמרי את buildContext (ואת ה-fieldName שממנו הכלל
+      // הרגיל נשען). בלי זה, שאלת חובה/רשות על מוסד ספציפי הייתה מקבלת רק
+      // כרטיס מוסד יבש בלי שום התייחסות לשאלה בפועל.
+      const isChovaQ = /חובה|רשות|חובה או רשות|חובה ורשות|נחשב חובה|נחשב קורס חובה/.test(message);
+      const chovaPrefix = isChovaQ
+        ? 'יש קורסים שמוכרים כחובה ויש שמוכרים כרשות — תלוי במוסד הספציפי ובפרופיל האישי. מומלץ לוודא ישירות מול המוסד ומול קרן ההשתלמות:\n\n'
+        : '';
       const directInstReply =
+        chovaPrefix +
         `**[${instLookup.title}](${instLookup.url})**\n\n` +
         `[פנו למידע ולייעוץ אישי](${instLookup.url})${FOOTER_DIRECT}`;
       console.log('INSTITUTION DIRECT MATCH (pre-buildContext):', instLookup.matchedKey, '→', instLookup.url);
