@@ -1494,7 +1494,7 @@ async function buildContext(message, history) {
         if (isMatch && k.length > bestLen) {
           bestLen = k.length;
           knownOnly = sfItem.known_institutions;
-          matchedFieldKeywords = [sfItem.name];
+          matchedFieldKeywords = [sfItem.keywords[0]];
           matchedFieldObj = sfItem;
         }
       }
@@ -1534,7 +1534,7 @@ async function buildContext(message, history) {
             if (!seenUrls.has(ki.url)) { merged.push(ki); seenUrls.add(ki.url); fieldByUrl.set(ki.url, otherField.name); }
           }
           knownOnly = merged;
-          matchedFieldKeywords.push(otherField.name);
+          matchedFieldKeywords.push(otherField.keywords[0]);
           wasCombined = true;
           combinedFieldInfo = { name: otherField.name, slug: otherField.slug };
           if (combo.note) combinedNote = combo.note;
@@ -1575,7 +1575,7 @@ async function buildContext(message, history) {
         }
         if (added > 0) {
           wasCombined = true;
-          matchedFieldKeywords.push(bestExtraField.name);
+          matchedFieldKeywords.push(bestExtraField.keywords[0]);
           console.log('MULTI-FIELD (וגם):', bestExtraField.name, '+', added, 'institutions');
         }
       }
