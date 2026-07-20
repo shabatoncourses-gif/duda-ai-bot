@@ -11,7 +11,7 @@ GitHub Action:
   python scripts/update_institutions.py data/מסד_דודא.xlsx data/study-fields.json
 """
 
-import sys, json, re
+import sys, os, json, re
 import pandas as pd
 
 # ── מיפוי שמות תחום Excel → שמות תחום ב-study-fields.json ──────────────
@@ -169,6 +169,51 @@ def build_institutions_from_excel(excel_path):
     return {k: list(v.values()) for k, v in field_institutions.items()}
 
 
+def apply_manual_overlay(institutions_by_field, overlay_path):
+    """
+    מחיל תוספות/תיקוני טקסט ידניים על תיאורי מוסדות, אחרי שנבנו מהאקסל.
+
+    למה זה קיים: study-fields.json נבנה מחדש במלואו מהאקסל בכל הרצה — כל
+    תיקון ידני שנעשה ישירות בקובץ (למשל הוספת "שילוב אומנויות" לתיאור מוסד
+    שלא הכיל את המילה) נמחק בהרצה הבאה. הפתרון: לתעד תיקונים כאלה פעם אחת
+    ב-manual-description-tags.json, והם יוחלו אוטומטית כאן, בכל הרצה, לצמיתות.
+    """
+    if not os.path.exists(overlay_path):
+        return institutions_by_field
+
+    with open(overlay_path, 'r', encoding='utf-8') as f:
+        overlay = json.load(f)
+
+    applied = 0
+    for tag in overlay.get('tags', []):
+        url, prepend = tag.get('url'), tag.get('prependText', '')
+        if not url or not prepend:
+            continue
+        for field_entries in institutions_by_field.values():
+            for entry in field_entries:
+                if entry.get('url') == url and prepend not in entry.get('description', ''):
+                    entry['description'] = prepend + '\n' + entry.get('description', '')
+                    applied += 1
+
+    for fix in overlay.get('textFixes', []):
+        url = fix.get('url')
+        find, replace = fix.get('find', ''), fix.get('replace', '')
+        if not url or not find:
+            continue
+        for field_entries in institutions_by_field.values():
+            for entry in field_entries:
+                if entry.get('url') == url and find in entry.get('description', ''):
+                    entry['description'] = entry['description'].replace(find, replace)
+                    applied += 1
+
+    if applied:
+        print(f"🏷️  הוחלו {applied} תוספות/תיקונים ידניים מ-{os.path.basename(overlay_path)}")
+    else:
+        print(f"🏷️  overlay נטען ({os.path.basename(overlay_path)}) — לא נדרשו שינויים (כבר מעודכן, או URL/שדה לא נמצאו)")
+
+    return institutions_by_field
+
+
 def update_study_fields(sf_path, institutions_by_field):
     with open(sf_path, 'r', encoding='utf-8') as f:
         sf = json.load(f)
@@ -208,6 +253,9 @@ if __name__ == '__main__':
     print(f"📥 קורא: {excel_path}")
     institutions = build_institutions_from_excel(excel_path)
     print(f"📊 נמצאו {sum(len(v) for v in institutions.values())} רשומות ב-{len(institutions)} תחומים")
+
+    overlay_path = os.path.join(os.path.dirname(sf_path) or '.', 'manual-description-tags.json')
+    institutions = apply_manual_overlay(institutions, overlay_path)
 
     print(f"📝 מעדכן: {sf_path}")
     update_study_fields(sf_path, institutions)
