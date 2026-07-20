@@ -37,7 +37,8 @@ const SYSTEM_PROMPT =
   'הצג 10-15 מוסדות מהרשימה בcontext. הצג כמה שיותר — אל תקצץ.\n' +
   'כלל תיאורים: התיאור שמסופק לכל מוסד כבר סונן מראש בקוד ומכיל רק את הקורס/ים הרלוונטיים לשאלה — העתק אותו כפי שהוא, בלי לקצר, לנסח מחדש או להוסיף עליו. אם הגולש ביקש למידה מרחוק — ציין במפורש אם הקורס מוצע מרחוק/אונליין, רק אם זה כתוב בתיאור עצמו. אסור להמציא.\n' +
   'אל תציג תואר שני אלא אם ביקשו.\n' +
-  'בנושא טיולים: הצג רק סמינרים וסיורים שמורים הולכים אליהם — לא קורסי הכשרת מורי דרך.\n\n' +
+  'בנושא טיולים: הצג רק סמינרים וסיורים שמורים הולכים אליהם — לא קורסי הכשרת מורי דרך.\n' +
+  'כלל שאלות מורכבות: אם השאלה משלבת גם בקשת קורסים/מוסדות וגם שאלה נוספת (חובה/רשות, איך ליצור קשר, מספר טלפון וכו\') — יש לענות על שני החלקים. אסור להחליף את הצגת המוסדות בהפניה כללית כמו "אפשר לחפש בפורטל לפי תחום ואזור" — אם יש מוסדות רלוונטיים ב-context, יש להציג אותם בפועל (בפורמט הרגיל), ורק בנוסף לכך לענות על החלק האחר של השאלה.\n\n' +
   'הקורסים מסופקים כ-markdown מוכן. העתק אותם בדיוק.\n\n' +
   'פורמט לכל מוסד:\n' +
   '**[שם המוסד](URL)**\n' +
@@ -1436,6 +1437,9 @@ async function buildContext(message, history) {
   let knownOnly = null;
   let matchedFieldKeywords = [];
   let matchedFieldObj = null;
+  // מיפוי url→שם שדה — משמש להוספת כותרת-משנה לכל תחום בתשובה מרובת-שדות,
+  // בלי לגעת (mutate) באובייקטי המוסד המקוריים מה-cache המשותף.
+  const fieldByUrl = new Map();
   let combinedNote = null;
   let wasCombined = false;
   let combinedFieldInfo = null;
@@ -1459,6 +1463,9 @@ async function buildContext(message, history) {
         }
       }
     }
+    if (knownOnly && matchedFieldObj) {
+      knownOnly.forEach(ki => fieldByUrl.set(ki.url, matchedFieldObj.name));
+    }
 
     // ── איחוד עם תחום משלים (combinesWith) ──
     // לדוגמה: שאלה על "אורח חיים בריא, כושר" שייכת גם לבריאות-ותזונה וגם לספורט.
@@ -1480,7 +1487,7 @@ async function buildContext(message, history) {
           const seenUrls = new Set(knownOnly.map(ki => ki.url));
           const merged = [...knownOnly];
           for (const ki of otherField.known_institutions) {
-            if (!seenUrls.has(ki.url)) { merged.push(ki); seenUrls.add(ki.url); }
+            if (!seenUrls.has(ki.url)) { merged.push(ki); seenUrls.add(ki.url); fieldByUrl.set(ki.url, otherField.name); }
           }
           knownOnly = merged;
           matchedFieldKeywords.push(otherField.name);
@@ -1514,7 +1521,7 @@ async function buildContext(message, history) {
         let added = 0;
         for (const ki of bestExtraField.known_institutions) {
           if (!seen.has(ki.url) && (ki.url||'').match(/shabaton\.online|morim\.boutique/)) {
-            knownOnly.push(ki); seen.add(ki.url); added++;
+            knownOnly.push(ki); seen.add(ki.url); added++; fieldByUrl.set(ki.url, bestExtraField.name);
           }
         }
         if (added > 0) {
@@ -1777,21 +1784,45 @@ async function buildContext(message, history) {
     }
 
     // הגרלת סדר — מוסדות שונים בכל פנייה
-    const shuffledKI = [...validKI];
-    for (let i = shuffledKI.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffledKI[i], shuffledKI[j]] = [shuffledKI[j], shuffledKI[i]];
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
     }
+
     // פורמט coursesForClaude — מפעיל את COURSE LIST BYPASS
     // מחלצים מונחים ספציפיים מההודעה כדי להציג תחת כל מוסד רק את הקורס/ים
     // הרלוונטיים לחיפוש (ולא את כל רשימת הקורסים של המוסד בתחום). באיחוד
     // שדות (wasCombined) השאלה כללית מטבעה — לא מסננים.
     const specificTermsForDesc = wasCombined ? [] : extractSpecificTerms(msgForFieldMatch, matchedFieldKeywords);
-    const kiForClaude = shuffledKI.map(ki => {
+    const formatKI = (ki) => {
       const relevantDesc = filterDescriptionLinesByTerms(ki.description, specificTermsForDesc);
       const cleanDesc = smartTruncate(cleanDescription(relevantDesc), 800).trim();
       return `**[${ki.title}](${ki.url})**\n${cleanDesc ? cleanDesc + '\n' : ''}[פנו למידע ולייעוץ אישי](${ki.url})`;
-    });
+    };
+
+    // מקבצים לפי שדה-מקור רק אם זה בכלל חיפוש רב-שדות ויש יותר משדה אחד בפועל
+    // ברשימה הסופית (ייתכן ש-wasCombined=true אך כל המוסדות המשלימים כבר
+    // נבלעו כ-duplicates של השדה הראשי, ואז אין טעם/צורך בכותרות).
+    const distinctFields = wasCombined ? [...new Set(validKI.map(ki => fieldByUrl.get(ki.url)).filter(Boolean))] : [];
+    let shuffledKI, kiForClaude;
+    if (distinctFields.length > 1) {
+      shuffledKI = [];
+      kiForClaude = [];
+      for (const fieldName of distinctFields) {
+        const group = shuffle(validKI.filter(ki => fieldByUrl.get(ki.url) === fieldName));
+        if (group.length === 0) continue;
+        shuffledKI.push(...group);
+        kiForClaude.push(`###FIELD_HEADER###${fieldName}`);
+        kiForClaude.push(...group.map(formatKI));
+      }
+    } else {
+      shuffledKI = shuffle(validKI);
+      kiForClaude = shuffledKI.map(formatKI);
+    }
     const catUrl2 = (() => {
       if (!fieldSlug2) return null;
       // URL אזורי — כשיש region keyword filter (ירושלים, צפון וכד') שהשתמש בו
@@ -1801,7 +1832,7 @@ async function buildContext(message, history) {
       }
       return `https://www.shabaton.online/results-all/${fieldSlug2.slug}`;
     })();
-    const catName2 = fieldSlug2 ? fieldSlug2.name : null;
+    const catName2 = distinctFields.length > 1 ? distinctFields.join(' ו') : (fieldSlug2 ? fieldSlug2.name : null);
     // קישור "כל הקורסים" גם לתחום המשלים, כשהיה איחוד שדות — לא רק לתחום הראשי
     if (wasCombined && combinedFieldInfo) {
       const catUrl3 = `https://www.shabaton.online/results-all/${encodeURIComponent(combinedFieldInfo.slug)}`;
@@ -2485,11 +2516,22 @@ export default async function handler(req, res) {
 
     // ── COURSE LIST BYPASS — רשימת קורסים נבנית בקוד, Claude רק פתיח ──
     if (courseCount > 0 && coursesForClaude && coursesForClaude.length > 0) {
-      // הגרלה — כל שאלה מציגה מוסדות בסדר שונה
-      const shuffled = [...coursesForClaude];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      // אם coursesForClaude כבר מקובץ לפי שדה (יש בו סמני ###FIELD_HEADER###) —
+      // הקיבוץ נעשה בכוונה ב-buildContext; אסור לערבב מחדש כי זה יפזר שוב
+      // מוסדות ממוצא שדות שונים אקראית, ויאבד את ההפרדה הברורה בין התחומים.
+      const hasFieldHeaders = coursesForClaude.some(c => c.startsWith('###FIELD_HEADER###'));
+      let shuffled;
+      if (hasFieldHeaders) {
+        shuffled = coursesForClaude.map(c =>
+          c.startsWith('###FIELD_HEADER###') ? `**${c.replace('###FIELD_HEADER###', '')}:**` : c
+        );
+      } else {
+        // הגרלה — כל שאלה מציגה מוסדות בסדר שונה
+        shuffled = [...coursesForClaude];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
       }
       const courseListText = shuffled.join('\n\n') + (combinedNote ? '\n\n' + combinedNote : '');
       let intro;
