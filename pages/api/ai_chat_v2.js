@@ -173,7 +173,16 @@ function filterDescriptionLinesByTerms(description, terms) {
   if (lines.length <= 1) return description;
   const termAliases = { 'אומנות': ['אומנות','אמנות'], 'אמנות': ['אמנות','אומנות'],
     'טיפולי': ['טיפולי','טיפול','טיפולית'], 'טיפולית': ['טיפולית','טיפול','טיפולי'] };
-  const expandedTerms = [...new Set(terms.flatMap(t => termAliases[t.toLowerCase()] || [t]))]
+  // התאמה סובלנית ליחיד/רבים: "סמינרים" (מהשאלה) צריך למצוא גם שורות "סמינר X"
+  // (יחיד, כמו שכל קורס/סמינר בודד רשום). מסירים סיומת ים/ות כשהמילה עדיין
+  // מספיק ארוכה כדי לא ליצור התאמות מקריות עם מילים קצרות לא-קשורות.
+  const pluralInsensitive = (t) => {
+    const variants = [t];
+    if (t.endsWith('ים') && t.length > 5) variants.push(t.slice(0, -2));
+    if (t.endsWith('ות') && t.length > 5) variants.push(t.slice(0, -2));
+    return variants;
+  };
+  const expandedTerms = [...new Set(terms.flatMap(t => (termAliases[t.toLowerCase()] || [t]).flatMap(pluralInsensitive)))]
     .map(t => t.toLowerCase()).filter(t => t.length >= 2);
   if (expandedTerms.length === 0) return description;
   const matching = lines.filter(line => {
@@ -408,7 +417,31 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
 // לא אמורים לגרום להתאמה שגויה לקטגוריית "תואר שני" כשההודעה בפועל מבקשת
 // משהו אחר לגמרי (למשל "קורסים קלים ומקוונים"). לעומת זאת ניסוח כמו "מחפש/ת
 // תואר שני" אינו נפגע — הוא לא תואם אף אחד מהתבניות כאן.
-function stripPrerequisiteQualifiers(message) {
+// מאתרת ומאחדת את כל שורות התיאור של מוסד (לפי URL) מכל השדות שבהם הוא
+// מופיע ב-study-fields.json, ללא כפילויות. משמש את instLookup כדי להציג
+// בתשובה גם את פירוט הקורסים בפועל, לא רק כרטיס-קישור יבש.
+function getInstitutionDescriptionByUrl(url, message) {
+  const sf = loadJSON('study-fields.json');
+  if (!sf) return '';
+  const seenLines = new Set();
+  const allLines = [];
+  for (const field of (sf.studyFields || [])) {
+    for (const ki of (field.known_institutions || [])) {
+      if (ki.url !== url) continue;
+      const lines = (ki.description || '').split('\n').map(l => l.trim()).filter(Boolean);
+      for (const line of lines) {
+        if (!seenLines.has(line)) { seenLines.add(line); allLines.push(line); }
+      }
+    }
+  }
+  if (allLines.length === 0) return '';
+  const fullDesc = allLines.join('\n');
+  const terms = extractSpecificTerms(message, []);
+  const filtered = filterDescriptionLinesByTerms(fullDesc, terms);
+  return smartTruncate(cleanDescription(filtered), 800).trim();
+}
+
+
   let stripped = message.replace(/ל?בעלי\s+[^.?!]*$/u, '').trim();
   stripped = stripped.replace(
     /(אני\s+)?(עם|יש\s+לי\s+כבר|יש\s+לי|כבר\s+יש\s+לי|כבר\s+סיימתי|כבר\s+עשיתי|כבר\s+השלמתי|בעל|בעלת)\s+תואר\s+(שני|שלישי|ראשון)/gu,
@@ -2467,11 +2500,15 @@ export default async function handler(req, res) {
       const chovaPrefix = isChovaQ
         ? 'יש קורסים שמוכרים כחובה ויש שמוכרים כרשות — תלוי במוסד הספציפי ובפרופיל האישי. מומלץ לוודא ישירות מול המוסד ומול קרן ההשתלמות:\n\n'
         : '';
+      // מציגים גם את פירוט הקורסים בפועל (לא רק כרטיס-קישור יבש) — מאותרים
+      // ומאוחדים מכל השדות שהמוסד מופיע בהם, ומסוננים לפי מונח ספציפי
+      // מההודעה אם יש כזה (למשל "סמינרים" יציג רק את שורות הסמינרים).
+      const instDesc = getInstitutionDescriptionByUrl(instLookup.url, message);
       const directInstReply =
         chovaPrefix +
-        `**[${instLookup.title}](${instLookup.url})**\n\n` +
+        `**[${instLookup.title}](${instLookup.url})**\n${instDesc ? instDesc + '\n' : ''}` +
         `[פנו למידע ולייעוץ אישי](${instLookup.url})${FOOTER_DIRECT}`;
-      console.log('INSTITUTION DIRECT MATCH (pre-buildContext):', instLookup.matchedKey, '→', instLookup.url);
+      console.log('INSTITUTION DIRECT MATCH (pre-buildContext):', instLookup.matchedKey, '→', instLookup.url, '| desc chars:', instDesc.length);
       await logToZapierEarly(message, directInstReply, 'institution-direct');
       return res.json({ reply: directInstReply });
     }
