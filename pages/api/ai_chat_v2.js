@@ -1587,7 +1587,11 @@ async function buildContext(message, history) {
 
     // ── סינון לפי עיר ספציפית ──
     // אוסף ערים מ-כל האזורים (לא רק מהאזור שזוהה), כי detectRegion עלול לטעות.
-    if (knownOnly) {
+    // דילוג מוחלט כשבוצע שילוב רב-שדות (wasCombined): רוב המוסדות שהצטרפו
+    // מהשדות המשלימים (כמו "אמנות ואומנויות" עבור גננת חינוך מיוחד) לא
+    // מתויגים עם locations כלל — סינון גיאוגרפי כאן היה מצמצם בחזרה כמעט
+    // לאפס ומאבד את השילוב הרב-נושאי שזה עתה נבנה בכוונה.
+    if (knownOnly && !wasCombined) {
       const sfRegions = loadJSON('regions.json');
       const allRegionCities = sfRegions ? sfRegions.regions.flatMap(r => r.cities || []) : [];
       const msgLower = msgForFieldMatch.toLowerCase();
@@ -1667,7 +1671,8 @@ async function buildContext(message, history) {
     // מציגים אותם ישירות, ומדלגים גם על Jina וגם על ה-regular filter.
     // ── סינון לפי אזור (keyword) כשלא צוינה עיר ספציפית ──
     // "אני גרה באזור הצפון" → מסנן מוסדות לפי ערי הצפון, גם בלי שם עיר מפורש
-    if (knownOnly && !knownOnly._cityFilterApplied) {
+    // דילוג כש-wasCombined מאותה סיבה כמו הבלוק הראשון למעלה.
+    if (knownOnly && !knownOnly._cityFilterApplied && !wasCombined) {
       const sfRegions2 = loadJSON('regions.json');
       const msgLower2 = msgForFieldMatch.toLowerCase();
       if (sfRegions2) {
