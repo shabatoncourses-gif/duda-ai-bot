@@ -1186,6 +1186,51 @@ function getCourseDates(message, filterUrls) {
 }
 
 // ── תיקון שגיאות כתיב נפוצות ─────────────────────────
+// ── חיבור semantic-mappings.json לזרימה בפועל ──────────────
+// הקובץ קיים בפרויקט אבל לא היה מחובר לשום מקום בקוד. מוסיף שני דברים,
+// שניהם בגישה *תוספתית בלבד* (מוסיפים מילים לסוף ההודעה, לא מוחקים/מחליפים
+// טקסט קיים) — כדי לא להתנגש עם כללי הנרמול הידניים הקיימים ב-fixTypos
+// (כמו CANVA/הום סטיילינג, שכיוון הנרמול שלהם כבר נבדק ואומת בנפרד):
+//
+// 1) synonyms: אם ההודעה מכילה מונח כלשהו מתוך קבוצת "מילים נרדפות"
+//    (mainTerm או כל variation) — מוסיפים לסוף ההודעה את שאר המונחים
+//    בקבוצה שעוד לא מופיעים בה. כך לא משנה איזה ניסוח הגולש/ת השתמשו בו,
+//    כל הניסוחים הנרדפים "יהיו נוכחים" בהודעה לצורך התאמת שדה/מונח ספציפי.
+// 2) intentPatterns.seekingSolution: אם ההודעה מכילה גם ביטוי-של-חיפוש-פתרון
+//    (כמו "איך להתמודד עם") וגם תיאור-בעיה מוכר (כמו "משמעת בכיתה") —
+//    מוסיפים את מונחי הפתרון הרלוונטיים (כמו "ניהול כיתה") לסוף ההודעה.
+function applySemanticMappings(message) {
+  const sm = loadJSON('semantic-mappings.json');
+  if (!sm) return message;
+  const msgL = message.toLowerCase();
+  const extra = [];
+
+  for (const entry of Object.values(sm.synonyms || {})) {
+    const allTerms = [entry.mainTerm, ...(entry.variations || [])].filter(Boolean);
+    const present = allTerms.some(t => msgL.includes(t.toLowerCase()));
+    if (present) {
+      for (const t of allTerms) {
+        if (!msgL.includes(t.toLowerCase())) extra.push(t);
+      }
+    }
+  }
+
+  const seeking = sm.intentPatterns && sm.intentPatterns.seekingSolution;
+  if (seeking) {
+    const hasPattern = (seeking.patterns || []).some(p => msgL.includes(p.toLowerCase()));
+    if (hasPattern) {
+      for (const [problem, solutions] of Object.entries(seeking.problemToSolution || {})) {
+        if (msgL.includes(problem.toLowerCase())) {
+          for (const s of solutions) if (!msgL.includes(s.toLowerCase())) extra.push(s);
+        }
+      }
+    }
+  }
+
+  if (extra.length === 0) return message;
+  return message + ' ' + [...new Set(extra)].join(' ');
+}
+
 function fixTypos(msg) {
   return msg
     .replace(/בישור/g, 'בישול')
@@ -1277,6 +1322,7 @@ function isSummerQuery(message) {
 
 async function buildContext(message, history) {
   message = fixTypos(message);
+  message = applySemanticMappings(message);
 
   // ── זיהוי הודעת-המשך קצרה ("ועם בן זוג", "ומה לגבי הצפון") ──
   // הודעות כאלה, בלי הקשר, מתפרשות לגמרי לא נכון ע"י כל לוגיקת ההתאמה (אזור/QA/
