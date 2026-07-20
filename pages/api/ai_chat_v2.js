@@ -1170,6 +1170,7 @@ function fixTypos(msg) {
     .replace(/chatgpt/gi, 'בינה מלאכותית')
     .replace(/chat gpt/gi, 'בינה מלאכותית')
     .replace(/קנווה|קנבה|קאנבה|קאנווה|קנבא|קאנבא/g, 'canva')
+    .replace(/home\s*styl(e|ing)/gi, 'הום סטיילינג')
     .replace(/\bלנפש\b/g, 'להעצמה')
     .replace(/משהו לנפש/g, 'העצמה אישית')
     .replace(/לנוח לנפש/g, 'העצמה אישית');
