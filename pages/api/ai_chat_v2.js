@@ -442,6 +442,7 @@ function getInstitutionDescriptionByUrl(url, message) {
 }
 
 
+function stripPrerequisiteQualifiers(message) {
   let stripped = message.replace(/ל?בעלי\s+[^.?!]*$/u, '').trim();
   stripped = stripped.replace(
     /(אני\s+)?(עם|יש\s+לי\s+כבר|יש\s+לי|כבר\s+יש\s+לי|כבר\s+סיימתי|כבר\s+עשיתי|כבר\s+השלמתי|בעל|בעלת)\s+תואר\s+(שני|שלישי|ראשון)/gu,
@@ -1511,10 +1512,18 @@ async function buildContext(message, history) {
         const otherField = (sfForKI.studyFields || []).find(f => f.name === combo.field);
         if (!otherField || !otherField.known_institutions || otherField.known_institutions.length === 0) continue;
         let otherBestLen = 0;
-        for (const k of (otherField.keywords || [])) {
-          const kL = k.toLowerCase();
-          const isMatch = k.length <= 4 ? wordBoundaryIncludes(msgLKI2, kL) : msgLKI2.includes(kL);
-          if (isMatch && k.length > otherBestLen) otherBestLen = k.length;
+        if (combo.requiresKeyword) {
+          // שילוב מותנה-פרופיל: לא בודקים את מילות המפתח של otherField עצמו,
+          // אלא ביטוי מפורש (כמו "גננת|גננות|גן ילדים") שמעיד על הפרופיל
+          // הרלוונטי — למשל "אמנות ואומנויות" לא קשור מילולית ל"הוראה מתקנת",
+          // אבל רלוונטי במפורש כשמדובר בגננת (קורסי אמנות = חובה עבורה).
+          if (new RegExp(combo.requiresKeyword).test(msgLKI2)) otherBestLen = combo.requiresKeyword.length;
+        } else {
+          for (const k of (otherField.keywords || [])) {
+            const kL = k.toLowerCase();
+            const isMatch = k.length <= 4 ? wordBoundaryIncludes(msgLKI2, kL) : msgLKI2.includes(kL);
+            if (isMatch && k.length > otherBestLen) otherBestLen = k.length;
+          }
         }
         if (otherBestLen > 0) {
           console.log('COMBINED FIELDS:', matchedFieldObj.name, '+', otherField.name);
@@ -1773,7 +1782,7 @@ async function buildContext(message, history) {
     // חריג: אם כבר בוצע סינון לפי עיר ספציפית מ-known_institutions (cityFilterApplied),
     // אין צורך ב-Jina — יש לנו כבר בדיוק את המוסדות הנכונים.
     if (regionForKI && regionForKI.slug !== 'online' && fieldSlug2 && !knownOnly._cityFilterApplied &&
-        !preSpecificFilterDone && regionExplicitlyMentioned) {
+        !preSpecificFilterDone && regionExplicitlyMentioned && !wasCombined) {
       const regionPageData = getInstitutionsFromCategoryIndex(fieldSlug2.name, regionForKI.slug);
       let regionInst = (regionPageData && regionPageData.text)
         ? parseInstitutionsFromCategoryText(regionPageData.text, fieldSlug2.name, 20)
