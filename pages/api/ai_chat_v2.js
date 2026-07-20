@@ -1492,11 +1492,11 @@ async function buildContext(message, history) {
     }
   }
 
-  // ── Multi-field: "הוראה מתקנת וגם הדרכת הורים" ──
-  // כשהשאלה מכילה "וגם"/"וכן" בין שני נושאים ששייכים לשדות שונים,
+  // ── Multi-field: "הוראה מתקנת וגם הדרכת הורים" / "מוסיקה או סטיילינג" ──
+  // כשהשאלה מכילה "וגם"/"וכן"/"או" בין שני נושאים ששייכים לשדות שונים,
   // מזהים את השדה השני ומאחדים את המוסדות שלו עם השדה הראשי.
-  if (knownOnly && sfForKI && matchedFieldObj && /וגם|וכן/.test(msgForFieldMatch)) {
-    const connParts = msgForFieldMatch.split(/\s+(?:וגם|וכן)\s+/);
+  if (knownOnly && sfForKI && matchedFieldObj && /וגם|וכן|\sאו\s/.test(' ' + msgForFieldMatch + ' ')) {
+    const connParts = msgForFieldMatch.split(/\s+(?:וגם|וכן|או)\s+/);
     for (const part of connParts) {
       const partL = part.toLowerCase().trim();
       let bestExtraLen = 0, bestExtraField = null;
