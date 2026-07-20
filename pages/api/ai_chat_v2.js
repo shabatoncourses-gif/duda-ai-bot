@@ -1550,11 +1550,16 @@ async function buildContext(message, history) {
     for (const part of connParts) {
       const partL = part.toLowerCase().trim();
       let bestExtraLen = 0, bestExtraField = null;
+      const primaryNameL = matchedFieldObj.name.toLowerCase();
       for (const sfItem of sfForKI.studyFields) {
         if (sfItem.name === matchedFieldObj.name) continue;
         if (!sfItem.known_institutions?.length) continue;
         for (const k of (sfItem.keywords || [])) {
           const kL = k.toLowerCase();
+          // אם המונח הוא תת-מחרוזת של שם השדה הראשי עצמו (למשל "סטיילינג"
+          // בתוך "עיצוב פנים - הום סטיילינג") — זו כנראה חפיפת-מילה מקרית
+          // בין שדות, לא שני נושאים שונים באמת. מדלגים כדי לא לגרום לשילוב-שווא.
+          if (kL.length >= 4 && primaryNameL.includes(kL)) continue;
           const m = k.length <= 4 ? wordBoundaryIncludes(partL, kL) : partL.includes(kL);
           if (m && k.length > bestExtraLen) { bestExtraLen = k.length; bestExtraField = sfItem; }
         }
