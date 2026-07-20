@@ -1658,6 +1658,65 @@ async function buildContext(message, history) {
       }
       // ─────────────────────────────────────────────────────
     }
+
+    // ── סינון-אזור "רך" למקרה של שילוב רב-שדות (wasCombined) ──
+    // בניגוד לסינון המדויק למעלה (שמוחלט לגמרי כי הוא היה מצמצם כמעט לאפס),
+    // כאן משאירים מוסד אם: (א) יש לו location שתואם לאזור המבוקש, או
+    // (ב) הוא מוצע מרחוק/מקוון/בזום (תמיד רלוונטי בלי קשר לאזור), או
+    // (ג) אין לו בכלל מידע location (המצב הנפוץ במוסדות מהשדות המשלימים) —
+    // בלי מידע, לא פוסלים. כך גם מכבדים בקשת אזור מפורשת, וגם לא הורסים
+    // את השילוב הרב-נושאי שהמשתמשת ביקשה.
+    if (knownOnly && wasCombined) {
+      const sfRegionsC = loadJSON('regions.json');
+      const msgLowerC = msgForFieldMatch.toLowerCase();
+      const allRegionCitiesC = sfRegionsC ? sfRegionsC.regions.flatMap(r => r.cities || []) : [];
+      const mentionedCityC = allRegionCitiesC.find(c =>
+        c.length >= 4 && wordBoundaryIncludes(msgLowerC, c.toLowerCase())
+      );
+      let regionCitiesC = null, regionLabelC = null;
+      if (mentionedCityC && sfRegionsC) {
+        // עיר ספציפית זוהתה — משתמשים בכל ערי *האזור* שהיא שייכת אליו
+        // (למשל "קריות" -> "חיפה והצפון"), לא רק בעיר הבודדת. כך ערים
+        // סמוכות (כמו חיפה עצמה) גם נחשבות תואמות, לא רק "קריות" מילולית.
+        const parentRegion = sfRegionsC.regions.find(rg =>
+          (rg.cities || []).some(c => c.toLowerCase() === mentionedCityC.toLowerCase())
+        );
+        regionCitiesC = parentRegion ? (parentRegion.cities || []).map(c => c.toLowerCase()) : [mentionedCityC.toLowerCase()];
+        regionLabelC = mentionedCityC;
+      } else if (sfRegionsC) {
+        for (const rg of sfRegionsC.regions) {
+          if (rg.slug === 'online') continue;
+          const kwMatch = (rg.keywords || []).find(k => {
+            const kl = k.toLowerCase();
+            return k.length <= 4 ? wordBoundaryIncludes(msgLowerC, kl) : msgLowerC.includes(kl);
+          });
+          if (kwMatch) {
+            regionCitiesC = (rg.cities || []).map(c => c.toLowerCase());
+            regionLabelC = kwMatch;
+            break;
+          }
+        }
+      }
+      if (regionCitiesC && regionCitiesC.length > 0) {
+        const isRemoteKI = (ki) =>
+          /מרחוק|מקוון|אונליין|בזום|online|פריסה ארצית|ארצי/i.test(ki.description || '') ||
+          (ki.locations || []).some(l => /מרחוק|מקוון|אונליין|online|פריסה ארצית|ארצי/i.test(l));
+        const matchesRegionKI = (ki) => (ki.locations || []).some(loc => {
+          const locL = loc.toLowerCase().replace(/-/g, ' ');
+          return regionCitiesC.some(c => c.length >= 4 && locL.includes(c));
+        });
+        const smartFiltered = knownOnly.filter(ki => {
+          if (!ki.locations || ki.locations.length === 0) return true; // אין מידע — לא פוסלים
+          if (matchesRegionKI(ki)) return true;
+          if (isRemoteKI(ki)) return true;
+          return false; // יש location מפורש, לא תואם לאזור, ולא מרחוק
+        });
+        if (smartFiltered.length > 0 && smartFiltered.length < knownOnly.length) {
+          console.log(`SMART REGION FILTER (combined): "${regionLabelC}" → ${smartFiltered.length}/${knownOnly.length}`);
+          knownOnly = smartFiltered;
+        }
+      }
+    }
   }
 
   if (knownOnly) {
