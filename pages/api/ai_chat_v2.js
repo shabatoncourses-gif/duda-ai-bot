@@ -1651,9 +1651,11 @@ async function buildContext(message, history) {
         preSpecificFilterDone = true;
         console.log('PRE-SPECIFIC FILTER: showing', validKI.length, 'specific institutions, skip Jina+regular filter');
         // ── Niche Fallback (bigram) ──
-        // כש-bigram נותן ≤2 תוצאות: מרחיב לכל השדה ומחפש מילה בודדת מתאימה
+        // כש-bigram נותן תוצאה אחת בלבד (לא 2!): מרחיב לכל השדה ומחפש מילה בודדת מתאימה.
+        // התאמה של 2 מוסדות עצמאיים לאותו צירוף דו-מילתי היא סימן טוב וממוקד,
+        // לא "נישה" שצריך להרחיב ממנה — לכן הסף כאן הוא 1 בלבד, לא 2.
         const matchedTerm = preFilterRes?.matchedTerm || '';
-        if (validKI.length <= 2 && matchedTerm.includes(' ') && matchedFieldObj) {
+        if (validKI.length === 1 && matchedTerm.includes(' ') && matchedFieldObj) {
           const allKI = (matchedFieldObj.known_institutions || []).filter(ki =>
             (ki.url||'').match(/shabaton\.online|morim\.boutique/)
           );
@@ -1685,14 +1687,6 @@ async function buildContext(message, history) {
               console.log(`NICHE FALLBACK (bigram): ${validKI.length} → full field (${allKI.length})`);
               validKI = allKI;
             }
-          }
-        } else if (validKI.length <= 1 && matchedFieldObj) {
-          const allKI = (matchedFieldObj.known_institutions || []).filter(ki =>
-            (ki.url||'').match(/shabaton\.online|morim\.boutique/)
-          );
-          if (allKI.length > 1) {
-            console.log(`NICHE FALLBACK (single): ${validKI.length} → full field (${allKI.length})`);
-            validKI = allKI;
           }
         }
       }
