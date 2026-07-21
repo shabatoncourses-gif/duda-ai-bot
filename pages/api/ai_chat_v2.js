@@ -1322,7 +1322,6 @@ function isSummerQuery(message) {
 
 async function buildContext(message, history) {
   message = fixTypos(message);
-  message = applySemanticMappings(message);
 
   // ── זיהוי הודעת-המשך קצרה ("ועם בן זוג", "ומה לגבי הצפון") ──
   // הודעות כאלה, בלי הקשר, מתפרשות לגמרי לא נכון ע"י כל לוגיקת ההתאמה (אזור/QA/
@@ -1525,7 +1524,13 @@ async function buildContext(message, history) {
   let combinedNote = null;
   let wasCombined = false;
   let combinedFieldInfo = null;
-  const msgForFieldMatch = stripPrerequisiteQualifiers(message);
+  const msgForFieldMatch = stripPrerequisiteQualifiers(applySemanticMappings(message));
+  // גרסה *לא*-מורחבת סמנטית, לשימוש רק בסינון-מונח-ספציפי בתוך מוסד
+  // (filterInstitutionsBySpecificTerm / extractSpecificTerms להצגת תיאור) —
+  // שם צריך דיוק, לא recall: מילים גנריות שההרחבה הסמנטית מוסיפה (כמו
+  // "טיפול"/"צילום" עבור "פוטותרפיה") היו גורמות לסינון להיות רחב מדי
+  // ולהראות שורות קורס לא-קשורות.
+  const msgForNarrowing = stripPrerequisiteQualifiers(message);
   if (sfForKI) {
     const msgLKI2 = msgForFieldMatch.toLowerCase();
     let bestLen = 0;
@@ -1810,7 +1815,7 @@ async function buildContext(message, history) {
     }
 
     let preSpecificFilterDone = false;    if (!wasCombined) {
-      const preFilterRes = filterInstitutionsBySpecificTerm(validKI, msgForFieldMatch, matchedFieldKeywords);
+      const preFilterRes = filterInstitutionsBySpecificTerm(validKI, msgForNarrowing, matchedFieldKeywords);
       if (!preFilterRes.noMatchForSpecificTerm && preFilterRes.result.length > 0 && preFilterRes.result.length <= 5) {
         validKI = preFilterRes.result;
         fallbackInstitutionApplied = true;
@@ -1861,7 +1866,7 @@ async function buildContext(message, history) {
     // regular filter — רק אם לא עשינו pre-filter ספציפי
     const filterRes = (wasCombined || preSpecificFilterDone)
       ? { result: validKI, noMatchForSpecificTerm: false }
-      : filterInstitutionsBySpecificTerm(validKI, msgForFieldMatch, matchedFieldKeywords);
+      : filterInstitutionsBySpecificTerm(validKI, msgForNarrowing, matchedFieldKeywords);
     validKI = filterRes.result;
     // נושא-משנה ספציפי נשאל (כמו "ארומתרפיה") אבל לא נמצא לו מוסד תואם —
     // אם לתחום הוגדר מוסד-ברירת-מחדל (fallbackInstitution), נציג אותו בלבד
@@ -1956,7 +1961,7 @@ async function buildContext(message, history) {
     // מחלצים מונחים ספציפיים מההודעה כדי להציג תחת כל מוסד רק את הקורס/ים
     // הרלוונטיים לחיפוש (ולא את כל רשימת הקורסים של המוסד בתחום). באיחוד
     // שדות (wasCombined) השאלה כללית מטבעה — לא מסננים.
-    const specificTermsForDesc = wasCombined ? [] : extractSpecificTerms(msgForFieldMatch, matchedFieldKeywords);
+    const specificTermsForDesc = wasCombined ? [] : extractSpecificTerms(msgForNarrowing, matchedFieldKeywords);
     const formatKI = (ki) => {
       const relevantDesc = filterDescriptionLinesByTerms(ki.description, specificTermsForDesc);
       const cleanDesc = smartTruncate(cleanDescription(relevantDesc), 800).trim();
