@@ -187,9 +187,12 @@ def apply_manual_overlay(institutions_by_field, overlay_path):
     applied = 0
     for tag in overlay.get('tags', []):
         url, prepend = tag.get('url'), tag.get('prependText', '')
+        field_scope = tag.get('field')  # אופציונלי - אם קיים, מגביל לשדה הזה בלבד
         if not url or not prepend:
             continue
-        for field_entries in institutions_by_field.values():
+        for field_name, field_entries in institutions_by_field.items():
+            if field_scope and field_name != field_scope:
+                continue
             for entry in field_entries:
                 if entry.get('url') == url and prepend not in entry.get('description', ''):
                     entry['description'] = prepend + '\n' + entry.get('description', '')
@@ -197,10 +200,13 @@ def apply_manual_overlay(institutions_by_field, overlay_path):
 
     for fix in overlay.get('textFixes', []):
         url = fix.get('url')
+        field_scope = fix.get('field')
         find, replace = fix.get('find', ''), fix.get('replace', '')
         if not url or not find:
             continue
-        for field_entries in institutions_by_field.values():
+        for field_name, field_entries in institutions_by_field.items():
+            if field_scope and field_name != field_scope:
+                continue
             for entry in field_entries:
                 if entry.get('url') == url and find in entry.get('description', ''):
                     entry['description'] = entry['description'].replace(find, replace)
