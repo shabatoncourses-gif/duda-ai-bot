@@ -1550,6 +1550,31 @@ async function buildContext(message, history) {
         }
       }
     }
+
+    // ── תיקון "מורי דרך": תיירות מול טיולים וסיורים לימודיים ──
+    // "מורי דרך" הוא keyword גם ב"תיירות" (הכשרת מורי-דרך) וגם ב"טיולים
+    // וסיורים לימודיים" (סיורים שמורים *הולכים* אליהם) — ולא רק תיקו פשוט:
+    // applySemanticMappings מרחיב הודעה כזו עם מונחים רבים (כולל "תיירות
+    // קולינרית", שהוא-עצמו keyword ב"טיולים וסיורים לימודיים"!), כך ש"טיולים"
+    // מנצח לפעמים בפער-אורך אמיתי, לא רק בתיקו. לכן זו הכרעה נפרדת אחרי
+    // הלולאה, לא תלוית-אורך: כששאלה מזהה כוונת *הכשרה* מפורשת (wantsTrainingIntent)
+    // וטיולים ניצח, אבל תיירות עצמה גם מתאימה למילות-המפתח שלה — תיירות
+    // צריכה לנצח, כי שם נמצא המוסד הרלוונטי (למשל וינגייט, הסבת מורי דרך).
+    const wantsTrainingIntent = /מורי דרך|מדריך טיולים|הכשרת מדריך|הסבת מורי דרך|רישיון מדריך|תעודת מורה דרך/.test(msgLKI2);
+    if (wantsTrainingIntent && matchedFieldObj && matchedFieldObj.name === 'טיולים וסיורים לימודיים') {
+      const tourismField = (sfForKI.studyFields || []).find(f => f.name === 'תיירות');
+      const tourismMatches = tourismField && (tourismField.keywords || []).some(k => {
+        const kL = k.toLowerCase();
+        return k.length <= 4 ? wordBoundaryIncludes(msgLKI2, kL) : msgLKI2.includes(kL);
+      });
+      if (tourismField && tourismMatches && tourismField.known_institutions && tourismField.known_institutions.length > 0) {
+        console.log('TRAINING OVERRIDE: טיולים וסיורים לימודיים → תיירות');
+        knownOnly = tourismField.known_institutions;
+        matchedFieldKeywords = [tourismField.keywords[0]];
+        matchedFieldObj = tourismField;
+      }
+    }
+
     if (knownOnly && matchedFieldObj) {
       knownOnly.forEach(ki => fieldByUrl.set(ki.url, matchedFieldObj.name));
     }
