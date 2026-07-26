@@ -6847,7 +6847,10 @@
             "קריית ביאליק"
           ]
         }
-      ]
+      ],
+      "fallbackInstitution": {
+        "url": "https://www.shabaton.online/wingate_mashlima"
+      }
     },
     {
       "name": "שפות - הוראת שפות - תרגום",
