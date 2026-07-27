@@ -1936,6 +1936,17 @@ async function buildContext(message, history) {
         validKI = [fbKi];
         fallbackInstitutionApplied = true;
       }
+    } else if (!wasCombined && filterRes.noMatchForSpecificTerm && matchedFieldObj && matchedFieldObj.noMatchMessage) {
+      // נושא-משנה ספציפי נשאל ולא נמצא לו מוסד תואם, ואין fallbackInstitution
+      // סביר (למשל: "איפור, טיפוח אישי וסטיילינג" מכיל כרגע רק 2 מוסדות
+      // תפירה/עיצוב בגדים, בלי שום מוסד שבאמת מלמד איפור) — לתחום כזה יש
+      // הודעת-מחסור מפורשת ב-noMatchMessage. עדיף להגיד את זה בכנות במקום
+      // להציג רשימה לא-קשורה כאילו היא מענה לבקשה.
+      console.log('NO MATCH MESSAGE (field-level):', matchedFieldObj.name);
+      return {
+        context: '=== מידע על שבתון ===\n' + matchedFieldObj.noMatchMessage,
+        isInfo: true, courseCount: 0, urlToTitle: {}
+      };
     }
     if (validKI.length === 0) { /* אין מוסדות תקניים — המשך לחיפוש */ }
     else {
