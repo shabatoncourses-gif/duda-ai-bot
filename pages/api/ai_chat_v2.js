@@ -1510,7 +1510,16 @@ async function buildContext(message, history) {
     }
     if (gotContent) {
       if (qaFirst) parts.push('=== מידע נוסף (QA) ===\n' + qaFirst.answer);
-      return { context: parts.join('\n\n'), isInfo: true, courseCount: 0, urlToTitle };
+      // אם ההודעה *גם* מכילה מילת-מפתח אמיתית של תחום לימוד (למשל "שחיה"
+      // לצד "מוכר לשבתון") — לא עוצרים כאן עם תשובת-מדיניות בלבד: משאירים
+      // את מידע-הדף ב-parts (כבר הוכנס למעלה) וממשיכים לחפש מוסדות
+      // רלוונטיים (כמו AquAerobic), בדיוק כמו הטיפול הקיים ב-qaFirst.priority
+      // למעלה (hasFieldKws) — כדי שהתשובה הסופית תשלב גם כלל וגם מוסד.
+      const hasFieldKwsInfo = getFieldKeywords(message) && getFieldKeywords(message).length > 0;
+      if (!hasFieldKwsInfo) {
+        return { context: parts.join('\n\n'), isInfo: true, courseCount: 0, urlToTitle };
+      }
+      console.log('INFO PAGE + FIELD KEYWORDS: ממשיכים לחפש מוסדות לצד מידע המדיניות');
     }
   }
 
