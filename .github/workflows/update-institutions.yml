@@ -50,6 +50,10 @@ jobs:
           MSG="${{ github.event.inputs.commit_message }}"
           [ -z "$MSG" ] && MSG="🔄 עדכון known_institutions מ-Excel"
           git commit -m "$MSG"
-          git push
+          # מגן מפני מרוץ מול commit מקביל שכבר התקדם ב-main בין ה-checkout
+          # לבין ה-push (למשל הרצה אחרת שרצה במקביל) - מביא ומיישר מחדש לפני
+          # הדחיפה, ומנסה שוב פעם אחת אם עדיין נדחה.
+          git pull --rebase origin main
+          git push || (git pull --rebase origin main && git push)
           echo "✅ study-fields.json עודכן ונשמר"
         fi
