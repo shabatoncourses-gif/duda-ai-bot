@@ -172,11 +172,13 @@ def build_institutions_from_excel(excel_path):
 def apply_manual_overlay(institutions_by_field, overlay_path):
     """
     מחיל תוספות/תיקוני טקסט ידניים על תיאורי מוסדות, אחרי שנבנו מהאקסל.
+    תומך גם ב-fieldAdditions: שיוך מוסד קיים לשדה נוסף שהוא לא מסווג אליו באקסל.
 
     למה זה קיים: study-fields.json נבנה מחדש במלואו מהאקסל בכל הרצה — כל
     תיקון ידני שנעשה ישירות בקובץ (למשל הוספת "שילוב אומנויות" לתיאור מוסד
-    שלא הכיל את המילה) נמחק בהרצה הבאה. הפתרון: לתעד תיקונים כאלה פעם אחת
-    ב-manual-description-tags.json, והם יוחלו אוטומטית כאן, בכל הרצה, לצמיתות.
+    שלא הכיל את המילה, או הוספת מוסד לשדה נוסף) נמחק בהרצה הבאה. הפתרון:
+    לתעד תיקונים כאלה פעם אחת ב-manual-description-tags.json, והם יוחלו
+    אוטומטית כאן, בכל הרצה, לצמיתות.
     """
     if not os.path.exists(overlay_path):
         return institutions_by_field
@@ -211,6 +213,31 @@ def apply_manual_overlay(institutions_by_field, overlay_path):
                 if entry.get('url') == url and find in entry.get('description', ''):
                     entry['description'] = entry['description'].replace(find, replace)
                     applied += 1
+
+    # fieldAdditions: שיוך מוסד לשדה נוסף שהוא לא מופיע בו באקסל המקורי
+    # (לדוגמה: מוסד שמציע תוכן רלוונטי לשדה מסוים בין שאר הקורסים שלו,
+    # אבל לא סווג לשדה הזה באקסל). מוצא עותק קיים של המוסד (מכל שדה שהוא)
+    # ומשכפל אותו לתוך רשימת המוסדות של השדה היעד, אם הוא עוד לא שם.
+    for addition in overlay.get('fieldAdditions', []):
+        url = addition.get('url')
+        target_field = addition.get('field')
+        if not url or not target_field:
+            continue
+        source_entry = None
+        for field_entries in institutions_by_field.values():
+            for entry in field_entries:
+                if entry.get('url') == url:
+                    source_entry = entry
+                    break
+            if source_entry:
+                break
+        if not source_entry:
+            print(f"⚠️  fieldAdditions: לא נמצא מוסד קיים עם url={url} להעתקה לשדה '{target_field}'")
+            continue
+        target_entries = institutions_by_field.setdefault(target_field, [])
+        if not any(e.get('url') == url for e in target_entries):
+            target_entries.append(dict(source_entry))
+            applied += 1
 
     if applied:
         print(f"🏷️  הוחלו {applied} תוספות/תיקונים ידניים מ-{os.path.basename(overlay_path)}")
