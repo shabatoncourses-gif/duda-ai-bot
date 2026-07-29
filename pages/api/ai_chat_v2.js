@@ -1913,8 +1913,13 @@ async function buildContext(message, history) {
               console.log(`NICHE RE-FILTER (single word): ${bestSingle.length} institutions`);
               validKI = bestSingle;
             } else {
-              console.log(`NICHE FALLBACK (bigram): ${validKI.length} → full field (${allKI.length})`);
-              validKI = allKI;
+              // אין מילה בודדת חלופית טובה יותר (3-20 תוצאות) — זה לא אומר
+              // שההתאמה המקורית של ה-bigram שגויה! להפך: אם אף מילה בודדת
+              // לא נותנת התאמה רחבה יותר, סימן שההתאמה הממוקדת ל-1 מוסד
+              // (למשל "קלפים טיפוליים"→ מכון פרסונה, "קונסטלציה משפחתית")
+              // היא כנראה נכונה ומדויקת — לא "רעש" מקרי שצריך "לתקן" בהצגת
+              // כל השדה הלא-ממוין. משאירים את ההתאמה הממוקדת המקורית.
+              console.log(`NICHE FALLBACK: no better single-word alt — keeping original ${validKI.length}-institution bigram match (not expanding to full field of ${allKI.length})`);
             }
           }
         }
