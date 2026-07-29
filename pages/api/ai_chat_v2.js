@@ -1440,6 +1440,9 @@ async function buildContext(message, history) {
     } catch(e) { console.log('Dati fetch error:', e.message); }
   }
 
+  // combinedNote מוכרז כאן (מוקדם) כי גם בלוק ה-QA-combine למטה וגם נתיב
+  // ה-COURSE LIST BYPASS בהמשך הפונקציה צריכים לכתוב/לקרוא ממנו.
+  let combinedNote = null;
   const infoUrlsForQA = detectInfoPages(message) || [];
   const qaFirst = searchQA(message);
   const hasInstQ = /מכללה|מכללת|אוניברסיטה|אוניברסיטת|מכון|סמינר|אקדמית|קריית|קריה|אורנים|בר.?אילן|תלפיות|הרצוג|שנקר|לוינסקי|גורדון|אונו|וינגייט|בן.?גוריון|עברית|תל.?אביב|חיפה|ירושלים|בגין|ויצמן/.test(message);
@@ -1453,10 +1456,15 @@ async function buildContext(message, history) {
     if (qaFirst.priority) {
       return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle, qaId: qaFirst.id };
     }
-    // אם יש keywords לתחום — הוסף הסבר QA לcontext והמשך לחפש קורסים
+    // אם יש keywords לתחום — הוסף הסבר QA לcontext (לנתיב Claude) *וגם*
+    // ל-combinedNote (לנתיב COURSE LIST BYPASS, שמתעלם מ-parts/context לגמרי
+    // ומרכיב את התשובה הסופית ישירות מ-coursesForClaude + combinedNote) —
+    // בלי זה, כששאלה כמו "חדרי כושר בשבתון" עוברת דרך ה-bypass (וזה רוב
+    // המקרים), טקסט-ה-QA היה נעלם בשקט ורק המוסד עצמו היה מוצג.
     const hasFieldKws = getFieldKeywords(message) && getFieldKeywords(message).length > 0;
     if (hasFieldKws) {
       parts.push('=== הסבר על הנושא ===\n' + qaFirst.answer);
+      combinedNote = combinedNote ? qaFirst.answer + '\n\n' + combinedNote : qaFirst.answer;
       // המשך לחפש קורסים
     } else {
       return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle, qaId: qaFirst.id };
@@ -1516,10 +1524,16 @@ async function buildContext(message, history) {
       // את מידע-הדף ב-parts (כבר הוכנס למעלה) וממשיכים לחפש מוסדות
       // רלוונטיים (כמו AquAerobic), בדיוק כמו הטיפול הקיים ב-qaFirst.priority
       // למעלה (hasFieldKws) — כדי שהתשובה הסופית תשלב גם כלל וגם מוסד.
+      // גם ל-combinedNote (לא רק parts) — כי נתיב ה-COURSE LIST BYPASS
+      // (שמשמש את רוב תשובות-המוסדות) מתעלם מ-parts/context לגמרי.
       const hasFieldKwsInfo = getFieldKeywords(message) && getFieldKeywords(message).length > 0;
       if (!hasFieldKwsInfo) {
         return { context: parts.join('\n\n'), isInfo: true, courseCount: 0, urlToTitle };
       }
+      const infoNoteText = contents.filter(Boolean).map((c, i) =>
+        c.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/https?:\/\/[^\s]+/g, '').replace(/🏫[^\n]*/g, '').trim()
+      ).join('\n\n');
+      if (infoNoteText) combinedNote = combinedNote ? infoNoteText + '\n\n' + combinedNote : infoNoteText;
       console.log('INFO PAGE + FIELD KEYWORDS: ממשיכים לחפש מוסדות לצד מידע המדיניות');
     }
   }
@@ -1531,7 +1545,6 @@ async function buildContext(message, history) {
   // מיפוי url→שם שדה — משמש להוספת כותרת-משנה לכל תחום בתשובה מרובת-שדות,
   // בלי לגעת (mutate) באובייקטי המוסד המקוריים מה-cache המשותף.
   const fieldByUrl = new Map();
-  let combinedNote = null;
   let wasCombined = false;
   let combinedFieldInfo = null;
   const msgForFieldMatch = stripPrerequisiteQualifiers(applySemanticMappings(message));
