@@ -979,6 +979,27 @@ function getInstitutionPagesForField(question) {
   return [...withTextMatch.slice(0, 20), ...withoutText.slice(0, 20)];
 }
 
+// ── פענוח HTML entities + הסרת תפריט-הניווט הנפוץ מתוכן דפים שנשלף ──
+// המקור: fetchPageContent שולף HTML גולמי (בנתיב fallback, כשJina נכשל)
+// ומסיר רק תגיות (<...>), לא entities כמו &nbsp;/&quot;/&ndash; — אלה היו
+// נשארים כטקסט גולמי ומכוערים בתשובה. כמו כן, הרבה דפים בפורטל כוללים
+// widget ניווט קבוע ("מצאו קורסים/מסלולי לימוד... כל האזורים... בחרו
+// תחום לימודים...") עם רשימת כל 54 התחומים — לא תוכן, רק תפריט שממלא
+// אלפי תווים ודוחק את התוכן האמיתי מחוץ למגבלת האורך.
+function decodeHtmlEntities(text) {
+  if (!text) return text;
+  return text
+    .replace(/&nbsp;/gi, ' ').replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
+    .replace(/&ndash;/gi, '–').replace(/&mdash;/gi, '—').replace(/&rsquo;/gi, '’')
+    .replace(/&lsquo;/gi, '‘').replace(/&rdquo;/gi, '”').replace(/&ldquo;/gi, '“')
+    .replace(/&hellip;/gi, '…').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/[ \t]{2,}/g, ' ').trim();
+}
+function stripNavDropdown(text) {
+  if (!text) return text;
+  return text.replace(/מצאו[^]{0,40}?(?:קורסים|מסלולי לימוד)[^]{0,1500}?(?=חובות הלימודים|$)/g, '').trim();
+}
+
 async function fetchPageContent(url) {
   try {
     const jinaUrl = 'https://r.jina.ai/' + url;
@@ -1002,7 +1023,7 @@ async function fetchPageContent(url) {
       }
       if (contentStart > 0) text = lines2.slice(contentStart).join('\n');
       else text = text.substring(Math.floor(text.length * 0.3));
-      text = text.replace(/\s{3,}/g,'\n\n').trim();
+      text = decodeHtmlEntities(stripNavDropdown(text)).replace(/\s{3,}/g,'\n\n').trim();
       console.log('Jina OK:', url.split('/').pop(), 'len:', text.length);
       return text.substring(0, 5000);
     }
@@ -1020,6 +1041,7 @@ async function fetchPageContent(url) {
                .replace(/<footer[^]*?<\/footer>/gi,'');
     const m = html.match(/id="wsite-content"[^>]*>([\s\S]{100,})/);
     let text = (m ? m[1] : html).replace(/<[^>]+>/g,' ').replace(/\s{2,}/g,' ').trim();
+    text = decodeHtmlEntities(stripNavDropdown(text));
     const csi = text.indexOf('תשלומים ותקבולים בשנת שבתון');
     if (csi > 0) text = text.substring(csi);
     else text = text.substring(800);
