@@ -1473,6 +1473,7 @@ async function buildContext(message, history) {
   // combinedNote מוכרז כאן (מוקדם) כי גם בלוק ה-QA-combine למטה וגם נתיב
   // ה-COURSE LIST BYPASS בהמשך הפונקציה צריכים לכתוב/לקרוא ממנו.
   let combinedNote = null;
+  let qaComboHandled = false;
   const infoUrlsForQA = detectInfoPages(message) || [];
   const qaFirst = searchQA(message);
   const hasInstQ = /מכללה|מכללת|אוניברסיטה|אוניברסיטת|מכון|סמינר|אקדמית|קריית|קריה|אורנים|בר.?אילן|תלפיות|הרצוג|שנקר|לוינסקי|גורדון|אונו|וינגייט|בן.?גוריון|עברית|תל.?אביב|חיפה|ירושלים|בגין|ויצמן/.test(message);
@@ -1495,13 +1496,18 @@ async function buildContext(message, history) {
     if (hasFieldKws) {
       parts.push('=== הסבר על הנושא ===\n' + qaFirst.answer);
       combinedNote = combinedNote ? qaFirst.answer + '\n\n' + combinedNote : qaFirst.answer;
+      qaComboHandled = true;
       // המשך לחפש קורסים
     } else {
       return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle, qaId: qaFirst.id };
     }
   }
   const infoUrls = infoUrlsForQA;
-  if (infoUrls.length > 0) {
+  // אם כבר קיבלנו תשובת-QA מלוטשת+ממוקדת למעלה (qaComboHandled) — לא ממשיכים
+  // *גם* לשלוף עמוד-מדיניות גולמי ולדחוף אותו ל-parts; זה כפול ומיותר, ובדיוק
+  // ה"בליל" (טקסט גולמי לא-מעובד + widget ניווט) שתיקנו כמה פעמים. תשובת ה-QA
+  // כבר עונה על הנושא בצורה נקייה.
+  if (!qaComboHandled && infoUrls.length > 0) {
     let gotContent = false;
     const infoPageDB = loadJSON('info-pages.json') || {};
     for (const url of infoUrls.slice(0, 3)) {
