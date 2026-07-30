@@ -1500,8 +1500,9 @@ async function buildContext(message, history) {
         if (gotContent) break;
       }
     }
+    let contents = [];
     if (!gotContent) {
-      const contents = await Promise.all(infoUrls.slice(0, 2).map(url => fetchPageContent(url)));
+      contents = await Promise.all(infoUrls.slice(0, 2).map(url => fetchPageContent(url)));
       contents.forEach((content, i) => {
         if (content) {
           console.log('INFO page fetched:', infoUrls[i], 'len:', content.length);
