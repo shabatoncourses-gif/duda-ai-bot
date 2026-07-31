@@ -929,6 +929,24 @@ function searchQA(question) {
   return bestMatch;
 }
 
+// ── מחבר relatedLinks בפועל לתשובת QA ──────────────────────────
+// עד כה relatedLinks היה שדה "מת": מוגדר בכמה ערכי QA, אבל אף נקודת-קריאה
+// בקוד לא באמת הציגה אותו — כל תיקון היה צריך לשכפל קישורים ידנית לתוך
+// טקסט ה-answer. הפונקציה הזו מוסיפה בסוף התשובה כל קישור מ-relatedLinks
+// שה-URL שלו עדיין *לא* מופיע כבר בטקסט (כדי לא לשכפל קישורים שכבר שוכתבו
+// ידנית בתוך ה-answer, כמו ב-QA-ים שנכתבו אחרי הגילוי הזה).
+function formatQAAnswer(qa) {
+  if (!qa) return '';
+  let text = qa.answer || '';
+  if (Array.isArray(qa.relatedLinks) && qa.relatedLinks.length > 0) {
+    const extraLinks = qa.relatedLinks.filter(l => l && l.url && !text.includes(l.url));
+    if (extraLinks.length > 0) {
+      text += '\n\n' + extraLinks.map(l => `🔗 [${l.text || l.url}](${l.url})`).join('\n');
+    }
+  }
+  return text;
+}
+
 function getInstitutionPagesForField(question) {
   const stopInst = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך','קורס','קורסי','לימודי','למורים','לגננות','בשבתון']);
   const qWords = question.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !stopInst.has(w));
@@ -1486,7 +1504,7 @@ async function buildContext(message, history) {
     const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
     // priority:true = תשובה ישירה ספציפית לא ממשיכים לחפש קורסים
     if (qaFirst.priority) {
-      return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle, qaId: qaFirst.id };
+      return { context: '=== מידע על שבתון ===\n' + formatQAAnswer(qaFirst) + qaFooter0, isInfo: true, courseCount: 0, urlToTitle, qaId: qaFirst.id };
     }
     // אם יש keywords לתחום — הוסף הסבר QA לcontext (לנתיב Claude) *וגם*
     // ל-combinedNote (לנתיב COURSE LIST BYPASS, שמתעלם מ-parts/context לגמרי
@@ -1495,12 +1513,12 @@ async function buildContext(message, history) {
     // המקרים), טקסט-ה-QA היה נעלם בשקט ורק המוסד עצמו היה מוצג.
     const hasFieldKws = getFieldKeywords(message) && getFieldKeywords(message).length > 0;
     if (hasFieldKws) {
-      parts.push('=== הסבר על הנושא ===\n' + qaFirst.answer);
-      combinedNote = combinedNote ? qaFirst.answer + '\n\n' + combinedNote : qaFirst.answer;
+      parts.push('=== הסבר על הנושא ===\n' + formatQAAnswer(qaFirst));
+      combinedNote = combinedNote ? formatQAAnswer(qaFirst) + '\n\n' + combinedNote : formatQAAnswer(qaFirst);
       qaComboHandled = true;
       // המשך לחפש קורסים
     } else {
-      return { context: '=== מידע על שבתון ===\n' + qaFirst.answer + qaFooter0, isInfo: true, courseCount: 0, urlToTitle, qaId: qaFirst.id };
+      return { context: '=== מידע על שבתון ===\n' + formatQAAnswer(qaFirst) + qaFooter0, isInfo: true, courseCount: 0, urlToTitle, qaId: qaFirst.id };
     }
   }
   const infoUrls = infoUrlsForQA;
@@ -1552,11 +1570,11 @@ async function buildContext(message, history) {
     }
     if (!gotContent) {
       const qaMatch = searchQA(message);
-      if (qaMatch) return { context: '=== מידע על שבתון ===\n' + qaMatch.answer, isInfo: true, courseCount: 0, urlToTitle: {} };
+      if (qaMatch) return { context: '=== מידע על שבתון ===\n' + formatQAAnswer(qaMatch), isInfo: true, courseCount: 0, urlToTitle: {} };
       else parts.push('=== דפי מידע רלוונטיים ===\n' + infoUrls.map(u => '- ' + u).join('\n'));
     }
     if (gotContent) {
-      if (qaFirst) parts.push('=== מידע נוסף (QA) ===\n' + qaFirst.answer);
+      if (qaFirst) parts.push('=== מידע נוסף (QA) ===\n' + formatQAAnswer(qaFirst));
       // אם ההודעה *גם* מכילה מילת-מפתח אמיתית של תחום לימוד (למשל "שחיה"
       // לצד "מוכר לשבתון") — לא עוצרים כאן עם תשובת-מדיניות בלבד: משאירים
       // את מידע-הדף ב-parts (כבר הוכנס למעלה) וממשיכים לחפש מוסדות
@@ -2151,7 +2169,7 @@ async function buildContext(message, history) {
   const qaGeneral = searchQA(message);
   if (qaGeneral && !hasInstQ && !datesCtx) {
     console.log('QA general match:', qaGeneral.id || qaGeneral.question);
-    return { context: '=== מידע על שבתון ===\n' + qaGeneral.answer + '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)', isInfo: true, courseCount: 0, urlToTitle, qaId: qaGeneral.id };
+    return { context: '=== מידע על שבתון ===\n' + formatQAAnswer(qaGeneral) + '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)', isInfo: true, courseCount: 0, urlToTitle, qaId: qaGeneral.id };
   }
 
   if (fieldKeywords && fieldKeywords.length > 0) {
@@ -2615,7 +2633,7 @@ async function buildContext(message, history) {
           '💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n' +
           '👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
         console.log('Zero-results fallback: QA match found:', fallbackQA.id);
-        return { context: '=== מידע על שבתון ===\n' + fallbackQA.answer + qaFooterFB, isInfo: true, courseCount: 0, urlToTitle, qaId: fallbackQA.id };
+        return { context: '=== מידע על שבתון ===\n' + formatQAAnswer(fallbackQA) + qaFooterFB, isInfo: true, courseCount: 0, urlToTitle, qaId: fallbackQA.id };
       }
       // סרוק דף master-degree כ-fallback אקדמי
       const isAcademicQuery = /תואר|מסלול|לימוד|קורס|השתלמות|הכשרה|מקרא|ביבליו|פסיכו|מחקר|אקדמ/.test(message);
