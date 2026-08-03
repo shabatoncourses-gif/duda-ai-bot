@@ -1944,7 +1944,15 @@ async function buildContext(message, history) {
 
     let preSpecificFilterDone = false;    if (!wasCombined) {
       const preFilterRes = filterInstitutionsBySpecificTerm(validKI, msgForNarrowing, matchedFieldKeywords);
-      if (!preFilterRes.noMatchForSpecificTerm && preFilterRes.result.length > 0 && preFilterRes.result.length <= 5) {
+      // הגנה: כש-candidates.length===0 (שאילתה ששקולה לשם-השדה עצמו, כמו
+      // "איפור" לבד), filterInstitutionsBySpecificTerm מחזירה את כל הרשימה
+      // הלא-מסוננת עם noMatchForSpecificTerm:false — ואם השדה קטן (≤5), זה
+      // נראה בטעות כמו "צומצם בהצלחה לתוצאה ספציפית קטנה". לשדות עם
+      // noMatchMessage (שכבר קבענו שאף מוסד בהם לא באמת משרת את מטרת השדה)
+      // זה קריטי לא לתת לקיצור-הדרך הזה "לבלוע" את המקרה — רק matchedTerm
+      // אמיתי (מונח ספציפי שבאמת נבדק והתאים) מצדיק דילוג ישיר.
+      if (!preFilterRes.noMatchForSpecificTerm && preFilterRes.result.length > 0 && preFilterRes.result.length <= 5 &&
+          (preFilterRes.matchedTerm || !matchedFieldObj.noMatchMessage)) {
         validKI = preFilterRes.result;
         fallbackInstitutionApplied = true;
         preSpecificFilterDone = true;
@@ -2012,12 +2020,18 @@ async function buildContext(message, history) {
         validKI = [fbKi];
         fallbackInstitutionApplied = true;
       }
-    } else if (!wasCombined && filterRes.noMatchForSpecificTerm && matchedFieldObj && matchedFieldObj.noMatchMessage) {
+    } else if (!wasCombined && !preSpecificFilterDone && matchedFieldObj && matchedFieldObj.noMatchMessage) {
       // נושא-משנה ספציפי נשאל ולא נמצא לו מוסד תואם, ואין fallbackInstitution
       // סביר (למשל: "איפור, טיפוח אישי וסטיילינג" מכיל כרגע רק 2 מוסדות
       // תפירה/עיצוב בגדים, בלי שום מוסד שבאמת מלמד איפור) — לתחום כזה יש
       // הודעת-מחסור מפורשת ב-noMatchMessage. עדיף להגיד את זה בכנות במקום
       // להציג רשימה לא-קשורה כאילו היא מענה לבקשה.
+      // בכוונה *לא* תלוי ב-filterRes.noMatchForSpecificTerm: שאילתה שהיא
+      // בדיוק שם-השדה עצמו (למשל "איפור" לבד) לעולם לא מייצרת מונח-ספציפי
+      // לבדיקה בכלל (שם-השדה מוחרג מ-candidates), כך שהדגל הזה תמיד false
+      // בדיוק במקרה שה-noMatchMessage נועד לתפוס. אם הוגדר noMatchMessage
+      // לשדה, המשמעות היא שאף מוסד בו לא באמת משרת את מטרת השדה — בלי קשר
+      // לניסוח השאלה.
       console.log('NO MATCH MESSAGE (field-level):', matchedFieldObj.name);
       return {
         context: '=== מידע על שבתון ===\n' + matchedFieldObj.noMatchMessage,
