@@ -25,6 +25,9 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
 .header-badge { background: var(--blue); color: white; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
 .btn-icon { background: white; border: 1.5px solid var(--border); color: var(--text-muted); padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: 13px; font-family: var(--font); transition: all 0.2s; }
 .btn-icon:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-light); }
+.faq-banner { display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--blue-light); border: 1.5px solid var(--border); border-radius: 12px; padding: 10px 16px; margin: 14px 0 0; flex-shrink: 0; }
+.faq-banner a { color: var(--blue-dark); font-size: 13px; font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 6px; }
+.faq-banner a:hover { text-decoration: underline; }
 .input-zone { padding: 20px 0 12px; flex-shrink: 0; }
 .input-wrapper { display: flex; align-items: center; gap: 10px; background: white; border: 2.5px solid var(--border); border-radius: 56px; padding: 8px 8px 8px 20px; box-shadow: var(--shadow); transition: border-color 0.25s, box-shadow 0.25s; }
 .input-wrapper:focus-within { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(9,130,188,0.1), var(--shadow); }
@@ -82,6 +85,9 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
     </div>
     <div><button class="btn-icon" id="shabaton-clear-chat">🗑️ נקה</button></div>
   </header>
+  <div class="faq-banner">
+    <a href="https://www.shabaton.online/shabaton-qa" target="_blank">❓ שאלות ותשובות נפוצות בשבתון</a>
+  </div>
   <div class="input-zone">
     <div class="input-wrapper">
       <input type="text" id="shabaton-chat-input" placeholder="שאלו אותי על קורסים, שנת שבתון, מענקים..." autocomplete="off">
