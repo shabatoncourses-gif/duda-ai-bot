@@ -1973,9 +1973,10 @@ async function buildContext(message, history) {
             const stopW2 = new Set(['מחפש','מחפשת','רוצה','רוצים','לרצות','קורס','קורסי','קורסים','לימוד','לימודי','שבתון','ללמוד','ולמוד']);
             const termAliasesLocal = { 'אומנות':['אומנות','אמנות'], 'אמנות':['אמנות','אומנות'],
               'טיפולי':['טיפולי','טיפול','טיפולית'], 'טיפולית':['טיפולית','טיפול','טיפולי'] };
+            const bigramWords = new Set(matchedTerm.toLowerCase().split(/\s+/));
             let bestSingle = null;
             for (const w of msgWords) {
-              if (stopW2.has(w) || matchedFieldKeywords.includes(w)) continue;
+              if (stopW2.has(w) || matchedFieldKeywords.includes(w) || bigramWords.has(w)) continue;
               const toCheck = termAliasesLocal[w] || [w];
               const singleMatched = allKI.filter(ki => {
                 const txt = ((ki.title||'')+(ki.description||'')).toLowerCase();
