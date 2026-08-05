@@ -1725,8 +1725,12 @@ async function buildContext(message, history) {
   // ── Multi-field: "הוראה מתקנת וגם הדרכת הורים" / "מוסיקה או סטיילינג" ──
   // כשהשאלה מכילה "וגם"/"וכן"/"או" בין שני נושאים ששייכים לשדות שונים,
   // מזהים את השדה השני ומאחדים את המוסדות שלו עם השדה הראשי.
-  if (knownOnly && sfForKI && matchedFieldObj && /וגם|וכן|\sאו\s/.test(' ' + msgForFieldMatch + ' ')) {
-    const connParts = msgForFieldMatch.split(/\s+(?:וגם|וכן|או)\s+/);
+  // גם "בלימודי חובה X בלימודי רשות Y" (או "ל"-מתחיל) נחשב חיבור-משתמע בין
+  // שני נושאים — דרך נפוצה לבקש נושא אחד לשעות-חובה ונושא שני לשעות-רשות,
+  // בלי מילת-חיבור מפורשת כמו "וגם".
+  const MULTI_FIELD_CONNECTOR = /וגם|וכן|\sאו\s|[בל]לימודי חובה|[בל]לימודי רשות/;
+  if (knownOnly && sfForKI && matchedFieldObj && MULTI_FIELD_CONNECTOR.test(' ' + msgForFieldMatch + ' ')) {
+    const connParts = msgForFieldMatch.split(/\s+(?:וגם|וכן|או)\s+|[בל]לימודי חובה\s*|[בל]לימודי רשות\s*/);
     for (const part of connParts) {
       const partL = part.toLowerCase().trim();
       let bestExtraLen = 0, bestExtraField = null;
