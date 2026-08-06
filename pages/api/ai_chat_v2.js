@@ -1735,6 +1735,17 @@ async function buildContext(message, history) {
       const partL = part.toLowerCase().trim();
       let bestExtraLen = 0, bestExtraField = null;
       const primaryNameL = matchedFieldObj.name.toLowerCase();
+      // כמה טוב החלק הזה מתאים לשדה הראשי *עצמו* — אם התאמה לשדה אחר לא
+      // עולה על זה, החלק הזה כבר מכוסה על ידי השדה הראשי, ואין להוסיף שדה
+      // נוסף (חלש/כללי יותר) רק כי הוא חולק מילה גנרית. למשל "הדרכת טיולים"
+      // כבר מכוסה היטב ע"י "תיירות" (הכשרת מדריכי-דרך) — אין צורך להוסיף
+      // גם "טיולים וסיורים לימודיים" (סיורים כלליים) רק כי "טיולים" חופפת.
+      let bestPrimaryLen = 0;
+      for (const k of (matchedFieldObj.keywords || [])) {
+        const kL = k.toLowerCase();
+        const m = k.length <= 4 ? wordBoundaryIncludes(partL, kL) : partL.includes(kL);
+        if (m && k.length > bestPrimaryLen) bestPrimaryLen = k.length;
+      }
       for (const sfItem of sfForKI.studyFields) {
         if (sfItem.name === matchedFieldObj.name) continue;
         if (!sfItem.known_institutions?.length) continue;
@@ -1748,6 +1759,16 @@ async function buildContext(message, history) {
           if (m && k.length > bestExtraLen) { bestExtraLen = k.length; bestExtraField = sfItem; }
         }
       }
+      if (bestExtraField && bestExtraField.name === 'טיולים וסיורים לימודיים' &&
+          /מורי דרך|מדריך טיולים|הכשרת מדריך|הסבת מורי דרך/.test(partL)) {
+        // אותה תופעה כמו התיקון המקורי של "מורי דרך": ההרחבה הסמנטית מזריקה
+        // "תיירות קולינרית" (keyword ייחודי ל"טיולים וסיורים") שמנצח במקרה
+        // באורך את ההתאמה ל"תיירות" — אבל כוונת-הכשרה מפורשת (כמו כאן)
+        // כבר קבענו שצריכה לנצח לטובת "תיירות". מדלגים על bestExtraField
+        // הזה במקום להוסיף אותו בטעות.
+        bestExtraField = null;
+      }
+      if (bestExtraField && bestExtraLen <= bestPrimaryLen) { bestExtraField = null; }
       if (bestExtraField && bestExtraLen >= 4) {
         const seen = new Set(knownOnly.map(ki => ki.url));
         let added = 0;
@@ -2139,12 +2160,22 @@ async function buildContext(message, history) {
     if (distinctFields.length > 1) {
       shuffledKI = [];
       kiForClaude = [];
+      const MAX_PER_FIELD = 5;
       for (const fieldName of distinctFields) {
-        const group = shuffle(validKI.filter(ki => fieldByUrl.get(ki.url) === fieldName));
-        if (group.length === 0) continue;
+        const fullGroup = shuffle(validKI.filter(ki => fieldByUrl.get(ki.url) === fieldName));
+        if (fullGroup.length === 0) continue;
+        const group = fullGroup.slice(0, MAX_PER_FIELD);
         shuffledKI.push(...group);
         kiForClaude.push(`###FIELD_HEADER###${fieldName}`);
         kiForClaude.push(...group.map(formatKI));
+        // קישור-קטגוריה שקט (לא כפתור-קריאה-לפעולה) לכל שדה בנפרד — לא רק
+        // לשדה המשלים היחיד כמו קודם — כדי שמי שביקש כמה תחומים באותה שאלה
+        // יוכל להגיע לרשימה המלאה של כל תחום בנפרד, לא רק לתחום אחד מצורף.
+        const fieldObjForSlug = sfForKI.studyFields.find(f => f.name === fieldName);
+        if (fieldObjForSlug && fieldObjForSlug.slug) {
+          const fieldCatUrl = `https://www.shabaton.online/results-all/${encodeURIComponent(fieldObjForSlug.slug)}`;
+          kiForClaude.push(`📚 [למוסדות נוספים המציעים ${fieldName}](${fieldCatUrl})`);
+        }
       }
     } else {
       shuffledKI = shuffle(validKI);
