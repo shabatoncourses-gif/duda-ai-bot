@@ -903,10 +903,18 @@ function detectInfoPages(question) {
   return matched.length > 0 ? matched : null;
 }
 
+// מסיר גרשיים/מרכאות (" ' ׳ ״) לפני השוואה — כדי ש-keyword כמו "ש"ש" יתאים
+// אוטומטית גם לניסוח בלי גרשיים ("שש"), בלי שיהיה צורך להוסיף ידנית זוג
+// keywords בכל פעם שזה קורה עם קיצור חדש. זו נורמליזציה בטוחה לגמרי (אין
+// סיכון להתאמת-שווא) בניגוד לנורמליזציית יחיד/רבים או כתיב-מלא/חסר, שדורשות
+// הבנה מורפולוגית של עברית ומסוכנות יותר לביצוע גורף.
+function stripQuoteMarks(s) {
+  return s.replace(/["'׳״]/g, '');
+}
 function searchQA(question) {
   const qa = loadJSON('shabaton-qa.json');
   if (!qa) return null;
-  const qL = question.toLowerCase();
+  const qL = stripQuoteMarks(question.toLowerCase());
   const allQ = (qa.categories || []).flatMap(c => {
     const nested = c.questions || [];
     const direct = (c.answer && c.keywords) ? [c] : [];
@@ -919,10 +927,10 @@ function searchQA(question) {
   let bestKeywordLength = 0;
   for (const q of allQ) {
     for (const k of (q.keywords || [])) {
-      const kL = k.toLowerCase();
-      const isMatch = k.length <= 4 ? wordBoundaryIncludes(qL, kL) : qL.includes(kL);
-      if (isMatch && k.length > bestKeywordLength) {
-        bestKeywordLength = k.length;
+      const kL = stripQuoteMarks(k.toLowerCase());
+      const isMatch = kL.length <= 4 ? wordBoundaryIncludes(qL, kL) : qL.includes(kL);
+      if (isMatch && kL.length > bestKeywordLength) {
+        bestKeywordLength = kL.length;
         bestMatch = q;
       }
     }
@@ -946,6 +954,55 @@ function formatQAAnswer(qa) {
     }
   }
   return text;
+}
+
+// ── סיווג-QA בעזרת Claude — fallback כשההתאמה הדטרמיניסטית (searchQA) לא
+// מצאה כלום. הבעיה שזה בא לפתור: keyword matching נוקשה מפספס ניסוחים
+// שונים לאותה כוונה בדיוק (יחיד/רבים, כתיב מלא/חסר, מילים נרדפות) — כל
+// מקרה כזה דורש הוספת keyword ידנית *אחרי* שהוא כבר קרה. נותנים ל-Claude
+// (מודל קל/מהיר) להשוות את השאלה מול רשימת הנושאים ולזהות התאמה סמנטית,
+// בלי תלות בניסוח המדויק. נקרא רק כש-searchQA כבר החזיר null, כדי לא
+// להוסיף latency/עלות לרוב הבקשות שכן נתפסות דטרמיניסטית.
+async function classifyQAWithClaude(message, apiKey) {
+  if (!apiKey) return null;
+  const qa = loadJSON('shabaton-qa.json');
+  if (!qa) return null;
+  const allQ = (qa.categories || []).flatMap(c => c.questions || []);
+  if (allQ.length === 0) return null;
+  // רשימה קומפקטית: id + השאלה המייצגת בלבד (לא כל ה-variations/keywords —
+  // חוסך טוקנים; Claude לא צריך את הרשימה המלאה כדי לזהות כוונה דומה).
+  const topicList = allQ.map(q => `${q.id}: ${q.question}`).join('\n');
+  const prompt = 'להלן רשימת נושאי-שאלות-נפוצות בבוט "שבתון" (פורמט id: שאלה מייצגת).\n' +
+    'קרא את שאלת המשתמש וקבע אם היא תואמת אחד הנושאים — כולל ניסוחים שונים לאותה כוונה (יחיד/רבים, כתיב מלא/חסר, מילים נרדפות, סדר מילים שונה). אל תתאים אם הכוונה שונה במהותה, גם אם יש חפיפת-מילים מקרית.\n\n' +
+    'רשימת נושאים:\n' + topicList + '\n\n' +
+    'שאלת המשתמש: "' + message + '"\n\n' +
+    'השב אך ורק ב-id המדויק אם יש התאמה, או במילה "none" אם אין. בלי שום טקסט נוסף, בלי הסבר.';
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 30,
+        messages: [{ role: 'user', content: prompt }]
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    if (!res.ok) { console.log('QA classify: API status', res.status); return null; }
+    const data = await res.json();
+    const answer = (data.content && data.content[0] && data.content[0].text || '').trim();
+    if (!answer || answer.toLowerCase() === 'none') return null;
+    const matched = allQ.find(q => q.id === answer);
+    if (!matched) { console.log('QA classify: unrecognized id returned:', answer); return null; }
+    console.log('QA CLASSIFY (Claude fallback):', matched.id);
+    return matched;
+  } catch (e) {
+    console.log('QA classify error:', e.message);
+    return null;
+  }
 }
 
 function getInstitutionPagesForField(question) {
@@ -1371,7 +1428,7 @@ function isSummerQuery(message) {
   return false;
 }
 
-async function buildContext(message, history) {
+async function buildContext(message, history, precomputedQA) {
   message = fixTypos(message);
 
   // ── זיהוי הודעת-המשך קצרה ("ועם בן זוג", "ומה לגבי הצפון") ──
@@ -1495,7 +1552,12 @@ async function buildContext(message, history) {
   let combinedNote = null;
   let qaComboHandled = false;
   const infoUrlsForQA = detectInfoPages(message) || [];
-  const qaFirst = searchQA(message);
+  // אם handler כבר הריץ סיווג-QA בעזרת Claude (fallback לניסוחים שההתאמה
+  // הדטרמיניסטית מפספסת) — משתמשים בו כשה-searchQA הרגיל לא מצא כלום.
+  // precomputedQA === undefined means "לא סופק" (לדוגמה בבדיקות ישנות/ידניות)
+  // → מתנהג בדיוק כמו לפני השינוי.
+  const detQA = searchQA(message);
+  const qaFirst = detQA || (precomputedQA !== undefined ? precomputedQA : null);
   const hasInstQ = /מכללה|מכללת|אוניברסיטה|אוניברסיטת|מכון|סמינר|אקדמית|קריית|קריה|אורנים|בר.?אילן|תלפיות|הרצוג|שנקר|לוינסקי|גורדון|אונו|וינגייט|בן.?גוריון|עברית|תל.?אביב|חיפה|ירושלים|בגין|ויצמן/.test(message);
   // QA-ים מסוג תלונה/הסלמה (לדוגמה: מוסד לא עונה) — חייבים להיתפס גם אם
   // מוזכרת בהודעה מילת-מוסד כמו "סמינר"/"מכללה", כי המשתמש מתלונן על מוסד ספציפי.
@@ -2837,7 +2899,15 @@ export default async function handler(req, res) {
       return res.json({ reply: directInstReply });
     }
 
-    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName, qaId, usedFallbackInstitution, combinedNote } = await buildContext(message, history);
+    // ── QA fallback: אם ההתאמה הדטרמיניסטית (searchQA) לא מצאה כלום, נותנים
+    // ל-Claude (מודל קל) הזדמנות לזהות התאמה סמנטית לפני שממשיכים לחיפוש-
+    // מוסדות/דף-מידע-גולמי. נקרא רק כשצריך, כדי לא להוסיף latency לרוב
+    // הבקשות שכבר נתפסות דטרמיניסטית.
+    let precomputedQA = null;
+    if (!searchQA(message)) {
+      precomputedQA = await classifyQAWithClaude(message, ANTHROPIC_API_KEY);
+    }
+    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName, qaId, usedFallbackInstitution, combinedNote } = await buildContext(message, history, precomputedQA);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
 
