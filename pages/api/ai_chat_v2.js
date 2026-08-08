@@ -1005,6 +1005,44 @@ async function classifyQAWithClaude(message, apiKey) {
   }
 }
 
+// ── אימות התאמת-שדה בעזרת Claude — רק כשההתאמה ניצחה במילה קצרה/כללית ──
+// (עד 6 תווים). זה בדיוק דפוס-הבאגים שנצפה בפועל בשיחה הזו: "בית", "תא",
+// "ירו", "ים", "קש", "פנסיה" — כולן מילים קצרות שגם מתאימות בהקשר לגמרי
+// אחר. מילים ארוכות וספציפיות ("הוראה מתקנת", "קלפים טיפוליים") כמעט אף
+// פעם לא גורמות להתאמות-שווא, ולכן לא עוברות דרך הבדיקה הזו — כדי לא
+// להוסיף latency לרוב הבקשות, שכבר מתאימות נכון בלי שום בדיקה נוספת.
+async function verifyFieldMatchWithClaude(message, fieldName, matchedKeyword, apiKey) {
+  if (!apiKey) return true; // בלי מפתח — לא ניתן לאמת, נותנים אמון בהתאמה כברירת מחדל
+  const prompt = 'שאלה של משתמש בבוט "שבתון" (עוזר לעובדי הוראה בנושא לימודים בשנת שבתון) הותאמה לתחום-לימוד "' + fieldName + '" על סמך המילה "' + matchedKeyword + '" שמופיעה בה.\n' +
+    'בדוק: האם השאלה באמת מבקשת מידע או קורסים בתחום "' + fieldName + '", או שהמילה "' + matchedKeyword + '" מופיעה בהקשר שונה לגמרי (למשל שאלת מדיניות/זכויות/מנהלה שרק מזכירה את המילה אגב, לא מחפשת קורסים בנושא)?\n\n' +
+    'שאלת המשתמש: "' + message + '"\n\n' +
+    'השב אך ורק "כן" אם ההתאמה נכונה, או "לא" אם זו התאמת-שווא. בלי שום טקסט נוסף.';
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: prompt }]
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    if (!res.ok) { console.log('Field verify: API status', res.status); return true; } // בכשל, לא חוסמים
+    const data = await res.json();
+    const answer = (data.content && data.content[0] && data.content[0].text || '').trim();
+    const rejected = answer.includes('לא') && !answer.includes('כן');
+    console.log('FIELD VERIFY (Claude):', fieldName, '| keyword:', matchedKeyword, '| answer:', answer, '| result:', rejected ? 'REJECTED' : 'confirmed');
+    return !rejected;
+  } catch (e) {
+    console.log('Field verify error:', e.message);
+    return true; // בכשל/timeout, לא חוסמים — ברירת מחדל היא אמון בהתאמה
+  }
+}
+
 function getInstitutionPagesForField(question) {
   const stopInst = new Set(['את','של','על','עם','אל','כל','גם','לא','מה','מי','איך','קורס','קורסי','לימודי','למורים','לגננות','בשבתון']);
   const qWords = question.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !stopInst.has(w));
@@ -1445,7 +1483,7 @@ function isSummerQuery(message) {
   return false;
 }
 
-async function buildContext(message, history, precomputedQA) {
+async function buildContext(message, history, precomputedQA, apiKey) {
   message = fixTypos(message);
 
   // ── זיהוי הודעת-המשך קצרה ("ועם בן זוג", "ומה לגבי הצפון") ──
@@ -1697,6 +1735,7 @@ async function buildContext(message, history, precomputedQA) {
   if (sfForKI) {
     const msgLKI2 = msgForFieldMatch.toLowerCase();
     let bestLen = 0;
+    let bestKeyword = null;
     // מחפש keyword הכי ארוך — לא הראשון (כמו searchQA)
     // עבור keywords קצרים (4 תווים ומטה) — דורש גבול מילה, כמו ב-getFieldSlug
     for (const sfItem of (sfForKI.studyFields || [])) {
@@ -1707,6 +1746,7 @@ async function buildContext(message, history, precomputedQA) {
         const isMatch = k.length <= 4 ? wordBoundaryIncludes(msgLKI2, kL) : msgLKI2.includes(kL);
         if (isMatch && k.length > bestLen) {
           bestLen = k.length;
+          bestKeyword = k;
           knownOnly = sfItem.known_institutions;
           matchedFieldKeywords = [sfItem.keywords[0]];
           matchedFieldObj = sfItem;
@@ -1724,6 +1764,7 @@ async function buildContext(message, history, precomputedQA) {
     // וטיולים ניצח, אבל תיירות עצמה גם מתאימה למילות-המפתח שלה — תיירות
     // צריכה לנצח, כי שם נמצא המוסד הרלוונטי (למשל וינגייט, הסבת מורי דרך).
     const wantsTrainingIntent = /מורי דרך|מדריך טיולים|הכשרת מדריך|הסבת מורי דרך|רישיון מדריך|תעודת מורה דרך/.test(msgLKI2);
+    let trainingOverrideApplied = false;
     if (wantsTrainingIntent && matchedFieldObj && matchedFieldObj.name === 'טיולים וסיורים לימודיים') {
       const tourismField = (sfForKI.studyFields || []).find(f => f.name === 'תיירות');
       const tourismMatches = tourismField && (tourismField.keywords || []).some(k => {
@@ -1735,6 +1776,21 @@ async function buildContext(message, history, precomputedQA) {
         knownOnly = tourismField.known_institutions;
         matchedFieldKeywords = [tourismField.keywords[0]];
         matchedFieldObj = tourismField;
+        trainingOverrideApplied = true;
+      }
+    }
+
+    // ── אימות-שדה ממוקד בעזרת Claude — רק כשההתאמה ניצחה במילה קצרה (≤6
+    // תווים), כי זה בדיוק דפוס-הבאגים שנצפה בפועל ("בית", "תא", "ירו", "ים",
+    // "קש", "פנסיה"). לא רץ אם התיקון הדטרמיניסטי (TRAINING OVERRIDE) כבר
+    // טיפל בהתאמה, ולא רץ בלי apiKey (התנהגות זהה לקודם במקרה כזה).
+    if (matchedFieldObj && bestKeyword && bestLen <= 6 && !trainingOverrideApplied && apiKey) {
+      const confirmed = await verifyFieldMatchWithClaude(message, matchedFieldObj.name, bestKeyword, apiKey);
+      if (!confirmed) {
+        console.log('FIELD MATCH REJECTED by Claude verify — falling through');
+        matchedFieldObj = null;
+        knownOnly = null;
+        matchedFieldKeywords = [];
       }
     }
 
@@ -2936,7 +2992,7 @@ export default async function handler(req, res) {
     if (!searchQA(message)) {
       precomputedQA = await classifyQAWithClaude(message, ANTHROPIC_API_KEY);
     }
-    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName, qaId, usedFallbackInstitution, combinedNote } = await buildContext(message, history, precomputedQA);
+    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName, qaId, usedFallbackInstitution, combinedNote } = await buildContext(message, history, precomputedQA, ANTHROPIC_API_KEY);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
 
