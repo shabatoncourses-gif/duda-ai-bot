@@ -1134,7 +1134,24 @@ async function fetchPageContent(url) {
   } catch(e2) { return null; }
 }
 
+// הודעה שמזכירה חודש רק בתור הקשר-זמן ("אוגוסט כעת") אבל למעשה שואלת על
+// סיום שבתון (מה עושים, מה נותר לעשות) — לא באמת מחפשת "קורסים שנפתחים
+// באוגוסט". בלי ההגנה הזו, אזכור-חודש-אגבי גורם לדחיסת רשימת-פתיחות-קורסים
+// לא-קשורה לצד המידע האמיתי (הצ'קליסט לסיום שבתון). קבוע משותף (לא מקומי
+// לפונקציה אחת) כי הבעיה הזו מופיעה בשלוש נקודות-קריאה נפרדות בקובץ.
+const END_OF_SABBATICAL_RE = /בסוף שבתון|סיום שבתון|לקראת חזרה|חוזרים לעבודה|מה נותר לי לעשות|מה עושים בסוף|לקראת סוף/;
+
 // ── מועדי פתיחה קורסים ──────────────────────────────
+// לפעמים ב-course-dates.json, date_text הוא לא תיאור-מוכן-לתצוגה (כמו
+// "1.9.2026 קבוצת בוקר...") אלא ערך גולמי שדלף מתא-תאריך באקסל בלי טקסט
+// משלו — נראה כמו "2026-08-02 00:00:00". מזהים את התבנית הזו ומהפכים
+// אותה לפורמט תאריך קריא (DD.MM.YYYY), במקום להציג את הפורמט הטכני הגולמי.
+function formatDateText(raw) {
+  if (!raw) return raw;
+  const m = raw.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+00:00:00)?$/);
+  if (m) return `${m[3]}.${m[2]}.${m[1]}`;
+  return raw;
+}
 function getCourseDates(message, filterUrls) {
   const data = loadJSON('course-dates.json');
   if (!data || !data.courses) return null;
@@ -1158,7 +1175,7 @@ function getCourseDates(message, filterUrls) {
       for (const r of summerResults) {
         text += '**[' + r.title + '](' + r.url + ')**\n';
         for (const o of r.openings) {
-          if (o.date_text) text += o.date_text.substring(0, 200).replace(/\n/g, ' | ') + '\n';
+          if (o.date_text) text += formatDateText(o.date_text.substring(0, 200)).replace(/\n/g, ' | ') + '\n';
         }
         text += '[פנו למידע ולייעוץ אישי](' + r.url + ')\n\n';
       }
@@ -1206,7 +1223,7 @@ function getCourseDates(message, filterUrls) {
       for (const r of results) {
         text += '**[' + r.title + '](' + r.url + ')**\n';
         for (const o of r.openings) {
-          if (o.date_text) text += o.date_text.substring(0, 120) + '\n';
+          if (o.date_text) text += formatDateText(o.date_text.substring(0, 120)) + '\n';
         }
         text += '[פנו למידע ולייעוץ אישי](' + r.url + ')\n\n';
       }
@@ -1280,7 +1297,7 @@ function getCourseDates(message, filterUrls) {
         const yr2 = (o.month || '').split('-')[0] || '';
         text += (mName ? '**' + mName + ' ' + yr2 + ':**' : '') + '\n';
         // כל תאריך בשורה נפרדת
-        text += o.date_text.trim().replace(/,\s*/g, '\n') + '\n';
+        text += formatDateText(o.date_text.trim()).replace(/,\s*/g, '\n') + '\n';
       }
       text += '[פנו למידע ולייעוץ אישי](' + c.url + ')\n\n';
       hasAny = true;
@@ -1465,7 +1482,11 @@ async function buildContext(message, history, precomputedQA) {
   const urlToTitle = {};
 
   // בדוק course-dates — רק כשהשאלה עוסקת בתזמון ספציפי
-  const isTimingQuery = /מתי|מועד|אוקטובר|נובמבר|דצמבר|ספטמבר|יוני|יולי|אוגוסט|ינואר|פברואר|מרץ|אפריל|מאי|בקרוב|חודש|תאריך|נפתח|פתיחה|מאיזה/.test(message);
+  // הודעה שמזכירה חודש רק בתור הקשר-זמן ("אוגוסט כעת") אבל למעשה שואלת על
+  // סיום שבתון (מה עושים, מה נותר לעשות) — לא באמת מחפשת "קורסים שנפתחים
+  // באוגוסט". בלי ההגנה הזו, אזכור-חודש-אגבי גורם לדחיסת רשימת-פתיחות-קורסים
+  // לא-קשורה לצד המידע האמיתי (הצ'קליסט לסיום שבתון).
+  const isTimingQuery = !END_OF_SABBATICAL_RE.test(message) && /מתי|מועד|אוקטובר|נובמבר|דצמבר|ספטמבר|יוני|יולי|אוגוסט|ינואר|פברואר|מרץ|אפריל|מאי|בקרוב|חודש|תאריך|נפתח|פתיחה|מאיזה/.test(message);
   const datesCtx = (isTimingQuery || isSummerQuery(message)) ? getCourseDates(message) : null;
   if (datesCtx) {
     parts.push(datesCtx);
@@ -1561,7 +1582,7 @@ async function buildContext(message, history, precomputedQA) {
   const hasInstQ = /מכללה|מכללת|אוניברסיטה|אוניברסיטת|מכון|סמינר|אקדמית|קריית|קריה|אורנים|בר.?אילן|תלפיות|הרצוג|שנקר|לוינסקי|גורדון|אונו|וינגייט|בן.?גוריון|עברית|תל.?אביב|חיפה|ירושלים|בגין|ויצמן/.test(message);
   // QA-ים מסוג תלונה/הסלמה (לדוגמה: מוסד לא עונה) — חייבים להיתפס גם אם
   // מוזכרת בהודעה מילת-מוסד כמו "סמינר"/"מכללה", כי המשתמש מתלונן על מוסד ספציפי.
-  const ALWAYS_PRIORITY_QA_IDS = new Set(['institution_not_responding', 'intensive_seminars', 'cinema_city_entertainment_center', 'half_shabaton_work_less', 'unused_study_budget_1', 'short_online_completion_institutions', 'tuition_reimbursement_rate', 'commercial_gym_recognition', 'hours_allocation_quota_1']);
+  const ALWAYS_PRIORITY_QA_IDS = new Set(['institution_not_responding', 'intensive_seminars', 'cinema_city_entertainment_center', 'half_shabaton_work_less', 'unused_study_budget_1', 'short_online_completion_institutions', 'tuition_reimbursement_rate', 'commercial_gym_recognition', 'hours_allocation_quota_1', 'end_of_sabbatical_checklist_1']);
   const isEscalationQA = qaFirst && ALWAYS_PRIORITY_QA_IDS.has(qaFirst.id);
   if (qaFirst && (infoUrlsForQA.length === 0 || isEscalationQA) && (!hasInstQ || isEscalationQA)) {
     const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
@@ -2262,9 +2283,9 @@ async function buildContext(message, history, precomputedQA) {
     // ⚠️ רשימה לאומית — אין לטעון שהיא מסוננת לאזור, אבל נזכיר שביקשת אזור זה
     console.log('KNOWN_ONLY path (national list):', validKI.length, 'institutions → coursesForClaude');
     const finalNote = [
-      ((/מתי|מועד|נפתח|פתיחה|תאריך|חודש|מאיזה|בקרוב/.test(message)) ||
+      (!END_OF_SABBATICAL_RE.test(message) && ((/מתי|מועד|נפתח|פתיחה|תאריך|חודש|מאיזה|בקרוב/.test(message)) ||
        (/(^|\s)[בלמכ]?(יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר|ינואר|פברואר|מרץ|אפריל|מאי|יוני)(\s|$|\?)/.test(message)) ||
-       isSummerQuery(message)) ? getCourseDates(message) : null,
+       isSummerQuery(message))) ? getCourseDates(message) : null,
       combinedNote,
       summerNote
     ].filter(Boolean).join('\n\n') || null;
@@ -2967,7 +2988,7 @@ export default async function handler(req, res) {
       }
       const courseListText = shuffled.join('\n\n') + (combinedNote ? '\n\n' + combinedNote : '');
       let intro;
-      if (getCourseDates(message) && courseCount <= 3 &&
+      if (!END_OF_SABBATICAL_RE.test(message) && getCourseDates(message) && courseCount <= 3 &&
           (/מתי|מועד|נפתח|פתיחה|תאריך|חודש|מאיזה|בקרוב/.test(message) ||
            /(^|\s)[בלמכ]?(יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר|ינואר|פברואר|מרץ|אפריל|מאי|יוני)(\s|$|\?)/.test(message) ||
            isSummerQuery(message))) {
