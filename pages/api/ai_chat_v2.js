@@ -1582,7 +1582,7 @@ async function buildContext(message, history, precomputedQA) {
   const hasInstQ = /מכללה|מכללת|אוניברסיטה|אוניברסיטת|מכון|סמינר|אקדמית|קריית|קריה|אורנים|בר.?אילן|תלפיות|הרצוג|שנקר|לוינסקי|גורדון|אונו|וינגייט|בן.?גוריון|עברית|תל.?אביב|חיפה|ירושלים|בגין|ויצמן/.test(message);
   // QA-ים מסוג תלונה/הסלמה (לדוגמה: מוסד לא עונה) — חייבים להיתפס גם אם
   // מוזכרת בהודעה מילת-מוסד כמו "סמינר"/"מכללה", כי המשתמש מתלונן על מוסד ספציפי.
-  const ALWAYS_PRIORITY_QA_IDS = new Set(['institution_not_responding', 'intensive_seminars', 'cinema_city_entertainment_center', 'half_shabaton_work_less', 'unused_study_budget_1', 'short_online_completion_institutions', 'tuition_reimbursement_rate', 'commercial_gym_recognition', 'hours_allocation_quota_1', 'end_of_sabbatical_checklist_1', 'monthly_grant_1', 'birth_during_sabbatical_1']);
+  const ALWAYS_PRIORITY_QA_IDS = new Set(['institution_not_responding', 'intensive_seminars', 'cinema_city_entertainment_center', 'half_shabaton_work_less', 'unused_study_budget_1', 'short_online_completion_institutions', 'tuition_reimbursement_rate', 'commercial_gym_recognition', 'hours_allocation_quota_1', 'end_of_sabbatical_checklist_1', 'monthly_grant_1', 'birth_during_sabbatical_1', 'first_time_sabbatical_orientation_1']);
   const isEscalationQA = qaFirst && ALWAYS_PRIORITY_QA_IDS.has(qaFirst.id);
   if (qaFirst && (infoUrlsForQA.length === 0 || isEscalationQA) && (!hasInstQ || isEscalationQA)) {
     const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
@@ -2792,6 +2792,14 @@ async function buildContext(message, history, precomputedQA) {
             parts.push(`=== קורסים בתחום ${fieldInfo.name} ===\n${catContent.substring(0, 1500).trim()}\nקישור לדף: ${catUrl}`);
           }
         } catch(e) {}
+      }
+      // אם עדיין אין שום תוכן משמעותי (לא QA, לא תואר-שני, לא קטגוריה) —
+      // שאלה כללית מדי כדי להתאים לאף מנגנון ספציפי. במקום תשובה ריקה או
+      // מבולבלת, מפנים לדף שאלות-ותשובות-נפוצות הכללי.
+      const stillEmpty = !parts.some(p => p.length > 200 && (p.includes('===') || p.includes('**[')));
+      if (stillEmpty) {
+        console.log('Zero-results fallback: pointing to general FAQ page');
+        parts.push('לא מצאתי מידע ספציפי לשאלה הזו, אבל יכול להיות שהתשובה נמצאת במדור השאלות והתשובות הנפוצות:\n📚 [שאלות ותשובות נפוצות בשבתון](https://www.shabaton.online/shabaton-qa)');
       }
     }
   }
