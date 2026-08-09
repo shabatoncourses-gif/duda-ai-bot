@@ -1128,6 +1128,17 @@ function stripNavDropdown(text) {
 }
 
 async function fetchPageContent(url) {
+  // ── חותכים טקסט-גולמי החל מ-offset מסוים בלי לקטוע מילה באמצע ──
+  // נצפה בפרודקשן: כש-Jina נכשל (קוד 402, בעיה מתועדת) והנתיב-החלופי
+  // (fetch ישיר של ה-HTML) לא מוצא את העוגן שהוא מחפש (מתאים רק לדף
+  // תשלומים ספציפי, לא לדפי-מדיניות אחרים), הוא נופל ל-text.substring(800)
+  // עיוור — וזה קוטע לפעמים באמצע מילה ממש (לדוגמה "ומהם נושאי ההשתלמות"
+  // הפך ל-"ון נושאי ההשתלמות..." בתשובה אמיתית שהוצגה למשתמש) — ב-2026-08.
+  const skipToWordBoundary = (t, offset) => {
+    if (offset <= 0 || offset >= t.length) return t;
+    const nextBreak = t.slice(offset).search(/\s/);
+    return nextBreak >= 0 ? t.slice(offset + nextBreak).trimStart() : t.slice(offset);
+  };
   try {
     const jinaUrl = 'https://r.jina.ai/' + url;
     const controller = new AbortController();
@@ -1149,7 +1160,7 @@ async function fetchPageContent(url) {
         if (!isNav && l.length > 60 && /[א-ת]{15,}/.test(l)) { contentStart = li; break; }
       }
       if (contentStart > 0) text = lines2.slice(contentStart).join('\n');
-      else text = text.substring(Math.floor(text.length * 0.3));
+      else text = skipToWordBoundary(text, Math.floor(text.length * 0.3));
       text = decodeHtmlEntities(stripNavDropdown(text)).replace(/\s{3,}/g,'\n\n').trim();
       console.log('Jina OK:', url.split('/').pop(), 'len:', text.length);
       return text.substring(0, 5000);
@@ -1171,7 +1182,7 @@ async function fetchPageContent(url) {
     text = decodeHtmlEntities(stripNavDropdown(text));
     const csi = text.indexOf('תשלומים ותקבולים בשנת שבתון');
     if (csi > 0) text = text.substring(csi);
-    else text = text.substring(800);
+    else text = skipToWordBoundary(text, 800);
     return text.substring(0,3000).trim();
   } catch(e2) { return null; }
 }
@@ -1712,9 +1723,14 @@ async function buildContext(message, history, precomputedQA, apiKey) {
       if (!hasFieldKwsInfo) {
         return { context: parts.join('\n\n'), isInfo: true, courseCount: 0, urlToTitle };
       }
-      const infoNoteText = contents.filter(Boolean).map((c, i) =>
+      const infoNoteTextRaw = contents.filter(Boolean).map((c, i) =>
         c.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/https?:\/\/[^\s]+/g, '').replace(/🏫[^\n]*/g, '').trim()
       ).join('\n\n');
+      // ── מגבילים לאורך סביר (כמו smartTruncate(...,800) לתיאורי-מוסדות) ──
+      // כשזה מצטרף ל-combinedNote (ליד רשימת מוסדות), זו אמורה להיות הערה
+      // משלימה קצרה — לא כל דף-המדיניות הגולמי (שיכול להגיע לאלפי תווים
+      // ולכלול כמה נושאים שלא קשורים לשאלה הספציפית).
+      const infoNoteText = smartTruncate(infoNoteTextRaw, 800);
       if (infoNoteText) combinedNote = combinedNote ? infoNoteText + '\n\n' + combinedNote : infoNoteText;
       console.log('INFO PAGE + FIELD KEYWORDS: ממשיכים לחפש מוסדות לצד מידע המדיניות');
     }
