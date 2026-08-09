@@ -2990,7 +2990,21 @@ export default async function handler(req, res) {
     // הבקשות שכבר נתפסות דטרמיניסטית.
     let precomputedQA = null;
     if (!searchQA(message)) {
-      precomputedQA = await classifyQAWithClaude(message, ANTHROPIC_API_KEY);
+      // ── לא מפעילים את שכבת-הסיווג הסמנטית כשההודעה כבר תואמת keyword
+      // ספציפי של תחום-לימוד קיים (למשל "פסיכודרמה") ──
+      // אם היה QA באמת רלוונטי, ההודעה כמעט תמיד הייתה מכילה גם את
+      // ה-keyword המפורש שלו — וה-searchQA הדטרמיניסטי למעלה כבר היה
+      // תופס אותו. קריאה סמנטית במצב הזה חושפת לסיכון "כפיית התאמה"
+      // לנושא לא-קשור. נצפה בפרודקשן: "קורסי פסיכודרמה" סווג בטעות
+      // ל-sport_recognition_general_1 (כללי הכרה לספורט), והתשובה שילבה
+      // את מוסדות הדרמה/פסיכודרמה (נכון) יחד עם כללי-ספורט לא-קשורים
+      // (שגוי) — ב-2026-08.
+      const hasSpecificFieldMatch = getFieldKeywords(message) && getFieldKeywords(message).length > 0;
+      if (!hasSpecificFieldMatch) {
+        precomputedQA = await classifyQAWithClaude(message, ANTHROPIC_API_KEY);
+      } else {
+        console.log('QA CLASSIFY SKIPPED: message already matches a specific study-field keyword');
+      }
     }
     const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName, qaId, usedFallbackInstitution, combinedNote } = await buildContext(message, history, precomputedQA, ANTHROPIC_API_KEY);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
