@@ -2285,9 +2285,37 @@ async function buildContext(message, history, precomputedQA, apiKey) {
     // הרלוונטיים לחיפוש (ולא את כל רשימת הקורסים של המוסד בתחום). באיחוד
     // שדות (wasCombined) השאלה כללית מטבעה — לא מסננים.
     const specificTermsForDesc = wasCombined ? [] : extractSpecificTerms(msgForNarrowing, matchedFieldKeywords);
+    // ── לא מציעים מסלולי תואר (שני/ראשון/שלישי/דוקטורט) אם לא ביקשו זאת ──
+    // בפירוש. תיאור מוסד רב-שורות (קורס אחד לכל שורה) עשוי לכלול גם מסלולי
+    // תואר וגם מסלולים לא-אקדמיים (תעודה/הכשרה) — filterDescriptionLinesByTerms
+    // כבר מסנן לפי רלוונטיות-נושאית, אבל לא לפי "האם זה תואר", כי שדות טיפוליים
+    // (כמו "דרמה טיפולית") מתארים כמעט כל מסלול-תואר וגם כל תעודה כ"טיפול ב-X" —
+    // אז הסינון הנושאי משאיר את שתי הקטגוריות יחד. זה אותו wantsDegree שכבר
+    // קיים בנתיב-החיפוש השני (סינון לפי כותרת-קורס באינדקס) — כאן מיושם ברמת
+    // שורה בתוך תיאור-מוסד, כי זה המבנה הרלוונטי לנתיב הזה (KNOWN_ONLY).
+    // נצפה בפרודקשן: "קורסי דרמה טיפולית" הציג בלוקים שלמים של תואר שני
+    // (סמינר הקיבוצים, אונו) במקום המסלולים הלא-אקדמיים שהמוסדות האלה גם
+    // מציעים — ב-2026-08.
+    const wantsDegreeKI = /תואר שני|תואר ראשון|תואר שלישי|תואר אקדמי|דוקטורט|\bMA\b|\bBA\b|\bMSC\b/i.test(message);
+    const stripDegreeLines = (text) => {
+      if (wantsDegreeKI || !text) return text;
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length === 0) return text;
+      const degreeRe = /תואר שני|תואר ראשון|תואר שלישי|תואר אקדמי|דוקטורט/;
+      const nonDegree = lines.filter(l => !degreeRe.test(l));
+      if (nonDegree.length === lines.length) return text; // אין שורות-תואר בכלל, לא נוגעים
+      return nonDegree.join('\n'); // עשוי להיות '' אם הכל תואר — מטופל ב-formatKI
+    };
     const formatKI = (ki) => {
       const relevantDesc = filterDescriptionLinesByTerms(ki.description, specificTermsForDesc);
-      const cleanDesc = smartTruncate(cleanDescription(relevantDesc), 800).trim();
+      const degreeFiltered = stripDegreeLines(relevantDesc);
+      if (relevantDesc && relevantDesc.trim() && !degreeFiltered.trim()) {
+        // היה תוכן רלוונטי-נושאית, אבל כולו מסלולי-תואר שלא ביקשו — לא
+        // מציגים את המוסד הזה בכלל (עדיף לדלג עליו מאשר "לכפות" תואר שלא
+        // התבקש, או להציג כותרת-מוסד ריקה בלי שום תוכן).
+        return null;
+      }
+      const cleanDesc = smartTruncate(cleanDescription(degreeFiltered), 800).trim();
       return `**[${ki.title}](${ki.url})**\n${cleanDesc ? cleanDesc + '\n' : ''}[פנו למידע ולייעוץ אישי](${ki.url})`;
     };
 
@@ -2306,7 +2334,7 @@ async function buildContext(message, history, precomputedQA, apiKey) {
         const group = fullGroup.slice(0, MAX_PER_FIELD);
         shuffledKI.push(...group);
         kiForClaude.push(`###FIELD_HEADER###${fieldName}`);
-        kiForClaude.push(...group.map(formatKI));
+        kiForClaude.push(...group.map(formatKI).filter(Boolean));
         // קישור-קטגוריה שקט (לא כפתור-קריאה-לפעולה) לכל שדה בנפרד — לא רק
         // לשדה המשלים היחיד כמו קודם — כדי שמי שביקש כמה תחומים באותה שאלה
         // יוכל להגיע לרשימה המלאה של כל תחום בנפרד, לא רק לתחום אחד מצורף.
@@ -2318,7 +2346,7 @@ async function buildContext(message, history, precomputedQA, apiKey) {
       }
     } else {
       shuffledKI = shuffle(validKI);
-      kiForClaude = shuffledKI.map(formatKI);
+      kiForClaude = shuffledKI.map(formatKI).filter(Boolean);
     }
     const catUrl2 = (() => {
       if (!fieldSlug2) return null;
