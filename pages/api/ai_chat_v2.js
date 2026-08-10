@@ -72,6 +72,38 @@ function loadJSON(filename) {
   return _cache[filename];
 }
 
+// ── אינדקס גלובלי של שמות-מוסדות (חוצה-שדות) ──
+// לצורך הודעות שמזכירות מוסד ספציפי בשם, בלי לנקוב שום תחום-לימוד — לדוגמה
+// תשובת-המשך קצרה כמו "אורנים" בתגובה לשאלה "לאיזה מוסד נרשמת?". הזיהוי
+// הרגיל (getFieldKeywords/searchQA) לא היה תופס את זה בכלל, כי הוא מבוסס
+// כולו על מילות-מפתח של *שדה*, לא על שמות-מוסדות. "עוגן" לכל מוסד הוא
+// המקטע שלפני המפריד הראשון בכותרת (למשל "אורנים" מתוך "אורנים, היחידה
+// ללימודי תעודה...") — כי זה בדרך-כלל השם הייחודי בפועל, לא התיאור הכללי
+// שאחריו.
+let _institutionNameIndex = null;
+function getInstitutionNameIndex() {
+  if (_institutionNameIndex) return _institutionNameIndex;
+  const sf = loadJSON('study-fields.json');
+  const byUrl = new Map();
+  for (const f of (sf && sf.studyFields) || []) {
+    for (const ki of f.known_institutions || []) {
+      if (!ki.title || !ki.url) continue;
+      const anchor = ki.title.split(/[-–,]/)[0].trim();
+      if (anchor.length < 3) continue;
+      if (!byUrl.has(ki.url)) byUrl.set(ki.url, { title: ki.title, url: ki.url, anchor, fields: [] });
+      byUrl.get(ki.url).fields.push(f.name);
+    }
+  }
+  _institutionNameIndex = [...byUrl.values()];
+  return _institutionNameIndex;
+}
+function findInstitutionsByNameInMessage(message) {
+  const msgL = (message || '').toLowerCase();
+  const matches = getInstitutionNameIndex().filter(entry => msgL.includes(entry.anchor.toLowerCase()));
+  matches.sort((a, b) => b.anchor.length - a.anchor.length); // עוגן ארוך/ספציפי יותר קודם
+  return matches;
+}
+
 // ── ניקוי HTML גולמי מתיאורי מוסדות (מקור: עמודת התיאור באקסל) ──
 // <strong>/<b> הופכים ל-markdown bold, <br>/<li> להפרדת שורות, ושאר
 // תגים מוסרים. כך הגולש לא רואה "<strong>" כטקסט גולמי בתשובת הבוט.
@@ -1630,13 +1662,46 @@ async function buildContext(message, history, precomputedQA, apiKey) {
   // הדטרמיניסטית מפספסת) — משתמשים בו כשה-searchQA הרגיל לא מצא כלום.
   // precomputedQA === undefined means "לא סופק" (לדוגמה בבדיקות ישנות/ידניות)
   // → מתנהג בדיוק כמו לפני השינוי.
-  const detQA = searchQA(message);
+  // ── זיהוי גמיש יותר ל'נרשמתי...ולא מוצא/יודע' ──
+  // רשימת ה-keywords הרגילה של ה-QA דורשת שהביטויים יופיעו צמודים ממש
+  // ("נרשמתי אבל לא מוצא") — אבל כששם-מוסד מוזכר בין השניים ("נרשמתי
+  // באורנים לקורס ולא מוצא אותו"), ההתאמה-הצמודה נשברת. בודקים גם
+  // התאמה-קרובה (עד 40 תווים בין "נרשמתי" ל"לא מוצא/יודע"), כ-fallback
+  // רק לזיהוי הכוונה הזו הספציפית (לא שינוי כללי ל-searchQA).
+  let detQA = searchQA(message);
+  if (!detQA) {
+    const looseMatch = /נרשמתי[^.!?]{0,40}(לא\s*(מוצא|יודע|יודעת)|(?:איפה|היכן)[^.!?]{0,20}(?:הקורס|למצוא))/.test(message);
+    if (looseMatch) {
+      const sf = loadJSON('shabaton-qa.json');
+      const allQ = (sf && sf.categories || []).flatMap(c => c.questions || []);
+      detQA = allQ.find(q => q.id === 'already_registered_cant_find_course_1') || null;
+      if (detQA) console.log('LOOSE MATCH: already_registered_cant_find_course_1 (שם-מוסד כנראה הופרד בין החלקים)');
+    }
+  }
   const qaFirst = detQA || (precomputedQA !== undefined ? precomputedQA : null);
   const hasInstQ = /מכללה|מכללת|אוניברסיטה|אוניברסיטת|מכון|סמינר|אקדמית|קריית|קריה|אורנים|בר.?אילן|תלפיות|הרצוג|שנקר|לוינסקי|גורדון|אונו|וינגייט|בן.?גוריון|עברית|תל.?אביב|חיפה|ירושלים|בגין|ויצמן/.test(message);
   // QA-ים מסוג תלונה/הסלמה (לדוגמה: מוסד לא עונה) — חייבים להיתפס גם אם
   // מוזכרת בהודעה מילת-מוסד כמו "סמינר"/"מכללה", כי המשתמש מתלונן על מוסד ספציפי.
-  const ALWAYS_PRIORITY_QA_IDS = new Set(['institution_not_responding', 'intensive_seminars', 'cinema_city_entertainment_center', 'half_shabaton_work_less', 'unused_study_budget_1', 'short_online_completion_institutions', 'tuition_reimbursement_rate', 'commercial_gym_recognition', 'hours_allocation_quota_1', 'end_of_sabbatical_checklist_1', 'monthly_grant_1', 'birth_during_sabbatical_1', 'first_time_sabbatical_orientation_1']);
+  const ALWAYS_PRIORITY_QA_IDS = new Set(['institution_not_responding', 'intensive_seminars', 'cinema_city_entertainment_center', 'half_shabaton_work_less', 'unused_study_budget_1', 'short_online_completion_institutions', 'tuition_reimbursement_rate', 'commercial_gym_recognition', 'hours_allocation_quota_1', 'end_of_sabbatical_checklist_1', 'monthly_grant_1', 'birth_during_sabbatical_1', 'first_time_sabbatical_orientation_1', 'already_registered_cant_find_course_1']);
   const isEscalationQA = qaFirst && ALWAYS_PRIORITY_QA_IDS.has(qaFirst.id);
+  // ── "נרשמתי ולא מוצא את הקורס" + שם-מוסד כבר בהודעה (או בתגובה קצרה
+  // להמשך-שיחה, למשל "אורנים" בלבד לאחר ששאלנו "לאיזה מוסד נרשמת?") ──
+  // עונים ישירות עם פרטי-ההתקשרות של אותו מוסד, במקום השאלה-המבהירה
+  // הגנרית של ה-QA — כי getFieldKeywords לא היה תופס את זה בכלל (שם-מוסד
+  // הוא לא מילת-מפתח של שדה-לימוד), וללא הבדיקה הזו ההודעה הייתה נופלת
+  // לאחד מנתיבי-ה-fallback הכלליים בלי לפתור בפועל את מה שהמשתמש ביקש.
+  if (qaFirst && qaFirst.id === 'already_registered_cant_find_course_1') {
+    const namedInst = findInstitutionsByNameInMessage(message);
+    if (namedInst.length > 0) {
+      const list = namedInst.slice(0, 3).map(ki =>
+        `🏫 **[${ki.title}](${ki.url})**\n[פנו למידע ולייעוץ אישי](${ki.url})`
+      ).join('\n\n');
+      return {
+        context: `מצאתי — הנה איך ליצור קשר ישירות עם המוסד לגבי הקורס שנרשמת אליו:\n\n${list}`,
+        isInfo: true, courseCount: namedInst.length, urlToTitle: {}
+      };
+    }
+  }
   if (qaFirst && (infoUrlsForQA.length === 0 || isEscalationQA) && (!hasInstQ || isEscalationQA)) {
     const qaFooter0 = '\n\n📩 [הרשם לעלון שבתון](https://www.shabaton.online/shabaton)\n💬 [אפשר לשאול בקבוצת הווטסאפ שבתון](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)\n👥 [הצטרפו לקבוצת הפייסבוק שלנו](https://www.facebook.com/groups/shabaton.online)';
     // priority:true = תשובה ישירה ספציפית לא ממשיכים לחפש קורסים
