@@ -1554,6 +1554,37 @@ async function buildContext(message, history, precomputedQA, apiKey) {
     }
   }
 
+  // ── תשובת-המשך קצרה לשאלה המבהירה "לאיזה מוסד נרשמת?" ──
+  // טווח מכוון-בכוונה: בודקים אך ורק אם התשובה *האחרונה של הבוט עצמו*
+  // (לא של המשתמש) הייתה בדיוק השאלה המבהירה של already_registered_
+  // cant_find_course_1 — מזוהה לפי משפט ייחודי מתוכה. כך זה לא משנה שום
+  // התנהגות אחרת: אם הבוט לא שאל את השאלה הזו, הבדיקה כלל לא רצה. אם כן
+  // שאל, והתשובה קצרה, מנסים לפענח אותה כשם-מוסד ישירות — כי getFieldKeywords/
+  // searchQA לא תופסים שם-מוסד בלי הקשר-שדה, וההודעה הייתה נופלת ל-fallback
+  // גנרי בלי לענות בפועל למה שהמשתמש התכוון.
+  if (Array.isArray(history) && history.length > 0) {
+    const lastAssistantMsg = [...history].reverse().find(h => h && h.role === 'assistant' && typeof h.content === 'string');
+    const wasAskedWhichInstitution = lastAssistantMsg && lastAssistantMsg.content.includes('לאיזה מוסד או קורס נרשמת');
+    if (wasAskedWhichInstitution) {
+      const wordCount = message.trim().split(/\s+/).length;
+      if (wordCount <= 6) {
+        const namedInst = findInstitutionsByNameInMessage(message);
+        if (namedInst.length > 0) {
+          console.log('SHORT REPLY TO "WHICH INSTITUTION" — resolved by name:', namedInst.map(i=>i.anchor).join(', '));
+          const list = namedInst.slice(0, 3).map(ki =>
+            `🏫 **[${ki.title}](${ki.url})**\n[פנו למידע ולייעוץ אישי](${ki.url})`
+          ).join('\n\n');
+          return {
+            context: `מצאתי — הנה איך ליצור קשר ישירות עם המוסד:\n\n${list}`,
+            isInfo: true, courseCount: namedInst.length, urlToTitle: {}
+          };
+        }
+        // לא זוהה מוסד בתשובה הקצרה — לא כופים כלום, ממשיכים לטיפול הרגיל
+        // (שיתנהג בדיוק כמו היום, לרוב יגיע ל-fallback הכללי).
+      }
+    }
+  }
+
   let coursesForClaude = []; // מוכרז ברמת הפונקציה לאפשר החזרה
   const region = detectRegion(message);
   const _reqPhrases = ['הנחיית קבוצות','הנחיה קבוצתית','הדרכת הורים','הדרכה הורית',
@@ -1678,11 +1709,27 @@ async function buildContext(message, history, precomputedQA, apiKey) {
       if (detQA) console.log('LOOSE MATCH: already_registered_cant_find_course_1 (שם-מוסד כנראה הופרד בין החלקים)');
     }
   }
+  // ── זיהוי גמיש ל"בקשה [חריגה/יציאה] לשנת שבתון" ──
+  // נצפה בפרודקשן: "בקשה חליציאה לשנת שבתון" (כנראה שגיאת-הקלדה של
+  // "בקשה ליציאה") — לא תואם שום keyword בהתאמה-צמודה, ובלי QA ייעודי
+  // ההודעה נפלה ל-Claude חופשי בלי context מבוסס, שהמציא תפקיד לא-קיים
+  // ("אחראי שבתון") — הפרה ישירה של כלל "אסור להמציא" שכבר קיים ב-system
+  // prompt, אבל עדיף למנוע את התרחיש מלכתחילה עם QA ייעודי, לא רק לסמוך
+  // על שהמודל תמיד יצליח להישמע לכלל בפועל.
+  if (!detQA) {
+    const looseAppMatch = /בקש[^.!?]{0,25}(חריג|יציא)[^.!?]{0,15}שבתון/.test(message);
+    if (looseAppMatch) {
+      const sf = loadJSON('shabaton-qa.json');
+      const allQ = (sf && sf.categories || []).flatMap(c => c.questions || []);
+      detQA = allQ.find(q => q.id === 'application_exception_request_safe_1') || null;
+      if (detQA) console.log('LOOSE MATCH: application_exception_request_safe_1');
+    }
+  }
   const qaFirst = detQA || (precomputedQA !== undefined ? precomputedQA : null);
   const hasInstQ = /מכללה|מכללת|אוניברסיטה|אוניברסיטת|מכון|סמינר|אקדמית|קריית|קריה|אורנים|בר.?אילן|תלפיות|הרצוג|שנקר|לוינסקי|גורדון|אונו|וינגייט|בן.?גוריון|עברית|תל.?אביב|חיפה|ירושלים|בגין|ויצמן/.test(message);
   // QA-ים מסוג תלונה/הסלמה (לדוגמה: מוסד לא עונה) — חייבים להיתפס גם אם
   // מוזכרת בהודעה מילת-מוסד כמו "סמינר"/"מכללה", כי המשתמש מתלונן על מוסד ספציפי.
-  const ALWAYS_PRIORITY_QA_IDS = new Set(['institution_not_responding', 'intensive_seminars', 'cinema_city_entertainment_center', 'half_shabaton_work_less', 'unused_study_budget_1', 'short_online_completion_institutions', 'tuition_reimbursement_rate', 'commercial_gym_recognition', 'hours_allocation_quota_1', 'end_of_sabbatical_checklist_1', 'monthly_grant_1', 'birth_during_sabbatical_1', 'first_time_sabbatical_orientation_1', 'already_registered_cant_find_course_1']);
+  const ALWAYS_PRIORITY_QA_IDS = new Set(['institution_not_responding', 'intensive_seminars', 'cinema_city_entertainment_center', 'half_shabaton_work_less', 'unused_study_budget_1', 'short_online_completion_institutions', 'tuition_reimbursement_rate', 'commercial_gym_recognition', 'hours_allocation_quota_1', 'end_of_sabbatical_checklist_1', 'monthly_grant_1', 'birth_during_sabbatical_1', 'first_time_sabbatical_orientation_1', 'already_registered_cant_find_course_1', 'application_exception_request_safe_1']);
   const isEscalationQA = qaFirst && ALWAYS_PRIORITY_QA_IDS.has(qaFirst.id);
   // ── "נרשמתי ולא מוצא את הקורס" + שם-מוסד כבר בהודעה (או בתגובה קצרה
   // להמשך-שיחה, למשל "אורנים" בלבד לאחר ששאלנו "לאיזה מוסד נרשמת?") ──
