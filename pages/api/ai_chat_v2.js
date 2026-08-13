@@ -2085,9 +2085,38 @@ async function buildContext(message, history, precomputedQA, apiKey) {
           (ki.locations || []).some(loc => loc.toLowerCase().includes(mentionedCity.toLowerCase()))
         );
         if (cityFiltered.length > 0) {
-          console.log(`CITY FILTER (all-regions): "${mentionedCity}" → ${cityFiltered.length}/${knownOnly.length} institutions`);
-          knownOnly = cityFiltered;
-          knownOnly._cityFilterApplied = mentionedCity;
+          // ── מודעות למונח-ספציפי לפני שממצים לעיר ──
+          // נצפה בפרודקשן: "קורס פסיפס בירושלים" צמצם קודם ל-6 מוסדות-אמנות
+          // הממוקמים בירושלים (אף אחד לא פסיפס), ורק *אז* ניסה סינון-נושאי
+          // לרוץ על אותם 6 בלבד — ומצא כלום, כי 7 מוסדות-הפסיפס האמיתיים
+          // לא ממוקמים בירושלים בכלל. התוצאה: מוסדות לא-קשורים (עץ, צילום,
+          // יהדות) רק כי הם קרובים גיאוגרפית. בודקים קודם אם יש התאמה-נושאית
+          // אמיתית ברשימה *המלאה* (לפני צמצום-עיר): אם יש חפיפה בין
+          // ההתאמה-הנושאית לעיר — עדיף (משיג את שני הדברים); אם ההתאמה-
+          // הנושאית קיימת אבל בלי שום מוסד בעיר המבוקשת — עדיף להציג את
+          // ההתאמה-הנושאית ארצית, על פני עיר-נכונה+נושא-לא-קשור.
+          const topicPreview = filterInstitutionsBySpecificTerm(knownOnly, msgForNarrowing, matchedFieldKeywords);
+          const hasGenuineTopicMatch = !topicPreview.noMatchForSpecificTerm && topicPreview.result.length < knownOnly.length;
+          if (hasGenuineTopicMatch) {
+            const topicUrls = new Set(topicPreview.result.map(ki => ki.url));
+            const intersection = cityFiltered.filter(ki => topicUrls.has(ki.url));
+            if (intersection.length > 0) {
+              console.log(`CITY FILTER (all-regions): "${mentionedCity}" → ${cityFiltered.length}/${knownOnly.length} institutions, topic-intersection: ${intersection.length}`);
+              knownOnly = intersection;
+              knownOnly._cityFilterApplied = mentionedCity;
+            } else {
+              console.log(`CITY FILTER SKIPPED: topic match "${topicPreview.matchedTerm}" has 0 institutions in "${mentionedCity}" — showing topic match nationally instead`);
+              knownOnly = topicPreview.result;
+              // מסמנים כאילו טופל, כדי שמנגנון ה-fetch-לדף-אזור הנפרד (בהמשך
+              // הפונקציה) ידע לדלג — יש לנו כבר תוצאה נכונה ומטופלת, גם אם
+              // היא לא ממוקדת-עיר בפועל (העדפנו נושא נכון על פני עיר נכונה).
+              knownOnly._cityFilterApplied = mentionedCity;
+            }
+          } else {
+            console.log(`CITY FILTER (all-regions): "${mentionedCity}" → ${cityFiltered.length}/${knownOnly.length} institutions`);
+            knownOnly = cityFiltered;
+            knownOnly._cityFilterApplied = mentionedCity;
+          }
         }
       }
       // ── פרונטלי filter: כשמבקשים פרונטלי, הסר מוסדות שמציעים רק למידה מרחוק ──
