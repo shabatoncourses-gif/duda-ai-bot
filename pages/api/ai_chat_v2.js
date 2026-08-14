@@ -1587,6 +1587,10 @@ async function buildContext(message, history, precomputedQA, apiKey) {
   }
 
   let coursesForClaude = []; // מוכרז ברמת הפונקציה לאפשר החזרה
+  // כש-CITY FILTER מדלג על עיר-מבוקשת כי התאמה-נושאית אמיתית לא נמצאת בה
+  // (למשל "קורס פסיפס בירושלים" — אין פסיפס בירושלים, מוצגת רשימה ארצית) —
+  // נרשם כאן כדי שה-intro בהמשך יוכל להיות כן ולא לטעון "אלה מוסדות באזורכם".
+  let topicOverrodeCityFlag = null;
   const region = detectRegion(message);
   const _reqPhrases = ['הנחיית קבוצות','הנחיה קבוצתית','הדרכת הורים','הדרכה הורית',
     'הוראה מתואמת','הוראה מתקנת','ניהול כיתה','עיצוב גרפי','בישול בריא','אפייה בריאה',
@@ -2111,6 +2115,7 @@ async function buildContext(message, history, precomputedQA, apiKey) {
               // הפונקציה) ידע לדלג — יש לנו כבר תוצאה נכונה ומטופלת, גם אם
               // היא לא ממוקדת-עיר בפועל (העדפנו נושא נכון על פני עיר נכונה).
               knownOnly._cityFilterApplied = mentionedCity;
+              topicOverrodeCityFlag = { city: mentionedCity, term: topicPreview.matchedTerm };
             }
           } else {
             console.log(`CITY FILTER (all-regions): "${mentionedCity}" → ${cityFiltered.length}/${knownOnly.length} institutions`);
@@ -2537,7 +2542,9 @@ async function buildContext(message, history, precomputedQA, apiKey) {
     ].filter(Boolean).join('\n\n') || null;
     return { context: '', isInfo: false, courseCount: kiForClaude.length, urlToTitle: {}, coursesForClaude: kiForClaude, categoryUrl: catUrl2, fieldName: catName2, regionName: null,
       requestedRegionName: (fallbackInstitutionApplied || !fieldSlug2 || !regionExplicitlyMentioned) ? null : (regionForKI ? regionForKI.name : null),
-      usedFallbackInstitution: false, combinedNote: finalNote };
+      usedFallbackInstitution: false, combinedNote: finalNote,
+      topicOverrodeCity: topicOverrodeCityFlag,
+      cityRegionCategoryUrl: (topicOverrodeCityFlag && regionForKI && fieldSlug2) ? buildRegionCategoryUrl(regionForKI.slug, fieldSlug2.slug) : null };
     } // end else validKI
   }
 
@@ -3196,7 +3203,7 @@ export default async function handler(req, res) {
         console.log('QA CLASSIFY SKIPPED: message already matches a specific study-field keyword');
       }
     }
-    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName, qaId, usedFallbackInstitution, combinedNote } = await buildContext(message, history, precomputedQA, ANTHROPIC_API_KEY);
+    const { context, isInfo, courseCount, urlToTitle, coursesForClaude, categoryUrl, fieldName, regionName, requestedRegionName, qaId, usedFallbackInstitution, combinedNote, topicOverrodeCity, cityRegionCategoryUrl } = await buildContext(message, history, precomputedQA, ANTHROPIC_API_KEY);
     const isCourseQ = ['קורס','קורסים','לימוד','לימודים','מוסד','מכללה','אוניברסיטה','השתלמות'].some(k => message.includes(k));
     const isInfoQuestion = !!(isInfo && !isCourseQ);
 
@@ -3269,6 +3276,12 @@ export default async function handler(req, res) {
         // לא נמצא מוסד שמלמד בפועל את הנושא הספציפי שנשאל — מציגים מוסד מומלץ
         // לכל תחום ה-${fieldName}, בכנות, ולא כתוצאה מסוננת מדויקת.
         intro = `לא מצאנו במאגר שלנו מוסד שמתמחה ספציפית בנושא שביקשת, אך בתחום ${fieldName} מומלץ לפנות למוסד הבא לבדוק זמינות, ובנוסף ניתן לעיין בכל הקורסים בתחום:`;
+      } else if (topicOverrodeCity && fieldName) {
+        // נצפה בפרודקשן: "קורס פסיפס בירושלים" — יש 7 מוסדות פסיפס אמיתיים
+        // בארץ, אבל אף אחד מהם לא בירושלים. חייבים לפתוח בכנות שלא נמצא
+        // התאמה מקומית ל-topicOverrodeCity.city, לפני שמציגים את הרשימה
+        // הארצית — אחרת המשתמש חושב בטעות שאלה מוסדות מקומיים.
+        intro = `לא מצאנו קורס ${topicOverrodeCity.term} ספציפית באזור ${topicOverrodeCity.city} — הנה קורסי ${fieldName} רלוונטיים באזורים אחרים בארץ:`;
       } else if (fieldName && regionName) {
         // אזור מאומת — דף האזור האמיתי נמצא והרשימה באמת מסוננת אליו
         intro = `פה תוכלו למצוא מידע על ${fieldName} באזור ${regionName} ובלמידה מרחוק, ולפנות ישירות למוסדות לשאלות ולייעוץ אישי:`;
@@ -3320,7 +3333,13 @@ export default async function handler(req, res) {
       const catLink = categoryUrl
         ? `\n\n📚 [כל קורסי ${fieldName || 'התחום'}${regionName ? ' באזור ' + regionName : ''}](${categoryUrl})`
         : '';
-      const reply = intro + '\n\n' + courseListText + catLink + FOOTER_DIRECT;
+      // ── הזמנה לעיין בקורסי-אותו-תחום אחרים, בעיר שביקשו בפועל ──
+      // כשהצגנו רשימה ארצית כי אין התאמה-נושאית בעיר המבוקשת (topicOverrodeCity),
+      // הגולש עדיין עשוי להתעניין בקורסים אחרים באותו תחום שכן קיימים בעירו.
+      const cityInviteLink = (topicOverrodeCity && cityRegionCategoryUrl)
+        ? `\n📚 [מוזמנים למצוא קורסי ${fieldName || 'התחום'} אחרים ב${topicOverrodeCity.city}](${cityRegionCategoryUrl})`
+        : '';
+      const reply = intro + '\n\n' + courseListText + catLink + cityInviteLink + FOOTER_DIRECT;
       console.log('COURSE LIST BYPASS | courses:', coursesForClaude.length, '| intro:', intro.substring(0, 40));
       await logToZapier(message, reply, 'course-bypass');
       return res.json({ reply });
