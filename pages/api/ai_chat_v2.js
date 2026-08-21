@@ -1730,11 +1730,26 @@ async function buildContext(message, history, precomputedQA, apiKey) {
       if (detQA) console.log('LOOSE MATCH: application_exception_request_safe_1');
     }
   }
+  // ── זיהוי גמיש ל"תואר שני + לימודי/שעות השלמה" (בכל סדר) ──
+  // נצפה בפרודקשן: "אם אני לומדת תואר שני כמה שעות לימודי השלמה אני יכולה
+  // ללמוד" הוחזרה כרשימת מוסדות-לתואר-שני (matched via field keyword "תואר
+  // שני"), במקום תשובה עובדתית על מכסת השעות. "תואר שני" ו"השלמה" כמעט
+  // אף פעם לא צמודים במשפט טבעי (תמיד יש מילות-שאלה באמצע) — לכן proximity
+  // ולא substring, ובודקים את שני הכיוונים (השאלה יכולה לפתוח בכל אחד מהם).
+  if (!detQA) {
+    const looseDegreeMatch = /תואר שני[^.!?]{0,40}(לימודי השלמה|שעות השלמה)|(לימודי השלמה|שעות השלמה)[^.!?]{0,40}תואר שני/.test(message);
+    if (looseDegreeMatch) {
+      const sf = loadJSON('shabaton-qa.json');
+      const allQ = (sf && sf.categories || []).flatMap(c => c.questions || []);
+      detQA = allQ.find(q => q.id === 'masters_degree_completion_hours_1') || null;
+      if (detQA) console.log('LOOSE MATCH: masters_degree_completion_hours_1');
+    }
+  }
   const qaFirst = detQA || (precomputedQA !== undefined ? precomputedQA : null);
   const hasInstQ = /מכללה|מכללת|אוניברסיטה|אוניברסיטת|מכון|סמינר|אקדמית|קריית|קריה|אורנים|בר.?אילן|תלפיות|הרצוג|שנקר|לוינסקי|גורדון|אונו|וינגייט|בן.?גוריון|עברית|תל.?אביב|חיפה|ירושלים|בגין|ויצמן/.test(message);
   // QA-ים מסוג תלונה/הסלמה (לדוגמה: מוסד לא עונה) — חייבים להיתפס גם אם
   // מוזכרת בהודעה מילת-מוסד כמו "סמינר"/"מכללה", כי המשתמש מתלונן על מוסד ספציפי.
-  const ALWAYS_PRIORITY_QA_IDS = new Set(['institution_not_responding', 'intensive_seminars', 'cinema_city_entertainment_center', 'half_shabaton_work_less', 'unused_study_budget_1', 'short_online_completion_institutions', 'tuition_reimbursement_rate', 'commercial_gym_recognition', 'hours_allocation_quota_1', 'end_of_sabbatical_checklist_1', 'monthly_grant_1', 'birth_during_sabbatical_1', 'first_time_sabbatical_orientation_1', 'already_registered_cant_find_course_1', 'application_exception_request_safe_1']);
+  const ALWAYS_PRIORITY_QA_IDS = new Set(['institution_not_responding', 'intensive_seminars', 'cinema_city_entertainment_center', 'half_shabaton_work_less', 'unused_study_budget_1', 'short_online_completion_institutions', 'tuition_reimbursement_rate', 'commercial_gym_recognition', 'hours_allocation_quota_1', 'end_of_sabbatical_checklist_1', 'monthly_grant_1', 'birth_during_sabbatical_1', 'first_time_sabbatical_orientation_1', 'already_registered_cant_find_course_1', 'application_exception_request_safe_1', 'unlisted_course_professional_development_1', 'masters_degree_completion_hours_1']);
   const isEscalationQA = qaFirst && ALWAYS_PRIORITY_QA_IDS.has(qaFirst.id);
   // ── "נרשמתי ולא מוצא את הקורס" + שם-מוסד כבר בהודעה (או בתגובה קצרה
   // להמשך-שיחה, למשל "אורנים" בלבד לאחר ששאלנו "לאיזה מוסד נרשמת?") ──
