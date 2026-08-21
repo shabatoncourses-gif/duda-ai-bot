@@ -1746,8 +1746,12 @@ async function buildContext(message, history, precomputedQA, apiKey) {
   // ("אחראי שבתון") — הפרה ישירה של כלל "אסור להמציא" שכבר קיים ב-system
   // prompt, אבל עדיף למנוע את התרחיש מלכתחילה עם QA ייעודי, לא רק לסמוך
   // על שהמודל תמיד יצליח להישמע לכלל בפועל.
+  // הורחב בהמשך: "יציאה לשבתון אחרי שנתיים בבעלות חדשה" (בלי "בקשה" בכלל)
+  // סווג בטעות ל-end_of_sabbatical_checklist_1 (מה עושים ב*סוף* שבתון) —
+  // "יציאה" = תחילת שבתון, לא סיומו, וזו כוונה הפוכה שהשכבה הסמנטית בלבלה.
   if (!detQA) {
-    const looseAppMatch = /בקש[^.!?]{0,25}(חריג|יציא)[^.!?]{0,15}שבתון/.test(message);
+    const looseAppMatch = /בקש[^.!?]{0,25}(חריג|יציא)[^.!?]{0,15}שבתון/.test(message) ||
+      /יציא[הת]?[^.!?]{0,25}שבתון/.test(message) || /שבתון[^.!?]{0,25}יציא[הת]?/.test(message);
     if (looseAppMatch) {
       const sf = loadJSON('shabaton-qa.json');
       const allQ = (sf && sf.categories || []).flatMap(c => c.questions || []);
