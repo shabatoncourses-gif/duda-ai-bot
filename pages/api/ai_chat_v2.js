@@ -500,6 +500,15 @@ function getFieldSlug(question) {
     // (עקבי עם הלוגיקה ב-knownOnly/searchQA/lookupInstitution).
     // עבור keywords קצרים (4 תווים ומטה) — דורש גבול מילה, כי הם עלולים
     // להתאים בטעות כ-substring בתוך מילה לא קשורה (כמו "קוד" בתוך "הנקודות").
+    // ── "למידה מרחוק" מפסיד תיקו-באורך, אבל עדיין מנצח בזכות אורך אמיתי ──
+    // נצפה בפרודקשן: "קורס גיטרה מקוון" הציג רשימה ענקית של *כל* קורסי
+    // הלמידה-מרחוק במקום קורסי גיטרה, כי "מקוון" ו"גיטרה" שניהם 5 תווים —
+    // תיקו באורך שהוכרע לפי סדר-איטרציה גרידא (למידה מרחוק מופיע קודם
+    // בקובץ). "למידה מרחוק" הוא תיאור-אופן-למידה חוצה-שדות, לא נושא-לימוד
+    // עצמאי, ולכן לא אמור לנצח תיקו-באורך מול נושא אמיתי. אבל הוא כן צריך
+    // להמשיך לנצח כרגיל כשה-keyword שלו ארוך/ספציפי יותר בפועל (למשל מול
+    // "למידה" הבודדת של שדה אחר — ניסיון קודם לתקן את זה בלי להתחשב
+    // באורך בכלל שבר את זה, ותוקן כאן ל-tie-break בלבד).
     let best = null;
     let bestLen = 0;
     for (const f of items) {
@@ -507,7 +516,10 @@ function getFieldSlug(question) {
       for (const k of kws) {
         const kL = k.toLowerCase();
         const isMatch = k.length <= 4 ? wordBoundaryIncludes(qL, kL) : qL.includes(kL);
-        if (isMatch && k.length > bestLen) {
+        if (!isMatch) continue;
+        const isBetter = k.length > bestLen ||
+          (k.length === bestLen && best && best.name === 'למידה מרחוק' && f.name !== 'למידה מרחוק');
+        if (isBetter) {
           bestLen = k.length;
           best = f;
         }
@@ -607,12 +619,25 @@ function getFieldKeywords(question) {
         kwCount[k.toLowerCase()] = (kwCount[k.toLowerCase()] || 0) + 1;
       }
     }
+    // ── בוחר לפי אורך ה-keyword התואם הארוך ביותר, לא ראשון-בסדר-הקובץ ──
+    // "למידה מרחוק" מפסיד רק בתיקו-מדויק-באורך (אותה סיבה כמו ב-getFieldSlug:
+    // תיאור-אופן-למידה חוצה-שדות, לא נושא עצמאי) — אבל עדיין מנצח כרגיל
+    // כשה-keyword שלו ארוך/ספציפי יותר בפועל (כמו מול "למידה" הבודדת של
+    // שדה אחר). ניסיון קודם בלי השוואת-אורך בכלל שבר את המקרה הזה.
+    let bestField = null;
+    let bestLen = 0;
     for (const f of items) {
       const kws = f.keywords || [];
-      if (kws.some(k => qL.includes(k.toLowerCase()))) {
-        const unique = kws.map(k => k.toLowerCase()).filter(k => k.length > 2 && (kwCount[k] || 0) === 1);
-        return unique;
+      for (const k of kws) {
+        if (!qL.includes(k.toLowerCase())) continue;
+        const isBetter = k.length > bestLen ||
+          (k.length === bestLen && bestField && bestField.name === 'למידה מרחוק' && f.name !== 'למידה מרחוק');
+        if (isBetter) { bestLen = k.length; bestField = f; }
       }
+    }
+    if (bestField) {
+      const kws = bestField.keywords || [];
+      return kws.map(k => k.toLowerCase()).filter(k => k.length > 2 && (kwCount[k] || 0) === 1);
     }
   } catch(e) {}
   return null;
@@ -1890,13 +1915,22 @@ async function buildContext(message, history, precomputedQA, apiKey) {
     let bestKeyword = null;
     // מחפש keyword הכי ארוך — לא הראשון (כמו searchQA)
     // עבור keywords קצרים (4 תווים ומטה) — דורש גבול מילה, כמו ב-getFieldSlug
+    // ── "למידה מרחוק" מפסיד תיקו-באורך, לא תחרות רגילה ──
+    // נצפה בפרודקשן: "קורס גיטרה מקוון" הציג את כל מוסדות-הלמידה-מרחוק
+    // (33 מוסדות לא-קשורים) במקום מוסדות מוסיקה, כי "מקוון" ו"גיטרה" שניהם
+    // 5 תווים — תיקו שהוכרע רק לפי סדר-איטרציה. זו העתקה שלישית (!) של אותה
+    // לוגיקה (יש גם ב-getFieldSlug וב-getFieldKeywords, שתוקנו קודם) — וזו
+    // ה-עותק שבאמת קובע את רשימת המוסדות המוצגת, אז התיקון כאן קריטי.
     for (const sfItem of (sfForKI.studyFields || [])) {
       const kws = sfItem.keywords || [];
       if (!sfItem.known_institutions || sfItem.known_institutions.length === 0) continue;
       for (const k of kws) {
         const kL = k.toLowerCase();
         const isMatch = k.length <= 4 ? wordBoundaryIncludes(msgLKI2, kL) : msgLKI2.includes(kL);
-        if (isMatch && k.length > bestLen) {
+        if (!isMatch) continue;
+        const isBetter = k.length > bestLen ||
+          (k.length === bestLen && matchedFieldObj && matchedFieldObj.name === 'למידה מרחוק' && sfItem.name !== 'למידה מרחוק');
+        if (isBetter) {
           bestLen = k.length;
           bestKeyword = k;
           knownOnly = sfItem.known_institutions;
