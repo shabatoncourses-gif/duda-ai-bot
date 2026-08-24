@@ -3318,10 +3318,17 @@ export default async function handler(req, res) {
       // מההודעה אם יש כזה (למשל "סמינרים" יציג רק את שורות הסמינרים).
       const instDesc = getInstitutionDescriptionByUrl(instLookup.url, message);
       // ── דפים-אחים: אותו שם-מוסד, דפים/תוכניות נפרדות ──
-      // רק כש-matchedKey הוא בסיסי (בלי רווח, כלומר המשתמש לא ציין תת-תוכנית
-      // ספציפית) — אחרת (למשל "תלפיות פיתוח מקצועי") ההודעה כבר הייתה
-      // ספציפית-מספיק, ואין צורך "להציף" עם דפים נוספים שלא התבקשו.
-      const siblingPages = !instLookup.matchedKey.includes(' ')
+      // נצפה בפרודקשן: "אוניברסיטת חיפה" (שם-מוסד בסיסי, אבל דו-מילתי!)
+      // לא הציג את 5 הדפים-האחים שלו (מדעי הלמידה, חינוך מיוחד, לקויות
+      // למידה, מנהיגות, חינוך מתמטי) — כי הבדיקה הקודמת ("אין רווח ב-
+      // matchedKey") בטעות התייחסה לכל מפתח עם רווח כ"תת-תוכנית ספציפית",
+      // אבל "אוניברסיטת חיפה" הוא בעצמו שם-מוסד דו-מילתי, לא תת-תוכנית.
+      // הבדיקה הנכונה: matchedKey הוא "ספציפי" (לא בסיסי) רק אם הוא-עצמו
+      // מרחיב מפתח-אחר קצר יותר (למשל "תלפיות פיתוח מקצועי" מרחיב את
+      // "תלפיות") — לא לפי מספר המילים בו.
+      const allInstKeys = Object.keys(loadJSON('Institutions.json')?.institutions || {});
+      const isSpecificSubProgramKey = allInstKeys.some(k => k !== instLookup.matchedKey && instLookup.matchedKey.startsWith(k + ' '));
+      const siblingPages = !isSpecificSubProgramKey
         ? findSiblingInstitutionPages(instLookup.matchedKey, instLookup.url)
         : [];
       const siblingCards = siblingPages.map(sib => {
