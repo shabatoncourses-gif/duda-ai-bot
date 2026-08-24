@@ -1794,13 +1794,19 @@ async function buildContext(message, history, precomputedQA, apiKey) {
   // שני"), במקום תשובה עובדתית על מכסת השעות. "תואר שני" ו"השלמה" כמעט
   // אף פעם לא צמודים במשפט טבעי (תמיד יש מילות-שאלה באמצע) — לכן proximity
   // ולא substring, ובודקים את שני הכיוונים (השאלה יכולה לפתוח בכל אחד מהם).
-  if (!detQA) {
-    const looseDegreeMatch = /תואר שני[^.!?]{0,40}(לימודי השלמה|שעות השלמה)|(לימודי השלמה|שעות השלמה)[^.!?]{0,40}תואר שני/.test(message);
+  // הורחב: "כמה קורסים נוספים צריך לעשות" (בלי המילה "השלמה" בכלל) היא
+  // אותה שאלה בדיוק בניסוח אחר. וגם: הבדיקה הזו רצה תמיד (לא רק כש-!detQA) —
+  // כי "כמה קורסים נוספים" תפס קודם, ב-searchQA, את ה-QA הגנרי "multiple_1"
+  // (keyword גס "כמה קורסים", ללא שום קשר לתואר-שני), וזה מנע מהבדיקה
+  // הספציפית יותר כאן לרוץ בכלל. "תואר שני" + שאלת-מספר-קורסים הוא סימן
+  // ספציפי בהרבה מ"כמה קורסים" הגנרי, ולכן צריך לגבור עליו.
+  {
+    const looseDegreeMatch = /תואר שני[^.!?]{0,40}(לימודי השלמה|שעות השלמה|קורסים? נוספים?|עוד קורסים?)|(לימודי השלמה|שעות השלמה|קורסים? נוספים?|עוד קורסים?)[^.!?]{0,40}תואר שני/.test(message);
     if (looseDegreeMatch) {
       const sf = loadJSON('shabaton-qa.json');
       const allQ = (sf && sf.categories || []).flatMap(c => c.questions || []);
-      detQA = allQ.find(q => q.id === 'masters_degree_completion_hours_1') || null;
-      if (detQA) console.log('LOOSE MATCH: masters_degree_completion_hours_1');
+      const specific = allQ.find(q => q.id === 'masters_degree_completion_hours_1');
+      if (specific) { detQA = specific; console.log('LOOSE MATCH (override): masters_degree_completion_hours_1'); }
     }
   }
   const qaFirst = detQA || (precomputedQA !== undefined ? precomputedQA : null);
