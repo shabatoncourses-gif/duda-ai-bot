@@ -1555,6 +1555,29 @@ function lookupInstitution(message) {
   return null; // לא מנחש — מסתמך על ה-zero-results fallback הכללי
 }
 
+// ── דפים-אחים של אותו מוסד ──
+// נצפה בפרודקשן: "תלפיות" (מפתח בסיסי, בלי רווח) החזירה רק את דף התואר-שני
+// (talpiot), בעוד שיש עוד 4 דפים תחת אותו שם-בסיס ("תלפיות פיתוח", "תלפיות
+// יפית מורדוף" וכו') — כל אחד URL/עמוד נפרד לגמרי (תואר שני מול פיתוח
+// מקצועי מול שיתופי-פעולה עם מרצים ספציפיים). Institutions.json מבנה כל
+// דף כמפתח נפרד, אז חיפוש-מוסד רגיל (lookupInstitution, שמחזיר תמיד רק
+// התאמה-אחת-הכי-ספציפית) לא יכול לדעת שיש עוד דפים "משפחתיים". קוראים
+// לפונקציה הזו רק כש-matchedKey היה בסיסי (בלי רווח) — כלומר המשתמש כתב
+// רק את שם המוסד הכללי, לא ציין תת-תוכנית ספציפית — ואז מחפשים אחים.
+function findSiblingInstitutionPages(baseKey, excludeUrl) {
+  const data = loadJSON('Institutions.json');
+  if (!data || !data.institutions) return [];
+  const seenUrls = new Set([excludeUrl]);
+  const results = [];
+  for (const [key, inst] of Object.entries(data.institutions)) {
+    if (key === baseKey || !key.startsWith(baseKey + ' ')) continue;
+    if (seenUrls.has(inst.url)) continue;
+    seenUrls.add(inst.url);
+    results.push(inst);
+  }
+  return results;
+}
+
 function isSummerQuery(message) {
   const keywords = [
     'נשארו לי נקודות', 'נשארו לי שעות', 'נשארו שעות', 'נשארו נקודות',
@@ -3294,11 +3317,22 @@ export default async function handler(req, res) {
       // ומאוחדים מכל השדות שהמוסד מופיע בהם, ומסוננים לפי מונח ספציפי
       // מההודעה אם יש כזה (למשל "סמינרים" יציג רק את שורות הסמינרים).
       const instDesc = getInstitutionDescriptionByUrl(instLookup.url, message);
+      // ── דפים-אחים: אותו שם-מוסד, דפים/תוכניות נפרדות ──
+      // רק כש-matchedKey הוא בסיסי (בלי רווח, כלומר המשתמש לא ציין תת-תוכנית
+      // ספציפית) — אחרת (למשל "תלפיות פיתוח מקצועי") ההודעה כבר הייתה
+      // ספציפית-מספיק, ואין צורך "להציף" עם דפים נוספים שלא התבקשו.
+      const siblingPages = !instLookup.matchedKey.includes(' ')
+        ? findSiblingInstitutionPages(instLookup.matchedKey, instLookup.url)
+        : [];
+      const siblingCards = siblingPages.map(sib => {
+        const sibDesc = getInstitutionDescriptionByUrl(sib.url, message);
+        return `\n\n**[${sib.title}](${sib.url})**\n${sibDesc ? sibDesc + '\n' : ''}[פנו למידע ולייעוץ אישי](${sib.url})`;
+      }).join('');
       const directInstReply =
         chovaPrefix +
         `**[${instLookup.title}](${instLookup.url})**\n${instDesc ? instDesc + '\n' : ''}` +
-        `[פנו למידע ולייעוץ אישי](${instLookup.url})${FOOTER_DIRECT}`;
-      console.log('INSTITUTION DIRECT MATCH (pre-buildContext):', instLookup.matchedKey, '→', instLookup.url, '| desc chars:', instDesc.length);
+        `[פנו למידע ולייעוץ אישי](${instLookup.url})${siblingCards}${FOOTER_DIRECT}`;
+      console.log('INSTITUTION DIRECT MATCH (pre-buildContext):', instLookup.matchedKey, '→', instLookup.url, '| desc chars:', instDesc.length, '| siblings:', siblingPages.length);
       await logToZapierEarly(message, directInstReply, 'institution-direct');
       return res.json({ reply: directInstReply });
     }
