@@ -3137,10 +3137,22 @@ async function buildContext(message, history, precomputedQA, apiKey) {
       // אם עדיין אין שום תוכן משמעותי (לא QA, לא תואר-שני, לא קטגוריה) —
       // שאלה כללית מדי כדי להתאים לאף מנגנון ספציפי. במקום תשובה ריקה או
       // מבולבלת, מפנים לדף שאלות-ותשובות-נפוצות הכללי.
+      // ── קריטי: מוחזר עם הסמן הבטוח '=== מידע על שבתון ===' + isInfo:true ──
+      // נצפה בפרודקשן: הודעה כללית ("מה התקלה") אחרי היסטוריית-שיחה שכללה
+      // תשובה תקינה על "קונדיטוריה" — ובלי הסמן הזה, ה-fallback לא היה
+      // עומד בתנאי ה-DIRECT QA BYPASS (isInfo && context.startsWith(...)),
+      // ונפל לקריאת-Claude חופשית עם ה-history המלא. שם המודל "המציא" תשובה
+      // שסתרה את התשובה התקינה-שלו-עצמו מהתור הקודם באותה שיחה ("קורסי
+      // קונדיטוריה אינם חלק מהמוסדות") — בדיוק מחלקת-הבאג שכבר תוקנה
+      // במקומות אחרים הפעם הזו (system prompt + QA-ים ייעודיים), אבל
+      // ה-fallback הכללי-מכל-הכלליים הזה החמיק כי לא היה בפורמט-הבטוח.
       const stillEmpty = !parts.some(p => p.length > 200 && (p.includes('===') || p.includes('**[')));
       if (stillEmpty) {
-        console.log('Zero-results fallback: pointing to general FAQ page');
-        parts.push('לא מצאתי מידע ספציפי לשאלה הזו, אבל יכול להיות שהתשובה נמצאת במדור השאלות והתשובות הנפוצות:\n📚 [שאלות ותשובות נפוצות בשבתון](https://www.shabaton.online/shabaton-qa)');
+        console.log('Zero-results fallback: pointing to general FAQ page (safe bypass)');
+        return {
+          context: '=== מידע על שבתון ===\nלא מצאתי מידע ספציפי לשאלה הזו, אבל יכול להיות שהתשובה נמצאת במדור השאלות והתשובות הנפוצות:\n📚 [שאלות ותשובות נפוצות בשבתון](https://www.shabaton.online/shabaton-qa)',
+          isInfo: true, courseCount: 0, urlToTitle: {}
+        };
       }
     }
   }
