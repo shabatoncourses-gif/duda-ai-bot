@@ -131,6 +131,13 @@ function smartTruncate(text, limit) {
   const cut = text.substring(0, limit);
   const lastNl = cut.lastIndexOf('\n');
   if (lastNl > limit * 0.5) return cut.substring(0, lastNl).trim();
+  // ── אין שבירת-שורה טובה (טקסט-רץ בלי מעברי-שורה) — נסוגים לגבול-מילה ──
+  // נצפה בפרודקשן: "...רק לימודים שית" — קטע בדיוק באמצע "שיתקיימו" כי אין
+  // אף \n בטקסט הגולמי (בלוק-מדיניות רץ אחד ארוך), אז ה-fallback הקודם חתך
+  // עיוור בתו ה-800 בדיוק. אותה מחלקת-באג בדיוק שתוקנה קודם ב-fetchPageContent
+  // (שם — תחילת-תוכן; כאן — סוף-תוכן), ולא הייתה מכוסה שם כי זו פונקציה נפרדת.
+  const lastSpace = cut.lastIndexOf(' ');
+  if (lastSpace > limit * 0.5) return cut.substring(0, lastSpace).trim() + '…';
   return cut.trim();
 }
 
@@ -242,6 +249,18 @@ function wordBoundaryIncludes(text, term) {
   }
   const re = new RegExp('(^|[^\\u05D0-\\u05EA])[בלמכהוש]{0,2}' + escaped + '($|[^\\u05D0-\\u05EA])');
   return re.test(text);
+}
+
+// ── "בונוס-ספציפיות" לכמה שמות-תוכנית ידועים ──
+// נצפה בפרודקשן: "השתלמויות במסגרת אופק חדש" — "השתלמויות" (9 תווים, מילה
+// גנרית שמתאימה כמעט לכל שדה) ניצחה את "אופק חדש" (8 תווים, שם-תוכנית
+// ספציפי עם שדה ייעודי משלו) בהפרש של תו אחד בלבד, בהשוואת-אורך רגילה.
+// בניגוד ל"למידה מרחוק" (תוקן בנפרד, כי הוא שדה שלם) — כאן הבעיה היא
+// keyword בודד שמתחרה בכלל לא-הוגן מול מילה גנרית. פותר את זה עם בונוס
+// קטן וממוקד, לא בהחרגה גורפת (כדי לא לשבור התאמות אחרות של "השתלמויות").
+const SPECIFIC_PROGRAM_KEYWORDS = new Set(['אופק חדש', 'עוז לתמורה']);
+function specificityBoostedLength(keyword) {
+  return SPECIFIC_PROGRAM_KEYWORDS.has(keyword) ? keyword.length + 3 : keyword.length;
 }
 
 function detectRegion(q) {
@@ -517,10 +536,11 @@ function getFieldSlug(question) {
         const kL = k.toLowerCase();
         const isMatch = k.length <= 4 ? wordBoundaryIncludes(qL, kL) : qL.includes(kL);
         if (!isMatch) continue;
-        const isBetter = k.length > bestLen ||
-          (k.length === bestLen && best && best.name === 'למידה מרחוק' && f.name !== 'למידה מרחוק');
+        const effLen = specificityBoostedLength(k);
+        const isBetter = effLen > bestLen ||
+          (effLen === bestLen && best && best.name === 'למידה מרחוק' && f.name !== 'למידה מרחוק');
         if (isBetter) {
-          bestLen = k.length;
+          bestLen = effLen;
           best = f;
         }
       }
@@ -630,9 +650,10 @@ function getFieldKeywords(question) {
       const kws = f.keywords || [];
       for (const k of kws) {
         if (!qL.includes(k.toLowerCase())) continue;
-        const isBetter = k.length > bestLen ||
-          (k.length === bestLen && bestField && bestField.name === 'למידה מרחוק' && f.name !== 'למידה מרחוק');
-        if (isBetter) { bestLen = k.length; bestField = f; }
+        const effLen = specificityBoostedLength(k);
+        const isBetter = effLen > bestLen ||
+          (effLen === bestLen && bestField && bestField.name === 'למידה מרחוק' && f.name !== 'למידה מרחוק');
+        if (isBetter) { bestLen = effLen; bestField = f; }
       }
     }
     if (bestField) {
@@ -1967,10 +1988,11 @@ async function buildContext(message, history, precomputedQA, apiKey) {
         const kL = k.toLowerCase();
         const isMatch = k.length <= 4 ? wordBoundaryIncludes(msgLKI2, kL) : msgLKI2.includes(kL);
         if (!isMatch) continue;
-        const isBetter = k.length > bestLen ||
-          (k.length === bestLen && matchedFieldObj && matchedFieldObj.name === 'למידה מרחוק' && sfItem.name !== 'למידה מרחוק');
+        const effLen = specificityBoostedLength(k);
+        const isBetter = effLen > bestLen ||
+          (effLen === bestLen && matchedFieldObj && matchedFieldObj.name === 'למידה מרחוק' && sfItem.name !== 'למידה מרחוק');
         if (isBetter) {
-          bestLen = k.length;
+          bestLen = effLen;
           bestKeyword = k;
           knownOnly = sfItem.known_institutions;
           matchedFieldKeywords = [sfItem.keywords[0]];
