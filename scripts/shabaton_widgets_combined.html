@@ -541,7 +541,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     font-size: 12.5px;
     font-weight: 700;
     margin: 0 0 10px;
+    line-height: 1.5;
   }
+  #ono-promo-format a {
+    color: var(--ono-charcoal);
+    text-decoration: underline;
+    font-weight: 900;
+  }
+  #ono-promo-format a:hover { color: var(--ono-green); }
   #ono-promo-body {
     color: var(--ono-text-mid);
     font-size: 12.5px;
@@ -608,6 +615,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     outline: none;
   }
   .ono-field:focus { border-color: var(--ono-charcoal); }
+  select.ono-field { cursor: pointer; appearance: auto; }
   .ono-field::placeholder { color: #8a9060; }
 
   #ono-consent-row {
@@ -717,9 +725,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3L2 8L12 13L22 8L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6 10.5V16C6 16 8.5 18.5 12 18.5C15.5 18.5 18 16 18 16V10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         תואר שני בחינוך
       </span>
-      <p id="ono-promo-headline"><span>תואר שני בחינוך לגיל הרך</span><span>בקריה האקדמית אונו</span></p>
-      <p id="ono-promo-format">במתכונת היברידית</p>
-      <p id="ono-promo-body">תכנית דגל ייחודית וחדשנית, היוצרת את דור העתיד של אנשי החינוך בגיל הרך</p>
+      <p id="ono-promo-headline">הקריה האקדמית אונו - מסלולי תואר שני</p>
+      <p id="ono-promo-format">תואר שני <a href="https://www.shabaton.online/ono-education-ma#edu" target="_blank" rel="noopener">בחינוך</a> במתכונת היברידית במגוון התמחויות</p>
+      <p id="ono-promo-body">הפגישות הפרונטליות מתקיימות ב- 3 מפגשים בקמפוסים בקרית אונו ובחיפה</p>
       <button id="ono-promo-cta" type="button">
         פנו לייעוץ אישי עוד היום!
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12H19M19 12L13 6M19 12L13 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -733,6 +741,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <input class="ono-field" type="text" id="ono-field-name" placeholder="שם מלא" autocomplete="name" required>
         <input class="ono-field" type="tel" id="ono-field-phone" placeholder="טלפון" autocomplete="tel" required>
         <input class="ono-field" type="email" id="ono-field-email" placeholder="אימייל" autocomplete="email" required>
+        <select class="ono-field" id="ono-field-specialization" required>
+          <option value="" disabled selected>בחרו התמחות</option>
+          <option value="ניהול וארגון מערכות חינוך">התמחות בניהול וארגון מערכות חינוך</option>
+          <option value="חינוך מיוחד">התמחות בחינוך מיוחד</option>
+          <option value="חינוך גיל הרך">התמחות בחינוך גיל הרך</option>
+          <option value="טכנולוגיות למידה">התמחות בטכנולוגיות למידה</option>
+          <option value="ספורט">התמחות בספורט</option>
+        </select>
         <label id="ono-consent-row" for="ono-field-consent">
           <input type="checkbox" id="ono-field-consent" checked>
           <span id="ono-consent-text">מאשר/ת <a href="https://www.shabaton.online/privacy-policy" target="_blank" rel="noopener">תקנון השימוש והפרטיות</a></span>
@@ -801,6 +817,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   var nameField = document.getElementById('ono-field-name');
   var phoneField = document.getElementById('ono-field-phone');
   var emailField = document.getElementById('ono-field-email');
+  var specializationField = document.getElementById('ono-field-specialization');
   var consentField = document.getElementById('ono-field-consent');
   if (!bubble) return;
 
@@ -859,9 +876,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     var name = nameField.value.trim();
     var phone = phoneField.value.trim();
     var email = emailField.value.trim();
+    var specialization = specializationField.value;
 
     if (!name || !phone || !email) {
       showFormError('נא למלא את כל השדות'); return;
+    }
+    if (!specialization) {
+      showFormError('נא לבחור התמחות'); return;
     }
     if (!consentField.checked) {
       showFormError('יש לאשר את תקנון השימוש והפרטיות'); return;
@@ -889,6 +910,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       name: name,
       phone: phone,
       email: email,
+      specialization: specialization,
       consent_accepted: 'true',
       timestamp: new Date().toISOString(),
       page_url: window.location.href,
