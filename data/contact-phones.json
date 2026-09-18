@@ -1,0 +1,1624 @@
+{
+  "version": "1.1",
+  "description": "מיפוי שם-מוסד/איש-קשר -> קישור לדף יצירת-קשר טלפוני בפורטל שבתון (contact-us-phone). נבנה מתוך גיליון3 של פרטי_קשר_כל_המוסדות.xlsx. משמש למניעת חשיפת מספרי טלפון ישירות בצ׳אט — במקום זאת מפנים לדף הייעודי. contacts = התאמה מדויקת (שם מלא/עוגן). fuzzyEntries = שכבת-גיבוי לפי מילים ייחודיות, לזיהוי חלקי (למשל \"כרמית יומן ויזואלי\" בלי \"לייבוביץ\").",
+  "contacts": {
+    "הקתדרה למוסיקה": "https://www.shabaton.online/contact-us-phone/0",
+    "מכללת אפרתה - מרכז השתלמויות": "https://www.shabaton.online/contact-us-phone/5",
+    "האקדמית גורדון לחינוך - המרכז לפיתוח מקצועי": "https://www.shabaton.online/contact-us-phone/6",
+    "סמינר הקיבוצים - השתלמויות ולימודי תעודה": "https://www.shabaton.online/contact-us-phone/7",
+    "בית ברל - המכללה האקדמית": "https://www.shabaton.online/contact-us-phone/9",
+    "האקדמית חמדת - לימודי חוץ": "https://www.shabaton.online/contact-us-phone/10",
+    "מכון רביב לפיתוח כישורי למידה וקשב": "https://www.shabaton.online/contact-us-phone/12",
+    "המכללה האקדמית בוינגייט": "https://www.shabaton.online/contact-us-phone/13",
+    "המכללה האקדמית לחינוך ע'ש דוד ילין": "https://www.shabaton.online/contact-us-phone/196",
+    "המכללה האקדמית לחינוך עש דוד ילין - השתלמויות עובדי הוראה": "https://www.shabaton.online/contact-us-phone/197",
+    "המכללה האקדמית רמת גן": "https://www.shabaton.online/contact-us-phone/18",
+    "אוניברסיטת תל-אביב - המרכז האקדמי לפיתוח אישי ומקצועי בחינוך ובחברה": "https://www.shabaton.online/contact-us-phone/19",
+    "בית ברל – בית הספר להשתלמויות": "https://www.shabaton.online/contact-us-phone/21",
+    "המכללה האקדמית בוינגייט - בית הספר להשתלמויות - רפואה משלימה": "https://www.shabaton.online/contact-us-phone/22",
+    "תלפיות - המרכז לפיתוח פרופסיונלי": "https://www.shabaton.online/contact-us-phone/23",
+    "אוניברסיטת בר אילן - הפקולטה לחינוך": "https://www.shabaton.online/contact-us-phone/24",
+    "סמינר הקיבוצים - אקדמי": "https://www.shabaton.online/contact-us-phone/25",
+    "המכללה האקדמית בוינגייט - בית הספר להשתלמויות": "https://www.shabaton.online/contact-us-phone/26",
+    "ד'ר שולמית רונן": "https://www.shabaton.online/contact-us-phone/28",
+    "גבאי שוקי - נומרולוג": "https://www.shabaton.online/contact-us-phone/30",
+    "פוקוס - המרכז ללימוד צילום": "https://www.shabaton.online/contact-us-phone/31",
+    "מכללת גישות – להנחיה, אימון ,ניהול, ייעוץ ארגוני וייעוץ עסקי על פי מודל המצוינות של ד'ר צבי ברק": "https://www.shabaton.online/contact-us-phone/32",
+    "אורנים - היחידה ללימודי חוץ": "https://www.shabaton.online/contact-us-phone/33",
+    "אוניברסיטת חיפה": "https://www.shabaton.online/contact-us-phone/35",
+    "מכללת ביטוי לאמנות ועיצוב - שיטת נוביצקי": "https://www.shabaton.online/contact-us-phone/37",
+    "כישורי למידה - המרכז לקידום תפקודים, בהנהלת רמי כץ": "https://www.shabaton.online/contact-us-phone/38",
+    "מכון שכטר למדעי היהדות": "https://www.shabaton.online/contact-us-phone/39",
+    "מכון אסיף, לקידום הכתיבה והעריכה": "https://www.shabaton.online/contact-us-phone/40",
+    "האוניברסיטה הפתוחה - היחידה לקידום עובדי הוראה": "https://www.shabaton.online/contact-us-phone/43",
+    "חברה ואמנויות - הקריה האקדמית אונו": "https://www.shabaton.online/contact-us-phone/44",
+    "הסטודיו לעיצוב בפסיפס - גלי קמיל": "https://www.shabaton.online/contact-us-phone/45",
+    "הסדנא בכיכר - הבית ליצירה אמנותית": "https://www.shabaton.online/contact-us-phone/46",
+    "הקול קורה - המכון הירושלמי לפסיכודרמה תאטרון ומדרש בניהולה של זיוה ברכה גדרון": "https://www.shabaton.online/contact-us-phone/49",
+    "מכללת רטר ל-NLP ודמיון מודרך": "https://www.shabaton.online/contact-us-phone/50",
+    "החברה להגנת הטבע": "https://www.shabaton.online/contact-us-phone/53",
+    "NCS המכללה למאמני תזונה": "https://www.shabaton.online/contact-us-phone/54",
+    "המכללה האקדמית בוינגייט - הסמכות בספורט": "https://www.shabaton.online/contact-us-phone/55",
+    "המכללה האקדמית בוינגייט - בית הספר לתיירות ולפנאי אתגרי": "https://www.shabaton.online/contact-us-phone/56",
+    "נתיבי ידע - קורסים מתוקשבים": "https://www.shabaton.online/contact-us-phone/57",
+    "סטודיו שסק - פיוזינג וויטראז', אמנות משקמת, פיסול בחוטי ברזל ופסיפס": "https://www.shabaton.online/contact-us-phone/58",
+    "אמנות התחרה בנייר - חדוה אמסטר": "https://www.shabaton.online/contact-us-phone/59",
+    "בית איזי שפירא - מכון טראמפ": "https://www.shabaton.online/contact-us-phone/62",
+    "אשכילה - מכללת בית רבקה - המרכז ללימודי המשך והשתלמויות": "https://www.shabaton.online/contact-us-phone/67",
+    "מכללת שאנן - המכללה האקדמית הדתית לחינוך בחיפה": "https://www.shabaton.online/contact-us-phone/69",
+    "גליה בית ספר לקונדיטוריה": "https://www.shabaton.online/contact-us-phone/72",
+    "חלום צרוף": "https://www.shabaton.online/contact-us-phone/73",
+    "מרכז י.נ.ר": "https://www.shabaton.online/contact-us-phone/75",
+    "יד יוצרת": "https://www.shabaton.online/contact-us-phone/76",
+    "האקדמית גורדון לחינוך - לימודים אקדמיים": "https://www.shabaton.online/contact-us-phone/77",
+    "איגוד ערים לאיכות הסביבה נפת אשקלון": "https://www.shabaton.online/contact-us-phone/79",
+    "מתוק מהלב": "https://www.shabaton.online/contact-us-phone/80",
+    "האקדמיה לחשיבה אחרת - רחל סטיקלרו": "https://www.shabaton.online/contact-us-phone/81",
+    "אקו פלייבק": "https://www.shabaton.online/contact-us-phone/82",
+    "סטודיו 'אמנות הפסיפס' – אירית אורפז": "https://www.shabaton.online/contact-us-phone/84",
+    "סטודיו לי - עיצוב ופיסול בקרמיקה": "https://www.shabaton.online/contact-us-phone/85",
+    "הסטודיו של שלומית טמיר - אמנית סדנאות עיסת נייר": "https://www.shabaton.online/contact-us-phone/86",
+    "מכון פרסונה": "https://www.shabaton.online/contact-us-phone/87",
+    "עידית לינק - פיסול בעיסת נייר": "https://www.shabaton.online/contact-us-phone/88",
+    "תלפיות - המכללה האקדמית לחינוך": "https://www.shabaton.online/contact-us-phone/92",
+    "מחדשת אהבות ישנות - חידוש רהיטים עיצוב ואומנות": "https://www.shabaton.online/contact-us-phone/93",
+    "עץ החשיבה - הוראה מותאמת - בשיטת שלומית לויט": "https://www.shabaton.online/contact-us-phone/94",
+    "קתדרה פרדס חנה-כרכור": "https://www.shabaton.online/contact-us-phone/95",
+    "המכללה האקדמית בוינגייט - קורס מדריכי מדיטציה": "https://www.shabaton.online/contact-us-phone/96",
+    "AquAerobic - פעילות גופנית במים - התעמלות, אימון אירובי והידרותרפיה אקטיבית": "https://www.shabaton.online/contact-us-phone/98",
+    "המכללה האקדמית הרצוג": "https://www.shabaton.online/contact-us-phone/102",
+    "המכללה האקדמית הרצוג - לימודי חוץ ותעודה": "https://www.shabaton.online/contact-us-phone/103",
+    "Avital - פיסול בחוט ברזל": "https://www.shabaton.online/contact-us-phone/104",
+    "הקריה האקדמית אונו - תואר שני בחינוך": "https://www.shabaton.online/contact-us-phone/107",
+    "בישול בריא מן הצומח": "https://www.shabaton.online/contact-us-phone/108",
+    "עתיד ירוק": "https://www.shabaton.online/contact-us-phone/111",
+    "הובי - החוויה שביצירה": "https://www.shabaton.online/contact-us-phone/112",
+    "מרכז החומר - סדנת אמנויות - בחולון": "https://www.shabaton.online/contact-us-phone/115",
+    "בין הכסאות סטודיו לנגרות": "https://www.shabaton.online/contact-us-phone/116",
+    "פיין גלאס - אמנות הזכוכית": "https://www.shabaton.online/contact-us-phone/119",
+    "מכללת לוינסקי לחינוך - אקדמי": "https://www.shabaton.online/contact-us-phone/120",
+    "מכללת לוינסקי - פיתוח מקצועי ולימודי תעודה": "https://www.shabaton.online/contact-us-phone/121",
+    "המרכז לאמנויות העץ": "https://www.shabaton.online/contact-us-phone/123",
+    "מדברים עם כלבים": "https://www.shabaton.online/contact-us-phone/127",
+    "נהורא בתנועה - הכשרת מדריכות יוגה ותנועה לילדים": "https://www.shabaton.online/contact-us-phone/129",
+    "Jenny פסיפס - סטודיו לפסיפס ולאמנות": "https://www.shabaton.online/contact-us-phone/131",
+    "ד'ר יפית מורדוף - המרכז לאסטרטגיות הוראה ולמידה": "https://www.shabaton.online/contact-us-phone/133",
+    "המכללה האקדמית הרצוג - לימודי תעודה - מורי דרך": "https://www.shabaton.online/contact-us-phone/135",
+    "מכללת השכל": "https://www.shabaton.online/contact-us-phone/140",
+    "סטודיו ללימודי תפירה Stylish": "https://www.shabaton.online/contact-us-phone/141",
+    "סטודיו לאמנות 'עוטה אור כשלמה'": "https://www.shabaton.online/contact-us-phone/144",
+    "מטי רשת מועדוני כושר": "https://www.shabaton.online/contact-us-phone/145",
+    "קצב 6 - לימודי נגינה ופיתוח קול ברחובות": "https://www.shabaton.online/contact-us-phone/159",
+    "פוד פרופסור - קורס בישול עולמי": "https://www.shabaton.online/contact-us-phone/160",
+    "אפרת סילברמן - שיטת העבודה של ביירון קייטי": "https://www.shabaton.online/contact-us-phone/162",
+    "ליאת שוורצמן - יומן ויזואלי": "https://www.shabaton.online/contact-us-phone/163",
+    "מכון איתן - המרכז להכשרה ואימון קוגניטיבי בהובלת דנה קינד": "https://www.shabaton.online/contact-us-phone/164",
+    "רוקדים בגיל - דר לוי בר גיל": "https://www.shabaton.online/contact-us-phone/170",
+    "שפר - מרכז להורות, זוגיות ומודעות": "https://www.shabaton.online/contact-us-phone/173",
+    "כרמית לייבוביץ - יומן ויזואלי": "https://www.shabaton.online/contact-us-phone/182",
+    "מכללת יוזמות": "https://www.shabaton.online/contact-us-phone/183",
+    "מכון שכטר לימודי תעודה": "https://www.shabaton.online/contact-us-phone/185",
+    "מיוגי - בית הספר ליוגה": "https://www.shabaton.online/contact-us-phone/188",
+    "מכללת אינטלקט אקדמון": "https://www.shabaton.online/contact-us-phone/191",
+    "טל וחומר - סדנאות יצירה ואמנות": "https://www.shabaton.online/contact-us-phone/192",
+    "גבעת ושינגטון - המכללה האקדמית": "https://www.shabaton.online/contact-us-phone/51",
+    "גבעת ושינגטוון - לימודי תעודה": "https://www.shabaton.online/contact-us-phone/193",
+    "הקריה האקדמית אונו - תואר שני בפסיכולוגיה": "https://www.shabaton.online/contact-us-phone/194",
+    "אסנת בירר - סטודיו לנגרות, עיצוב וחידוש רהיטים": "https://www.shabaton.online/contact-us-phone/122",
+    "ניצן - אגודה לקידום לקויי למידה הסתגלות ותפקוד": "https://www.shabaton.online/contact-us-phone/36",
+    "בית הספר עוגן ללימודי קונסטלציה ממוקדת התמקדות": "https://www.shabaton.online/contact-us-phone/195",
+    "קטרינה": "https://www.shabaton.online/contact-us-phone/98",
+    "לוי בר גיל": "https://www.shabaton.online/contact-us-phone/170",
+    "דנה קינד": "https://www.shabaton.online/contact-us-phone/164",
+    "יפית מורדוף": "https://www.shabaton.online/contact-us-phone/133",
+    "מכללת אפרתה": "https://www.shabaton.online/contact-us-phone/5",
+    "האקדמית חמדת": "https://www.shabaton.online/contact-us-phone/10",
+    "המכללה האקדמית לחינוך עש דוד ילין": "https://www.shabaton.online/contact-us-phone/197",
+    "אוניברסיטת תל": "https://www.shabaton.online/contact-us-phone/19",
+    "אוניברסיטת בר אילן": "https://www.shabaton.online/contact-us-phone/24",
+    "גבאי שוקי": "https://www.shabaton.online/contact-us-phone/30",
+    "פוקוס": "https://www.shabaton.online/contact-us-phone/31",
+    "מכללת גישות": "https://www.shabaton.online/contact-us-phone/32",
+    "אורנים": "https://www.shabaton.online/contact-us-phone/33",
+    "מכללת ביטוי לאמנות ועיצוב": "https://www.shabaton.online/contact-us-phone/37",
+    "כישורי למידה": "https://www.shabaton.online/contact-us-phone/38",
+    "מכון אסיף": "https://www.shabaton.online/contact-us-phone/40",
+    "האוניברסיטה הפתוחה": "https://www.shabaton.online/contact-us-phone/43",
+    "חברה ואמנויות": "https://www.shabaton.online/contact-us-phone/44",
+    "הסטודיו לעיצוב בפסיפס": "https://www.shabaton.online/contact-us-phone/45",
+    "הסדנא בכיכר": "https://www.shabaton.online/contact-us-phone/46",
+    "הקול קורה": "https://www.shabaton.online/contact-us-phone/49",
+    "מכללת רטר ל": "https://www.shabaton.online/contact-us-phone/50",
+    "נתיבי ידע": "https://www.shabaton.online/contact-us-phone/57",
+    "סטודיו שסק": "https://www.shabaton.online/contact-us-phone/58",
+    "אמנות התחרה בנייר": "https://www.shabaton.online/contact-us-phone/59",
+    "בית איזי שפירא": "https://www.shabaton.online/contact-us-phone/62",
+    "אשכילה": "https://www.shabaton.online/contact-us-phone/67",
+    "מכללת שאנן": "https://www.shabaton.online/contact-us-phone/69",
+    "האקדמיה לחשיבה אחרת": "https://www.shabaton.online/contact-us-phone/81",
+    "סטודיו 'אמנות הפסיפס'": "https://www.shabaton.online/contact-us-phone/84",
+    "סטודיו לי": "https://www.shabaton.online/contact-us-phone/85",
+    "הסטודיו של שלומית טמיר": "https://www.shabaton.online/contact-us-phone/86",
+    "עידית לינק": "https://www.shabaton.online/contact-us-phone/88",
+    "מחדשת אהבות ישנות": "https://www.shabaton.online/contact-us-phone/93",
+    "עץ החשיבה": "https://www.shabaton.online/contact-us-phone/94",
+    "קתדרה פרדס חנה": "https://www.shabaton.online/contact-us-phone/95",
+    "AquAerobic": "https://www.shabaton.online/contact-us-phone/98",
+    "Avital": "https://www.shabaton.online/contact-us-phone/104",
+    "הובי": "https://www.shabaton.online/contact-us-phone/112",
+    "מרכז החומר": "https://www.shabaton.online/contact-us-phone/115",
+    "פיין גלאס": "https://www.shabaton.online/contact-us-phone/119",
+    "מכללת לוינסקי לחינוך": "https://www.shabaton.online/contact-us-phone/120",
+    "מכללת לוינסקי": "https://www.shabaton.online/contact-us-phone/121",
+    "נהורא בתנועה": "https://www.shabaton.online/contact-us-phone/129",
+    "Jenny פסיפס": "https://www.shabaton.online/contact-us-phone/131",
+    "ד'ר יפית מורדוף": "https://www.shabaton.online/contact-us-phone/133",
+    "קצב 6": "https://www.shabaton.online/contact-us-phone/159",
+    "פוד פרופסור": "https://www.shabaton.online/contact-us-phone/160",
+    "אפרת סילברמן": "https://www.shabaton.online/contact-us-phone/162",
+    "ליאת שוורצמן": "https://www.shabaton.online/contact-us-phone/163",
+    "מכון איתן": "https://www.shabaton.online/contact-us-phone/164",
+    "רוקדים בגיל": "https://www.shabaton.online/contact-us-phone/170",
+    "שפר": "https://www.shabaton.online/contact-us-phone/173",
+    "כרמית לייבוביץ": "https://www.shabaton.online/contact-us-phone/182",
+    "מיוגי": "https://www.shabaton.online/contact-us-phone/188",
+    "טל וחומר": "https://www.shabaton.online/contact-us-phone/192",
+    "גבעת ושינגטון": "https://www.shabaton.online/contact-us-phone/51",
+    "גבעת ושינגטוון": "https://www.shabaton.online/contact-us-phone/193",
+    "אסנת בירר": "https://www.shabaton.online/contact-us-phone/122",
+    "ניצן": "https://www.shabaton.online/contact-us-phone/36"
+  },
+  "fuzzyEntries": [
+    {
+      "name": "הקתדרה למוסיקה",
+      "url": "https://www.shabaton.online/contact-us-phone/0",
+      "words": [
+        "הקתדרה",
+        "למוסיקה"
+      ],
+      "strongWords": [
+        "הקתדרה",
+        "למוסיקה"
+      ]
+    },
+    {
+      "name": "מכללת אפרתה - מרכז השתלמויות",
+      "url": "https://www.shabaton.online/contact-us-phone/5",
+      "words": [
+        "אפרתה"
+      ],
+      "strongWords": [
+        "אפרתה"
+      ]
+    },
+    {
+      "name": "האקדמית גורדון לחינוך - המרכז לפיתוח מקצועי",
+      "url": "https://www.shabaton.online/contact-us-phone/6",
+      "words": [
+        "גורדון"
+      ],
+      "strongWords": []
+    },
+    {
+      "name": "סמינר הקיבוצים - השתלמויות ולימודי תעודה",
+      "url": "https://www.shabaton.online/contact-us-phone/7",
+      "words": [
+        "סמינר",
+        "הקיבוצים"
+      ],
+      "strongWords": []
+    },
+    {
+      "name": "בית ברל - המכללה האקדמית",
+      "url": "https://www.shabaton.online/contact-us-phone/9",
+      "words": [
+        "ברל"
+      ],
+      "strongWords": []
+    },
+    {
+      "name": "האקדמית חמדת - לימודי חוץ",
+      "url": "https://www.shabaton.online/contact-us-phone/10",
+      "words": [
+        "חמדת"
+      ],
+      "strongWords": [
+        "חמדת"
+      ]
+    },
+    {
+      "name": "מכון רביב לפיתוח כישורי למידה וקשב",
+      "url": "https://www.shabaton.online/contact-us-phone/12",
+      "words": [
+        "רביב",
+        "כישורי",
+        "וקשב"
+      ],
+      "strongWords": [
+        "רביב",
+        "וקשב"
+      ]
+    },
+    {
+      "name": "המכללה האקדמית לחינוך ע'ש דוד ילין",
+      "url": "https://www.shabaton.online/contact-us-phone/196",
+      "words": [
+        "דוד",
+        "ילין"
+      ],
+      "strongWords": []
+    },
+    {
+      "name": "המכללה האקדמית לחינוך עש דוד ילין - השתלמויות עובדי הוראה",
+      "url": "https://www.shabaton.online/contact-us-phone/197",
+      "words": [
+        "דוד",
+        "ילין"
+      ],
+      "strongWords": []
+    },
+    {
+      "name": "המכללה האקדמית רמת גן",
+      "url": "https://www.shabaton.online/contact-us-phone/18",
+      "words": [
+        "רמת",
+        "גן"
+      ],
+      "strongWords": [
+        "רמת"
+      ]
+    },
+    {
+      "name": "אוניברסיטת תל-אביב - המרכז האקדמי לפיתוח אישי ומקצועי בחינוך ובחברה",
+      "url": "https://www.shabaton.online/contact-us-phone/19",
+      "words": [
+        "תל",
+        "אביב",
+        "אישי",
+        "ומקצועי",
+        "בחינוך",
+        "ובחברה"
+      ],
+      "strongWords": [
+        "אביב",
+        "אישי",
+        "ומקצועי",
+        "ובחברה"
+      ]
+    },
+    {
+      "name": "בית ברל – בית הספר להשתלמויות",
+      "url": "https://www.shabaton.online/contact-us-phone/21",
+      "words": [
+        "ברל"
+      ],
+      "strongWords": []
+    },
+    {
+      "name": "המכללה האקדמית בוינגייט - בית הספר להשתלמויות - רפואה משלימה",
+      "url": "https://www.shabaton.online/contact-us-phone/22",
+      "words": [
+        "רפואה",
+        "משלימה"
+      ],
+      "strongWords": [
+        "רפואה",
+        "משלימה"
+      ]
+    },
+    {
+      "name": "תלפיות - המרכז לפיתוח פרופסיונלי",
+      "url": "https://www.shabaton.online/contact-us-phone/23",
+      "words": [
+        "תלפיות"
+      ],
+      "strongWords": []
+    },
+    {
+      "name": "אוניברסיטת בר אילן - הפקולטה לחינוך",
+      "url": "https://www.shabaton.online/contact-us-phone/24",
+      "words": [
+        "בר",
+        "אילן",
+        "הפקולטה"
+      ],
+      "strongWords": [
+        "אילן",
+        "הפקולטה"
+      ]
+    },
+    {
+      "name": "סמינר הקיבוצים - אקדמי",
+      "url": "https://www.shabaton.online/contact-us-phone/25",
+      "words": [
+        "סמינר",
+        "הקיבוצים"
+      ],
+      "strongWords": []
+    },
+    {
+      "name": "ד'ר שולמית רונן",
+      "url": "https://www.shabaton.online/contact-us-phone/28",
+      "words": [
+        "שולמית",
+        "רונן"
+      ],
+      "strongWords": [
+        "שולמית",
+        "רונן"
+      ]
+    },
+    {
+      "name": "גבאי שוקי - נומרולוג",
+      "url": "https://www.shabaton.online/contact-us-phone/30",
+      "words": [
+        "גבאי",
+        "שוקי",
+        "נומרולוג"
+      ],
+      "strongWords": [
+        "גבאי",
+        "שוקי",
+        "נומרולוג"
+      ]
+    },
+    {
+      "name": "פוקוס - המרכז ללימוד צילום",
+      "url": "https://www.shabaton.online/contact-us-phone/31",
+      "words": [
+        "פוקוס",
+        "ללימוד",
+        "צילום"
+      ],
+      "strongWords": [
+        "פוקוס",
+        "ללימוד",
+        "צילום"
+      ]
+    },
+    {
+      "name": "מכללת גישות – להנחיה, אימון ,ניהול, ייעוץ ארגוני וייעוץ עסקי על פי מודל המצוינות של ד'ר צבי ברק",
+      "url": "https://www.shabaton.online/contact-us-phone/32",
+      "words": [
+        "גישות",
+        "להנחיה",
+        "אימון",
+        "ניהול",
+        "ייעוץ",
+        "ארגוני",
+        "וייעוץ",
+        "עסקי",
+        "על",
+        "פי",
+        "מודל",
+        "המצוינות",
+        "צבי",
+        "ברק"
+      ],
+      "strongWords": [
+        "גישות",
+        "להנחיה",
+        "ניהול",
+        "ייעוץ",
+        "ארגוני",
+        "וייעוץ",
+        "עסקי",
+        "מודל",
+        "המצוינות",
+        "צבי",
+        "ברק"
+      ]
+    },
+    {
+      "name": "אורנים - היחידה ללימודי חוץ",
+      "url": "https://www.shabaton.online/contact-us-phone/33",
+      "words": [
+        "אורנים"
+      ],
+      "strongWords": [
+        "אורנים"
+      ]
+    },
+    {
+      "name": "אוניברסיטת חיפה",
+      "url": "https://www.shabaton.online/contact-us-phone/35",
+      "words": [
+        "חיפה"
+      ],
+      "strongWords": [
+        "חיפה"
+      ]
+    },
+    {
+      "name": "מכללת ביטוי לאמנות ועיצוב - שיטת נוביצקי",
+      "url": "https://www.shabaton.online/contact-us-phone/37",
+      "words": [
+        "ביטוי",
+        "לאמנות",
+        "ועיצוב",
+        "נוביצקי"
+      ],
+      "strongWords": [
+        "ביטוי",
+        "ועיצוב",
+        "נוביצקי"
+      ]
+    },
+    {
+      "name": "כישורי למידה - המרכז לקידום תפקודים, בהנהלת רמי כץ",
+      "url": "https://www.shabaton.online/contact-us-phone/38",
+      "words": [
+        "כישורי",
+        "תפקודים",
+        "רמי",
+        "כץ"
+      ],
+      "strongWords": [
+        "תפקודים",
+        "רמי"
+      ]
+    },
+    {
+      "name": "מכון שכטר למדעי היהדות",
+      "url": "https://www.shabaton.online/contact-us-phone/39",
+      "words": [
+        "שכטר",
+        "למדעי",
+        "היהדות"
+      ],
+      "strongWords": [
+        "למדעי",
+        "היהדות"
+      ]
+    },
+    {
+      "name": "מכון אסיף, לקידום הכתיבה והעריכה",
+      "url": "https://www.shabaton.online/contact-us-phone/40",
+      "words": [
+        "אסיף",
+        "הכתיבה",
+        "והעריכה"
+      ],
+      "strongWords": [
+        "אסיף",
+        "הכתיבה",
+        "והעריכה"
+      ]
+    },
+    {
+      "name": "האוניברסיטה הפתוחה - היחידה לקידום עובדי הוראה",
+      "url": "https://www.shabaton.online/contact-us-phone/43",
+      "words": [
+        "הפתוחה"
+      ],
+      "strongWords": [
+        "הפתוחה"
+      ]
+    },
+    {
+      "name": "חברה ואמנויות - הקריה האקדמית אונו",
+      "url": "https://www.shabaton.online/contact-us-phone/44",
+      "words": [
+        "חברה",
+        "ואמנויות"
+      ],
+      "strongWords": [
+        "חברה",
+        "ואמנויות"
+      ]
+    },
+    {
+      "name": "הסטודיו לעיצוב בפסיפס - גלי קמיל",
+      "url": "https://www.shabaton.online/contact-us-phone/45",
+      "words": [
+        "הסטודיו",
+        "לעיצוב",
+        "בפסיפס",
+        "גלי",
+        "קמיל"
+      ],
+      "strongWords": [
+        "לעיצוב",
+        "בפסיפס",
+        "גלי",
+        "קמיל"
+      ]
+    },
+    {
+      "name": "הסדנא בכיכר - הבית ליצירה אמנותית",
+      "url": "https://www.shabaton.online/contact-us-phone/46",
+      "words": [
+        "הסדנא",
+        "בכיכר",
+        "הבית",
+        "ליצירה",
+        "אמנותית"
+      ],
+      "strongWords": [
+        "הסדנא",
+        "בכיכר",
+        "הבית",
+        "ליצירה",
+        "אמנותית"
+      ]
+    },
+    {
+      "name": "הקול קורה - המכון הירושלמי לפסיכודרמה תאטרון ומדרש בניהולה של זיוה ברכה גדרון",
+      "url": "https://www.shabaton.online/contact-us-phone/49",
+      "words": [
+        "הקול",
+        "קורה",
+        "הירושלמי",
+        "לפסיכודרמה",
+        "תאטרון",
+        "ומדרש",
+        "זיוה",
+        "ברכה",
+        "גדרון"
+      ],
+      "strongWords": [
+        "הקול",
+        "קורה",
+        "הירושלמי",
+        "לפסיכודרמה",
+        "תאטרון",
+        "ומדרש",
+        "זיוה",
+        "ברכה",
+        "גדרון"
+      ]
+    },
+    {
+      "name": "מכללת רטר ל-NLP ודמיון מודרך",
+      "url": "https://www.shabaton.online/contact-us-phone/50",
+      "words": [
+        "רטר",
+        "NLP",
+        "ודמיון",
+        "מודרך"
+      ],
+      "strongWords": [
+        "רטר",
+        "NLP",
+        "ודמיון",
+        "מודרך"
+      ]
+    },
+    {
+      "name": "החברה להגנת הטבע",
+      "url": "https://www.shabaton.online/contact-us-phone/53",
+      "words": [
+        "החברה",
+        "להגנת",
+        "הטבע"
+      ],
+      "strongWords": [
+        "החברה",
+        "להגנת",
+        "הטבע"
+      ]
+    },
+    {
+      "name": "NCS המכללה למאמני תזונה",
+      "url": "https://www.shabaton.online/contact-us-phone/54",
+      "words": [
+        "NCS",
+        "למאמני",
+        "תזונה"
+      ],
+      "strongWords": [
+        "NCS",
+        "למאמני",
+        "תזונה"
+      ]
+    },
+    {
+      "name": "המכללה האקדמית בוינגייט - הסמכות בספורט",
+      "url": "https://www.shabaton.online/contact-us-phone/55",
+      "words": [
+        "הסמכות",
+        "בספורט"
+      ],
+      "strongWords": [
+        "הסמכות",
+        "בספורט"
+      ]
+    },
+    {
+      "name": "המכללה האקדמית בוינגייט - בית הספר לתיירות ולפנאי אתגרי",
+      "url": "https://www.shabaton.online/contact-us-phone/56",
+      "words": [
+        "לתיירות",
+        "ולפנאי",
+        "אתגרי"
+      ],
+      "strongWords": [
+        "לתיירות",
+        "ולפנאי",
+        "אתגרי"
+      ]
+    },
+    {
+      "name": "נתיבי ידע - קורסים מתוקשבים",
+      "url": "https://www.shabaton.online/contact-us-phone/57",
+      "words": [
+        "נתיבי",
+        "ידע",
+        "קורסים",
+        "מתוקשבים"
+      ],
+      "strongWords": [
+        "נתיבי",
+        "ידע",
+        "קורסים",
+        "מתוקשבים"
+      ]
+    },
+    {
+      "name": "סטודיו שסק - פיוזינג וויטראז', אמנות משקמת, פיסול בחוטי ברזל ופסיפס",
+      "url": "https://www.shabaton.online/contact-us-phone/58",
+      "words": [
+        "שסק",
+        "פיוזינג",
+        "וויטראז",
+        "משקמת",
+        "בחוטי",
+        "ברזל",
+        "ופסיפס"
+      ],
+      "strongWords": [
+        "שסק",
+        "פיוזינג",
+        "וויטראז",
+        "משקמת",
+        "בחוטי",
+        "ופסיפס"
+      ]
+    },
+    {
+      "name": "אמנות התחרה בנייר - חדוה אמסטר",
+      "url": "https://www.shabaton.online/contact-us-phone/59",
+      "words": [
+        "התחרה",
+        "בנייר",
+        "חדוה",
+        "אמסטר"
+      ],
+      "strongWords": [
+        "התחרה",
+        "בנייר",
+        "חדוה",
+        "אמסטר"
+      ]
+    },
+    {
+      "name": "בית איזי שפירא - מכון טראמפ",
+      "url": "https://www.shabaton.online/contact-us-phone/62",
+      "words": [
+        "איזי",
+        "שפירא",
+        "טראמפ"
+      ],
+      "strongWords": [
+        "איזי",
+        "שפירא",
+        "טראמפ"
+      ]
+    },
+    {
+      "name": "אשכילה - מכללת בית רבקה - המרכז ללימודי המשך והשתלמויות",
+      "url": "https://www.shabaton.online/contact-us-phone/67",
+      "words": [
+        "אשכילה",
+        "רבקה",
+        "המשך",
+        "והשתלמויות"
+      ],
+      "strongWords": [
+        "אשכילה",
+        "רבקה",
+        "המשך",
+        "והשתלמויות"
+      ]
+    },
+    {
+      "name": "מכללת שאנן - המכללה האקדמית הדתית לחינוך בחיפה",
+      "url": "https://www.shabaton.online/contact-us-phone/69",
+      "words": [
+        "שאנן",
+        "הדתית",
+        "בחיפה"
+      ],
+      "strongWords": [
+        "שאנן",
+        "הדתית",
+        "בחיפה"
+      ]
+    },
+    {
+      "name": "גליה בית ספר לקונדיטוריה",
+      "url": "https://www.shabaton.online/contact-us-phone/72",
+      "words": [
+        "גליה",
+        "לקונדיטוריה"
+      ],
+      "strongWords": [
+        "גליה",
+        "לקונדיטוריה"
+      ]
+    },
+    {
+      "name": "חלום צרוף",
+      "url": "https://www.shabaton.online/contact-us-phone/73",
+      "words": [
+        "חלום",
+        "צרוף"
+      ],
+      "strongWords": [
+        "חלום",
+        "צרוף"
+      ]
+    },
+    {
+      "name": "מרכז י.נ.ר",
+      "url": "https://www.shabaton.online/contact-us-phone/75",
+      "words": [
+        "י.נ.ר"
+      ],
+      "strongWords": [
+        "י.נ.ר"
+      ]
+    },
+    {
+      "name": "יד יוצרת",
+      "url": "https://www.shabaton.online/contact-us-phone/76",
+      "words": [
+        "יד",
+        "יוצרת"
+      ],
+      "strongWords": [
+        "יוצרת"
+      ]
+    },
+    {
+      "name": "האקדמית גורדון לחינוך - לימודים אקדמיים",
+      "url": "https://www.shabaton.online/contact-us-phone/77",
+      "words": [
+        "גורדון",
+        "אקדמיים"
+      ],
+      "strongWords": [
+        "אקדמיים"
+      ]
+    },
+    {
+      "name": "איגוד ערים לאיכות הסביבה נפת אשקלון",
+      "url": "https://www.shabaton.online/contact-us-phone/79",
+      "words": [
+        "איגוד",
+        "ערים",
+        "לאיכות",
+        "הסביבה",
+        "נפת",
+        "אשקלון"
+      ],
+      "strongWords": [
+        "איגוד",
+        "ערים",
+        "לאיכות",
+        "הסביבה",
+        "נפת",
+        "אשקלון"
+      ]
+    },
+    {
+      "name": "מתוק מהלב",
+      "url": "https://www.shabaton.online/contact-us-phone/80",
+      "words": [
+        "מתוק",
+        "מהלב"
+      ],
+      "strongWords": [
+        "מתוק",
+        "מהלב"
+      ]
+    },
+    {
+      "name": "האקדמיה לחשיבה אחרת - רחל סטיקלרו",
+      "url": "https://www.shabaton.online/contact-us-phone/81",
+      "words": [
+        "האקדמיה",
+        "לחשיבה",
+        "אחרת",
+        "רחל",
+        "סטיקלרו"
+      ],
+      "strongWords": [
+        "האקדמיה",
+        "לחשיבה",
+        "אחרת",
+        "רחל",
+        "סטיקלרו"
+      ]
+    },
+    {
+      "name": "אקו פלייבק",
+      "url": "https://www.shabaton.online/contact-us-phone/82",
+      "words": [
+        "אקו",
+        "פלייבק"
+      ],
+      "strongWords": [
+        "אקו",
+        "פלייבק"
+      ]
+    },
+    {
+      "name": "סטודיו 'אמנות הפסיפס' – אירית אורפז",
+      "url": "https://www.shabaton.online/contact-us-phone/84",
+      "words": [
+        "הפסיפס",
+        "אירית",
+        "אורפז"
+      ],
+      "strongWords": [
+        "הפסיפס",
+        "אירית",
+        "אורפז"
+      ]
+    },
+    {
+      "name": "סטודיו לי - עיצוב ופיסול בקרמיקה",
+      "url": "https://www.shabaton.online/contact-us-phone/85",
+      "words": [
+        "לי",
+        "ופיסול",
+        "בקרמיקה"
+      ],
+      "strongWords": [
+        "ופיסול",
+        "בקרמיקה"
+      ]
+    },
+    {
+      "name": "הסטודיו של שלומית טמיר - אמנית סדנאות עיסת נייר",
+      "url": "https://www.shabaton.online/contact-us-phone/86",
+      "words": [
+        "הסטודיו",
+        "שלומית",
+        "טמיר",
+        "אמנית",
+        "סדנאות",
+        "עיסת",
+        "נייר"
+      ],
+      "strongWords": [
+        "טמיר",
+        "אמנית",
+        "עיסת"
+      ]
+    },
+    {
+      "name": "מכון פרסונה",
+      "url": "https://www.shabaton.online/contact-us-phone/87",
+      "words": [
+        "פרסונה"
+      ],
+      "strongWords": [
+        "פרסונה"
+      ]
+    },
+    {
+      "name": "עידית לינק - פיסול בעיסת נייר",
+      "url": "https://www.shabaton.online/contact-us-phone/88",
+      "words": [
+        "עידית",
+        "לינק",
+        "בעיסת",
+        "נייר"
+      ],
+      "strongWords": [
+        "עידית",
+        "לינק",
+        "בעיסת"
+      ]
+    },
+    {
+      "name": "תלפיות - המכללה האקדמית לחינוך",
+      "url": "https://www.shabaton.online/contact-us-phone/92",
+      "words": [
+        "תלפיות"
+      ],
+      "strongWords": []
+    },
+    {
+      "name": "מחדשת אהבות ישנות - חידוש רהיטים עיצוב ואומנות",
+      "url": "https://www.shabaton.online/contact-us-phone/93",
+      "words": [
+        "מחדשת",
+        "אהבות",
+        "ישנות",
+        "חידוש",
+        "רהיטים",
+        "ואומנות"
+      ],
+      "strongWords": [
+        "מחדשת",
+        "אהבות",
+        "ישנות",
+        "חידוש",
+        "ואומנות"
+      ]
+    },
+    {
+      "name": "עץ החשיבה - הוראה מותאמת - בשיטת שלומית לויט",
+      "url": "https://www.shabaton.online/contact-us-phone/94",
+      "words": [
+        "עץ",
+        "החשיבה",
+        "מותאמת",
+        "בשיטת",
+        "שלומית",
+        "לויט"
+      ],
+      "strongWords": [
+        "החשיבה",
+        "מותאמת",
+        "בשיטת",
+        "לויט"
+      ]
+    },
+    {
+      "name": "קתדרה פרדס חנה-כרכור",
+      "url": "https://www.shabaton.online/contact-us-phone/95",
+      "words": [
+        "קתדרה",
+        "פרדס",
+        "חנה",
+        "כרכור"
+      ],
+      "strongWords": [
+        "קתדרה",
+        "פרדס",
+        "חנה",
+        "כרכור"
+      ]
+    },
+    {
+      "name": "המכללה האקדמית בוינגייט - קורס מדריכי מדיטציה",
+      "url": "https://www.shabaton.online/contact-us-phone/96",
+      "words": [
+        "קורס",
+        "מדריכי",
+        "מדיטציה"
+      ],
+      "strongWords": [
+        "מדריכי",
+        "מדיטציה"
+      ]
+    },
+    {
+      "name": "AquAerobic - פעילות גופנית במים - התעמלות, אימון אירובי והידרותרפיה אקטיבית",
+      "url": "https://www.shabaton.online/contact-us-phone/98",
+      "words": [
+        "AquAerobic",
+        "פעילות",
+        "גופנית",
+        "במים",
+        "התעמלות",
+        "אימון",
+        "אירובי",
+        "והידרותרפיה",
+        "אקטיבית"
+      ],
+      "strongWords": [
+        "AquAerobic",
+        "פעילות",
+        "גופנית",
+        "במים",
+        "התעמלות",
+        "אירובי",
+        "והידרותרפיה",
+        "אקטיבית"
+      ]
+    },
+    {
+      "name": "המכללה האקדמית הרצוג - לימודי חוץ ותעודה",
+      "url": "https://www.shabaton.online/contact-us-phone/103",
+      "words": [
+        "ותעודה"
+      ],
+      "strongWords": [
+        "ותעודה"
+      ]
+    },
+    {
+      "name": "Avital - פיסול בחוט ברזל",
+      "url": "https://www.shabaton.online/contact-us-phone/104",
+      "words": [
+        "Avital",
+        "בחוט",
+        "ברזל"
+      ],
+      "strongWords": [
+        "Avital",
+        "בחוט"
+      ]
+    },
+    {
+      "name": "הקריה האקדמית אונו - תואר שני בחינוך",
+      "url": "https://www.shabaton.online/contact-us-phone/107",
+      "words": [
+        "תואר",
+        "שני",
+        "בחינוך"
+      ],
+      "strongWords": []
+    },
+    {
+      "name": "בישול בריא מן הצומח",
+      "url": "https://www.shabaton.online/contact-us-phone/108",
+      "words": [
+        "בישול",
+        "בריא",
+        "מן",
+        "הצומח"
+      ],
+      "strongWords": [
+        "בריא",
+        "הצומח"
+      ]
+    },
+    {
+      "name": "עתיד ירוק",
+      "url": "https://www.shabaton.online/contact-us-phone/111",
+      "words": [
+        "עתיד",
+        "ירוק"
+      ],
+      "strongWords": [
+        "עתיד",
+        "ירוק"
+      ]
+    },
+    {
+      "name": "הובי - החוויה שביצירה",
+      "url": "https://www.shabaton.online/contact-us-phone/112",
+      "words": [
+        "הובי",
+        "החוויה",
+        "שביצירה"
+      ],
+      "strongWords": [
+        "הובי",
+        "החוויה",
+        "שביצירה"
+      ]
+    },
+    {
+      "name": "מרכז החומר - סדנת אמנויות - בחולון",
+      "url": "https://www.shabaton.online/contact-us-phone/115",
+      "words": [
+        "החומר",
+        "סדנת",
+        "אמנויות",
+        "בחולון"
+      ],
+      "strongWords": [
+        "החומר",
+        "סדנת",
+        "אמנויות",
+        "בחולון"
+      ]
+    },
+    {
+      "name": "בין הכסאות סטודיו לנגרות",
+      "url": "https://www.shabaton.online/contact-us-phone/116",
+      "words": [
+        "בין",
+        "הכסאות",
+        "לנגרות"
+      ],
+      "strongWords": [
+        "בין",
+        "הכסאות"
+      ]
+    },
+    {
+      "name": "פיין גלאס - אמנות הזכוכית",
+      "url": "https://www.shabaton.online/contact-us-phone/119",
+      "words": [
+        "פיין",
+        "גלאס",
+        "הזכוכית"
+      ],
+      "strongWords": [
+        "פיין",
+        "גלאס",
+        "הזכוכית"
+      ]
+    },
+    {
+      "name": "מכללת לוינסקי לחינוך - אקדמי",
+      "url": "https://www.shabaton.online/contact-us-phone/120",
+      "words": [
+        "לוינסקי"
+      ],
+      "strongWords": []
+    },
+    {
+      "name": "מכללת לוינסקי - פיתוח מקצועי ולימודי תעודה",
+      "url": "https://www.shabaton.online/contact-us-phone/121",
+      "words": [
+        "לוינסקי"
+      ],
+      "strongWords": []
+    },
+    {
+      "name": "המרכז לאמנויות העץ",
+      "url": "https://www.shabaton.online/contact-us-phone/123",
+      "words": [
+        "לאמנויות",
+        "העץ"
+      ],
+      "strongWords": [
+        "לאמנויות",
+        "העץ"
+      ]
+    },
+    {
+      "name": "מדברים עם כלבים",
+      "url": "https://www.shabaton.online/contact-us-phone/127",
+      "words": [
+        "מדברים",
+        "עם",
+        "כלבים"
+      ],
+      "strongWords": [
+        "מדברים",
+        "כלבים"
+      ]
+    },
+    {
+      "name": "נהורא בתנועה - הכשרת מדריכות יוגה ותנועה לילדים",
+      "url": "https://www.shabaton.online/contact-us-phone/129",
+      "words": [
+        "נהורא",
+        "בתנועה",
+        "הכשרת",
+        "מדריכות",
+        "יוגה",
+        "ותנועה",
+        "לילדים"
+      ],
+      "strongWords": [
+        "נהורא",
+        "בתנועה",
+        "הכשרת",
+        "מדריכות",
+        "יוגה",
+        "ותנועה",
+        "לילדים"
+      ]
+    },
+    {
+      "name": "Jenny פסיפס - סטודיו לפסיפס ולאמנות",
+      "url": "https://www.shabaton.online/contact-us-phone/131",
+      "words": [
+        "Jenny",
+        "פסיפס",
+        "לפסיפס",
+        "ולאמנות"
+      ],
+      "strongWords": [
+        "Jenny",
+        "פסיפס",
+        "לפסיפס",
+        "ולאמנות"
+      ]
+    },
+    {
+      "name": "ד'ר יפית מורדוף - המרכז לאסטרטגיות הוראה ולמידה",
+      "url": "https://www.shabaton.online/contact-us-phone/133",
+      "words": [
+        "יפית",
+        "מורדוף",
+        "לאסטרטגיות",
+        "ולמידה"
+      ],
+      "strongWords": [
+        "יפית",
+        "מורדוף",
+        "לאסטרטגיות",
+        "ולמידה"
+      ]
+    },
+    {
+      "name": "המכללה האקדמית הרצוג - לימודי תעודה - מורי דרך",
+      "url": "https://www.shabaton.online/contact-us-phone/135",
+      "words": [
+        "מורי",
+        "דרך"
+      ],
+      "strongWords": [
+        "מורי",
+        "דרך"
+      ]
+    },
+    {
+      "name": "מכללת השכל",
+      "url": "https://www.shabaton.online/contact-us-phone/140",
+      "words": [
+        "השכל"
+      ],
+      "strongWords": [
+        "השכל"
+      ]
+    },
+    {
+      "name": "סטודיו ללימודי תפירה Stylish",
+      "url": "https://www.shabaton.online/contact-us-phone/141",
+      "words": [
+        "תפירה",
+        "Stylish"
+      ],
+      "strongWords": [
+        "תפירה",
+        "Stylish"
+      ]
+    },
+    {
+      "name": "סטודיו לאמנות 'עוטה אור כשלמה'",
+      "url": "https://www.shabaton.online/contact-us-phone/144",
+      "words": [
+        "לאמנות",
+        "עוטה",
+        "אור",
+        "כשלמה"
+      ],
+      "strongWords": [
+        "עוטה",
+        "אור",
+        "כשלמה"
+      ]
+    },
+    {
+      "name": "מטי רשת מועדוני כושר",
+      "url": "https://www.shabaton.online/contact-us-phone/145",
+      "words": [
+        "מטי",
+        "רשת",
+        "מועדוני",
+        "כושר"
+      ],
+      "strongWords": [
+        "מטי",
+        "רשת",
+        "מועדוני",
+        "כושר"
+      ]
+    },
+    {
+      "name": "קצב 6 - לימודי נגינה ופיתוח קול ברחובות",
+      "url": "https://www.shabaton.online/contact-us-phone/159",
+      "words": [
+        "קצב",
+        "נגינה",
+        "ופיתוח",
+        "קול",
+        "ברחובות"
+      ],
+      "strongWords": [
+        "קצב",
+        "נגינה",
+        "ופיתוח",
+        "קול",
+        "ברחובות"
+      ]
+    },
+    {
+      "name": "פוד פרופסור - קורס בישול עולמי",
+      "url": "https://www.shabaton.online/contact-us-phone/160",
+      "words": [
+        "פוד",
+        "פרופסור",
+        "קורס",
+        "בישול",
+        "עולמי"
+      ],
+      "strongWords": [
+        "פוד",
+        "פרופסור",
+        "עולמי"
+      ]
+    },
+    {
+      "name": "אפרת סילברמן - שיטת העבודה של ביירון קייטי",
+      "url": "https://www.shabaton.online/contact-us-phone/162",
+      "words": [
+        "אפרת",
+        "סילברמן",
+        "העבודה",
+        "ביירון",
+        "קייטי"
+      ],
+      "strongWords": [
+        "אפרת",
+        "סילברמן",
+        "העבודה",
+        "ביירון",
+        "קייטי"
+      ]
+    },
+    {
+      "name": "ליאת שוורצמן - יומן ויזואלי",
+      "url": "https://www.shabaton.online/contact-us-phone/163",
+      "words": [
+        "ליאת",
+        "שוורצמן",
+        "יומן",
+        "ויזואלי"
+      ],
+      "strongWords": [
+        "ליאת",
+        "שוורצמן"
+      ]
+    },
+    {
+      "name": "מכון איתן - המרכז להכשרה ואימון קוגניטיבי בהובלת דנה קינד",
+      "url": "https://www.shabaton.online/contact-us-phone/164",
+      "words": [
+        "איתן",
+        "להכשרה",
+        "ואימון",
+        "קוגניטיבי",
+        "דנה",
+        "קינד"
+      ],
+      "strongWords": [
+        "איתן",
+        "להכשרה",
+        "ואימון",
+        "קוגניטיבי",
+        "דנה",
+        "קינד"
+      ]
+    },
+    {
+      "name": "רוקדים בגיל - דר לוי בר גיל",
+      "url": "https://www.shabaton.online/contact-us-phone/170",
+      "words": [
+        "רוקדים",
+        "בגיל",
+        "לוי",
+        "בר",
+        "גיל"
+      ],
+      "strongWords": [
+        "רוקדים",
+        "בגיל",
+        "לוי",
+        "גיל"
+      ]
+    },
+    {
+      "name": "שפר - מרכז להורות, זוגיות ומודעות",
+      "url": "https://www.shabaton.online/contact-us-phone/173",
+      "words": [
+        "שפר",
+        "להורות",
+        "זוגיות",
+        "ומודעות"
+      ],
+      "strongWords": [
+        "שפר",
+        "להורות",
+        "זוגיות",
+        "ומודעות"
+      ]
+    },
+    {
+      "name": "כרמית לייבוביץ - יומן ויזואלי",
+      "url": "https://www.shabaton.online/contact-us-phone/182",
+      "words": [
+        "כרמית",
+        "לייבוביץ",
+        "יומן",
+        "ויזואלי"
+      ],
+      "strongWords": [
+        "כרמית",
+        "לייבוביץ"
+      ]
+    },
+    {
+      "name": "מכללת יוזמות",
+      "url": "https://www.shabaton.online/contact-us-phone/183",
+      "words": [
+        "יוזמות"
+      ],
+      "strongWords": [
+        "יוזמות"
+      ]
+    },
+    {
+      "name": "מכון שכטר לימודי תעודה",
+      "url": "https://www.shabaton.online/contact-us-phone/185",
+      "words": [
+        "שכטר"
+      ],
+      "strongWords": []
+    },
+    {
+      "name": "מיוגי - בית הספר ליוגה",
+      "url": "https://www.shabaton.online/contact-us-phone/188",
+      "words": [
+        "מיוגי",
+        "ליוגה"
+      ],
+      "strongWords": [
+        "מיוגי",
+        "ליוגה"
+      ]
+    },
+    {
+      "name": "מכללת אינטלקט אקדמון",
+      "url": "https://www.shabaton.online/contact-us-phone/191",
+      "words": [
+        "אינטלקט",
+        "אקדמון"
+      ],
+      "strongWords": [
+        "אינטלקט",
+        "אקדמון"
+      ]
+    },
+    {
+      "name": "טל וחומר - סדנאות יצירה ואמנות",
+      "url": "https://www.shabaton.online/contact-us-phone/192",
+      "words": [
+        "טל",
+        "וחומר",
+        "סדנאות",
+        "יצירה",
+        "ואמנות"
+      ],
+      "strongWords": [
+        "וחומר",
+        "יצירה",
+        "ואמנות"
+      ]
+    },
+    {
+      "name": "גבעת ושינגטון - המכללה האקדמית",
+      "url": "https://www.shabaton.online/contact-us-phone/51",
+      "words": [
+        "גבעת",
+        "ושינגטון"
+      ],
+      "strongWords": [
+        "ושינגטון"
+      ]
+    },
+    {
+      "name": "גבעת ושינגטוון - לימודי תעודה",
+      "url": "https://www.shabaton.online/contact-us-phone/193",
+      "words": [
+        "גבעת",
+        "ושינגטוון"
+      ],
+      "strongWords": [
+        "ושינגטוון"
+      ]
+    },
+    {
+      "name": "הקריה האקדמית אונו - תואר שני בפסיכולוגיה",
+      "url": "https://www.shabaton.online/contact-us-phone/194",
+      "words": [
+        "תואר",
+        "שני",
+        "בפסיכולוגיה"
+      ],
+      "strongWords": [
+        "בפסיכולוגיה"
+      ]
+    },
+    {
+      "name": "אסנת בירר - סטודיו לנגרות, עיצוב וחידוש רהיטים",
+      "url": "https://www.shabaton.online/contact-us-phone/122",
+      "words": [
+        "אסנת",
+        "בירר",
+        "לנגרות",
+        "וחידוש",
+        "רהיטים"
+      ],
+      "strongWords": [
+        "אסנת",
+        "בירר",
+        "וחידוש"
+      ]
+    },
+    {
+      "name": "ניצן - אגודה לקידום לקויי למידה הסתגלות ותפקוד",
+      "url": "https://www.shabaton.online/contact-us-phone/36",
+      "words": [
+        "ניצן",
+        "אגודה",
+        "לקויי",
+        "הסתגלות",
+        "ותפקוד"
+      ],
+      "strongWords": [
+        "ניצן",
+        "אגודה",
+        "לקויי",
+        "הסתגלות",
+        "ותפקוד"
+      ]
+    },
+    {
+      "name": "בית הספר עוגן ללימודי קונסטלציה ממוקדת התמקדות",
+      "url": "https://www.shabaton.online/contact-us-phone/195",
+      "words": [
+        "עוגן",
+        "קונסטלציה",
+        "ממוקדת",
+        "התמקדות"
+      ],
+      "strongWords": [
+        "עוגן",
+        "קונסטלציה",
+        "ממוקדת",
+        "התמקדות"
+      ]
+    },
+    {
+      "name": "קטרינה",
+      "url": "https://www.shabaton.online/contact-us-phone/98",
+      "words": [
+        "קטרינה"
+      ],
+      "strongWords": [
+        "קטרינה"
+      ]
+    },
+    {
+      "name": "לוי בר גיל",
+      "url": "https://www.shabaton.online/contact-us-phone/170",
+      "words": [
+        "לוי",
+        "בר",
+        "גיל"
+      ],
+      "strongWords": [
+        "לוי",
+        "גיל"
+      ]
+    },
+    {
+      "name": "דנה קינד",
+      "url": "https://www.shabaton.online/contact-us-phone/164",
+      "words": [
+        "דנה",
+        "קינד"
+      ],
+      "strongWords": [
+        "דנה",
+        "קינד"
+      ]
+    },
+    {
+      "name": "יפית מורדוף",
+      "url": "https://www.shabaton.online/contact-us-phone/133",
+      "words": [
+        "יפית",
+        "מורדוף"
+      ],
+      "strongWords": [
+        "יפית",
+        "מורדוף"
+      ]
+    }
+  ]
+}
