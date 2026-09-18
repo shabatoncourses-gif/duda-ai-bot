@@ -904,6 +904,88 @@ function tryFindCourseOpeningDate(message) {
   return null;
 }
 
+// ── זיהוי בקשת מספר-טלפון + חיפוש ב-contact-phones.json ──────────────
+// בעיה שנצפתה בפרודקשן: גולש ששאל "אפשר את מס' הטלפון של קטרינה?" (איש-קשר
+// של מוסד AquAerobic) קיבל תשובה כללית שמסרבת לשתף טלפונים ומפנה לקרנות
+// ההשתלמות (עם מספרים לא-מדויקים) — במקום הפניה לדף יצירת-הקשר הספציפי
+// של המוסד בפורטל שבתון. הפתרון: זיהוי מוקדם ודטרמיניסטי של בקשת-טלפון,
+// לפני שההודעה מגיעה לקלוד בכלל (בדיוק כמו SHASH ותאריכי-פתיחה למעלה).
+//
+// contact-phones.json נבנה מ"גיליון3" של פרטי_קשר_כל_המוסדות.xlsx (ראו
+// update_contact_phones.py) — כולל גם alias-ים של אנשי-קשר בנוסף לשמות-
+// מוסדות (למשל "קטרינה" ליד "AquAerobic", עם אותו מספר סידורי).
+const PHONE_REQUEST_RE = /מס(פר|['׳])?\s*(ה)?טלפון|(ה)?טלפון\s*(של(?!י)|ל[א-ת])|(ה)?נייד\s*(של(?!י)|ל[א-ת])|מס(פר|['׳])?\s*(ה)?נייד|מה\s*(ה)?טלפון|איזה\s*טלפון/;
+
+function lookupContactPhone(message) {
+  const data = loadJSON('contact-phones.json');
+  if (!data || !data.contacts) return null;
+  const msgL = message.toLowerCase();
+
+  // שכבה 1 — התאמה מדויקת (שם מלא או "עוגן"). ממיין לפי אורך שם (מהארוך
+  // לקצר) כדי למצוא את ההתאמה הספציפית ביותר — אותו עיקרון בדיוק כמו
+  // lookupInstitution, כדי ש-"AquAerobic" לא יאבד להתאמה חלקית-יותר-קצרה.
+  const names = Object.keys(data.contacts).sort((a, b) => b.length - a.length);
+  for (const name of names) {
+    const nameL = name.toLowerCase();
+    // שמות קצרים (4 תווים ומטה) — דורש גבול מילה, כדי לא להתאים בטעות
+    // כ-substring בתוך מילה לא קשורה.
+    if (name.length <= 4) {
+      if (!wordBoundaryIncludes(msgL, nameL)) continue;
+    } else {
+      if (!msgL.includes(nameL)) continue;
+    }
+    return { found: true, name, url: data.contacts[name] };
+  }
+
+  // שכבה 2 — fuzzy: הגולש כתב רק חלק מהשם, לא ברצף מדויק (למשל "כרמית
+  // יומן ויזואלי" בלי "לייבוביץ", או סתם "יפית" לבד). כל רשומה ב-
+  // fuzzyEntries מכילה words (מילים ייחודיות לאותו מוסד, אחרי סינון
+  // מילים גנריות/נפוצות) ו-strongWords (תת-קבוצה שכל מילה בה ייחודית-
+  // לחלוטין במאגר כולו). התאמה: לפחות מילה אחת מ-strongWords נמצאת
+  // בהודעה, *או* לפחות 2 מילים מתוך words נמצאות. בין כמה מועמדים —
+  // עדיפות למספר-המילים-התואמות הגבוה ביותר (הכי ספציפי).
+  const fuzzyEntries = data.fuzzyEntries || [];
+  let bestScore = 0;
+  let bestUrls = new Set(); // כל ה-url-ים (השונים) שהשיגו את bestScore
+  let bestEntry = null;
+  for (const entry of fuzzyEntries) {
+    const matchedWords = (entry.words || []).filter(w => wordBoundaryIncludes(msgL, w.toLowerCase()));
+    const hasStrong = (entry.strongWords || []).some(w => wordBoundaryIncludes(msgL, w.toLowerCase()));
+    if (!hasStrong && matchedWords.length < 2) continue;
+    if (matchedWords.length > bestScore) {
+      bestScore = matchedWords.length;
+      bestUrls = new Set([entry.url]);
+      bestEntry = entry;
+    } else if (matchedWords.length === bestScore) {
+      bestUrls.add(entry.url);
+    }
+  }
+  // תיקו אמיתי בין שני מוסדות *שונים* (url-ים שונים) — מעורפל, לא מנחשים.
+  if (bestEntry && bestUrls.size === 1) return { found: true, name: bestEntry.name, url: bestEntry.url };
+
+  return null;
+}
+
+// מחזיר תשובה ישירה אם ההודעה מזהה כבקשת מספר-טלפון — אחרת null (וממשיכים
+// לזרימה הרגילה). לעולם לא מחזיר מספר טלפון גולמי בטקסט: אם נמצא מוסד/איש-
+// קשר תואם ב-contact-phones.json — מפנים לדף יצירת-הקשר הייעודי שלו; אם
+// לא נמצא — מפנים לקבוצת הוואטסאפ של שבתון, **לא** לקרנות ההשתלמות (לפי
+// בקשה מפורשת: קרנות ההשתלמות אינן הגורם הרלוונטי לבירור טלפון של מוסד).
+function tryAnswerPhoneNumberRequest(message) {
+  const m = message || '';
+  if (!PHONE_REQUEST_RE.test(m)) return null;
+
+  const match = lookupContactPhone(m);
+  if (match && match.found) {
+    return `אי אפשר לשתף כאן מספרי טלפון ישירות, אבל אפשר לפנות ל**${match.name}** ` +
+      `דרך דף יצירת-הקשר הישיר בפורטל שבתון:\n\n[לפרטי הקשר ומספר הטלפון](${match.url})`;
+  }
+
+  return 'אי אפשר לשתף כאן מספרי טלפון אישיים.\n\n' +
+    'לא מצאתי את השם הזה במאגר המוסדות/אנשי-הקשר של פורטל שבתון — ' +
+    `הכי מהיר לקבל עזרה או הפניה מתאימה: [אפשר לשאול בקבוצת הווטסאפ שבתון](${SHASH_WHATSAPP_LINK})`;
+}
+
 // ── חילוץ "חריגי החרגה" מהודעה — "חוץ מ-X", "מלבד X", "לא כולל X" וכו' ──
 // כשמישהי מבקשת "חוץ ממרכז החומר, איפה עוד אפשר ללמוד אמנות?" היא לא רוצה
 // לראות שוב את מרכז החומר ברשימת התוצאות. מחזיר מערך של מחרוזות (באותיות
@@ -3252,6 +3334,9 @@ export default async function handler(req, res) {
     // אם בהודעה הקודמת של הבוט הוא ביקש שם/אימייל/טלפון (QA: institution_not_responding),
     // וההודעה הנוכחית מכילה פרטי קשר (אימייל/טלפון) — זו תגובת המשך, לא שאלה חדשה.
     // יש לאשר קבלה ולדווח לזאפייר, ולא לחפש קורסים על סמך תוכן הפרטים.
+    // חשוב: הבדיקה הזו *חייבת* לרוץ לפני tryAnswerPhoneNumberRequest למטה —
+    // אחרת גולש שעונה "הטלפון שלי הוא 050-1234567" בתגובה לבקשת-פרטים היה
+    // נתפס בטעות כ"בקשת" מספר טלפון, במקום כהגשת-פרטים.
     const DETAILS_REQUEST_MARKER = 'נעביר את הבקשה שלך ישירות';
     const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
     const PHONE_RE = /0\d{1,2}[-\s]?\d{6,8}/;
@@ -3278,6 +3363,14 @@ export default async function handler(req, res) {
         } catch(ze) { console.error('Zapier error:', ze.message); }
       }
       return res.json({ reply: confirmReply });
+    }
+
+    // ── בקשת מספר-טלפון — לפני שההודעה מגיעה לקלוד, כדי שלעולם לא תיווצר
+    // תשובה עם מספר-טלפון גולמי או הפניה שגויה לקרנות ההשתלמות ──
+    const phoneReply = tryAnswerPhoneNumberRequest(message);
+    if (phoneReply) {
+      console.log('PHONE NUMBER REQUEST — direct reply');
+      return res.json({ reply: phoneReply });
     }
 
     // ── INSTITUTION LOOKUP — רץ ראשון, לפני buildContext, בלי תלות בחיפוש קורסים ──
