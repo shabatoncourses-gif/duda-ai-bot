@@ -514,6 +514,13 @@ function cleanDom($) {
     "script", "style", "noscript", "iframe",
     ".cookie", ".popup", ".modal", ".advertisement", ".ad", ".ads",
     ".social-share", ".social", ".comments",
+    // ⚡ נוסף: <select>/<option> — לרוב "קפצו לקטגוריה" / dropdown סינון.
+    // ל-cheerio .text() על select מצרף את כל טקסט ה-options ברצף אחד,
+    // בלי שום מפריד — בפועל תוכן שנראה כמו פסקה רציפה אבל הוא בכלל
+    // רשימת-כל-הקטגוריות שהודבקה זו-לצד-זו. נצפה בפרודקשן: תשובת-בוט
+    // עם רשימה מוזרה של כל שמות-התחומים דבוקים זה-בזה בלי רווח הגיוני
+    // ביניהם — בדיוק התסמין של select.text() לא-מסונן.
+    "select", "option",
   ];
 
   removeSelectors.forEach((sel) => {
@@ -1896,29 +1903,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
