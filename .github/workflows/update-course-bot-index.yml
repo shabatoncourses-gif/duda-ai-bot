@@ -1,7 +1,7 @@
 name: עדכון אינדקס בוט הקורסים
 
-# בונה מחדש את course-bot/course_index.js (נושאי הקורסים שהבוט מזהה)
-# מתוך data/study-fields.json.
+# בונה מחדש את course-bot/course_index.js (נושאי הקורסים) ואת course-bot/institutions_index.js (מוסדות הלימוד)
+# מתוך data/study-fields.json ו-data/Institutions.json.
 #  • הפעלה ידנית: Actions → "עדכון אינדקס בוט הקורסים" → Run workflow
 #  • אוטומטית: אחרי "עדכון מוסדות מ-Excel", ובכל שינוי ב-study-fields.json או ב-topics.json
 
@@ -15,6 +15,7 @@ on:
   push:
     paths:
       - 'data/study-fields.json'
+      - 'data/Institutions.json'
       - 'course-bot/topics.json'
       - 'scripts/build_course_bot_index.py'
   workflow_run:
@@ -55,7 +56,7 @@ jobs:
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add course-bot/course_index.js
+        git add course-bot/course_index.js course-bot/institutions_index.js
         if git diff --cached --quiet; then
           echo "⏭️ אין שינויים באינדקס"
         else
