@@ -263,6 +263,24 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
     messages.querySelectorAll('.shabaton-message').forEach(function(el){ el.remove(); });
   });
 
+  // שאלה שהועברה מבוט חיפוש הקורסים (shabaton-bot?q=...) – נשלחת אוטומטית
+  (function autoAsk(){
+    function fromSearch(s){ try { return new URLSearchParams(s).get('q') || ''; } catch(e){ return ''; } }
+    var q = fromSearch(window.location.search);
+    if (!q) { try { q = fromSearch(window.top.location.search); } catch(e){} }   // אם הבוט בתוך iframe באותו דומיין
+    q = (q || '').trim().slice(0, 500);
+    if (!q) return;
+    // מנקים את q מהכתובת כדי שרענון הדף לא ישלח שוב את השאלה
+    try {
+      var w = window.location.search.indexOf('q=') > -1 ? window : window.top;
+      var u = new URL(w.location.href); u.searchParams.delete('q');
+      w.history.replaceState(null, '', u.pathname + u.search + u.hash);
+    } catch(e){}
+    chatInput.value = q;
+    chatSend.disabled = false;
+    sendMessage();
+  })();
+
 })();
 
 </script>
