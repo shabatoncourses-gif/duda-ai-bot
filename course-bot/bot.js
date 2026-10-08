@@ -20,7 +20,7 @@
   var st = document.createElement("style");
   st.textContent = "\n/* \u05D4\u05EA\u05DE\u05D5\u05E0\u05D4: \u05D0\u05E4\u05E9\u05E8 \u05DC\u05D4\u05D7\u05DC\u05D9\u05E3 \u05D1\u05DB\u05EA\u05D5\u05D1\u05EA \u05E9\u05DC \u05EA\u05DE\u05D5\u05E0\u05D4 \u05E9\u05D4\u05D5\u05E2\u05DC\u05EA\u05D4 \u05DC\u05D3\u05D5\u05D3\u05D0 \u2013 url(\"https://...\") */\n#shb-bot{--shb-img:url(\"__BASE__hero.jpg\");\n  --blue:#0982bc;--orange:#e8630a;--tx:#1a2a3a;--br:#d4e6f4;\n  font-family:\"Heebo\",Arial,sans-serif;color:var(--tx);direction:rtl;container-type:inline-size}\n#shb-bot *{box-sizing:border-box;margin:0;padding:0}\n#shb-bot .shb-hero{position:relative;background:var(--shb-img) center 28%/cover no-repeat;overflow:hidden;padding:64px 28px 44px;min-height:480px;display:flex;align-items:center}\n#shb-bot .shb-hero::before{content:\"\";position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,60,95,.50) 0%,rgba(7,60,95,.62) 55%,rgba(7,60,95,.80) 100%)}\n#shb-bot .shb-in{position:relative;width:100%;max-width:740px;margin:0 auto;text-align:center}\n#shb-bot .shb-title{color:#fff !important;-webkit-text-fill-color:#fff !important;font-family:\"Heebo\",Arial,sans-serif !important;font-size:34px !important;font-weight:800 !important;line-height:1.25 !important;text-shadow:0 2px 10px rgba(0,0,0,.35);margin:0 !important;background:none !important}\n#shb-bot .shb-sub{color:#fff !important;-webkit-text-fill-color:#fff !important;opacity:.95;font-size:17px;margin:10px 0 22px;text-shadow:0 1px 6px rgba(0,0,0,.3)}\n#shb-bot .shb-bar{display:flex;align-items:center;background:#fff;border-radius:50px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.28)}\n#shb-bot .shb-bar input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:500 18px \"Heebo\",Arial,sans-serif;color:var(--tx);padding:0 18px;direction:rtl}\n#shb-bot .shb-bar button{background:linear-gradient(135deg,var(--orange),#f07e2a);color:#fff;border:0;border-radius:40px;padding:13px 26px;font:700 17px \"Heebo\",Arial,sans-serif;white-space:nowrap;cursor:pointer;box-shadow:0 3px 10px rgba(232,99,10,.4)}\n#shb-bot .shb-bar button:hover{filter:brightness(1.07)}\n#shb-bot .shb-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}\n#shb-bot .shb-sug{justify-content:center;margin-top:14px}\n#shb-bot .shb-chip{border:1.5px solid var(--br);color:var(--blue);background:#fff;border-radius:20px;padding:6px 14px;font:500 14px \"Heebo\",Arial,sans-serif;cursor:pointer;transition:all .15s}\n#shb-bot .shb-sug .shb-chip{background:rgba(255,255,255,.92);border-color:transparent}\n#shb-bot .shb-chip:hover{background:var(--blue);color:#fff;border-color:var(--blue)}\n/* \u05D0\u05D6\u05D5\u05E8 \u05D4\u05EA\u05E9\u05D5\u05D1\u05D5\u05EA \u2013 \u05DE\u05D5\u05E4\u05D9\u05E2 \u05E8\u05E7 \u05D0\u05D7\u05E8\u05D9 \u05D4\u05E9\u05D0\u05DC\u05D4 \u05D4\u05E8\u05D0\u05E9\u05D5\u05E0\u05D4 */\n#shb-bot .shb-panel{display:none;margin-top:18px;background:rgba(247,250,253,.97);border-radius:16px;overflow:hidden;text-align:right;box-shadow:0 6px 24px rgba(0,0,0,.2)}\n#shb-bot .shb-panel.on{display:block;animation:shbUp .25s ease}\n#shb-bot .shb-bar-top{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--br);background:#fff;font-size:13px;color:#6b7a8a;font-weight:500}\n#shb-bot .shb-clear{background:#fff;border:1.5px solid var(--br);color:#6b7a8a;border-radius:10px;padding:5px 12px;font:500 13px \"Heebo\",Arial,sans-serif;cursor:pointer;transition:all .15s}\n#shb-bot .shb-clear:hover{border-color:var(--blue);color:var(--blue);background:#e8f4fb}\n#shb-bot .shb-log{position:relative;padding:14px;max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}\n#shb-bot .shb-msg{max-width:88%;padding:10px 14px;border-radius:16px;line-height:1.5;font-size:15px;white-space:pre-line;animation:shbUp .25s ease}\n@keyframes shbUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}\n#shb-bot .shb-bot-msg{align-self:flex-start;background:#fff;border:1px solid var(--br);border-top-right-radius:4px}\n#shb-bot .shb-user-msg{align-self:flex-end;background:var(--blue);color:#fff;border-top-left-radius:4px;font-weight:500}\n#shb-bot .shb-go{display:inline-block;margin:8px 0 0 6px;background:var(--orange);color:#fff !important;text-decoration:none;border-radius:24px;padding:8px 18px;font-weight:700;font-size:14.5px;box-shadow:0 3px 10px rgba(232,99,10,.3)}\n#shb-bot .shb-go:hover{filter:brightness(1.08)}\n#shb-bot .shb-list .shb-go{display:block;margin:6px 0 0;text-align:right}\n#shb-bot .shb-go.alt{background:#fff;color:var(--blue) !important;border:1.5px solid var(--blue);box-shadow:none}\n\n/* \u05E1\u05DC\u05D5\u05DC\u05E8 */\n@container (max-width:600px){\n  #shb-bot .shb-hero{padding:30px 14px 20px;min-height:400px;border-radius:0;background-position:center 15%;align-items:flex-start}\n  #shb-bot .shb-title{font-size:23px !important}\n  #shb-bot .shb-sub{font-size:14.5px;margin:8px 0 16px}\n  #shb-bot .shb-bar input{font-size:16px;padding:0 12px}\n  #shb-bot .shb-bar button{padding:11px 16px;font-size:15px}\n  #shb-bot .shb-sug .shb-chip:nth-child(n+4){display:none}\n  #shb-bot .shb-log{padding:10px;max-height:360px}\n  #shb-bot .shb-panel{margin-top:14px}\n  #shb-bot .shb-msg{max-width:92%}\n}\n@media (max-width:600px){\n  #shb-bot .shb-hero{padding:30px 14px 20px;min-height:0;border-radius:0}\n  #shb-bot .shb-title{font-size:23px !important}\n}\n/* ===== \u05E4\u05E1 \u05D1\u05E8\u05D5\u05D7\u05D1 \u05DE\u05DC\u05D0 \u05E9\u05DC \u05D4\u05DE\u05E1\u05DA \u2013 \u05D2\u05DD \u05DB\u05E9\u05D4\u05D5\u05D5\u05D9\u05D3\u05D2'\u05D8 \u05E0\u05DE\u05E6\u05D0 \u05D1\u05EA\u05D5\u05DA \u05E2\u05DE\u05D5\u05D3\u05D4 \u05E6\u05E8\u05D4 \u05D1\u05D3\u05D5\u05D3\u05D0 ===== */\n#shb-bot{width:100vw;max-width:100vw;position:relative;margin-inline:calc(50% - 50vw)}\nhtml,body{overflow-x:hidden}\n".replace(/__BASE__/g, BASE);
   document.head.appendChild(st);
-  root.innerHTML = "  <div class=\"shb-hero\">\n    <div class=\"shb-in\">\n      <div class=\"shb-title\" role=\"heading\" aria-level=\"2\">\u05DE\u05E6\u05D0\u05D5 \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9 \u05DC\u05D9\u05DE\u05D5\u05D3, \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D5\u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05D9\u05D5\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D9\u05DD \u05DC\u05DB\u05DD</div>\n      <p class=\"shb-sub\">\u05DB\u05EA\u05D1\u05D5 \u05D1\u05DE\u05D9\u05DC\u05D9\u05DD \u05E9\u05DC\u05DB\u05DD \u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3 \u05D5\u05D0\u05D9\u05E4\u05D4 \u2013 \u05D0\u05D5 \u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7</p>\n      <form class=\"shb-bar\" id=\"shb-form\" autocomplete=\"off\">\n        <input id=\"shb-input\" type=\"text\" placeholder=\"\u05DC\u05D3\u05D5\u05D2\u05DE\u05D4: \u05E7\u05D5\u05E8\u05E1 \u05E6\u05D9\u05DC\u05D5\u05DD \u05D1\u05D7\u05D9\u05E4\u05D4\" aria-label=\"\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3?\" enterkeyhint=\"search\">\n        <button type=\"submit\">\u05D7\u05E4\u05E9\u05D5 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD</button>\n      </form>\n      <div class=\"shb-chips shb-sug\" id=\"shb-sug\"></div>\n      <div class=\"shb-panel\" id=\"shb-panel\">\n        <div class=\"shb-bar-top\"><span>\u05EA\u05D5\u05E6\u05D0\u05D5\u05EA \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9</span><button type=\"button\" class=\"shb-clear\" id=\"shb-clear\" aria-label=\"\u05E0\u05D9\u05E7\u05D5\u05D9 \u05D4\u05E9\u05D9\u05D7\u05D4\">\uD83D\uDDD1\uFE0F \u05E0\u05D9\u05E7\u05D5\u05D9 \u05E9\u05D9\u05D7\u05D4</button></div>\n        <div class=\"shb-log\" id=\"shb-log\" aria-live=\"polite\"></div>\n      </div>\n    </div>\n  </div>";
+  root.innerHTML = "  <div class=\"shb-hero\">\n    <div class=\"shb-in\">\n      <div class=\"shb-title\" role=\"heading\" aria-level=\"2\">\u05DE\u05E6\u05D0\u05D5 \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9 \u05DC\u05D9\u05DE\u05D5\u05D3, \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D5\u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05D9\u05D5\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D9\u05DD \u05DC\u05DB\u05DD</div>\n      <p class=\"shb-sub\">\u05DB\u05EA\u05D1\u05D5 \u05D1\u05DE\u05D9\u05DC\u05D9\u05DD \u05E9\u05DC\u05DB\u05DD \u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3 \u05D5\u05D0\u05D9\u05E4\u05D4, \u05D0\u05D5 \u05D7\u05E4\u05E9\u05D5 \u05DC\u05E4\u05D9 \u05DE\u05D5\u05E1\u05D3 \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD</p>\n      <form class=\"shb-bar\" id=\"shb-form\" autocomplete=\"off\">\n        <input id=\"shb-input\" type=\"text\" placeholder=\"\u05DC\u05D3\u05D5\u05D2\u05DE\u05D4: \u05E7\u05D5\u05E8\u05E1 \u05E6\u05D9\u05DC\u05D5\u05DD \u05D1\u05D7\u05D9\u05E4\u05D4 / \u05DE\u05DB\u05DC\u05DC\u05EA \u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9\" aria-label=\"\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3?\" enterkeyhint=\"search\">\n        <button type=\"submit\">\u05D7\u05E4\u05E9\u05D5 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD</button>\n      </form>\n      <div class=\"shb-chips shb-sug\" id=\"shb-sug\"></div>\n      <div class=\"shb-panel\" id=\"shb-panel\">\n        <div class=\"shb-bar-top\"><span>\u05EA\u05D5\u05E6\u05D0\u05D5\u05EA \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9</span><button type=\"button\" class=\"shb-clear\" id=\"shb-clear\" aria-label=\"\u05E0\u05D9\u05E7\u05D5\u05D9 \u05D4\u05E9\u05D9\u05D7\u05D4\">\uD83D\uDDD1\uFE0F \u05E0\u05D9\u05E7\u05D5\u05D9 \u05E9\u05D9\u05D7\u05D4</button></div>\n        <div class=\"shb-log\" id=\"shb-log\" aria-live=\"polite\"></div>\n      </div>\n    </div>\n  </div>";
 
   function start(){
 
@@ -138,12 +138,18 @@
     if(res.length>1 && res[0].score >= res[1].score*2) res = [res[0]];
     return res.map(function(r){return r.d;});
   }
+  // \u05D4\u05DE\u05D9\u05DC\u05D4 \u05DE\u05EA\u05D7\u05D9\u05DC\u05D4 \u05D1\u05EA\u05D7\u05D9\u05DC\u05EA \u05DE\u05D9\u05DC\u05D4 \u05D1\u05D8\u05E7\u05E1\u05D8 (\u05DE\u05D5\u05EA\u05E8\u05EA \u05D0\u05D5\u05EA \u05E9\u05D9\u05DE\u05D5\u05E9: \u05D1/\u05D4/\u05D5/\u05DC/\u05DE/\u05E9)
+  function wordStart(t, w){ var P=" \u05D4\u05D5\u05D1\u05DC\u05DE\u05E9"; for(var i=0;i<P.length;i++){ if(t.indexOf(" "+(P[i]===" "?"":P[i])+w) > -1) return true; } return false; }
+  // \u05D5\u05D4\u05DE\u05D9\u05DC\u05D4 \u05DE\u05E1\u05EA\u05D9\u05D9\u05DE\u05EA \u05DB\u05DE\u05D9\u05DC\u05D4 \u05E9\u05DC\u05DE\u05D4, \u05D0\u05D5 \u05D1\u05E1\u05D9\u05D5\u05DE\u05EA \u05E8\u05D1\u05D9\u05DD/\u05E0\u05E7\u05D1\u05D4 \u05E0\u05E4\u05D5\u05E6\u05D4
+  function wordEnd(t, w){ return [" ","\u05D9\u05DD ","\u05D5\u05EA ","\u05D4 "].some(function(e){ return t.indexOf(w+e) > -1; }); }
   // \u05D7\u05D9\u05E4\u05D5\u05E9 \u05E0\u05D5\u05E9\u05D0 \u05E7\u05D5\u05E8\u05E1 \u05D1\u05D0\u05D9\u05E0\u05D3\u05E7\u05E1 (\u05DB\u05D5\u05DC\u05DC \u05E6\u05D5\u05E8\u05D5\u05EA \u05E8\u05D1\u05D9\u05DD: \u05DE\u05E0\u05D3\u05DC\u05D5\u05EA \u2192 \u05DE\u05E0\u05D3\u05DC\u05D4)
   function findCourseTopic(t){
     var best = null;
     Object.keys(COURSE_IDX).forEach(function(k){
       var stem = norm(k).trim().replace(/(\u05D5\u05EA|\u05D9\u05DD|\u05D4)$/, "");
-      var exact = has(t,k), ok = exact || (stem.length >= 4 && t.indexOf(stem) > -1);
+      var nk = norm(k).trim();
+      var exact = /^[a-z.]{1,3}$/.test(nk) ? has(t,k) : wordStart(t, nk) && wordEnd(t, nk);
+      var ok = exact || (stem.length >= 4 && wordStart(t, stem));
       // \u05D4\u05EA\u05D0\u05DE\u05D4 \u05DE\u05D3\u05D5\u05D9\u05E7\u05EA \u05E2\u05D3\u05D9\u05E4\u05D4 \u05E2\u05DC \u05D4\u05EA\u05D0\u05DE\u05D4 \u05DC\u05E4\u05D9 \u05E9\u05D5\u05E8\u05E9; \u05D1\u05D9\u05DF \u05E9\u05D5\u05D5\u05EA \u2013 \u05D4\u05DE\u05D9\u05DC\u05D4 \u05D4\u05D0\u05E8\u05D5\u05DB\u05D4 \u05D9\u05D5\u05EA\u05E8
       if(ok && (!best || (exact && !best.exact) || (exact === best.exact && k.length > best.kw.length)))
         best = {kw:k, list:COURSE_IDX[k], exact:exact};
@@ -190,6 +196,79 @@
           pages.map(function(p){ return {label:instPageLabel(p[0], name), href:p[1], alt:true}; }));
     }
   }
+  /* ---- \u05DB\u05E9\u05DC\u05D0 \u05E0\u05DE\u05E6\u05D0 \u05DE\u05D5\u05E1\u05D3 \u05D0\u05D5 \u05E7\u05D5\u05E8\u05E1: \u05D4\u05D5\u05D3\u05E2\u05D4 \u05E0\u05E2\u05D9\u05DE\u05D4 + \u05D4\u05E6\u05E2\u05D5\u05EA \u05D7\u05DC\u05D5\u05E4\u05D9\u05D5\u05EA ---- */
+  var WHATSAPP_URL = "https://chat.whatsapp.com/Hrc27GwXmDkBcRF2bWSyCs";
+  var FILLER = ("\u05E7\u05D5\u05E8\u05E1 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9 \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD \u05DC\u05DC\u05DE\u05D5\u05D3 \u05DC\u05D5\u05DE\u05D3\u05D9\u05DD \u05D0\u05E0\u05D9 \u05D0\u05E0\u05D7\u05E0\u05D5 \u05DE\u05D7\u05E4\u05E9 \u05DE\u05D7\u05E4\u05E9\u05EA \u05DE\u05D7\u05E4\u05E9\u05D9\u05DD \u05E8\u05D5\u05E6\u05D4 \u05E8\u05D5\u05E6\u05D9\u05DD \u05DE\u05E9\u05D4\u05D5 \u05D1\u05EA\u05D7\u05D5\u05DD \u05EA\u05D7\u05D5\u05DD \u05E9\u05DC \u05E2\u05DC \u05D9\u05E9 \u05D4\u05D0\u05DD " +
+                "\u05D0\u05E4\u05E9\u05E8 \u05DC\u05D9 \u05DC\u05E0\u05D5 \u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05EA \u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05D9\u05D5\u05EA \u05E1\u05D3\u05E0\u05D4 \u05E1\u05D3\u05E0\u05EA \u05E1\u05D3\u05E0\u05D0\u05D5\u05EA \u05D1\u05D0\u05D6\u05D5\u05E8 \u05D0\u05D6\u05D5\u05E8 \u05E2\u05DD \u05D0\u05D5 \u05D2\u05DD \u05DE\u05D4 \u05D0\u05D9\u05E4\u05D4 \u05D0\u05D9\u05D6\u05D4 \u05D0\u05D9\u05D6\u05D5 \u05D8\u05D5\u05D1 \u05D8\u05D5\u05D1\u05D4 \u05DE\u05D5\u05DE\u05DC\u05E5 \u05DE\u05D5\u05E1\u05D3 " +
+                "\u05DE\u05DB\u05DC\u05DC\u05EA \u05DE\u05DB\u05DC\u05DC\u05D4 \u05D4\u05DE\u05DB\u05DC\u05DC\u05D4 \u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05EA \u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05D4 \u05D4\u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05D4 \u05DE\u05DB\u05D5\u05DF \u05E1\u05DE\u05D9\u05E0\u05E8 \u05E1\u05D8\u05D5\u05D3\u05D9\u05D5 \u05D4\u05D0\u05E7\u05D3\u05DE\u05D9\u05EA \u05D4\u05E7\u05E8\u05D9\u05D4 \u05E7\u05DE\u05E4\u05D5\u05E1 \u05D1\u05D9\u05EA \u05E1\u05E4\u05E8 \u05D1\u05E9\u05D1\u05EA\u05D5\u05DF \u05E9\u05D1\u05EA\u05D5\u05DF \u05DC\u05E9\u05D1\u05EA\u05D5\u05DF").split(" ");
+  var INST_WORDS = ["\u05DE\u05DB\u05DC\u05DC\u05EA","\u05DE\u05DB\u05DC\u05DC\u05D4","\u05D4\u05DE\u05DB\u05DC\u05DC\u05D4","\u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05EA","\u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05D4","\u05D4\u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05D4","\u05DE\u05DB\u05D5\u05DF","\u05E1\u05DE\u05D9\u05E0\u05E8","\u05E1\u05D8\u05D5\u05D3\u05D9\u05D5","\u05D4\u05D0\u05E7\u05D3\u05DE\u05D9\u05EA","\u05D4\u05E7\u05E8\u05D9\u05D4","\u05E7\u05DE\u05E4\u05D5\u05E1","\u05DE\u05D5\u05E1\u05D3","\u05D1\u05D9\u05EA \u05E1\u05E4\u05E8"];
+  var POPULAR = [6,13,22,43,106,16,73,93];   // \u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05DC\u05D4\u05E6\u05E2\u05D4 \u05DB\u05E9\u05D0\u05D9\u05DF \u05E9\u05D5\u05DD \u05E8\u05DE\u05D6
+
+  function subjectOf(text){
+    var t = norm(text);
+    AREAS.forEach(function(a){ a.kw.forEach(function(k){ t = t.split(" "+norm(k).trim()+" ").join(" "); t = t.split(" \u05D1"+norm(k).trim()+" ").join(" "); }); });
+    REMOTE_KW.forEach(function(k){ t = t.split(" "+norm(k).trim()+" ").join(" "); });
+    return t.trim().split(" ").filter(function(w){ return w.length > 1 && FILLER.indexOf(w) === -1; }).join(" ");
+  }
+  function lev(a, b){
+    var m = a.length, n = b.length, d = [], i, j;
+    for(i=0;i<=m;i++){ d[i]=[i]; } for(j=0;j<=n;j++){ d[0][j]=j; }
+    for(i=1;i<=m;i++) for(j=1;j<=n;j++)
+      d[i][j] = Math.min(d[i-1][j]+1, d[i][j-1]+1, d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+    return d[m][n];
+  }
+  // "\u05D0\u05D5\u05DC\u05D9 \u05D4\u05EA\u05DB\u05D5\u05D5\u05E0\u05EA\u05DD \u05DC...": \u05D4\u05E9\u05D5\u05D5\u05D0\u05D4 \u05DC\u05E9\u05DE\u05D5\u05EA \u05EA\u05D7\u05D5\u05DE\u05D9\u05DD, \u05E0\u05D5\u05E9\u05D0\u05D9 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D5\u05E9\u05DE\u05D5\u05EA \u05DE\u05D5\u05E1\u05D3\u05D5\u05EA (\u05DE\u05EA\u05D0\u05D9\u05DD \u05D2\u05DD \u05DC\u05E9\u05D2\u05D9\u05D0\u05D5\u05EA \u05DB\u05EA\u05D9\u05D1)
+  var VOCAB = null;
+  function vocab(){
+    if(VOCAB) return VOCAB;
+    VOCAB = [];
+    DISC.forEach(function(d){ d.kw.forEach(function(k){ VOCAB.push({w:norm(k).trim(), label:k, inst:false, run:function(){ handle(k); }}); }); });
+    Object.keys(COURSE_IDX).forEach(function(k){ VOCAB.push({w:norm(k).trim(), label:k, inst:false, run:function(){ handle(k); }}); });
+    Object.keys(INST.k).forEach(function(k){ INST.k[k].forEach(function(i){
+      VOCAB.push({w:k, label:INST.g[i][0], inst:true, run:function(){ showInstitution(i); }}); }); });
+    return VOCAB;
+  }
+  function suggest(subject, wantInst){
+    var words = subject.split(" ").filter(function(w){ return w.length >= 4; });
+    if(!words.length) return [];
+    var best = {};
+    vocab().forEach(function(v){
+      if(v.w.length < 4 || v.inst !== !!wantInst) return;
+      var sc = 9;
+      words.forEach(function(w){
+        var dist = lev(w, v.w), len = Math.max(w.length, v.w.length);
+        var r = dist / len;
+        if((dist === 1 && len >= 4) || (dist === 2 && len >= 7)) sc = Math.min(sc, r);
+        else if(w.length >= 4 && v.w.length >= 4 && (v.w.indexOf(w) > -1 || w.indexOf(v.w) > -1)) sc = Math.min(sc, 0.3);
+      });
+      if(sc < 9 && (!best[v.label] || sc < best[v.label].sc)) best[v.label] = {sc:sc, v:v};
+    });
+    return Object.keys(best).map(function(k){ return best[k]; })
+      .sort(function(a,b){ return a.sc - b.sc || a.v.label.length - b.v.label.length; })
+      .slice(0,4).map(function(b){ return {label:b.v.label, action:b.v.run}; });
+  }
+  function notFound(text, t){
+    var subject = subjectOf(text);
+    var isInst = INST_WORDS.some(function(w){ return t.indexOf(" "+w+" ") > -1; });
+    var sugg = suggest(subject, isInst);
+    var help = [{label:"\u05DC\u05E9\u05D0\u05D5\u05DC \u05D0\u05EA \u05E9\u05D1\u05D9 \u05D1\u05D5\u05D8", href:shabiUrl(text), alt:true},
+                {label:"\u05DC\u05E9\u05D0\u05D5\u05DC \u05D1\u05E7\u05D1\u05D5\u05E6\u05EA \u05D4\u05D5\u05D5\u05D8\u05E1\u05D0\u05E4", href:WHATSAPP_URL, alt:true, ext:true}];
+    var what = subject ? " \u201E"+subject+"\u201D" : "";
+    if(isInst){
+      say("\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05D1\u05D0\u05EA\u05E8 \u05E9\u05D1\u05EA\u05D5\u05DF \u05D0\u05EA \u05D4\u05DE\u05D5\u05E1\u05D3"+what+" \uD83D\uDE41\n\u05D9\u05D9\u05EA\u05DB\u05DF \u05E9\u05D4\u05D5\u05D0 \u05E2\u05D3\u05D9\u05D9\u05DF \u05DC\u05D0 \u05DE\u05E4\u05E8\u05E1\u05DD \u05D0\u05E6\u05DC\u05E0\u05D5 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD, \u05D0\u05D5 \u05E9\u05D4\u05E9\u05DD \u05DB\u05EA\u05D5\u05D1 \u05E7\u05E6\u05EA \u05D0\u05D7\u05E8\u05EA." +
+          (sugg.length ? "\n\n\u05D0\u05D5\u05DC\u05D9 \u05D4\u05EA\u05DB\u05D5\u05D5\u05E0\u05EA\u05DD \u05DC:" : "\n\n\u05D0\u05E4\u05E9\u05E8 \u05DC\u05D7\u05E4\u05E9 \u05DC\u05E4\u05D9 \u05E0\u05D5\u05E9\u05D0 \u05D4\u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD \u2013 \u05DC\u05DE\u05E9\u05DC:"),
+          sugg.length ? sugg : POPULAR.slice(0,5).map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; }));
+    } else if(subject){
+      say("\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05D1\u05D0\u05EA\u05E8 \u05E7\u05D5\u05E8\u05E1 \u05D1\u05E0\u05D5\u05E9\u05D0"+what+" \uD83D\uDE41\n\u05D9\u05D9\u05EA\u05DB\u05DF \u05E9\u05E2\u05D3\u05D9\u05D9\u05DF \u05D0\u05D9\u05DF \u05E7\u05D5\u05E8\u05E1 \u05DB\u05D6\u05D4, \u05D0\u05D5 \u05E9\u05D4\u05D5\u05D0 \u05DE\u05D5\u05E4\u05D9\u05E2 \u05EA\u05D7\u05EA \u05E9\u05DD \u05D0\u05D7\u05E8." +
+          (sugg.length ? "\n\n\u05D0\u05D5\u05DC\u05D9 \u05D4\u05EA\u05DB\u05D5\u05D5\u05E0\u05EA\u05DD \u05DC:" : "\n\n\u05D0\u05D5\u05DC\u05D9 \u05D9\u05E2\u05E0\u05D9\u05D9\u05DF \u05D0\u05EA\u05DB\u05DD \u05D0\u05D7\u05D3 \u05DE\u05D4\u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05D4\u05D0\u05DC\u05D4:"),
+          sugg.length ? sugg : POPULAR.map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; }));
+    } else {
+      say("\u05DB\u05D3\u05D9 \u05E9\u05D0\u05DE\u05E6\u05D0 \u05DC\u05DB\u05DD \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD, \u05DB\u05EA\u05D1\u05D5 \u05DC\u05D9:\n\u2022 \u05E0\u05D5\u05E9\u05D0 \u05D0\u05D5 \u05EA\u05D7\u05D5\u05DD \u2013 \u05DC\u05DE\u05E9\u05DC \u05E6\u05D9\u05DC\u05D5\u05DD, \u05D0\u05D9\u05DE\u05D5\u05DF, \u05D0\u05E0\u05D2\u05DC\u05D9\u05EA, \u05D9\u05D5\u05D2\u05D4\n\u2022 \u05DE\u05D9\u05E7\u05D5\u05DD \u2013 \u05EA\u05DC-\u05D0\u05D1\u05D9\u05D1 \u05D5\u05D4\u05DE\u05E8\u05DB\u05D6, \u05D7\u05D9\u05E4\u05D4 \u05D5\u05D4\u05E6\u05E4\u05D5\u05DF, \u05D4\u05E9\u05E8\u05D5\u05DF, \u05D9\u05E8\u05D5\u05E9\u05DC\u05D9\u05DD, \u05D4\u05E9\u05E4\u05DC\u05D4 \u05D5\u05D4\u05D3\u05E8\u05D5\u05DD \u2013 \u05D0\u05D5 \u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7\n\u2022 \u05D0\u05D5 \u05E9\u05DD \u05E9\u05DC \u05DE\u05D5\u05E1\u05D3 \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD \u2013 \u05DC\u05DE\u05E9\u05DC \u05E1\u05DE\u05D9\u05E0\u05E8 \u05D4\u05E7\u05D9\u05D1\u05D5\u05E6\u05D9\u05DD, \u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9");
+      return;
+    }
+    say("\u05E8\u05D5\u05E6\u05D9\u05DD \u05E2\u05D6\u05E8\u05D4 \u05D0\u05D9\u05E9\u05D9\u05EA? \u05D0\u05E4\u05E9\u05E8 \u05DC\u05E9\u05D0\u05D5\u05DC \u05D0\u05EA \u05E9\u05D1\u05D9 \u05D1\u05D5\u05D8 \u05D0\u05D5 \u05D0\u05EA \u05D7\u05D1\u05E8\u05D9 \u05D4\u05E7\u05D1\u05D5\u05E6\u05D4 \u05E9\u05DC\u05E0\u05D5 \u05D1\u05D5\u05D5\u05D8\u05E1\u05D0\u05E4 \uD83D\uDCAC", null, help);
+  }
+
   function isRemote(t){ return REMOTE_KW.some(function(k){return has(t,k);}); }
   function isShabiQ(t){ return SHABI_KW.some(function(k){return has(t,k);}); }
   function areaById(id){ for(var i=0;i<AREAS.length;i++) if(AREAS[i].id===id) return AREAS[i]; }
@@ -215,7 +294,7 @@
     var html = esc(text);
     if(links && links.length){
       html += "<div" + (links.length > 2 ? ' class="shb-list"' : '') + ">" + links.map(function(l){
-        return '<a class="shb-go'+(l.alt?' alt':'')+'" href="'+l.href+'" target="_top">'+esc(l.label)+'</a>';
+        return '<a class="shb-go'+(l.alt?' alt':'')+'" href="'+l.href+'" target="'+(l.ext?'_blank" rel="noopener':'_top')+'">'+esc(l.label)+'</a>';
       }).join(" ") + "</div>";
     }
     var el = bubble(html,"bot");
@@ -323,8 +402,7 @@
           [{label:"\u05DC\u05E9\u05D0\u05D5\u05DC \u05D0\u05EA \u05E9\u05D1\u05D9 \u05D1\u05D5\u05D8", href:shabiUrl(text), alt:true}]);
       return;
     }
-    say("\u05DC\u05D0 \u05D4\u05E6\u05DC\u05D7\u05EA\u05D9 \u05DC\u05D6\u05D4\u05D5\u05EA \u05EA\u05D7\u05D5\u05DD \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD \u05D1\u05D1\u05E7\u05E9\u05D4 \uD83E\uDD14\n\u05DB\u05D3\u05D9 \u05E9\u05D0\u05DE\u05E6\u05D0 \u05DC\u05DB\u05DD \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD, \u05DB\u05EA\u05D1\u05D5 \u05D1\u05E9\u05D0\u05DC\u05D4:\n\u2022 \u05E0\u05D5\u05E9\u05D0/\u05EA\u05D7\u05D5\u05DD \u2013 \u05DC\u05DE\u05E9\u05DC \u05E6\u05D9\u05DC\u05D5\u05DD, \u05D0\u05D9\u05DE\u05D5\u05DF, \u05D0\u05E0\u05D2\u05DC\u05D9\u05EA, \u05D9\u05D5\u05D2\u05D4\n\u2022 \u05DE\u05D9\u05E7\u05D5\u05DD \u2013 \u05EA\u05DC-\u05D0\u05D1\u05D9\u05D1 \u05D5\u05D4\u05DE\u05E8\u05DB\u05D6, \u05D7\u05D9\u05E4\u05D4 \u05D5\u05D4\u05E6\u05E4\u05D5\u05DF, \u05D4\u05E9\u05E8\u05D5\u05DF, \u05D9\u05E8\u05D5\u05E9\u05DC\u05D9\u05DD, \u05D4\u05E9\u05E4\u05DC\u05D4 \u05D5\u05D4\u05D3\u05E8\u05D5\u05DD \u2013 \u05D0\u05D5 \u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7\n\n\u05D5\u05D0\u05DD \u05D4\u05E9\u05D0\u05DC\u05D4 \u05D4\u05D9\u05D0 \u05E2\u05DC \u05D6\u05DB\u05D5\u05D9\u05D5\u05EA \u05D5\u05DE\u05D9\u05D3\u05E2 \u05D1\u05E9\u05E0\u05EA \u05D4\u05E9\u05D1\u05EA\u05D5\u05DF \u2013 \u05E9\u05D1\u05D9 \u05D1\u05D5\u05D8 \u05D9\u05E9\u05DE\u05D7 \u05DC\u05E2\u05D6\u05D5\u05E8:", null,
-        [{label:"\u05DC\u05E9\u05D1\u05D9 \u05D1\u05D5\u05D8", href:shabiUrl(text), alt:true}]);
+    notFound(text, t);
   }
 
   // \u05E0\u05D9\u05E7\u05D5\u05D9 \u05D4\u05E9\u05D9\u05D7\u05D4 \u2013 \u05DE\u05D5\u05D7\u05E7 \u05D0\u05EA \u05D4\u05D4\u05D5\u05D3\u05E2\u05D5\u05EA \u05D5\u05DE\u05D0\u05E4\u05E1 \u05D0\u05EA \u05DE\u05D4 \u05E9\u05D4\u05D1\u05D5\u05D8 \u05D6\u05DB\u05E8 (\u05EA\u05D7\u05D5\u05DD/\u05D0\u05D6\u05D5\u05E8)
@@ -341,8 +419,10 @@
   });
 
   // \u05D3\u05D5\u05D2\u05DE\u05D0\u05D5\u05EA \u05DC\u05D7\u05D9\u05E6\u05D5\u05EA \u05DE\u05EA\u05D7\u05EA \u05DC\u05E9\u05D5\u05E8\u05EA \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9
+  // \u05D1\u05E1\u05DC\u05D5\u05DC\u05E8 \u2013 \u05D3\u05D5\u05D2\u05DE\u05D4 \u05E7\u05E6\u05E8\u05D4 \u05D9\u05D5\u05EA\u05E8 \u05D1\u05E9\u05D5\u05E8\u05EA \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9
+  if(document.getElementById("shb-bot").offsetWidth < 600) input.placeholder = "\u05DC\u05DE\u05E9\u05DC: \u05E6\u05D9\u05DC\u05D5\u05DD \u05D1\u05D7\u05D9\u05E4\u05D4 / \u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9";
   var sug = document.getElementById("shb-sug");
-  ["\u05E7\u05D5\u05E8\u05E1 \u05E6\u05D9\u05DC\u05D5\u05DD \u05D1\u05D7\u05D9\u05E4\u05D4","\u05D9\u05D5\u05D2\u05D4 \u05D1\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7","\u05D0\u05E0\u05D2\u05DC\u05D9\u05EA \u05D1\u05E9\u05E8\u05D5\u05DF","\u05D1\u05D9\u05E0\u05D4 \u05DE\u05DC\u05D0\u05DB\u05D5\u05EA\u05D9\u05EA \u05D1\u05DE\u05E8\u05DB\u05D6","\u05D0\u05DE\u05E0\u05D5\u05EA \u05D1\u05D9\u05E8\u05D5\u05E9\u05DC\u05D9\u05DD"].forEach(function(x){
+  ["\u05E7\u05D5\u05E8\u05E1 \u05E6\u05D9\u05DC\u05D5\u05DD \u05D1\u05D7\u05D9\u05E4\u05D4","\u05DE\u05DB\u05DC\u05DC\u05EA \u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9","\u05D9\u05D5\u05D2\u05D4 \u05D1\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7","\u05E1\u05DE\u05D9\u05E0\u05E8 \u05D4\u05E7\u05D9\u05D1\u05D5\u05E6\u05D9\u05DD","\u05D0\u05E0\u05D2\u05DC\u05D9\u05EA \u05D1\u05E9\u05E8\u05D5\u05DF","\u05D1\u05D9\u05E0\u05D4 \u05DE\u05DC\u05D0\u05DB\u05D5\u05EA\u05D9\u05EA \u05D1\u05DE\u05E8\u05DB\u05D6"].forEach(function(x){
     var b = document.createElement("button"); b.type="button"; b.className="shb-chip"; b.textContent=x;
     b.onclick = function(){ bubble(esc(x),"user"); handle(x); };
     sug.appendChild(b);
