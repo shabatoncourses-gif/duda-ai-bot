@@ -24,6 +24,10 @@
     {
       "src": "index.html",
       "use": "@vercel/static"
+    },
+    {
+      "src": "course-bot/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -46,6 +50,14 @@
     {
       "src": "/chat",
       "dest": "/chat.html"
+    },
+    {
+      "src": "/course-bot/(.*)",
+      "dest": "/course-bot/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=300",
+        "Access-Control-Allow-Origin": "*"
+      }
     },
     {
       "src": "/(.*)",
