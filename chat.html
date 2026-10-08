@@ -70,6 +70,14 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
 @media (min-width: 768px) { .page { padding: 0 32px; } .header-text h1 { font-size: 26px; } #shabaton-chat-input { font-size: 18px; } }
 @media (max-width: 480px) { .header-text h1 { font-size: 19px; } .welcome-box { padding: 20px 18px; } #shabaton-chat-input { font-size: 16px; } }
 .shabaton-consult-btn { margin-top: 10px; }
+/* מצב שיחה: אחרי השאלה הראשונה מפנים מקום לתשובה */
+body.chat-active .welcome-box, body.chat-active .suggestions, body.chat-active .divider { display: none; }
+body.chat-active .chat-header { padding: 8px 0 6px; }
+body.chat-active .header-avatar { width: 38px; height: 38px; font-size: 21px; border-radius: 12px; }
+body.chat-active .header-text h1 { font-size: 18px; }
+body.chat-active .header-text p { display: none; }
+body.chat-active .faq-banner { margin-top: 8px; padding: 6px 12px; }
+body.chat-active .input-zone { padding: 10px 0 10px; }
 </style>
 </head>
 <body>
@@ -209,6 +217,12 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
     }
     messages.appendChild(wrap);
     messages.scrollTop = messages.scrollHeight;
+    return wrap;
+  }
+  // מגלגל כך שההודעה (השאלה) תהיה בראש אזור השיחה – והתשובה מתחילה מיד מתחתיה
+  function scrollToMessage(el) {
+    if (!el) return;
+    messages.scrollTop += el.getBoundingClientRect().top - messages.getBoundingClientRect().top - 6;
   }
 
   function addTyping() {
@@ -224,7 +238,8 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
     var msg = chatInput.value.trim();
     if (!msg || isBusy) return;
     chatInput.value = ''; chatSend.disabled = true;
-    addMessage(msg, 'user');
+    document.body.classList.add('chat-active');
+    var questionEl = addMessage(msg, 'user');
     history.push({ role: 'user', content: msg });
     var typingEl = addTyping();
     isBusy = true;
@@ -237,6 +252,7 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
       typingEl.remove();
       var reply = d.reply || 'מצטערים, אירעה שגיאה.';
       addMessage(reply, 'bot');
+      scrollToMessage(questionEl);
       history.push({ role: 'assistant', content: reply });
     })
     .catch(function(){
@@ -261,6 +277,7 @@ html, body { height: 100%; margin: 0; font-family: var(--font); background: var(
   if (clearBtn) clearBtn.addEventListener('click', function(){
     history = [];
     messages.querySelectorAll('.shabaton-message').forEach(function(el){ el.remove(); });
+    document.body.classList.remove('chat-active');
   });
 
   // שאלה שהועברה מבוט חיפוש הקורסים (shabaton-bot?q=...) – נשלחת אוטומטית
