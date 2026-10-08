@@ -1,0 +1,68 @@
+name: עדכון אינדקס בוט הקורסים
+
+# בונה מחדש את course-bot/course_index.js (נושאי הקורסים שהבוט מזהה)
+# מתוך data/study-fields.json.
+#  • הפעלה ידנית: Actions → "עדכון אינדקס בוט הקורסים" → Run workflow
+#  • אוטומטית: אחרי "עדכון מוסדות מ-Excel", ובכל שינוי ב-study-fields.json או ב-topics.json
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_message:
+        description: 'הודעת commit (אופציונלי)'
+        required: false
+        default: '🔄 עדכון אינדקס בוט הקורסים'
+  push:
+    paths:
+      - 'data/study-fields.json'
+      - 'course-bot/topics.json'
+      - 'scripts/build_course_bot_index.py'
+  workflow_run:
+    workflows: ['עדכון מוסדות מ-Excel']
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: course-bot-index
+  cancel-in-progress: false
+
+jobs:
+  build-index:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 📥 Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: main
+
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: 🔄 בניית האינדקס
+      run: |
+        python scripts/build_course_bot_index.py \
+          data/study-fields.json \
+          course-bot/topics.json \
+          course-bot/course_index.js
+
+    - name: 💾 שמירה ל-GitHub
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add course-bot/course_index.js
+        if git diff --cached --quiet; then
+          echo "⏭️ אין שינויים באינדקס"
+        else
+          MSG="${{ github.event.inputs.commit_message }}"
+          if [ -z "$MSG" ]; then MSG="🔄 עדכון אינדקס בוט הקורסים"; fi
+          git commit -m "$MSG"
+          git pull --rebase origin main
+          git push origin HEAD:main
+          echo "✅ האינדקס עודכן – Vercel יעלה את הגרסה החדשה תוך כדקה"
+        fi
