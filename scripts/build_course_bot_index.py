@@ -27,6 +27,8 @@ from collections import defaultdict
 FIELDS_PATH = sys.argv[1] if len(sys.argv) > 1 else "data/study-fields.json"
 TOPICS_PATH = sys.argv[2] if len(sys.argv) > 2 else "course-bot/topics.json"
 OUT_PATH    = sys.argv[3] if len(sys.argv) > 3 else "course-bot/course_index.js"
+INST_ALIASES_PATH = os.path.join(os.path.dirname(FIELDS_PATH) or ".", "Institutions.json")
+INST_OUT_PATH     = os.path.join(os.path.dirname(OUT_PATH) or ".", "institutions_index.js")
 
 # ── שם תחום ב-study-fields.json → קוד Discipline בסקריפט items_list_duda.asp ──
 # None = תחום של קהל יעד / מסגרת (לא נושא לימוד) – לא נכנס לאינדקס.
@@ -255,5 +257,97 @@ def main():
     if unknown:
         print(f"⚠️  תחומים ב-study-fields.json שאין להם קוד Discipline (הוסיפו ל-FIELD_TO_ID): {unknown}")
 
+# ── אינדקס מוסדות לימוד ─────────────────────────────────────────────────
+# מקורות: דפי המוסדות ב-study-fields.json (כותרת + כתובת) והכינויים ב-data/Institutions.json
+# (אותם מקורות ששבי בוט משתמש בהם). מוסד עם כמה דפים (למשל לוינסקי-וינגייט) מקובץ לקבוצה אחת.
+
+INST_GENERIC = set("""
+אוניברסיטת אוניברסיטה האוניברסיטה מכללת המכללה מכללה האקדמית אקדמית האקדמי אקדמי המרכז מרכז מכון המכון
+סטודיו הסטודיו בית הספר ספר לחינוך חינוך קורס קורסי קורסים סדנא הסדנא סדנת רשת של לימודי ללימודי היחידה
+תואר שני קמפוס ועוד עש ע'ש ד'ר דר בניהולה בשיטת שיטת לפיתוח פיתוח כישורי למידה וקשב החברה להגנת הטבע
+סמינר עולם יד חלום קורס אור גוף ידע קצב פוד עוגן גבעת דוד קריה הקריה אקדמיה האקדמיה עתיד ירוק מתוק
+מהלב ישנות אהבות קורה דפי ונופשנים פרופסור כסאות הכסאות ירושלמי הירושלמי העץ איגוד ערים לאיכות הסביבה נפת מועדוני כושר עם מן הצומח בריא לאמנות ועיצוב
+""".split())
+CITY_WORDS = set("""
+רמת גן תל אביב יפו ירושלים חיפה פתח תקווה תקוה אשקלון אשדוד כרכור פרדס חנה רחובות נתניה רעננה הרצליה
+באר שבע מודיעין חולון ראשון לציון גבעתיים כפר סבא הוד השרון צפון דרום מרכז שרון גליל נגב אונו
+""".split()) - {"אונו"}
+
+def build_institutions(fields, topics):
+    pages, descs = {}, defaultdict(str)
+    for f in fields:
+        for ki in f.get("known_institutions", []) or []:
+            if ki.get("url") and ki.get("title"):
+                pages.setdefault(ki["url"], re.sub(r"\s+", " ", ki["title"]).strip())
+                descs[ki["url"]] += norm(ki.get("description", ""))
+
+    def used_elsewhere(word, own_urls):
+        """האם המילה מופיעה בתיאורי קורסים של מוסדות אחרים – אם כן, היא מילה רגילה ולא שם מוסד"""
+        pat = re.compile(r" [הובלמש]?" + re.escape(word) + r" ")
+        return any(pat.search(t) for u, t in descs.items() if u not in own_urls)
+    try:
+        aliases = json.load(open(INST_ALIASES_PATH, encoding="utf-8")).get("institutions", {})
+    except FileNotFoundError:
+        aliases = {}
+    for a, v in aliases.items():
+        if v.get("url") and v.get("title"):
+            pages.setdefault(v["url"], re.sub(r"\s+", " ", v["title"]).strip())
+
+    # קבוצה לפי "עוגן" – החלק בכותרת שלפני המקף/פסיק הראשון (כמו בשבי בוט)
+    groups, url_group = {}, {}
+    for url, title in pages.items():
+        anchor = re.split(r"\s[-–]\s|,", title)[0].strip()
+        key = re.sub(r"['\"]", "", norm(anchor)).strip()   # "ע'ש" = "עש"
+        if len(key) < 3:
+            continue
+        g = groups.setdefault(key, {"name": anchor, "pages": []})
+        g["pages"].append([title, url])
+        url_group[url] = key
+
+    topic_words = {norm(t).strip() for t in topics}
+    keys = list(groups)
+    gi = {k: i for i, k in enumerate(keys)}
+    phrases = defaultdict(set)   # ביטוי מלא (עוגן / כינוי) → קבוצות
+    tokens = defaultdict(set)    # מילה ייחודית בשם המוסד → קבוצות
+    for k in keys:
+        phrases[k].add(gi[k])
+        own_urls = {u for _, u in groups[k]["pages"]}
+        for w in k.split():
+            for part in w.split("-"):
+                part = part.strip("'\"")
+                base = part[1:] if part[:1] == "ה" and len(part) > 4 else part
+                if (len(part) < 3 or part in INST_GENERIC or base in INST_GENERIC
+                        or part in CITY_WORDS or base in CITY_WORDS
+                        or part in topic_words or base in topic_words
+                        or any(stem(t) == stem(base) for t in topic_words if len(t) >= 4)
+                        or used_elsewhere(base, own_urls)
+                        or (part[:1] in "ובל" and len(part) > 4 and used_elsewhere(part[1:], set()))):
+                    continue
+                tokens[part].add(gi[k])
+                if base != part:
+                    tokens[base].add(gi[k])
+    for a, v in aliases.items():
+        k = url_group.get(v.get("url"))
+        if k is not None and len(norm(a).strip()) >= 3:
+            phrases[norm(a).strip()].add(gi[k])
+    tokens = {t: sorted(g) for t, g in tokens.items() if len(g) <= 3}
+    out = {
+        "g": [[groups[k]["name"], sorted(groups[k]["pages"])] for k in keys],
+        "p": {p: sorted(g) for p, g in phrases.items()},
+        "k": tokens,
+    }
+    body = json.dumps(out, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+    with open(INST_OUT_PATH, "w", encoding="ascii") as fh:
+        fh.write("/* Shabaton course-bot institutions index - generated by scripts/build_course_bot_index.py. Do not edit by hand. */\n")
+        fh.write("window.SHB_INST = " + body + ";\n")
+    multi = sum(1 for k in keys if len(groups[k]["pages"]) > 1)
+    print(f"🏫 אינדקס מוסדות: {len(keys)} מוסדות, {len(pages)} דפים ({multi} מוסדות עם כמה דפים), {len(out['p'])} שמות/כינויים, {len(tokens)} מילות זיהוי")
+
 if __name__ == "__main__":
     main()
+    _data = json.load(open(FIELDS_PATH, encoding="utf-8"))
+    try:
+        _topics = json.load(open(TOPICS_PATH, encoding="utf-8"))
+    except FileNotFoundError:
+        _topics = []
+    build_institutions(_data.get("studyFields", _data), _topics)
