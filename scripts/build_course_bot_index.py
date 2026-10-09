@@ -302,6 +302,11 @@ def summary_of(desc, title, anchor, limit=95):
         out = cand
     return out
 
+def page_text(title, desc):
+    """טקסט לחיפוש: כותרת + שורות התיאור, מופרדות ב-¶ (כדי לדעת מה שייך לאותה שורה/מסלול)"""
+    lines = [norm(l).strip() for l in re.split(r"\n|\s/\s", clean_html(desc))]
+    return " ¶ ".join([norm(title).strip()] + [l for l in lines if l])
+
 def build_institutions(fields, topics):
     pages, descs, raw_desc, locs, fids = {}, defaultdict(str), defaultdict(str), defaultdict(list), defaultdict(set)
     for f in fields:
@@ -339,7 +344,7 @@ def build_institutions(fields, topics):
     page_rows = []
     for u in urls:
         page_rows.append([pages[u], u, summary_of(raw_desc[u], pages[u], anchors[u]),
-                          locs[u], sorted(fids[u]), norm(pages[u] + " " + clean_html(raw_desc[u])).strip()])
+                          locs[u], sorted(fids[u]), page_text(pages[u], raw_desc[u])])
 
     # קבוצה לפי "עוגן" – החלק בכותרת שלפני המקף/פסיק הראשון (כמו בשבי בוט)
     groups, url_group = {}, {}
