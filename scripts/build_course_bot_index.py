@@ -147,6 +147,10 @@ def contains(text, k):
         return (" " + nk + " ") in text
     return nk in text or (len(stem(nk)) >= 4 and stem(nk) in text)
 
+# תחומים שאין בהם כרגע קורסים להציע – לא נכנסים לאינדקס (הבוט עונה עליהם "אין כרגע קורסים")
+EXCLUDED_FIELDS = {78, 103}   # איפור, טיפוח אישי וסטיילינג; קולנוע
+
+
 def main():
     data = json.load(open(FIELDS_PATH, encoding="utf-8"))
     fields = data.get("studyFields", data)
@@ -160,7 +164,7 @@ def main():
             unknown.append(name)
             continue
         fid = FIELD_TO_ID[name]
-        if fid is None:
+        if fid is None or fid in EXCLUDED_FIELDS:
             continue
         insts = f.get("known_institutions", []) or []
         parts = []
@@ -238,7 +242,9 @@ def main():
     if old_index:
         for k in manual:
             if k not in index and k in old_index:
-                index[k] = old_index[k]
+                old = [x for x in old_index[k] if x not in EXCLUDED_FIELDS]
+                if [x for x in old if x]:
+                    index[k] = old
 
     # כתיבת הקובץ – בקידוד ASCII כדי שיעבוד בכל דף, גם בלי הגדרת charset
     body = json.dumps(index, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
@@ -324,7 +330,7 @@ def build_institutions(fields, topics):
                 for l in ki.get("locations", []) or []:
                     if l and l not in locs[u]:
                         locs[u].append(l)
-                if FIELD_TO_ID.get(name):
+                if FIELD_TO_ID.get(name) and FIELD_TO_ID[name] not in EXCLUDED_FIELDS:
                     fids[u].add(FIELD_TO_ID[name])
 
     def used_elsewhere(word, own_urls):
