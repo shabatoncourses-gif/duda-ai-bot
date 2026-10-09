@@ -18,7 +18,7 @@
     document.head.appendChild(lf);
   }
   var st = document.createElement("style");
-  st.textContent = "\n/* \u05D4\u05EA\u05DE\u05D5\u05E0\u05D4: \u05D0\u05E4\u05E9\u05E8 \u05DC\u05D4\u05D7\u05DC\u05D9\u05E3 \u05D1\u05DB\u05EA\u05D5\u05D1\u05EA \u05E9\u05DC \u05EA\u05DE\u05D5\u05E0\u05D4 \u05E9\u05D4\u05D5\u05E2\u05DC\u05EA\u05D4 \u05DC\u05D3\u05D5\u05D3\u05D0 \u2013 url(\"https://...\") */\n#shb-bot{--shb-img:url(\"__BASE__hero.jpg\");\n  --blue:#0982bc;--orange:#e8630a;--tx:#1a2a3a;--br:#d4e6f4;\n  font-family:\"Heebo\",Arial,sans-serif;color:var(--tx);direction:rtl;container-type:inline-size}\n#shb-bot *{box-sizing:border-box;margin:0;padding:0}\n#shb-bot .shb-hero{position:relative;background:var(--shb-img) center 28%/cover no-repeat;overflow:hidden;padding:64px 28px 44px;min-height:480px;display:flex;align-items:center}\n#shb-bot .shb-hero::before{content:\"\";position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,60,95,.50) 0%,rgba(7,60,95,.62) 55%,rgba(7,60,95,.80) 100%)}\n#shb-bot .shb-in{position:relative;width:100%;max-width:740px;margin:0 auto;text-align:center}\n#shb-bot .shb-title{color:#fff !important;-webkit-text-fill-color:#fff !important;font-family:\"Heebo\",Arial,sans-serif !important;font-size:34px !important;font-weight:800 !important;line-height:1.25 !important;text-shadow:0 2px 10px rgba(0,0,0,.35);margin:0 !important;background:none !important}\n#shb-bot .shb-sub{color:#fff !important;-webkit-text-fill-color:#fff !important;opacity:.95;font-size:17px;margin:10px 0 22px;text-shadow:0 1px 6px rgba(0,0,0,.3)}\n#shb-bot .shb-bar{display:flex;align-items:center;background:#fff;border-radius:50px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.28)}\n#shb-bot .shb-bar input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:500 18px \"Heebo\",Arial,sans-serif;color:var(--tx);padding:0 18px;direction:rtl}\n#shb-bot .shb-bar button{background:linear-gradient(135deg,var(--orange),#f07e2a);color:#fff;border:0;border-radius:40px;padding:13px 26px;font:700 17px \"Heebo\",Arial,sans-serif;white-space:nowrap;cursor:pointer;box-shadow:0 3px 10px rgba(232,99,10,.4)}\n#shb-bot .shb-bar button:hover{filter:brightness(1.07)}\n#shb-bot .shb-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}\n#shb-bot .shb-sug{justify-content:safe center;margin-top:14px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}\n#shb-bot .shb-sug::-webkit-scrollbar{display:none}\n#shb-bot .shb-sug .shb-chip{flex:0 0 auto;white-space:nowrap}\n#shb-bot .shb-chip{border:1.5px solid var(--br);color:var(--blue);background:#fff;border-radius:20px;padding:6px 14px;font:500 14px \"Heebo\",Arial,sans-serif;cursor:pointer;transition:all .15s}\n#shb-bot .shb-sug .shb-chip{background:rgba(255,255,255,.92);border-color:transparent}\n#shb-bot .shb-chip:hover{background:var(--blue);color:#fff;border-color:var(--blue)}\n/* \u05D0\u05D6\u05D5\u05E8 \u05D4\u05EA\u05E9\u05D5\u05D1\u05D5\u05EA \u2013 \u05DE\u05D5\u05E4\u05D9\u05E2 \u05E8\u05E7 \u05D0\u05D7\u05E8\u05D9 \u05D4\u05E9\u05D0\u05DC\u05D4 \u05D4\u05E8\u05D0\u05E9\u05D5\u05E0\u05D4 */\n#shb-bot .shb-panel{display:none;margin-top:18px;background:rgba(247,250,253,.97);border-radius:16px;overflow:hidden;text-align:right;box-shadow:0 6px 24px rgba(0,0,0,.2)}\n#shb-bot .shb-panel.on{display:block;animation:shbUp .25s ease}\n#shb-bot .shb-bar-top{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--br);background:#fff;font-size:13px;color:#6b7a8a;font-weight:500}\n#shb-bot .shb-clear{background:#fff;border:1.5px solid var(--br);color:#6b7a8a;border-radius:10px;padding:5px 12px;font:500 13px \"Heebo\",Arial,sans-serif;cursor:pointer;transition:all .15s}\n#shb-bot .shb-clear:hover{border-color:var(--blue);color:var(--blue);background:#e8f4fb}\n#shb-bot .shb-log{position:relative;padding:14px;max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}\n#shb-bot .shb-msg{max-width:88%;padding:10px 14px;border-radius:16px;line-height:1.5;font-size:15px;white-space:pre-line;animation:shbUp .25s ease}\n@keyframes shbUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}\n#shb-bot .shb-bot-msg{align-self:flex-start;background:#fff;border:1px solid var(--br);border-top-right-radius:4px}\n#shb-bot .shb-user-msg{align-self:flex-end;background:var(--blue);color:#fff;border-top-left-radius:4px;font-weight:500}\n#shb-bot .shb-go{display:inline-block;margin:8px 0 0 6px;background:var(--orange);color:#fff !important;text-decoration:none;border-radius:24px;padding:8px 18px;font-weight:700;font-size:14.5px;box-shadow:0 3px 10px rgba(232,99,10,.3)}\n#shb-bot .shb-go:hover{filter:brightness(1.08)}\n#shb-bot .shb-list .shb-go{display:block;margin:6px 0 0;text-align:right}\n#shb-bot .shb-go.alt{background:#fff;color:var(--blue) !important;border:1.5px solid var(--blue);box-shadow:none}\n\n/* \u05E1\u05DC\u05D5\u05DC\u05E8 */\n@container (max-width:600px){\n  #shb-bot .shb-hero{padding:30px 14px 20px;min-height:400px;border-radius:0;background-position:center 15%;align-items:flex-start}\n  #shb-bot .shb-title{font-size:23px !important}\n  #shb-bot .shb-sub{font-size:14.5px;margin:8px 0 16px}\n  #shb-bot .shb-bar input{font-size:16px;padding:0 12px}\n  #shb-bot .shb-bar button{padding:11px 16px;font-size:15px}\n  #shb-bot .shb-sug{overflow:hidden;gap:5px}\n  #shb-bot .shb-sug .shb-chip{padding:6px 10px;font-size:13px}\n  #shb-bot .shb-log{padding:10px;max-height:360px}\n  #shb-bot .shb-panel{margin-top:14px}\n  #shb-bot .shb-msg{max-width:92%}\n}\n@media (max-width:600px){\n  #shb-bot .shb-hero{padding:30px 14px 20px;min-height:0;border-radius:0}\n  #shb-bot .shb-title{font-size:23px !important}\n}\n/* ===== \u05E4\u05E1 \u05D1\u05E8\u05D5\u05D7\u05D1 \u05DE\u05DC\u05D0 \u05E9\u05DC \u05D4\u05DE\u05E1\u05DA \u2013 \u05D2\u05DD \u05DB\u05E9\u05D4\u05D5\u05D5\u05D9\u05D3\u05D2'\u05D8 \u05E0\u05DE\u05E6\u05D0 \u05D1\u05EA\u05D5\u05DA \u05E2\u05DE\u05D5\u05D3\u05D4 \u05E6\u05E8\u05D4 \u05D1\u05D3\u05D5\u05D3\u05D0 ===== */\n#shb-bot{width:100vw;max-width:100vw;position:relative;margin-inline:calc(50% - 50vw)}\nhtml,body{overflow-x:hidden}\n".replace(/__BASE__/g, BASE);
+  st.textContent = "\n/* \u05D4\u05EA\u05DE\u05D5\u05E0\u05D4: \u05D0\u05E4\u05E9\u05E8 \u05DC\u05D4\u05D7\u05DC\u05D9\u05E3 \u05D1\u05DB\u05EA\u05D5\u05D1\u05EA \u05E9\u05DC \u05EA\u05DE\u05D5\u05E0\u05D4 \u05E9\u05D4\u05D5\u05E2\u05DC\u05EA\u05D4 \u05DC\u05D3\u05D5\u05D3\u05D0 \u2013 url(\"https://...\") */\n#shb-bot{--shb-img:url(\"__BASE__hero.jpg\");\n  --blue:#0982bc;--orange:#e8630a;--tx:#1a2a3a;--br:#d4e6f4;\n  font-family:\"Heebo\",Arial,sans-serif;color:var(--tx);direction:rtl;container-type:inline-size}\n#shb-bot *{box-sizing:border-box;margin:0;padding:0}\n#shb-bot .shb-hero{position:relative;background:var(--shb-img) center 28%/cover no-repeat;overflow:hidden;padding:64px 28px 44px;min-height:480px;display:flex;align-items:center}\n#shb-bot .shb-hero::before{content:\"\";position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,60,95,.50) 0%,rgba(7,60,95,.62) 55%,rgba(7,60,95,.80) 100%)}\n#shb-bot .shb-in{position:relative;width:100%;max-width:740px;margin:0 auto;text-align:center}\n#shb-bot .shb-title{color:#fff !important;-webkit-text-fill-color:#fff !important;font-family:\"Heebo\",Arial,sans-serif !important;font-size:34px !important;font-weight:800 !important;line-height:1.25 !important;text-shadow:0 2px 10px rgba(0,0,0,.35);margin:0 !important;background:none !important}\n#shb-bot .shb-sub{color:#fff !important;-webkit-text-fill-color:#fff !important;opacity:.95;font-size:17px;margin:10px 0 22px;text-shadow:0 1px 6px rgba(0,0,0,.3)}\n#shb-bot .shb-bar{display:flex;align-items:center;background:#fff;border-radius:50px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.28)}\n#shb-bot .shb-bar input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:500 18px \"Heebo\",Arial,sans-serif;color:var(--tx);padding:0 18px;direction:rtl}\n#shb-bot .shb-bar button{background:linear-gradient(135deg,var(--orange),#f07e2a);color:#fff;border:0;border-radius:40px;padding:13px 26px;font:700 17px \"Heebo\",Arial,sans-serif;white-space:nowrap;cursor:pointer;box-shadow:0 3px 10px rgba(232,99,10,.4)}\n#shb-bot .shb-bar button:hover{filter:brightness(1.07)}\n#shb-bot .shb-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}\n#shb-bot .shb-sug{justify-content:safe center;margin-top:14px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}\n#shb-bot .shb-sug::-webkit-scrollbar{display:none}\n#shb-bot .shb-sug .shb-chip{flex:0 0 auto;white-space:nowrap}\n#shb-bot .shb-chip{border:1.5px solid var(--br);color:var(--blue);background:#fff;border-radius:20px;padding:6px 14px;font:500 14px \"Heebo\",Arial,sans-serif;cursor:pointer;transition:all .15s}\n#shb-bot .shb-sug .shb-chip{background:rgba(255,255,255,.92);border-color:transparent}\n#shb-bot .shb-chip:hover{background:var(--blue);color:#fff;border-color:var(--blue)}\n/* \u05D0\u05D6\u05D5\u05E8 \u05D4\u05EA\u05E9\u05D5\u05D1\u05D5\u05EA \u2013 \u05DE\u05D5\u05E4\u05D9\u05E2 \u05E8\u05E7 \u05D0\u05D7\u05E8\u05D9 \u05D4\u05E9\u05D0\u05DC\u05D4 \u05D4\u05E8\u05D0\u05E9\u05D5\u05E0\u05D4 */\n#shb-bot .shb-panel{display:none;margin-top:18px;background:rgba(247,250,253,.97);border-radius:16px;overflow:hidden;text-align:right;box-shadow:0 6px 24px rgba(0,0,0,.2)}\n#shb-bot .shb-panel.on{display:block;animation:shbUp .25s ease}\n#shb-bot .shb-bar-top{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--br);background:#fff;font-size:13px;color:#6b7a8a;font-weight:500}\n#shb-bot .shb-clear{background:#fff;border:1.5px solid var(--br);color:#6b7a8a;border-radius:10px;padding:5px 12px;font:500 13px \"Heebo\",Arial,sans-serif;cursor:pointer;transition:all .15s}\n#shb-bot .shb-clear:hover{border-color:var(--blue);color:var(--blue);background:#e8f4fb}\n#shb-bot .shb-log{position:relative;padding:14px;max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}\n#shb-bot .shb-msg{max-width:88%;padding:10px 14px;border-radius:16px;line-height:1.5;font-size:15px;white-space:pre-line;animation:shbUp .25s ease}\n@keyframes shbUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}\n#shb-bot .shb-bot-msg{align-self:flex-start;background:#fff;border:1px solid var(--br);border-top-right-radius:4px}\n#shb-bot .shb-user-msg{align-self:flex-end;background:var(--blue);color:#fff;border-top-left-radius:4px;font-weight:500}\n#shb-bot .shb-go{display:inline-block;margin:8px 0 0 6px;background:var(--orange);color:#fff !important;text-decoration:none;border-radius:24px;padding:8px 18px;font-weight:700;font-size:14.5px;box-shadow:0 3px 10px rgba(232,99,10,.3)}\n#shb-bot .shb-go:hover{filter:brightness(1.08)}\n#shb-bot .shb-items{display:flex;flex-direction:column;gap:8px;margin-top:10px}\n#shb-bot .shb-item{display:block;text-decoration:none;background:#fff;border:1.5px solid var(--br);border-radius:12px;padding:10px 12px;transition:border-color .15s, box-shadow .15s}\n#shb-bot .shb-item:hover{border-color:var(--blue);box-shadow:0 3px 12px rgba(9,130,188,.15)}\n#shb-bot .shb-item b{display:block;color:var(--blue);font-size:15px;font-weight:700;line-height:1.35}\n#shb-bot .shb-item span{display:block;color:var(--tx);font-size:13.5px;line-height:1.4;margin-top:3px;white-space:normal}\n#shb-bot .shb-item small{display:block;color:#6b7a8a;font-size:12px;margin-top:4px}\n#shb-bot .shb-going-sum{color:#6b7a8a;font-size:13.5px;margin-top:4px}\n#shb-bot .shb-prog{height:4px;background:#e8f4fb;border-radius:4px;overflow:hidden;margin:10px 0 4px}\n#shb-bot .shb-prog i{display:block;height:100%;width:0;background:var(--orange);animation:shbGo 1.6s linear forwards}\n@keyframes shbGo{to{width:100%}}\n#shb-bot .shb-list .shb-go{display:block;margin:6px 0 0;text-align:right}\n#shb-bot .shb-go.alt{background:#fff;color:var(--blue) !important;border:1.5px solid var(--blue);box-shadow:none}\n\n/* \u05E1\u05DC\u05D5\u05DC\u05E8 */\n@container (max-width:600px){\n  #shb-bot .shb-hero{padding:30px 14px 20px;min-height:400px;border-radius:0;background-position:center 15%;align-items:flex-start}\n  #shb-bot .shb-title{font-size:23px !important}\n  #shb-bot .shb-sub{font-size:14.5px;margin:8px 0 16px}\n  #shb-bot .shb-bar input{font-size:16px;padding:0 12px}\n  #shb-bot .shb-bar button{padding:11px 16px;font-size:15px}\n  #shb-bot .shb-sug{overflow:hidden;gap:5px}\n  #shb-bot .shb-sug .shb-chip{padding:6px 10px;font-size:13px}\n  #shb-bot .shb-log{padding:10px;max-height:360px}\n  #shb-bot .shb-panel{margin-top:14px}\n  #shb-bot .shb-msg{max-width:92%}\n}\n@media (max-width:600px){\n  #shb-bot .shb-hero{padding:30px 14px 20px;min-height:0;border-radius:0}\n  #shb-bot .shb-title{font-size:23px !important}\n}\n/* ===== \u05E4\u05E1 \u05D1\u05E8\u05D5\u05D7\u05D1 \u05DE\u05DC\u05D0 \u05E9\u05DC \u05D4\u05DE\u05E1\u05DA \u2013 \u05D2\u05DD \u05DB\u05E9\u05D4\u05D5\u05D5\u05D9\u05D3\u05D2'\u05D8 \u05E0\u05DE\u05E6\u05D0 \u05D1\u05EA\u05D5\u05DA \u05E2\u05DE\u05D5\u05D3\u05D4 \u05E6\u05E8\u05D4 \u05D1\u05D3\u05D5\u05D3\u05D0 ===== */\n#shb-bot{width:100vw;max-width:100vw;position:relative;margin-inline:calc(50% - 50vw)}\nhtml,body{overflow-x:hidden}\n".replace(/__BASE__/g, BASE);
   document.head.appendChild(st);
   root.innerHTML = "  <div class=\"shb-hero\">\n    <div class=\"shb-in\">\n      <div class=\"shb-title\" role=\"heading\" aria-level=\"2\">\u05DE\u05E6\u05D0\u05D5 \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9 \u05DC\u05D9\u05DE\u05D5\u05D3, \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D5\u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05D9\u05D5\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D9\u05DD \u05DC\u05DB\u05DD</div>\n      <p class=\"shb-sub\">\u05DB\u05EA\u05D1\u05D5 \u05D1\u05DE\u05D9\u05DC\u05D9\u05DD \u05E9\u05DC\u05DB\u05DD \u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3 \u05D5\u05D0\u05D9\u05E4\u05D4, \u05D0\u05D5 \u05D7\u05E4\u05E9\u05D5 \u05DC\u05E4\u05D9 \u05DE\u05D5\u05E1\u05D3 \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD</p>\n      <form class=\"shb-bar\" id=\"shb-form\" autocomplete=\"off\">\n        <input id=\"shb-input\" type=\"text\" placeholder=\"\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3? \u05E1\u05E4\u05E8\u05D5 \u05DC\u05E0\u05D5 \u05D5\u05E0\u05DE\u05E6\u05D0 \u05D1\u05E9\u05D1\u05D9\u05DC\u05DB\u05DD \u2728\" aria-label=\"\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3?\" enterkeyhint=\"search\">\n        <button type=\"submit\">\u05D7\u05E4\u05E9\u05D5 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD</button>\n      </form>\n      <div class=\"shb-chips shb-sug\" id=\"shb-sug\"></div>\n      <div class=\"shb-panel\" id=\"shb-panel\">\n        <div class=\"shb-bar-top\"><span>\u05EA\u05D5\u05E6\u05D0\u05D5\u05EA \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9</span><button type=\"button\" class=\"shb-clear\" id=\"shb-clear\" aria-label=\"\u05E0\u05D9\u05E7\u05D5\u05D9 \u05D4\u05E9\u05D9\u05D7\u05D4\">\uD83D\uDDD1\uFE0F \u05E0\u05D9\u05E7\u05D5\u05D9 \u05E9\u05D9\u05D7\u05D4</button></div>\n        <div class=\"shb-log\" id=\"shb-log\" aria-live=\"polite\"></div>\n      </div>\n    </div>\n  </div>";
 
@@ -110,7 +110,9 @@
 
   /* ---- \u05D0\u05D9\u05E0\u05D3\u05E7\u05E1 \u05DE\u05D5\u05E1\u05D3\u05D5\u05EA \u05DC\u05D9\u05DE\u05D5\u05D3 (\u05E0\u05D8\u05E2\u05DF \u05DE-institutions_index.js) ----
      g: [\u05E9\u05DD \u05D4\u05DE\u05D5\u05E1\u05D3, [[\u05DB\u05D5\u05EA\u05E8\u05EA \u05D3\u05E3, \u05DB\u05EA\u05D5\u05D1\u05EA], ...]]  p: \u05E9\u05DD/\u05DB\u05D9\u05E0\u05D5\u05D9 \u05DE\u05DC\u05D0 \u2192 \u05DE\u05D5\u05E1\u05D3\u05D5\u05EA  k: \u05DE\u05D9\u05DC\u05D4 \u05D9\u05D9\u05D7\u05D5\u05D3\u05D9\u05EA \u05D1\u05E9\u05DD \u2192 \u05DE\u05D5\u05E1\u05D3\u05D5\u05EA */
-  var INST = window.SHB_INST || {g:[], p:{}, k:{}};
+  var INST = window.SHB_INST || {pages:[], g:[], p:{}, a:{}, k:{}};
+  if(!INST.pages) INST.pages = []; if(!INST.a) INST.a = {};
+  var MAX_LIST = 6;   // \u05E2\u05D3 \u05DB\u05DE\u05D4 \u05D3\u05E4\u05D9\u05DD \u05DE\u05E6\u05D9\u05D2\u05D9\u05DD \u05DB\u05E8\u05E9\u05D9\u05DE\u05D4; \u05DE\u05E2\u05D1\u05E8 \u05DC\u05D6\u05D4 \u2013 \u05D3\u05E3 \u05D4\u05EA\u05D5\u05E6\u05D0\u05D5\u05EA \u05E9\u05DC \u05D4\u05EA\u05D7\u05D5\u05DD
 
   /* ---- \u05DB\u05DC\u05D9\u05DD ---- */
   function norm(t){
@@ -188,33 +190,110 @@
     return ids.filter(function(i){ return top < 100 || score[i] >= 100; })
               .sort(function(a,b){ return score[b]-score[a]; }).slice(0,5);
   }
-  function instPageLabel(title, name){
-    var rest = title.indexOf(name) === 0 ? title.slice(name.length) : title;
-    rest = rest.replace(/^[\s,\-\u2013]+/, "").trim();
-    return (rest || title) + " \u2190";
+  // \u05DB\u05D9\u05E0\u05D5\u05D9 \u05E1\u05E4\u05E6\u05D9\u05E4\u05D9 ("\u05D5\u05D9\u05E0\u05D2\u05D9\u05D9\u05D8 \u05E1\u05E4\u05D5\u05E8\u05D8") \u2013 \u05DE\u05D5\u05D1\u05D9\u05DC \u05DC\u05D3\u05E3 \u05D0\u05D7\u05D3
+  function findAlias(t){
+    var best = null, P = "\u05D4\u05D5\u05D1\u05DC\u05DE\u05E9";
+    Object.keys(INST.a).forEach(function(p){
+      var hit = t.indexOf(" "+p+" ") > -1;
+      for(var j=0; !hit && j<P.length; j++) hit = t.indexOf(" "+P[j]+p+" ") > -1;
+      if(hit && (!best || p.length > best.length)) best = p;
+    });
+    return best === null ? null : INST.a[best];
   }
+
+  /* ---- \u05D3\u05E4\u05D9\u05DD: \u05D7\u05D9\u05E4\u05D5\u05E9 \u05DC\u05E4\u05D9 \u05E0\u05D5\u05E9\u05D0, \u05E1\u05D9\u05E0\u05D5\u05DF \u05DC\u05E4\u05D9 \u05D0\u05D6\u05D5\u05E8, \u05DE\u05E2\u05D1\u05E8 \u05D9\u05E9\u05D9\u05E8 \u05D0\u05D5 \u05E8\u05E9\u05D9\u05DE\u05D4 ---- */
+  // strict = \u05D1\u05D9\u05D8\u05D5\u05D9 \u05D7\u05D5\u05E4\u05E9\u05D9 \u05E9\u05D4\u05D2\u05D5\u05DC\u05E9 \u05DB\u05EA\u05D1: \u05DE\u05D9\u05DC\u05D4 \u05E9\u05DC\u05DE\u05D4, \u05D0\u05D5 \u05E6\u05D5\u05E8\u05EA \u05E8\u05D1\u05D9\u05DD (\u05DE\u05E0\u05D3\u05DC\u05D5\u05EA \u2192 \u05DE\u05E0\u05D3\u05DC\u05D4)
+  function pageMatches(term, strict){
+    var nt = norm(term).trim(); if(nt.replace(/ /g,"").length < 3) return [];
+    var st = nt.replace(strict ? /(\u05D5\u05EA|\u05D9\u05DD)$/ : /(\u05D5\u05EA|\u05D9\u05DD|\u05D4)$/, "");
+    var out = [], generic = [];
+    INST.pages.forEach(function(p, i){
+      var tx = " " + p[5] + " ";
+      var ok = strict ? (wordStart(tx, nt) && wordEnd(tx, nt)) : wordStart(tx, nt);
+      if(!ok && st.length >= 4 && st !== nt) ok = wordStart(tx, st);
+      if(ok) (/^\u05E7\u05D5\u05E8\u05E1\u05D9 /.test(p[0]) ? generic : out).push(i);
+    });
+    return out.length ? out : generic;   // \u05D3\u05E4\u05D9 \u05E7\u05D8\u05DC\u05D5\u05D2 \u05DB\u05DC\u05DC\u05D9\u05D9\u05DD ("\u05E7\u05D5\u05E8\u05E1\u05D9 \u05D0\u05DE\u05E0\u05D5\u05EA...") \u05E8\u05E7 \u05DB\u05E9\u05D0\u05D9\u05DF \u05D3\u05E3 \u05E1\u05E4\u05E6\u05D9\u05E4\u05D9
+  }
+  var PAGE_AREAS = null;
+  function pageAreas(i){
+    if(!PAGE_AREAS) PAGE_AREAS = {};
+    if(PAGE_AREAS[i]) return PAGE_AREAS[i];
+    var r = {areas:{}, remote:false, national:false};
+    INST.pages[i][3].forEach(function(l){
+      var t = norm(l);
+      findAreas(t).forEach(function(a){ if(a.id) r.areas[a.id] = 1; });
+      if(isRemote(t)) r.remote = true;
+      if(/\u05D0\u05E8\u05E6\u05D9\u05EA|\u05DB\u05DC \u05D4\u05D0\u05E8\u05E5|\u05D1\u05E8\u05D7\u05D1\u05D9 \u05D4\u05D0\u05E8\u05E5/.test(t)) r.national = true;
+    });
+    return (PAGE_AREAS[i] = r);
+  }
+  function filterPages(list, area, remote){
+    return list.filter(function(i){
+      var r = pageAreas(i);
+      if(remote) return r.remote;
+      if(area === null || area === 0) return true;
+      return !!r.areas[area] || r.national;
+    });
+  }
+  // \u05DC\u05E4\u05D9 \u05E1\u05D3\u05E8 \u05D4\u05DE\u05D5\u05E0\u05D7\u05D9\u05DD (\u05D4\u05D1\u05D9\u05D8\u05D5\u05D9 \u05D4\u05DE\u05DC\u05D0 \u05E7\u05D5\u05D3\u05DD, \u05D0\u05D7\u05E8 \u05DB\u05DA \u05D4\u05E0\u05D5\u05E9\u05D0) \u2013 \u05D4\u05E8\u05D0\u05E9\u05D5\u05DF \u05E9\u05DE\u05D5\u05E6\u05D0 \u05D3\u05E4\u05D9\u05DD
+  function resolvePages(){
+    for(var k=0; k<state.terms.length; k++){
+      var m = pageMatches(state.terms[k], k === 0 && state.strictFirst);
+      if(m.length) return {term:state.terms[k], pages:m};
+    }
+    return null;
+  }
+  function locLine(i){
+    var l = INST.pages[i][3].slice(0,3).join(" \u00B7 ");
+    return l ? "\uD83D\uDCCD " + l : "";
+  }
+  function pageCard(i){
+    var p = INST.pages[i];
+    return '<a class="shb-item" href="'+p[1]+'" target="_top"><b>'+esc(p[0])+'</b>' +
+           (p[2] ? '<span>'+esc(p[2])+'</span>' : '') +
+           (locLine(i) ? '<small>'+esc(locLine(i))+'</small>' : '') + '</a>';
+  }
+  function listPages(list, intro){
+    var el = bubble(esc(intro) + '<div class="shb-items">' + list.slice(0, 12).map(pageCard).join("") + '</div>', "bot");
+    if(el.offsetHeight > log.clientHeight - 20) log.scrollTop = el.offsetTop - 8;
+  }
+  // \u05D3\u05E3 \u05D0\u05D7\u05D3 \u05E9\u05E2\u05D5\u05E0\u05D4 \u05E2\u05DC \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9 \u2013 \u05E2\u05D5\u05D1\u05E8\u05D9\u05DD \u05D0\u05DC\u05D9\u05D5 \u05D9\u05E9\u05D9\u05E8\u05D5\u05EA
+  function goTo(url, title, summary){
+    var lt = title.charAt(0) === "\u05D4" ? title.slice(1) : title;
+    var html = '<div class="shb-going">\u05DE\u05E6\u05D0\u05EA\u05D9 \u05D1\u05D3\u05D9\u05D5\u05E7 \u05D0\u05EA \u05DE\u05D4 \u05E9\u05D7\u05D9\u05E4\u05E9\u05EA\u05DD \uD83C\uDFAF<br>\u05DE\u05E2\u05D1\u05D9\u05E8\u05D9\u05DD \u05D0\u05EA\u05DB\u05DD \u05DC<b>'+esc(lt)+'</b>\u2026</div>' +
+               (summary ? '<div class="shb-going-sum">'+esc(summary)+'</div>' : '') +
+               '<div class="shb-prog"><i></i></div>' +
+               '<a class="shb-go" href="'+url+'" target="_top">\u05DC\u05D0 \u05E2\u05D1\u05E8\u05EA\u05DD? \u05DC\u05D7\u05E6\u05D5 \u05DB\u05D0\u05DF \u2190</a>';
+    bubble(html, "bot");
+    setTimeout(function(){ try{ window.top.location.href = url; } catch(e){ window.location.href = url; } }, 1600);
+  }
+  function goPage(i){ var p = INST.pages[i]; goTo(p[1], p[0], p[2]); }
+
   function showInstitution(i){
     var g = INST.g[i], name = g[0], pages = g[1];
-    if(pages.length === 1){
-      say("\u05D4\u05E0\u05D4 \u05D4\u05D3\u05E3 \u05E9\u05DC "+name+" \u05D1\u05D0\u05EA\u05E8 \u05E9\u05D1\u05EA\u05D5\u05DF:", null, [{label:"\u05DC\u05D3\u05E3 \u05D4\u05DE\u05D5\u05E1\u05D3 \u2190", href:pages[0][1]}]);
-    } else {
-      var lname = name.charAt(0) === "\u05D4" ? name.slice(1) : name;   // "\u05DC\u05D4\u05DE\u05E8\u05DB\u05D6" \u2192 "\u05DC\u05DE\u05E8\u05DB\u05D6"
-      say("\u05DC"+lname+" \u05D9\u05E9 "+pages.length+" \u05D3\u05E4\u05D9\u05DD \u05D1\u05D0\u05EA\u05E8 \u05E9\u05D1\u05EA\u05D5\u05DF. \u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05D4\u05D3\u05E3 \u05D4\u05DE\u05EA\u05D0\u05D9\u05DD:", null,
-          pages.map(function(p){ return {label:instPageLabel(p[0], name), href:p[1], alt:true}; }));
-    }
+    if(pages.length === 1){ goPage(pages[0]); return; }
+    var lname = name.charAt(0) === "\u05D4" ? name.slice(1) : name;   // "\u05DC\u05D4\u05DE\u05E8\u05DB\u05D6" \u2192 "\u05DC\u05DE\u05E8\u05DB\u05D6"
+    listPages(pages, "\u05DC"+lname+" \u05D9\u05E9 "+pages.length+" \u05D3\u05E4\u05D9\u05DD \u05D1\u05D0\u05EA\u05E8 \u05E9\u05D1\u05EA\u05D5\u05DF. \u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05D4\u05D3\u05E3 \u05D4\u05DE\u05EA\u05D0\u05D9\u05DD:");
   }
   /* ---- \u05DB\u05E9\u05DC\u05D0 \u05E0\u05DE\u05E6\u05D0 \u05DE\u05D5\u05E1\u05D3 \u05D0\u05D5 \u05E7\u05D5\u05E8\u05E1: \u05D4\u05D5\u05D3\u05E2\u05D4 \u05E0\u05E2\u05D9\u05DE\u05D4 + \u05D4\u05E6\u05E2\u05D5\u05EA \u05D7\u05DC\u05D5\u05E4\u05D9\u05D5\u05EA ---- */
   var WHATSAPP_URL = "https://chat.whatsapp.com/Hrc27GwXmDkBcRF2bWSyCs";
   var FILLER = ("\u05E7\u05D5\u05E8\u05E1 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9 \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD \u05DC\u05DC\u05DE\u05D5\u05D3 \u05DC\u05D5\u05DE\u05D3\u05D9\u05DD \u05D0\u05E0\u05D9 \u05D0\u05E0\u05D7\u05E0\u05D5 \u05DE\u05D7\u05E4\u05E9 \u05DE\u05D7\u05E4\u05E9\u05EA \u05DE\u05D7\u05E4\u05E9\u05D9\u05DD \u05E8\u05D5\u05E6\u05D4 \u05E8\u05D5\u05E6\u05D9\u05DD \u05DE\u05E9\u05D4\u05D5 \u05D1\u05EA\u05D7\u05D5\u05DD \u05EA\u05D7\u05D5\u05DD \u05E9\u05DC \u05E2\u05DC \u05D9\u05E9 \u05D4\u05D0\u05DD " +
                 "\u05D0\u05E4\u05E9\u05E8 \u05DC\u05D9 \u05DC\u05E0\u05D5 \u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05EA \u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05D9\u05D5\u05EA \u05E1\u05D3\u05E0\u05D4 \u05E1\u05D3\u05E0\u05EA \u05E1\u05D3\u05E0\u05D0\u05D5\u05EA \u05D1\u05D0\u05D6\u05D5\u05E8 \u05D0\u05D6\u05D5\u05E8 \u05E2\u05DD \u05D0\u05D5 \u05D2\u05DD \u05DE\u05D4 \u05D0\u05D9\u05E4\u05D4 \u05D0\u05D9\u05D6\u05D4 \u05D0\u05D9\u05D6\u05D5 \u05D8\u05D5\u05D1 \u05D8\u05D5\u05D1\u05D4 \u05DE\u05D5\u05DE\u05DC\u05E5 \u05DE\u05D5\u05E1\u05D3 " +
-                "\u05DE\u05DB\u05DC\u05DC\u05EA \u05DE\u05DB\u05DC\u05DC\u05D4 \u05D4\u05DE\u05DB\u05DC\u05DC\u05D4 \u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05EA \u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05D4 \u05D4\u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05D4 \u05DE\u05DB\u05D5\u05DF \u05E1\u05DE\u05D9\u05E0\u05E8 \u05E1\u05D8\u05D5\u05D3\u05D9\u05D5 \u05D4\u05D0\u05E7\u05D3\u05DE\u05D9\u05EA \u05D4\u05E7\u05E8\u05D9\u05D4 \u05E7\u05DE\u05E4\u05D5\u05E1 \u05D1\u05D9\u05EA \u05E1\u05E4\u05E8 \u05D1\u05E9\u05D1\u05EA\u05D5\u05DF \u05E9\u05D1\u05EA\u05D5\u05DF \u05DC\u05E9\u05D1\u05EA\u05D5\u05DF").split(" ");
+                "\u05DE\u05DB\u05DC\u05DC\u05EA \u05DE\u05DB\u05DC\u05DC\u05D4 \u05D4\u05DE\u05DB\u05DC\u05DC\u05D4 \u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05EA \u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05D4 \u05D4\u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05D4 \u05DE\u05DB\u05D5\u05DF \u05E1\u05DE\u05D9\u05E0\u05E8 \u05E1\u05D8\u05D5\u05D3\u05D9\u05D5 \u05D4\u05D0\u05E7\u05D3\u05DE\u05D9\u05EA \u05D4\u05E7\u05E8\u05D9\u05D4 \u05E7\u05DE\u05E4\u05D5\u05E1 \u05D1\u05D9\u05EA \u05E1\u05E4\u05E8 \u05D1\u05E9\u05D1\u05EA\u05D5\u05DF \u05E9\u05D1\u05EA\u05D5\u05DF \u05DC\u05E9\u05D1\u05EA\u05D5\u05DF " +
+                "\u05DE\u05E2\u05E0\u05D9\u05D9\u05DF \u05DE\u05E2\u05E0\u05D9\u05D9\u05E0\u05D9\u05DD \u05D7\u05D3\u05E9 \u05D7\u05D3\u05E9\u05D4 \u05E0\u05D7\u05DE\u05D3 \u05DE\u05D5\u05DE\u05DC\u05E6\u05D9\u05DD \u05DB\u05DC\u05E9\u05D4\u05D5 \u05D8\u05D5\u05D1\u05D9\u05DD \u05D4\u05DB\u05D9 \u05D1\u05D1\u05E7\u05E9\u05D4 \u05EA\u05D5\u05D3\u05D4 \u05E9\u05DC\u05D5\u05DD \u05D4\u05D9\u05D9").split(" ");
   var INST_WORDS = ["\u05DE\u05DB\u05DC\u05DC\u05EA","\u05DE\u05DB\u05DC\u05DC\u05D4","\u05D4\u05DE\u05DB\u05DC\u05DC\u05D4","\u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05EA","\u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05D4","\u05D4\u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05D4","\u05DE\u05DB\u05D5\u05DF","\u05E1\u05DE\u05D9\u05E0\u05E8","\u05E1\u05D8\u05D5\u05D3\u05D9\u05D5","\u05D4\u05D0\u05E7\u05D3\u05DE\u05D9\u05EA","\u05D4\u05E7\u05E8\u05D9\u05D4","\u05E7\u05DE\u05E4\u05D5\u05E1","\u05DE\u05D5\u05E1\u05D3","\u05D1\u05D9\u05EA \u05E1\u05E4\u05E8"];
   var POPULAR = [6,13,22,43,106,16,73,93];   // \u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05DC\u05D4\u05E6\u05E2\u05D4 \u05DB\u05E9\u05D0\u05D9\u05DF \u05E9\u05D5\u05DD \u05E8\u05DE\u05D6
 
   function subjectOf(text){
     var t = norm(text);
-    AREAS.forEach(function(a){ a.kw.forEach(function(k){ t = t.split(" "+norm(k).trim()+" ").join(" "); t = t.split(" \u05D1"+norm(k).trim()+" ").join(" "); }); });
-    REMOTE_KW.forEach(function(k){ t = t.split(" "+norm(k).trim()+" ").join(" "); });
+    // \u05DE\u05E1\u05D9\u05E8\u05D9\u05DD \u05E9\u05DE\u05D5\u05EA \u05D0\u05D6\u05D5\u05E8\u05D9\u05DD/\u05E2\u05E8\u05D9\u05DD, \u05D2\u05DD \u05E2\u05DD \u05D0\u05D5\u05EA \u05E9\u05D9\u05DE\u05D5\u05E9 ("\u05D1\u05E9\u05E4\u05DC\u05D4", "\u05D4\u05E9\u05E4\u05DC\u05D4", "\u05DC\u05D9\u05E8\u05D5\u05E9\u05DC\u05D9\u05DD")
+    var kws = [];
+    AREAS.forEach(function(a){ a.kw.forEach(function(k){ kws.push(norm(k).trim()); }); });
+    REMOTE_KW.forEach(function(k){ kws.push(norm(k).trim()); });
+    kws.sort(function(x,y){ return y.length - x.length; }).forEach(function(k){
+      ["","\u05D1","\u05D4","\u05DC","\u05DE","\u05D5","\u05D5\u05D1","\u05D1\u05D4"].forEach(function(p){ t = t.split(" "+p+k+" ").join(" "); });
+    });
     return t.trim().split(" ").filter(function(w){ return w.length > 1 && FILLER.indexOf(w) === -1; }).join(" ");
   }
   function lev(a, b){
@@ -276,6 +355,11 @@
     say("\u05E8\u05D5\u05E6\u05D9\u05DD \u05E2\u05D6\u05E8\u05D4 \u05D0\u05D9\u05E9\u05D9\u05EA? \u05D0\u05E4\u05E9\u05E8 \u05DC\u05E9\u05D0\u05D5\u05DC \u05D0\u05EA \u05E9\u05D1\u05D9 \u05D1\u05D5\u05D8 \u05D0\u05D5 \u05D0\u05EA \u05D7\u05D1\u05E8\u05D9 \u05D4\u05E7\u05D1\u05D5\u05E6\u05D4 \u05E9\u05DC\u05E0\u05D5 \u05D1\u05D5\u05D5\u05D8\u05E1\u05D0\u05E4 \uD83D\uDCAC", null, help);
   }
 
+  function discKw(d, t){
+    var best = "";
+    d.kw.forEach(function(k){ if(has(t,k) && k.length > best.length) best = k; });
+    return best;
+  }
   function isRemote(t){ return REMOTE_KW.some(function(k){return has(t,k);}); }
   function isShabiQ(t){ return SHABI_KW.some(function(k){return has(t,k);}); }
   function areaById(id){ for(var i=0;i<AREAS.length;i++) if(AREAS[i].id===id) return AREAS[i]; }
@@ -287,7 +371,7 @@
   var log = document.getElementById("shb-log");
   var panel = document.getElementById("shb-panel");
   var input = document.getElementById("shb-input");
-  var state = {disc:null, area:null, remote:false};
+  var state = {disc:null, area:null, remote:false, terms:[], strictFirst:false};
 
   function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
   function bubble(html, who){
@@ -332,7 +416,21 @@
       say(nc.msg, nc.alt.map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; }));
       return;
     }
+    var R = state.terms.length ? resolvePages() : null;
+    var areaName = state.area !== null && state.area !== 0 ? areaById(state.area).name : "";
+
     // \u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7
+    if(state.remote && R){
+      var fr = filterPages(R.pages, null, true);
+      if(fr.length === 1){ goPage(fr[0]); reset(); return; }
+      if(fr.length > 1 && fr.length <= MAX_LIST){
+        listPages(fr, "\u05DE\u05E6\u05D0\u05EA\u05D9 "+fr.length+" \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D \u05D1\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7. \u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:"); reset(); return;
+      }
+    }
+    if(state.remote && R && R.pages.length <= MAX_LIST){
+      listPages(R.pages, "\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D \u05D1\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7 \uD83D\uDE41\n\u05D0\u05D1\u05DC \u05D9\u05E9 \u05DB\u05D0\u05DC\u05D4 \u05E4\u05E0\u05D9\u05DD \u05D0\u05DC \u05E4\u05E0\u05D9\u05DD \u2013 \u05D0\u05D5\u05DC\u05D9 \u05D0\u05D7\u05D3 \u05DE\u05D4\u05DD \u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:"); reset(); return;
+    }
+    if(state.remote && !state.disc){ goTo(resultUrl(REMOTE_ID,0), "\u05D4\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7"); reset(); return; }
     if(state.remote){
       var links = [{label:"\u05DC\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7", href:resultUrl(REMOTE_ID,0)}];
       if(state.disc) links.push({label:"\u05DB\u05DC \u05E7\u05D5\u05E8\u05E1\u05D9 "+discById(state.disc).name+" \u05D1\u05DB\u05DC \u05D4\u05D0\u05E8\u05E5", href:resultUrl(state.disc,0), alt:true});
@@ -340,11 +438,34 @@
                      : "\u05D4\u05E0\u05D4 \u05DB\u05DC \u05D4\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7:", null, links);
       reset(); return;
     }
+    // \u05D3\u05E4\u05D9\u05DD \u05E9\u05E2\u05D5\u05E0\u05D9\u05DD \u05E2\u05DC \u05D4\u05E0\u05D5\u05E9\u05D0
+    if(R){
+      if(state.area !== null){
+        var fa = filterPages(R.pages, state.area, false);
+        if(fa.length === 1){ goPage(fa[0]); reset(); return; }
+        if(fa.length > 1 && fa.length <= MAX_LIST){
+          listPages(fa, "\u05DE\u05E6\u05D0\u05EA\u05D9 "+fa.length+" \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D"+(areaName ? " \u05D1\u05D0\u05D6\u05D5\u05E8 "+areaName : "")+". \u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:"); reset(); return;
+        }
+        if(fa.length === 0 && R.pages.length <= MAX_LIST){
+          listPages(R.pages, "\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D \u05D1\u05D0\u05D6\u05D5\u05E8 "+areaName+" \uD83D\uDE41\n\u05D0\u05D1\u05DC \u05D9\u05E9 \u05DB\u05D0\u05DC\u05D4 \u05D1\u05DE\u05E7\u05D5\u05DE\u05D5\u05EA \u05D0\u05D7\u05E8\u05D9\u05DD \u2013 \u05D0\u05D5\u05DC\u05D9 \u05D0\u05D7\u05D3 \u05DE\u05D4\u05DD \u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:"); reset(); return;
+        }
+      } else {
+        if(R.pages.length === 1){ goPage(R.pages[0]); reset(); return; }
+        if(R.pages.length <= MAX_LIST){
+          listPages(R.pages, "\u05DE\u05E6\u05D0\u05EA\u05D9 "+R.pages.length+" \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D. \u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:"); reset(); return;
+        }
+      }
+      // \u05D4\u05E8\u05D1\u05D4 \u05D3\u05E4\u05D9\u05DD \u2013 \u05DE\u05DE\u05E9\u05D9\u05DB\u05D9\u05DD \u05DC\u05D3\u05E3 \u05D4\u05EA\u05D5\u05E6\u05D0\u05D5\u05EA \u05E9\u05DC \u05D4\u05EA\u05D7\u05D5\u05DD (\u05D4\u05EA\u05D7\u05D5\u05DD \u05D4\u05E0\u05E4\u05D5\u05E5 \u05D1\u05D9\u05D5\u05EA\u05E8 \u05D1\u05D9\u05DF \u05D4\u05D3\u05E4\u05D9\u05DD, \u05D0\u05DD \u05DC\u05D0 \u05D9\u05D3\u05D5\u05E2)
+      if(!state.disc){
+        var cnt = {};
+        R.pages.forEach(function(i){ INST.pages[i][4].forEach(function(f){ if(discById(f)) cnt[f] = (cnt[f]||0) + 1; }); });
+        var bestF = Object.keys(cnt).sort(function(a,b){ return cnt[b]-cnt[a]; })[0];
+        if(bestF) state.disc = Number(bestF);
+      }
+    }
     if(state.disc && state.area!==null){
       var d = discById(state.disc), a = areaById(state.area);
-      say("\u05DE\u05E2\u05D5\u05DC\u05D4! \u05D4\u05E0\u05D4 \u05D4\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05EA\u05D7\u05D5\u05DD \""+d.name+"\" \u05D1\u05D0\u05D6\u05D5\u05E8 "+a.name+":", null,
-          [{label:"\u05DC\u05D3\u05E3 \u05D4\u05EA\u05D5\u05E6\u05D0\u05D5\u05EA \u2190", href:resultUrl(d.id,a.id)}]);
-      say("\u05E8\u05D5\u05E6\u05D9\u05DD \u05DC\u05D7\u05E4\u05E9 \u05E2\u05D5\u05D3 \u05DE\u05E9\u05D4\u05D5? \u05DB\u05EA\u05D1\u05D5 \u05DC\u05D9 \u05EA\u05D7\u05D5\u05DD \u05D5\u05DE\u05D9\u05E7\u05D5\u05DD \u05E0\u05D5\u05E1\u05E4\u05D9\u05DD.");
+      goTo(resultUrl(d.id,a.id), "\u05D4\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05EA\u05D7\u05D5\u05DD \u201E"+d.name+"\u201D \u05D1\u05D0\u05D6\u05D5\u05E8 "+a.name);
       reset(); return;
     }
     if(state.disc){
@@ -371,10 +492,14 @@
     }
     if(!followUp){ reset(); log.innerHTML = ""; }
   }
-  function reset(){ state = {disc:null, area:null, remote:false}; }
+  function reset(){ state = {disc:null, area:null, remote:false, terms:[], strictFirst:false}; }
 
   function handle(text){
     var t = norm(text);
+
+    // \u05DB\u05D9\u05E0\u05D5\u05D9 \u05E9\u05DE\u05D5\u05D1\u05D9\u05DC \u05DC\u05D3\u05E3 \u05DE\u05E1\u05D5\u05D9\u05DD ("\u05D5\u05D9\u05E0\u05D2\u05D9\u05D9\u05D8 \u05E1\u05E4\u05D5\u05E8\u05D8", "\u05E9\u05D9\u05D8\u05EA \u05E2\u05D5\u05D2\u05DF")
+    var al = findAlias(t);
+    if(al !== null){ reset(); goPage(al); return; }
 
     // \u05D7\u05D9\u05E4\u05D5\u05E9 \u05DC\u05E4\u05D9 \u05DE\u05D5\u05E1\u05D3 \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD (\u05E1\u05DE\u05D9\u05E0\u05E8 \u05D4\u05E7\u05D9\u05D1\u05D5\u05E6\u05D9\u05DD, \u05D7\u05DE\u05D3\u05EA, \u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9...)
     var insts = findInstitutions(t);
@@ -391,12 +516,21 @@
     if(remote) state.remote = true;
     if(areas.length) state.area = areas[0].id;
 
+    // \u05DE\u05D5\u05E0\u05D7\u05D9 \u05D7\u05D9\u05E4\u05D5\u05E9 \u05DC\u05D3\u05E4\u05D9\u05DD: \u05D4\u05D1\u05D9\u05D8\u05D5\u05D9 \u05D4\u05DE\u05DC\u05D0 \u05E9\u05D4\u05D2\u05D5\u05DC\u05E9 \u05DB\u05EA\u05D1, \u05D4\u05E0\u05D5\u05E9\u05D0 \u05E9\u05D6\u05D5\u05D4\u05D4, \u05D5\u05DE\u05D9\u05DC\u05EA \u05D4\u05EA\u05D7\u05D5\u05DD
+    var subj = subjectOf(text), hit = findCourseTopic(t), terms = [];
+    if(subj && subj.replace(/ /g,"").length >= 3) terms.push(subj);
+    if(hit) terms.push(hit.kw);
+    discs.forEach(function(d){ var k = discKw(d, t); if(k) terms.push(k); });
+    if(terms.length){ state.terms = terms; state.strictFirst = !!subj && terms[0] === subj; }
+    var R = (discs.length || hit) ? resolvePages() : null;
+    var few = R && filterPages(R.pages, state.area, state.remote).length <= MAX_LIST && filterPages(R.pages, state.area, state.remote).length > 0;
+
     // \u05DC\u05D0 \u05D6\u05D5\u05D4\u05D4 \u05EA\u05D7\u05D5\u05DD \u2013 \u05DE\u05D7\u05E4\u05E9\u05D9\u05DD \u05D0\u05EA \u05D4\u05E0\u05D5\u05E9\u05D0 \u05D1\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05E9\u05D1\u05D0\u05EA\u05E8
     if(!discs.length && !state.disc){
-      var hit = findCourseTopic(t);
       if(hit && hit.direct){
         discs = [discById(hit.ids[0])];
-        say("\u05DE\u05E6\u05D0\u05EA\u05D9 \u05D1\u05D0\u05EA\u05E8 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \""+hit.kw+"\" \u05D1\u05EA\u05D7\u05D5\u05DD "+discs[0].name+".");
+      } else if(hit && few){
+        next(); return;
       } else if(hit){
         say("\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \""+hit.kw+"\" \u05DE\u05D5\u05E4\u05D9\u05E2\u05D9\u05DD \u05D1\u05D0\u05EA\u05E8 \u05D1\u05DB\u05DE\u05D4 \u05EA\u05D7\u05D5\u05DE\u05D9\u05DD. \u05D1\u05D0\u05D9\u05D6\u05D4 \u05EA\u05D7\u05D5\u05DD \u05DC\u05D7\u05E4\u05E9?",
           hit.ids.map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; }));
@@ -404,6 +538,7 @@
       }
     }
 
+    if(discs.length > 1 && !state.disc && few){ next(); return; }
     if(discs.length > 1 && !state.disc){
       say("\u05DE\u05E6\u05D0\u05EA\u05D9 \u05DB\u05DE\u05D4 \u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05E9\u05DE\u05EA\u05D0\u05D9\u05DE\u05D9\u05DD \u05DC\u05D1\u05E7\u05E9\u05D4. \u05DC\u05D0\u05D9\u05D6\u05D4 \u05DE\u05D4\u05DD \u05D4\u05EA\u05DB\u05D5\u05D5\u05E0\u05EA\u05DD?",
         discs.slice(0,5).map(function(d){ return {label:d.name, action:function(){ state.disc=d.id; next(); }}; }));
@@ -421,6 +556,20 @@
     if(state.disc || state.remote || (state.area!==null && !isShabiQ(t))){ next(); return; }
 
     // \u05DC\u05D0 \u05D6\u05D5\u05D4\u05D4 \u05E7\u05D5\u05E8\u05E1 \u2013 \u05D0\u05D5\u05DC\u05D9 \u05E9\u05D0\u05DC\u05D4 \u05DB\u05DC\u05DC\u05D9\u05EA \u05E2\u05DC \u05E9\u05E0\u05EA \u05E9\u05D1\u05EA\u05D5\u05DF
+    if(!isShabiQ(t) && subj){
+      // \u05D1\u05D9\u05D8\u05D5\u05D9 \u05E9\u05DC\u05D0 \u05DE\u05D5\u05DB\u05E8 \u05DB\u05E0\u05D5\u05E9\u05D0, \u05D0\u05D1\u05DC \u05DE\u05D5\u05E4\u05D9\u05E2 \u05D1\u05D3\u05E4\u05D9\u05DD (\u05DC\u05DE\u05E9\u05DC \u05E9\u05DD \u05E9\u05DC \u05E9\u05D9\u05D8\u05D4 \u05D0\u05D5 \u05DE\u05E8\u05E6\u05D4)
+      var words = subj.split(" ").filter(function(w){ return w.length >= 3; });
+      if(words.length >= 2 || (words.length === 1 && words[0].length >= 4)){
+        var Rs = {term:subj, pages:pageMatches(subj, true)};
+        var fs = filterPages(Rs.pages, state.area, state.remote);
+        var askedInst = INST_WORDS.some(function(w){ return t.indexOf(" "+w+" ") > -1; });
+        if(fs.length >= 1 && askedInst){
+          // \u05E9\u05D0\u05DC\u05D5 \u05E2\u05DC \u05DE\u05D5\u05E1\u05D3 \u05E9\u05D0\u05D9\u05DF \u05DC\u05D5 \u05D3\u05E3, \u05D0\u05D1\u05DC \u05D4\u05D5\u05D0 \u05DE\u05D5\u05D6\u05DB\u05E8 \u05D1\u05D3\u05E3 \u05D0\u05D7\u05E8
+          listPages(fs.slice(0, MAX_LIST), "\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05D1\u05D0\u05EA\u05E8 \u05D3\u05E3 \u05E9\u05DC \u201E"+subj+"\u201D \uD83D\uDE41\n\u05D0\u05D1\u05DC \u05D4\u05D5\u05D0 \u05DE\u05D5\u05D6\u05DB\u05E8 \u05DB\u05D0\u05DF \u2013 \u05D0\u05D5\u05DC\u05D9 \u05D6\u05D4 \u05DE\u05D4 \u05E9\u05D7\u05D9\u05E4\u05E9\u05EA\u05DD:"); reset(); return;
+        }
+        if(fs.length >= 1 && fs.length <= MAX_LIST){ state.terms = [subj]; state.strictFirst = true; next(); return; }
+      }
+    }
     if(isShabiQ(t)){
       say("\u05E0\u05E9\u05DE\u05E2 \u05E9\u05D6\u05D5 \u05E9\u05D0\u05DC\u05D4 \u05E2\u05DC \u05D6\u05DB\u05D5\u05D9\u05D5\u05EA \u05D5\u05DE\u05D9\u05D3\u05E2 \u05D1\u05E9\u05E0\u05EA \u05D4\u05E9\u05D1\u05EA\u05D5\u05DF, \u05D5\u05DC\u05D0 \u05D7\u05D9\u05E4\u05D5\u05E9 \u05E7\u05D5\u05E8\u05E1. \u05E2\u05DC \u05D6\u05D4 \u05E2\u05D5\u05E0\u05D4 \u05E9\u05D1\u05D9 \u2013 \u05D4\u05D1\u05D5\u05D8 \u05E9\u05DC \u05E9\u05D1\u05EA\u05D5\u05DF \uD83D\uDC47", null,
           [{label:"\u05DC\u05E9\u05D0\u05D5\u05DC \u05D0\u05EA \u05E9\u05D1\u05D9 \u05D1\u05D5\u05D8", href:shabiUrl(text), alt:true}]);
@@ -449,7 +598,7 @@
   var sug = document.getElementById("shb-sug");
   var narrow = document.getElementById("shb-bot").offsetWidth < 600;
   (narrow ? ["\u05E7\u05D5\u05E8\u05E1\u05D9 \u05E4\u05E1\u05D9\u05E4\u05E1","\u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9-\u05D5\u05D9\u05E0\u05D2\u05D9\u05D9\u05D8","\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7"]
-          : ["\u05E7\u05D5\u05E8\u05E1 \u05E4\u05E1\u05D9\u05E4\u05E1 \u05D1\u05E9\u05E4\u05DC\u05D4","\u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9-\u05D5\u05D9\u05E0\u05D2\u05D9\u05D9\u05D8","\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7","\u05E1\u05DE\u05D9\u05E0\u05E8 \u05D4\u05E7\u05D9\u05D1\u05D5\u05E6\u05D9\u05DD","\u05D0\u05E0\u05D2\u05DC\u05D9\u05EA \u05D1\u05E9\u05E8\u05D5\u05DF","AI \u05D1\u05DE\u05E8\u05DB\u05D6"]).forEach(function(x){
+          : ["\u05E7\u05D5\u05E8\u05E1 \u05E4\u05E1\u05D9\u05E4\u05E1 \u05D1\u05E9\u05E4\u05DC\u05D4","\u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9-\u05D5\u05D9\u05E0\u05D2\u05D9\u05D9\u05D8","\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7","\u05DE\u05E8\u05DB\u05D6 \u05E9\u05E4\u05E8 \u05DC\u05D4\u05D5\u05E8\u05D5\u05EA","\u05D0\u05E0\u05D2\u05DC\u05D9\u05EA \u05D1\u05E9\u05E8\u05D5\u05DF","AI \u05D1\u05DE\u05E8\u05DB\u05D6"]).forEach(function(x){
     var b = document.createElement("button"); b.type="button"; b.className="shb-chip"; b.textContent=x;
     b.onclick = function(){ startNew(); bubble(esc(x),"user"); handle(x); };
     sug.appendChild(b);
