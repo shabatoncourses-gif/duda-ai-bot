@@ -437,8 +437,12 @@
     text.split(" ").forEach(function(tok){ if(tok) variants(tok).forEach(function(v){ set[v] = 1; }); });
     return words.every(function(alts){ return alts.some(function(a){ return set[a]; }); });
   }
+  // \u05D3\u05E4\u05D9 \u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05D9\u05D5\u05EA / \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9 \u05EA\u05E2\u05D5\u05D3\u05D4 / \u05E4\u05D9\u05EA\u05D5\u05D7 \u05DE\u05E7\u05E6\u05D5\u05E2\u05D9 \u05D0\u05D9\u05E0\u05DD \u05D3\u05E4\u05D9 \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 (\u05D2\u05DD \u05D0\u05DD \u05DE\u05D5\u05D6\u05DB\u05E8 \u05D1\u05D4\u05DD \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9)
+  var NON_ACADEMIC = /\u05D4\u05E9\u05EA\u05DC\u05DE\u05D5|\u05DC\u05D9\u05DE\u05D5\u05D3\u05D9 \u05EA\u05E2\u05D5\u05D3\u05D4|\u05DC\u05D9\u05DE\u05D5\u05D3\u05D9 \u05D4\u05DE\u05E9\u05DA|\u05E4\u05D9\u05EA\u05D5\u05D7 \u05DE\u05E7\u05E6\u05D5\u05E2\u05D9|\u05DC\u05D9\u05DE\u05D5\u05D3\u05D9 \u05D7\u05D5\u05E5/;
+  function nonAcademic(i){ var tt = norm(INST.pages[i][0]); return NON_ACADEMIC.test(tt) && !MA_RE.test(" " + tt + " "); }
   function isMAPage(i){
     var p = INST.pages[i];
+    if(nonAcademic(i)) return false;
     if(MA_RE.test(" " + norm(p[0]) + " ")) return true;
     return p[5].split("\u00B6").some(function(l){ l = " " + l.trim() + " "; return MA_RE.test(l) && l.indexOf("\u05D0\u05E7\u05D5\u05D5\u05D9\u05D5\u05D5\u05DC\u05E0\u05D8") < 0; });
   }
@@ -446,6 +450,7 @@
     var words = specWords(spec), out = [];
     if(!words.length) return out;
     INST.pages.forEach(function(p, i){
+      if(nonAcademic(i)) return;
       var tx = p[5].replace(/['"]/g, ""), titleMA = MA_RE.test(" " + norm(p[0]) + " ");
       // \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u05D5\u05D4\u05EA\u05DE\u05D7\u05D5\u05EA \u05D1\u05D0\u05D5\u05EA\u05D4 \u05E9\u05D5\u05E8\u05D4 (\u05DC\u05D0 "\u05D0\u05E7\u05D5\u05D5\u05D9\u05D5\u05D5\u05DC\u05E0\u05D8"), \u05D0\u05D5 \u05D3\u05E3 \u05E9\u05DB\u05D5\u05DC\u05D5 \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9
       var lines = tx.split("\u00B6"), ok = false;
