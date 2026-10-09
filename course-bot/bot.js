@@ -138,10 +138,14 @@
     var res = [];
     DISC.forEach(function(d){
       var score = 0;
-      d.kw.forEach(function(k){ if(has(t,k)) score += norm(k).trim().length; });
+      var seenK = {};
+      d.kw.forEach(function(k){ var nk = norm(k).trim(); if(!seenK[nk] && has(t,k)){ seenK[nk] = 1; score += nk.length; } });
       if(score) res.push({d:d,score:score});
     });
     res.sort(function(a,b){return b.score-a.score;});
+    // \u05EA\u05E8\u05E4\u05D9\u05D4 = \u05D8\u05D9\u05E4\u05D5\u05DC: "\u05D8\u05D9\u05E4\u05D5\u05DC \u05D1\u05D0\u05DE\u05E0\u05D5\u05EA", "\u05EA\u05E8\u05E4\u05D9\u05D4 \u05D1\u05DE\u05D5\u05E1\u05D9\u05E7\u05D4" \u2192 \u05EA\u05D7\u05D5\u05DD \u05EA\u05E8\u05E4\u05D9\u05D4 \u05D5\u05D8\u05D9\u05E4\u05D5\u05DC
+    if(/ [\u05D5\u05D1\u05D4\u05DC]?(?:\u05EA\u05E8\u05E4\u05D9|\u05D8\u05D9\u05E4\u05D5\u05DC)|\u05EA\u05E8\u05E4\u05D9\u05D4 /.test(t) && res.some(function(r){ return r.d.id === 43; }))
+      res = res.filter(function(r){ return r.d.id === 43; });
     // \u05D0\u05DD \u05D4\u05E8\u05D0\u05E9\u05D5\u05DF \u05D1\u05E8\u05D5\u05E8 \u05D9\u05D5\u05EA\u05E8 \u05DE\u05D4\u05E9\u05D0\u05E8 \u2013 \u05D1\u05D5\u05D7\u05E8\u05D9\u05DD \u05D0\u05D5\u05EA\u05D5
     if(res.length>1 && res[0].score >= res[1].score*2) res = [res[0]];
     return res.map(function(r){return r.d;});
@@ -400,24 +404,45 @@
     if(w.every(function(x){ return MA_GENERIC.indexOf(x.replace(/^[\u05D5\u05D1\u05DC]/,"")) > -1 || MA_GENERIC.indexOf(x) > -1; })) return "";
     return w.join(" ");
   }
-  function maPages(spec){
-    var ns = norm(spec).replace(/['"]/g, "").trim(), last = ns.replace(/(\u05D5\u05EA|\u05D9\u05DD|\u05D4)$/, "");
-    var out = [];
-    INST.pages.forEach(function(p, i){
-      var tx = " " + p[5].replace(/['"]/g, "") + " ", titleMA = MA_RE.test(" " + norm(p[0]) + " ");
-      var pos = [], P = ["", "\u05D4","\u05D1","\u05DC","\u05D5","\u05DE","\u05E9","\u05D5\u05D1","\u05D5\u05DC"], k, idx;
-      P.forEach(function(pre){
-        [ns, last.length >= 4 ? last : ns].forEach(function(w){
-          k = 0; while((idx = tx.indexOf(" " + pre + w, k)) > -1){ pos.push(idx); k = idx + 1; }
-        });
+  // \u05DE\u05D9\u05DC\u05D9\u05DD \u05E0\u05E8\u05D3\u05E4\u05D5\u05EA \u05D1\u05D4\u05EA\u05DE\u05D7\u05D5\u05D9\u05D5\u05EA: \u05EA\u05E8\u05E4\u05D9\u05D4 = \u05D8\u05D9\u05E4\u05D5\u05DC, \u05D0\u05DE\u05E0\u05D5\u05EA = \u05D0\u05DE\u05E0\u05D5\u05D9\u05D5\u05EA \u05D5\u05DB\u05D5'
+  var SYN = [["\u05EA\u05E8\u05E4\u05D9\u05D4","\u05EA\u05E8\u05E4\u05D9\u05D5\u05EA","\u05D8\u05D9\u05E4\u05D5\u05DC","\u05D8\u05D9\u05E4\u05D5\u05DC\u05D9","\u05D8\u05D9\u05E4\u05D5\u05DC\u05D9\u05EA","\u05EA\u05E8\u05E4\u05D9\u05E1\u05D8"],["\u05DE\u05D5\u05E1\u05D9\u05E7\u05D4","\u05DE\u05D5\u05E1\u05D9\u05E7\u05DC\u05D9","\u05DE\u05D5\u05E1\u05D9\u05E7\u05DC\u05D9\u05EA"],["\u05D0\u05DE\u05E0\u05D5\u05EA","\u05D0\u05DE\u05E0\u05D5\u05D9\u05D5\u05EA","\u05D0\u05DE\u05E0\u05D5\u05EA\u05D9"],
+             ["\u05DE\u05D7\u05D5\u05DC","\u05E8\u05D9\u05E7\u05D5\u05D3"],["\u05EA\u05E0\u05D5\u05E2\u05D4"],["\u05D7\u05D6\u05D5\u05EA\u05D9\u05EA","\u05D7\u05D6\u05D5\u05EA\u05D9","\u05E4\u05DC\u05E1\u05D8\u05D9\u05EA"],["\u05D1\u05D9\u05D1\u05DC\u05D9\u05D5\u05EA\u05E8\u05E4\u05D9\u05D4","\u05DB\u05EA\u05D9\u05D1\u05D4"],["\u05E4\u05E1\u05D9\u05DB\u05D5\u05D3\u05E8\u05DE\u05D4","\u05D3\u05E8\u05DE\u05D4"]];
+  var SPEC_STOP = ["\u05D1\u05D0\u05DE\u05E6\u05E2\u05D5\u05EA","\u05E9\u05DC","\u05E2\u05DD","\u05D0\u05D5","\u05D2\u05DD","\u05D0\u05EA","\u05E2\u05DC","\u05D1\u05E9\u05D9\u05DC\u05D5\u05D1","\u05D5"];
+  // \u05D4\u05E9\u05D5\u05D5\u05D0\u05EA \u05DE\u05D9\u05DC\u05D9\u05DD: \u05DE\u05D5\u05E8\u05D9\u05D3\u05D9\u05DD \u05E1\u05D9\u05D5\u05DE\u05EA (\u05D5\u05EA/\u05D9\u05DD/\u05D4...), \u05D5\u05DE\u05E0\u05E1\u05D9\u05DD \u05D2\u05DD \u05D1\u05DC\u05D9 \u05D0\u05D5\u05EA \u05E9\u05D9\u05DE\u05D5\u05E9 \u05D1\u05EA\u05D7\u05D9\u05DC\u05EA \u05D4\u05DE\u05D9\u05DC\u05D4 (\u05D1/\u05DC/\u05D5/\u05D4...)
+  function suf(w){ return w.length >= 5 ? w.replace(/(\u05D5\u05EA|\u05D9\u05DD|\u05D9\u05EA|\u05D9|\u05D4)$/, "") : w; }
+  var PREF = ["\u05D5","\u05D1","\u05D4","\u05DC","\u05DE","\u05E9","\u05D5\u05D1","\u05D5\u05D4","\u05D5\u05DC","\u05D5\u05DE","\u05D1\u05D4","\u05DC\u05D4","\u05DE\u05D4"];
+  function variants(w){
+    var v = [suf(w)];
+    PREF.forEach(function(p){ if(w.indexOf(p) === 0 && w.length - p.length >= 3) v.push(suf(w.slice(p.length))); });
+    return v;
+  }
+  function specWords(spec){
+    return norm(spec).replace(/['"]/g, "").trim().split(" ").filter(function(w){ return w.length >= 2 && SPEC_STOP.indexOf(w) < 0; })
+      .map(function(w){
+        var vs = variants(w), group = null;
+        SYN.forEach(function(g){ if(g.some(function(x){ return vs.indexOf(suf(x)) > -1; })) group = g; });
+        return group ? group.map(suf) : vs;
       });
-      // \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u05D1\u05D0\u05D5\u05EA\u05D4 \u05E9\u05D5\u05E8\u05D4 \u05E9\u05DC \u05D4\u05D4\u05EA\u05DE\u05D7\u05D5\u05EA (\u05DC\u05D0 "\u05D0\u05E7\u05D5\u05D5\u05D9\u05D5\u05D5\u05DC\u05E0\u05D8"), \u05D0\u05D5 \u05E9\u05D4\u05D3\u05E3 \u05DB\u05D5\u05DC\u05D5 \u05D4\u05D5\u05D0 \u05D3\u05E3 \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9
-      if(pos.some(function(at){
-        if(titleMA) return true;
-        var s0 = tx.lastIndexOf("\u00B6", at), e0 = tx.indexOf("\u00B6", at);
-        var line = " " + tx.slice(s0 < 0 ? 0 : s0 + 1, e0 < 0 ? tx.length : e0) + " ";
-        return MA_RE.test(line) && line.indexOf("\u05D0\u05E7\u05D5\u05D5\u05D9\u05D5\u05D5\u05DC\u05E0\u05D8") < 0;
-      })) out.push(i);
+  }
+  // \u05DB\u05DC \u05DE\u05D9\u05DC\u05D5\u05EA \u05D4\u05D4\u05EA\u05DE\u05D7\u05D5\u05EA (\u05D0\u05D5 \u05DE\u05D9\u05DC\u05D4 \u05E0\u05E8\u05D3\u05E4\u05EA) \u05DE\u05D5\u05E4\u05D9\u05E2\u05D5\u05EA \u05D1\u05D8\u05E7\u05E1\u05D8
+  function hasAll(text, words){
+    var set = {};
+    text.split(" ").forEach(function(tok){ if(tok) variants(tok).forEach(function(v){ set[v] = 1; }); });
+    return words.every(function(alts){ return alts.some(function(a){ return set[a]; }); });
+  }
+  function maPages(spec){
+    var words = specWords(spec), out = [];
+    if(!words.length) return out;
+    INST.pages.forEach(function(p, i){
+      var tx = p[5].replace(/['"]/g, ""), titleMA = MA_RE.test(" " + norm(p[0]) + " ");
+      // \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u05D5\u05D4\u05EA\u05DE\u05D7\u05D5\u05EA \u05D1\u05D0\u05D5\u05EA\u05D4 \u05E9\u05D5\u05E8\u05D4 (\u05DC\u05D0 "\u05D0\u05E7\u05D5\u05D5\u05D9\u05D5\u05D5\u05DC\u05E0\u05D8"), \u05D0\u05D5 \u05D3\u05E3 \u05E9\u05DB\u05D5\u05DC\u05D5 \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9
+      var lines = tx.split("\u00B6"), ok = false;
+      if(titleMA) ok = hasAll(" " + tx + " ", words);
+      for(var k=0; !ok && k<lines.length; k++){
+        var line = " " + lines[k].trim() + " ";
+        if(MA_RE.test(line) && line.indexOf("\u05D0\u05E7\u05D5\u05D5\u05D9\u05D5\u05D5\u05DC\u05E0\u05D8") < 0 && hasAll(line, words)) ok = true;
+      }
+      if(ok) out.push(i);
     });
     return out;
   }
@@ -642,6 +667,10 @@
       }
     }
 
+    // "\u05EA\u05E8\u05E4\u05D9\u05D4 \u05D1\u05DE\u05D5\u05E1\u05D9\u05E7\u05D4", "\u05D8\u05D9\u05E4\u05D5\u05DC \u05D1\u05EA\u05E0\u05D5\u05E2\u05D4", "\u05EA\u05E8\u05E4\u05D9\u05D4 \u05D1\u05D1\u05D9\u05E9\u05D5\u05DC" \u2013 \u05E1\u05D5\u05D2 \u05E9\u05DC \u05EA\u05E8\u05E4\u05D9\u05D4 \u2192 \u05EA\u05D7\u05D5\u05DD \u05EA\u05E8\u05E4\u05D9\u05D4 \u05D5\u05D8\u05D9\u05E4\u05D5\u05DC
+    if(discs.length > 1 && discs.some(function(d){ return d.id === 43; }) && / (?:[\u05D1\u05D4\u05DC\u05D5]?(?:\u05EA\u05E8\u05E4\u05D9|\u05D8\u05D9\u05E4\u05D5\u05DC)|\S*\u05EA\u05E8\u05E4\u05D9)/.test(t)){
+      discs = [discById(43)];
+    }
     if(discs.length > 1 && !state.disc && few){ next(); return; }
     if(discs.length > 1 && !state.disc){
       say("\u05DE\u05E6\u05D0\u05EA\u05D9 \u05DB\u05DE\u05D4 \u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05E9\u05DE\u05EA\u05D0\u05D9\u05DE\u05D9\u05DD \u05DC\u05D1\u05E7\u05E9\u05D4. \u05DC\u05D0\u05D9\u05D6\u05D4 \u05DE\u05D4\u05DD \u05D4\u05EA\u05DB\u05D5\u05D5\u05E0\u05EA\u05DD?",
