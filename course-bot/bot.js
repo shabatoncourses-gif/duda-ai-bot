@@ -346,7 +346,7 @@
   function vocab(){
     if(VOCAB) return VOCAB;
     VOCAB = [];
-    DISC.forEach(function(d){ d.kw.forEach(function(k){ VOCAB.push({w:norm(k).trim(), label:k, inst:false, run:function(){ handle(k); }}); }); });
+    DISC.forEach(function(d){ if(NO_COURSES[d.id]) return; d.kw.forEach(function(k){ VOCAB.push({w:norm(k).trim(), label:k, inst:false, run:function(){ handle(k); }}); }); });
     Object.keys(COURSE_IDX).forEach(function(k){ VOCAB.push({w:norm(k).trim(), label:k, inst:false, run:function(){ handle(k); }}); });
     Object.keys(INST.k).forEach(function(k){ INST.k[k].forEach(function(i){
       VOCAB.push({w:k, label:INST.g[i][0], inst:true, run:function(){ showInstitution(i); }}); }); });
@@ -575,7 +575,11 @@
     return chips;
   }
 
-  var NO_COURSES = {103: {msg:"\u05DB\u05E8\u05D2\u05E2 \u05D0\u05D9\u05DF \u05D1\u05D0\u05EA\u05E8 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05EA\u05D7\u05D5\u05DD \u05D4\u05E7\u05D5\u05DC\u05E0\u05D5\u05E2 \uD83C\uDFAC\n\u05D0\u05D5\u05DC\u05D9 \u05D9\u05E2\u05E0\u05D9\u05D9\u05DF \u05D0\u05EA\u05DB\u05DD \u05D0\u05D7\u05D3 \u05DE\u05D4\u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05D4\u05E7\u05E8\u05D5\u05D1\u05D9\u05DD:", alt:[73,94]}};
+  /* \u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05E9\u05D0\u05D9\u05DF \u05D1\u05D4\u05DD \u05DB\u05E8\u05D2\u05E2 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05DC\u05D4\u05E6\u05D9\u05E2 \u2013 \u05D4\u05D1\u05D5\u05D8 \u05DE\u05E1\u05D1\u05D9\u05E8 \u05D5\u05DE\u05E6\u05D9\u05E2 \u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05E7\u05E8\u05D5\u05D1\u05D9\u05DD */
+  var NO_COURSES = {
+    103: {msg:"\u05DB\u05E8\u05D2\u05E2 \u05D0\u05D9\u05DF \u05D1\u05D0\u05EA\u05E8 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05EA\u05D7\u05D5\u05DD \u05D4\u05E7\u05D5\u05DC\u05E0\u05D5\u05E2 \uD83C\uDFAC\n\u05D0\u05D5\u05DC\u05D9 \u05D9\u05E2\u05E0\u05D9\u05D9\u05DF \u05D0\u05EA\u05DB\u05DD \u05D0\u05D7\u05D3 \u05DE\u05D4\u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05D4\u05E7\u05E8\u05D5\u05D1\u05D9\u05DD:", alt:[73,94]},
+    78:  {msg:"\u05DB\u05E8\u05D2\u05E2 \u05D0\u05D9\u05DF \u05D1\u05D0\u05EA\u05E8 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05EA\u05D7\u05D5\u05DD \u05D4\u05D0\u05D9\u05E4\u05D5\u05E8, \u05D4\u05D8\u05D9\u05E4\u05D5\u05D7 \u05D5\u05D4\u05E1\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2 \uD83D\uDC84\n\u05D0\u05D5\u05DC\u05D9 \u05D9\u05E2\u05E0\u05D9\u05D9\u05DF \u05D0\u05EA\u05DB\u05DD \u05D0\u05D7\u05D3 \u05DE\u05D4\u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05D4\u05E7\u05E8\u05D5\u05D1\u05D9\u05DD:", alt:[46,6,22]}
+  };
 
   function next(){
     if(state.disc && NO_COURSES[state.disc]){
