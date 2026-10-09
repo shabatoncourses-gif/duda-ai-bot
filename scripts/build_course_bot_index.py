@@ -342,7 +342,13 @@ def build_institutions(fields, topics):
     # רשימת הדפים: כותרת, כתובת, תקציר, מיקומים, תחומים, טקסט לחיפוש
     urls = list(pages)
     pidx = {u: i for i, u in enumerate(urls)}
-    anchors = {u: re.split(r"\s[-–]\s|,", pages[u])[0].strip() for u in urls}
+    def anchor_of(title):
+        parts = [x.strip() for x in re.split(r"\s[-–]\s|,", title) if x.strip()]
+        # "תואר שני בחינוך מתמטי - אוניברסיטת חיפה": שם המוסד הוא החלק שאחרי המקף
+        if len(parts) > 1 and re.match(r"(תואר|תארים|קורס|קורסי|לימודי|תוכנית|תכנית|מסלול)\b", parts[0]):
+            return parts[-1]
+        return parts[0] if parts else title
+    anchors = {u: anchor_of(pages[u]) for u in urls}
     page_rows = []
     for u in urls:
         page_rows.append([pages[u], u, summary_of(raw_desc[u], pages[u], anchors[u]),
@@ -374,6 +380,9 @@ def build_institutions(fields, topics):
     phrases = defaultdict(set)   # ביטוי מלא (עוגן / כינוי) → קבוצות
     tokens = defaultdict(set)    # מילה ייחודית בשם המוסד → קבוצות
     for k in keys:
+        # דפי קטלוג כלליים ("קורסי אמנות ואומנויות") – לא שם של מוסד
+        if re.match(r"(קורסי|קורס|לימודי|תואר)\b", k):
+            continue
         phrases[k].add(gi[k])
         own_urls = {urls[i] for i in groups[k]["pages"]}
         for w in k.split():
@@ -398,12 +407,13 @@ def build_institutions(fields, topics):
         if len(na) < 3 or u not in pidx:
             continue
         k = url_group.get(u)
-        if k is None:
+        if k is None or re.match(r"(קורסי|קורס|לימודי|תואר)\b", k):
             continue
         phrases[na].add(gi[k])
         # כינוי "ספציפי" (למשל "וינגייט ספורט") מוביל ישר לדף אחד מתוך מוסד עם כמה דפים:
         # יש בו מילה שמופיעה בדף היעד אבל לא בכל הדפים של המוסד
-        grp = groups[k]["pages"]
+        # הקבוצה הגדולה ביותר שהדף שייך אליה (דף של חוג שמופיע גם ברשימת האוניברסיטה)
+        grp = max((g["pages"] for g in groups.values() if pidx[u] in g["pages"]), key=len)
         if len(grp) > 1:
             texts = [" " + page_rows[i][5] + " " for i in grp]
             own = " " + page_rows[pidx[u]][5] + " "
