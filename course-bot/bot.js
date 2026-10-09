@@ -397,7 +397,7 @@
   var log = document.getElementById("shb-log");
   var panel = document.getElementById("shb-panel");
   var input = document.getElementById("shb-input");
-  var state = {disc:null, area:null, remote:false, terms:[], strictFirst:false, city:null};
+  var state = {disc:null, area:null, remote:false, terms:[], strictFirst:false, city:null, pageMode:false};
 
   function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
   function bubble(html, who){
@@ -442,7 +442,8 @@
       say(nc.msg, nc.alt.map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; }));
       return;
     }
-    var R = state.terms.length ? resolvePages() : null;
+    // \u05E0\u05D5\u05E9\u05D0/\u05EA\u05D7\u05D5\u05DD \u2192 \u05EA\u05DE\u05D9\u05D3 \u05D3\u05E3 \u05E8\u05E9\u05D9\u05DE\u05EA \u05D4\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05EA\u05D7\u05D5\u05DD. \u05D3\u05E4\u05D9 \u05DE\u05D5\u05E1\u05D3\u05D5\u05EA \u05E8\u05E7 \u05DC\u05D1\u05D9\u05D8\u05D5\u05D9 \u05E9\u05DC\u05D0 \u05E9\u05D9\u05D9\u05DA \u05DC\u05EA\u05D7\u05D5\u05DD (\u05E9\u05DD \u05E9\u05D9\u05D8\u05D4, \u05DE\u05E8\u05E6\u05D4...)
+    var R = state.pageMode && state.terms.length ? resolvePages() : null;
     var areaName = state.area !== null && state.area !== 0 ? areaById(state.area).name : "";
 
     // \u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7
@@ -508,18 +509,12 @@
       say("\u05D0\u05D9\u05D6\u05D4 \u05D9\u05D5\u05E4\u05D9, "+discById(state.disc).name+" \uD83D\uDE42\n\u05D1\u05D0\u05D9\u05D6\u05D4 \u05D0\u05D6\u05D5\u05E8 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3?", areaChips()); return;
     }
     if(state.city && !state.disc){
-      var cp = filterCity(allPages(), state.city);
-      if(cp.length === 1){ goPage(cp[0]); reset(); return; }
-      if(cp.length > 1 && cp.length <= MAX_LIST){
-        listPages(cp, "\u05D1"+state.city.name+" \u05DE\u05EA\u05E7\u05D9\u05D9\u05DE\u05D9\u05DD "+cp.length+" \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD. \u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:"); reset(); return;
-      }
-      if(cp.length > MAX_LIST){
-        say("\u05D1"+state.city.name+" \u05D9\u05E9 "+cp.length+" \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD \uD83D\uDCCD\n\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3? \u05DB\u05EA\u05D1\u05D5 \u05E0\u05D5\u05E9\u05D0, \u05D0\u05D5 \u05D1\u05D7\u05E8\u05D5 \u05DE\u05D4\u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05D4\u05E4\u05D5\u05E4\u05D5\u05DC\u05E8\u05D9\u05D9\u05DD:",
-            POPULAR.map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; })); return;
-      }
-      say("\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05E9\u05DE\u05EA\u05E7\u05D9\u05D9\u05DE\u05D9\u05DD \u05D1"+state.city.name+" \u05E2\u05E6\u05DE\u05D4 \uD83D\uDE41\n\u05D0\u05D1\u05DC \u05D1\u05D0\u05D6\u05D5\u05E8 "+areaName+" \u05D9\u05E9 \u05D4\u05E8\u05D1\u05D4 \u2013 \u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3? \u05DB\u05EA\u05D1\u05D5 \u05E0\u05D5\u05E9\u05D0, \u05D0\u05D5 \u05D1\u05D7\u05E8\u05D5:",
-          POPULAR.map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; }));
-      state.city = null; return;
+      var cp = filterCity(allPages(), state.city), cty = state.city;
+      var chips = POPULAR.map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; });
+      if(cp.length) chips.push({label:"\uD83C\uDFEB \u05D4\u05DE\u05D5\u05E1\u05D3\u05D5\u05EA \u05D1"+cty.name+" ("+cp.length+")", action:function(){
+        listPages(cp, "\u05D4\u05DE\u05D5\u05E1\u05D3\u05D5\u05EA \u05E9\u05DE\u05E7\u05D9\u05D9\u05DE\u05D9\u05DD \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1"+cty.name+":"); reset(); }});
+      say("\u05E8\u05E9\u05DE\u05EA\u05D9: "+cty.name+" \uD83D\uDCCD\n\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3? \u05DB\u05EA\u05D1\u05D5 \u05E0\u05D5\u05E9\u05D0 \u05D0\u05D5 \u05EA\u05D7\u05D5\u05DD, \u05D0\u05D5 \u05D1\u05D7\u05E8\u05D5 \u05DE\u05D4\u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05D4\u05E4\u05D5\u05E4\u05D5\u05DC\u05E8\u05D9\u05D9\u05DD:", chips);
+      return;
     }
     if(state.area!==null){
       say("\u05E8\u05E9\u05DE\u05EA\u05D9: "+areaById(state.area).name+" \uD83D\uDCCD\n\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3? \u05DB\u05EA\u05D1\u05D5 \u05E0\u05D5\u05E9\u05D0 \u05D0\u05D5 \u05EA\u05D7\u05D5\u05DD, \u05D0\u05D5 \u05D1\u05D7\u05E8\u05D5 \u05DE\u05D4\u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05D4\u05E4\u05D5\u05E4\u05D5\u05DC\u05E8\u05D9\u05D9\u05DD:",
@@ -542,7 +537,7 @@
     }
     if(!followUp){ reset(); log.innerHTML = ""; }
   }
-  function reset(){ state = {disc:null, area:null, remote:false, terms:[], strictFirst:false, city:null}; }
+  function reset(){ state = {disc:null, area:null, remote:false, terms:[], strictFirst:false, city:null, pageMode:false}; }
 
   function handle(text){
     var t = norm(text);
@@ -580,8 +575,7 @@
     if(hit) terms.push(hit.kw);
     discs.forEach(function(d){ var k = discKw(d, t); if(k) terms.push(k); });
     if(terms.length){ state.terms = terms; state.strictFirst = !!subj && terms[0] === subj; }
-    var R = (discs.length || hit) ? resolvePages() : null;
-    var few = R && filterPages(R.pages, state.area, state.remote).length <= MAX_LIST && filterPages(R.pages, state.area, state.remote).length > 0;
+    var few = false;   // \u05E0\u05D5\u05E9\u05D0 \u05DE\u05D5\u05DB\u05E8 \u2192 \u05EA\u05DE\u05D9\u05D3 \u05DC\u05E4\u05D9 \u05EA\u05D7\u05D5\u05DD (\u05DC\u05D0 \u05DC\u05E4\u05D9 \u05DE\u05D5\u05E1\u05D3\u05D5\u05EA)
 
     // \u05DC\u05D0 \u05D6\u05D5\u05D4\u05D4 \u05EA\u05D7\u05D5\u05DD \u2013 \u05DE\u05D7\u05E4\u05E9\u05D9\u05DD \u05D0\u05EA \u05D4\u05E0\u05D5\u05E9\u05D0 \u05D1\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05E9\u05D1\u05D0\u05EA\u05E8
     if(!discs.length && !state.disc){
@@ -625,7 +619,7 @@
           // \u05E9\u05D0\u05DC\u05D5 \u05E2\u05DC \u05DE\u05D5\u05E1\u05D3 \u05E9\u05D0\u05D9\u05DF \u05DC\u05D5 \u05D3\u05E3, \u05D0\u05D1\u05DC \u05D4\u05D5\u05D0 \u05DE\u05D5\u05D6\u05DB\u05E8 \u05D1\u05D3\u05E3 \u05D0\u05D7\u05E8
           listPages(fs.slice(0, MAX_LIST), "\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05D1\u05D0\u05EA\u05E8 \u05D3\u05E3 \u05E9\u05DC \u201E"+subj+"\u201D \uD83D\uDE41\n\u05D0\u05D1\u05DC \u05D4\u05D5\u05D0 \u05DE\u05D5\u05D6\u05DB\u05E8 \u05DB\u05D0\u05DF \u2013 \u05D0\u05D5\u05DC\u05D9 \u05D6\u05D4 \u05DE\u05D4 \u05E9\u05D7\u05D9\u05E4\u05E9\u05EA\u05DD:"); reset(); return;
         }
-        if(fs.length >= 1 && fs.length <= MAX_LIST){ state.terms = [subj]; state.strictFirst = true; next(); return; }
+        if(fs.length >= 1 && fs.length <= MAX_LIST){ state.terms = [subj]; state.strictFirst = true; state.pageMode = true; next(); return; }
       }
     }
     if(isShabiQ(t)){
