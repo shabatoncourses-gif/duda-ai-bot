@@ -266,7 +266,7 @@ INST_GENERIC = set("""
 אוניברסיטת אוניברסיטה האוניברסיטה מכללת המכללה מכללה האקדמית אקדמית האקדמי אקדמי המרכז מרכז מכון המכון
 סטודיו הסטודיו בית הספר ספר לחינוך חינוך קורס קורסי קורסים סדנא הסדנא סדנת רשת של לימודי ללימודי היחידה
 תואר שני קמפוס ועוד עש ע'ש ד'ר דר בניהולה בשיטת שיטת לפיתוח פיתוח כישורי למידה וקשב החברה להגנת הטבע
-סמינר עולם יד חלום קורס אור גוף ידע קצב פוד עוגן גבעת דוד קריה הקריה אקדמיה האקדמיה עתיד ירוק מתוק
+סמינר עולם יד חלום קורס אור גוף ידע קצב פוד גבעת דוד קריה הקריה אקדמיה האקדמיה עתיד ירוק מתוק
 מהלב ישנות אהבות קורה דפי ונופשנים פרופסור כסאות הכסאות ירושלמי הירושלמי העץ איגוד ערים לאיכות הסביבה נפת מועדוני כושר עם מן הצומח בריא לאמנות ועיצוב
 """.split())
 CITY_WORDS = set("""
@@ -274,13 +274,51 @@ CITY_WORDS = set("""
 באר שבע מודיעין חולון ראשון לציון גבעתיים כפר סבא הוד השרון צפון דרום מרכז שרון גליל נגב אונו
 """.split()) - {"אונו"}
 
+def clean_html(t):
+    t = re.sub(r"<br\s*/?>|</li>|</p>", "\n", t or "", flags=re.I)
+    t = re.sub(r"<[^>]+>", "", t)
+    return t.replace("&nbsp;", " ").replace("&amp;", "&")
+
+def summary_of(desc, title, anchor, limit=95):
+    """תקציר של שורה אחת: רשימת הקורסים מהתיאור, מופרדים בנקודה"""
+    items = []
+    for part in re.split(r"\n|\s/\s|\|", clean_html(desc)):
+        part = re.sub(r"\s+", " ", part).strip(" -–•*·:")
+        if len(part) < 3 or part in items:
+            continue
+        items.append(part)
+    if not items:
+        rest = title[len(anchor):].strip(" ,-–") if title.startswith(anchor) else ""
+        return rest
+    out = ""
+    for it in items:
+        cand = it if not out else out + " · " + it
+        if len(cand) > limit:
+            if not out:
+                out = it[:limit].rsplit(" ", 1)[0] + "…"
+            else:
+                out += " …"
+            break
+        out = cand
+    return out
+
 def build_institutions(fields, topics):
-    pages, descs = {}, defaultdict(str)
+    pages, descs, raw_desc, locs, fids = {}, defaultdict(str), defaultdict(str), defaultdict(list), defaultdict(set)
     for f in fields:
+        name = (f.get("slug") or f.get("name") or "").strip()
         for ki in f.get("known_institutions", []) or []:
             if ki.get("url") and ki.get("title"):
-                pages.setdefault(ki["url"], re.sub(r"\s+", " ", ki["title"]).strip())
-                descs[ki["url"]] += norm(ki.get("description", ""))
+                u = ki["url"]
+                pages.setdefault(u, re.sub(r"\s+", " ", ki["title"]).strip())
+                d = ki.get("description", "") or ""
+                if d and d not in raw_desc[u]:
+                    raw_desc[u] += ("\n" if raw_desc[u] else "") + d
+                descs[u] += norm(clean_html(d))
+                for l in ki.get("locations", []) or []:
+                    if l and l not in locs[u]:
+                        locs[u].append(l)
+                if FIELD_TO_ID.get(name):
+                    fids[u].add(FIELD_TO_ID[name])
 
     def used_elsewhere(word, own_urls):
         """האם המילה מופיעה בתיאורי קורסים של מוסדות אחרים – אם כן, היא מילה רגילה ולא שם מוסד"""
@@ -294,16 +332,25 @@ def build_institutions(fields, topics):
         if v.get("url") and v.get("title"):
             pages.setdefault(v["url"], re.sub(r"\s+", " ", v["title"]).strip())
 
+    # רשימת הדפים: כותרת, כתובת, תקציר, מיקומים, תחומים, טקסט לחיפוש
+    urls = list(pages)
+    pidx = {u: i for i, u in enumerate(urls)}
+    anchors = {u: re.split(r"\s[-–]\s|,", pages[u])[0].strip() for u in urls}
+    page_rows = []
+    for u in urls:
+        page_rows.append([pages[u], u, summary_of(raw_desc[u], pages[u], anchors[u]),
+                          locs[u], sorted(fids[u]), norm(pages[u] + " " + clean_html(raw_desc[u])).strip()])
+
     # קבוצה לפי "עוגן" – החלק בכותרת שלפני המקף/פסיק הראשון (כמו בשבי בוט)
     groups, url_group = {}, {}
-    for url, title in pages.items():
-        anchor = re.split(r"\s[-–]\s|,", title)[0].strip()
+    for u in urls:
+        anchor = anchors[u]
         key = re.sub(r"['\"]", "", norm(anchor)).strip()   # "ע'ש" = "עש"
         if len(key) < 3:
             continue
         g = groups.setdefault(key, {"name": anchor, "pages": []})
-        g["pages"].append([title, url])
-        url_group[url] = key
+        g["pages"].append(pidx[u])
+        url_group[u] = key
 
     topic_words = {norm(t).strip() for t in topics}
     keys = list(groups)
@@ -312,7 +359,7 @@ def build_institutions(fields, topics):
     tokens = defaultdict(set)    # מילה ייחודית בשם המוסד → קבוצות
     for k in keys:
         phrases[k].add(gi[k])
-        own_urls = {u for _, u in groups[k]["pages"]}
+        own_urls = {urls[i] for i in groups[k]["pages"]}
         for w in k.split():
             for part in w.split("-"):
                 part = part.strip("'\"")
@@ -327,22 +374,41 @@ def build_institutions(fields, topics):
                 tokens[part].add(gi[k])
                 if base != part:
                     tokens[base].add(gi[k])
+    # כינויים מ-data/Institutions.json – כל כינוי מוביל לדף שלו (או לקבוצת המוסד)
+    alias_pages = {}
     for a, v in aliases.items():
-        k = url_group.get(v.get("url"))
-        if k is not None and len(norm(a).strip()) >= 3:
-            phrases[norm(a).strip()].add(gi[k])
+        na = re.sub(r"['\"]", "", norm(a)).strip()
+        u = v.get("url")
+        if len(na) < 3 or u not in pidx:
+            continue
+        k = url_group.get(u)
+        if k is None:
+            continue
+        phrases[na].add(gi[k])
+        # כינוי "ספציפי" (למשל "וינגייט ספורט") מוביל ישר לדף אחד מתוך מוסד עם כמה דפים:
+        # יש בו מילה שמופיעה בדף היעד אבל לא בכל הדפים של המוסד
+        grp = groups[k]["pages"]
+        if len(grp) > 1:
+            texts = [" " + page_rows[i][5] + " " for i in grp]
+            own = " " + page_rows[pidx[u]][5] + " "
+            def has_w(tx, w):
+                return any((" " + p + w) in tx for p in ("", "ה", "ב", "ל", "ו"))
+            if any(len(w) >= 3 and has_w(own, w) and not all(has_w(tx, w) for tx in texts) for w in na.split()):
+                alias_pages[na] = pidx[u]
     tokens = {t: sorted(g) for t, g in tokens.items() if len(g) <= 3}
     out = {
+        "pages": page_rows,
         "g": [[groups[k]["name"], sorted(groups[k]["pages"])] for k in keys],
         "p": {p: sorted(g) for p, g in phrases.items()},
+        "a": alias_pages,
         "k": tokens,
     }
     body = json.dumps(out, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
     with open(INST_OUT_PATH, "w", encoding="ascii") as fh:
-        fh.write("/* Shabaton course-bot institutions index - generated by scripts/build_course_bot_index.py. Do not edit by hand. */\n")
+        fh.write("/* Shabaton course-bot institutions & pages index - generated by scripts/build_course_bot_index.py. Do not edit by hand. */\n")
         fh.write("window.SHB_INST = " + body + ";\n")
     multi = sum(1 for k in keys if len(groups[k]["pages"]) > 1)
-    print(f"🏫 אינדקס מוסדות: {len(keys)} מוסדות, {len(pages)} דפים ({multi} מוסדות עם כמה דפים), {len(out['p'])} שמות/כינויים, {len(tokens)} מילות זיהוי")
+    print(f"🏫 אינדקס מוסדות: {len(keys)} מוסדות, {len(urls)} דפים ({multi} מוסדות עם כמה דפים), {len(out['p'])} שמות/כינויים, {len(tokens)} מילות זיהוי")
 
 if __name__ == "__main__":
     main()
