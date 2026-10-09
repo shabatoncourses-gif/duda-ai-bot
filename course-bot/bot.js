@@ -228,6 +228,32 @@
     });
     return (PAGE_AREAS[i] = r);
   }
+  // \u05E2\u05D9\u05E8 \u05E1\u05E4\u05E6\u05D9\u05E4\u05D9\u05EA (\u05DC\u05D0 \u05D0\u05D6\u05D5\u05E8 \u05DB\u05DC\u05DC\u05D9 \u05DB\u05DE\u05D5 "\u05DE\u05E8\u05DB\u05D6" \u05D0\u05D5 "\u05E6\u05E4\u05D5\u05DF")
+  var REGION_WORDS = ["\u05DE\u05E8\u05DB\u05D6","\u05E6\u05E4\u05D5\u05DF","\u05E9\u05E8\u05D5\u05DF","\u05E9\u05E4\u05DC\u05D4","\u05D3\u05E8\u05D5\u05DD","\u05E0\u05D2\u05D1","\u05D2\u05DC\u05D9\u05DC","\u05D2\u05D5\u05DC\u05DF","\u05E2\u05DE\u05E7","\u05E2\u05DE\u05E7 \u05D9\u05D6\u05E8\u05E2\u05D0\u05DC","\u05DB\u05E8\u05DE\u05DC","\u05E7\u05E8\u05D9\u05D5\u05EA","\u05E2\u05D5\u05D8\u05E3","\u05D2\u05D5\u05E9 \u05E2\u05E6\u05D9\u05D5\u05DF"];
+  function cityNorm(x){
+    return norm(x).replace(/\u05E7\u05E8\u05D9\u05D9\u05EA/g,"\u05E7\u05E8\u05D9\u05EA").replace(/\u05EA\u05E7\u05D5\u05D5\u05D4/g,"\u05EA\u05E7\u05D5\u05D4").replace(/\u05E8\u05D0\u05E9\u05DC['"]?\u05E6/g,"\u05E8\u05D0\u05E9\u05D5\u05DF \u05DC\u05E6\u05D9\u05D5\u05DF")
+      .replace(/ \u05EA['"]\u05D0 /g," \u05EA\u05DC \u05D0\u05D1\u05D9\u05D1 ").replace(/ \u05E4['"]\u05EA /g," \u05E4\u05EA\u05D7 \u05EA\u05E7\u05D5\u05D4 ").replace(/ \u05D1['"]\u05E9 /g," \u05D1\u05D0\u05E8 \u05E9\u05D1\u05E2 ").replace(/ \u05D9 \u05DD /g," \u05D9\u05E8\u05D5\u05E9\u05DC\u05D9\u05DD ");
+  }
+  function findCity(t){
+    var best = null;
+    AREAS.forEach(function(a){ if(!a.id) return; a.kw.forEach(function(k){
+      var nk = norm(k).trim();
+      if(REGION_WORDS.indexOf(nk) > -1 || !has(t,k)) return;
+      if(!best || nk.length > best.kw.length) best = {kw:nk, area:a.id};
+    }); });
+    if(!best) return null;
+    // \u05E9\u05DD \u05D4\u05E2\u05D9\u05E8 \u05DB\u05E4\u05D9 \u05E9\u05D4\u05D2\u05D5\u05DC\u05E9 \u05DB\u05EA\u05D1 \u05D0\u05D5\u05EA\u05D5 ("\u05E4\u05EA\u05D7 \u05EA\u05E7\u05D5\u05D5\u05D4"), \u05D1\u05DC\u05D9 \u05D0\u05D5\u05EA \u05D4\u05E9\u05D9\u05DE\u05D5\u05E9
+    var i = t.indexOf(best.kw), j = t.indexOf(" ", i + best.kw.length);
+    var shown = t.slice(i, j < 0 ? undefined : j).trim();
+    var key = cityNorm(best.kw).trim().replace(/\u05D4$/, "");
+    return {key:key, name:shown, area:best.area};
+  }
+  function inCity(i, city){
+    return INST.pages[i][3].some(function(l){ return cityNorm(l).indexOf(city.key) > -1; });
+  }
+  function filterCity(list, city){ return list.filter(function(i){ return inCity(i, city); }); }
+  function allPages(){ return INST.pages.map(function(p, i){ return i; }); }
+
   function filterPages(list, area, remote){
     return list.filter(function(i){
       var r = pageAreas(i);
@@ -371,7 +397,7 @@
   var log = document.getElementById("shb-log");
   var panel = document.getElementById("shb-panel");
   var input = document.getElementById("shb-input");
-  var state = {disc:null, area:null, remote:false, terms:[], strictFirst:false};
+  var state = {disc:null, area:null, remote:false, terms:[], strictFirst:false, city:null};
 
   function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
   function bubble(html, who){
@@ -439,12 +465,22 @@
       reset(); return;
     }
     // \u05D3\u05E4\u05D9\u05DD \u05E9\u05E2\u05D5\u05E0\u05D9\u05DD \u05E2\u05DC \u05D4\u05E0\u05D5\u05E9\u05D0
+    var cityNote = "";
+    if(R && state.city){
+      var fc = filterCity(R.pages, state.city);
+      if(fc.length === 1){ goPage(fc[0]); reset(); return; }
+      if(fc.length > 1 && fc.length <= MAX_LIST){
+        listPages(fc, "\u05DE\u05E6\u05D0\u05EA\u05D9 "+fc.length+" \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D \u05D1"+state.city.name+". \u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:"); reset(); return;
+      }
+      if(fc.length === 0) cityNote = "\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D \u05D1"+state.city.name+" \u05E2\u05E6\u05DE\u05D4, \u05D0\u05D1\u05DC \u05D9\u05E9 \u05D1\u05D0\u05D6\u05D5\u05E8 "+areaName+":";
+    }
     if(R){
       if(state.area !== null){
         var fa = filterPages(R.pages, state.area, false);
-        if(fa.length === 1){ goPage(fa[0]); reset(); return; }
+        if(fa.length === 1 && !cityNote){ goPage(fa[0]); reset(); return; }
+        if(fa.length === 1 && cityNote){ listPages(fa, cityNote); reset(); return; }
         if(fa.length > 1 && fa.length <= MAX_LIST){
-          listPages(fa, "\u05DE\u05E6\u05D0\u05EA\u05D9 "+fa.length+" \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D"+(areaName ? " \u05D1\u05D0\u05D6\u05D5\u05E8 "+areaName : "")+". \u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:"); reset(); return;
+          listPages(fa, cityNote || ("\u05DE\u05E6\u05D0\u05EA\u05D9 "+fa.length+" \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D"+(areaName ? " \u05D1\u05D0\u05D6\u05D5\u05E8 "+areaName : "")+". \u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:")); reset(); return;
         }
         if(fa.length === 0 && R.pages.length <= MAX_LIST){
           listPages(R.pages, "\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D \u05D1\u05D0\u05D6\u05D5\u05E8 "+areaName+" \uD83D\uDE41\n\u05D0\u05D1\u05DC \u05D9\u05E9 \u05DB\u05D0\u05DC\u05D4 \u05D1\u05DE\u05E7\u05D5\u05DE\u05D5\u05EA \u05D0\u05D7\u05E8\u05D9\u05DD \u2013 \u05D0\u05D5\u05DC\u05D9 \u05D0\u05D7\u05D3 \u05DE\u05D4\u05DD \u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:"); reset(); return;
@@ -471,6 +507,20 @@
     if(state.disc){
       say("\u05D0\u05D9\u05D6\u05D4 \u05D9\u05D5\u05E4\u05D9, "+discById(state.disc).name+" \uD83D\uDE42\n\u05D1\u05D0\u05D9\u05D6\u05D4 \u05D0\u05D6\u05D5\u05E8 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3?", areaChips()); return;
     }
+    if(state.city && !state.disc){
+      var cp = filterCity(allPages(), state.city);
+      if(cp.length === 1){ goPage(cp[0]); reset(); return; }
+      if(cp.length > 1 && cp.length <= MAX_LIST){
+        listPages(cp, "\u05D1"+state.city.name+" \u05DE\u05EA\u05E7\u05D9\u05D9\u05DE\u05D9\u05DD "+cp.length+" \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD. \u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:"); reset(); return;
+      }
+      if(cp.length > MAX_LIST){
+        say("\u05D1"+state.city.name+" \u05D9\u05E9 "+cp.length+" \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD \uD83D\uDCCD\n\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3? \u05DB\u05EA\u05D1\u05D5 \u05E0\u05D5\u05E9\u05D0, \u05D0\u05D5 \u05D1\u05D7\u05E8\u05D5 \u05DE\u05D4\u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05D4\u05E4\u05D5\u05E4\u05D5\u05DC\u05E8\u05D9\u05D9\u05DD:",
+            POPULAR.map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; })); return;
+      }
+      say("\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05E9\u05DE\u05EA\u05E7\u05D9\u05D9\u05DE\u05D9\u05DD \u05D1"+state.city.name+" \u05E2\u05E6\u05DE\u05D4 \uD83D\uDE41\n\u05D0\u05D1\u05DC \u05D1\u05D0\u05D6\u05D5\u05E8 "+areaName+" \u05D9\u05E9 \u05D4\u05E8\u05D1\u05D4 \u2013 \u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3? \u05DB\u05EA\u05D1\u05D5 \u05E0\u05D5\u05E9\u05D0, \u05D0\u05D5 \u05D1\u05D7\u05E8\u05D5:",
+          POPULAR.map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; }));
+      state.city = null; return;
+    }
     if(state.area!==null){
       say("\u05E8\u05E9\u05DE\u05EA\u05D9: "+areaById(state.area).name+" \uD83D\uDCCD\n\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3? \u05DB\u05EA\u05D1\u05D5 \u05E0\u05D5\u05E9\u05D0 \u05D0\u05D5 \u05EA\u05D7\u05D5\u05DD, \u05D0\u05D5 \u05D1\u05D7\u05E8\u05D5 \u05DE\u05D4\u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05D4\u05E4\u05D5\u05E4\u05D5\u05DC\u05E8\u05D9\u05D9\u05DD:",
           POPULAR.map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; })); return;
@@ -492,7 +542,7 @@
     }
     if(!followUp){ reset(); log.innerHTML = ""; }
   }
-  function reset(){ state = {disc:null, area:null, remote:false, terms:[], strictFirst:false}; }
+  function reset(){ state = {disc:null, area:null, remote:false, terms:[], strictFirst:false, city:null}; }
 
   function handle(text){
     var t = norm(text);
@@ -503,6 +553,12 @@
 
     // \u05D7\u05D9\u05E4\u05D5\u05E9 \u05DC\u05E4\u05D9 \u05DE\u05D5\u05E1\u05D3 \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD (\u05E1\u05DE\u05D9\u05E0\u05E8 \u05D4\u05E7\u05D9\u05D1\u05D5\u05E6\u05D9\u05DD, \u05D7\u05DE\u05D3\u05EA, \u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9...)
     var insts = findInstitutions(t);
+    // "\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05E7\u05E8\u05D9\u05D9\u05EA \u05D0\u05D5\u05E0\u05D5" \u2013 \u05E9\u05DD \u05E2\u05D9\u05E8 \u05E9\u05DE\u05DB\u05D9\u05DC \u05E9\u05DD \u05E9\u05DC \u05DE\u05D5\u05E1\u05D3: \u05DE\u05EA\u05D9\u05D9\u05D7\u05E1\u05D9\u05DD \u05DC\u05E2\u05D9\u05E8, \u05D0\u05DC\u05D0 \u05D0\u05DD \u05DB\u05EA\u05D1\u05D5 \u05D1\u05DE\u05E4\u05D5\u05E8\u05E9 \u05DE\u05DB\u05DC\u05DC\u05D4/\u05D0\u05E7\u05D3\u05DE\u05D9\u05EA \u05D5\u05DB\u05D5'
+    var c0 = findCity(t);
+    if(insts.length && c0 && !INST_WORDS.some(function(w){ return t.indexOf(" "+w+" ") > -1; })){
+      var tNoCity = t.split(" "+c0.name+" ").join(" ").split(c0.name).join(" ");
+      if(!findInstitutions(tNoCity).length) insts = [];
+    }
     if(insts.length === 1){ reset(); showInstitution(insts[0]); return; }
     if(insts.length > 1){
       reset();
@@ -515,6 +571,8 @@
 
     if(remote) state.remote = true;
     if(areas.length) state.area = areas[0].id;
+    var city = findCity(t);
+    if(city){ state.city = city; state.area = city.area; }
 
     // \u05DE\u05D5\u05E0\u05D7\u05D9 \u05D7\u05D9\u05E4\u05D5\u05E9 \u05DC\u05D3\u05E4\u05D9\u05DD: \u05D4\u05D1\u05D9\u05D8\u05D5\u05D9 \u05D4\u05DE\u05DC\u05D0 \u05E9\u05D4\u05D2\u05D5\u05DC\u05E9 \u05DB\u05EA\u05D1, \u05D4\u05E0\u05D5\u05E9\u05D0 \u05E9\u05D6\u05D5\u05D4\u05D4, \u05D5\u05DE\u05D9\u05DC\u05EA \u05D4\u05EA\u05D7\u05D5\u05DD
     var subj = subjectOf(text), hit = findCourseTopic(t), terms = [];
