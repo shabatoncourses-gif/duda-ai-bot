@@ -359,6 +359,15 @@ def build_institutions(fields, topics):
         g["pages"].append(pidx[u])
         url_group[u] = key
 
+    # דף שבכותרת שלו מופיע שם של מוסד אחר (למשל "חברה ואמנויות - הקריה האקדמית אונו")
+    # מצורף גם לרשימת הדפים של אותו מוסד
+    for k, g in groups.items():
+        if len(k.split()) < 2:
+            continue
+        for u in urls:
+            if pidx[u] not in g["pages"] and (" " + k + " ") in re.sub(r"['\"]", "", norm(pages[u])):
+                g["pages"].append(pidx[u])
+
     topic_words = {norm(t).strip() for t in topics}
     keys = list(groups)
     gi = {k: i for i, k in enumerate(keys)}
