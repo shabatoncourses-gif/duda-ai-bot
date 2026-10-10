@@ -549,7 +549,22 @@
     el.className = "shb-msg " + (who==="user" ? "shb-user-msg" : "shb-bot-msg");
     el.innerHTML = html;
     log.appendChild(el); panel.classList.add("on"); log.scrollTop = log.scrollHeight;
+    unclip();
     return el;
+  }
+  /* \u05D3\u05D5\u05D3\u05D0: \u05D0\u05DD \u05D4\u05DE\u05E7\u05D8\u05E2 \u05E9\u05D4\u05D5\u05D5\u05D9\u05D3\u05D2'\u05D8 \u05D9\u05D5\u05E9\u05D1 \u05D1\u05D5 \u05E7\u05D9\u05D1\u05DC \u05D2\u05D5\u05D1\u05D4 \u05E7\u05D1\u05D5\u05E2, \u05EA\u05D9\u05D1\u05EA \u05D4\u05EA\u05E9\u05D5\u05D1\u05D5\u05EA \u05E0\u05D7\u05EA\u05DB\u05EA.
+     \u05DE\u05E8\u05D7\u05D9\u05D1\u05D9\u05DD \u05D0\u05EA \u05D4\u05DE\u05E7\u05D8\u05E2\u05D9\u05DD \u05E9\u05E2\u05D5\u05D8\u05E4\u05D9\u05DD \u05D0\u05EA \u05D4\u05D1\u05D5\u05D8 \u05DB\u05DA \u05E9\u05D9\u05DB\u05D9\u05DC\u05D5 \u05D0\u05D5\u05EA\u05D5 (\u05E8\u05E7 \u05D0\u05DD \u05D4\u05DD \u05E7\u05D8\u05E0\u05D9\u05DD \u05DE\u05DE\u05E0\u05D5) */
+  function unclip(){
+    var root = document.getElementById("shb-bot");
+    if(!root) return;
+    var need = root.getBoundingClientRect().height;
+    for(var el = root.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement){
+      if(el.clientHeight + 2 < need || el.scrollHeight > el.clientHeight + 2){
+        var cs = getComputedStyle(el);
+        if(cs.height !== "auto"){ el.style.setProperty("height","auto","important"); }
+        if(cs.maxHeight !== "none"){ el.style.setProperty("max-height","none","important"); }
+      }
+    }
   }
   function say(text, chips, links){
     var html = esc(text);
@@ -854,6 +869,7 @@
       var on = b.getAttribute("data-mode") === m; b.classList.toggle("on", on); b.setAttribute("aria-selected", on ? "true" : "false");
     });
     if(save){ try{ localStorage.setItem("shb-mode", m); }catch(e){} }
+    unclip();
   }
   [].forEach.call(botRoot.querySelectorAll(".shb-mode"), function(b){
     b.addEventListener("click", function(){ var m = b.getAttribute("data-mode"); setMode(m, true); (m === "pick" ? selDisc : input).focus(); });
@@ -867,6 +883,7 @@
     try{ if(localStorage.getItem("shb-mode") === "pick") setMode("pick"); }catch(e){}
   }
 
+  unclip(); window.addEventListener("resize", unclip);
   // \u05D3\u05D5\u05D2\u05DE\u05D0\u05D5\u05EA \u05DC\u05D7\u05D9\u05E6\u05D5\u05EA \u05DE\u05EA\u05D7\u05EA \u05DC\u05E9\u05D5\u05E8\u05EA \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9
   // \u05D1\u05E1\u05DC\u05D5\u05DC\u05E8 \u2013 \u05D3\u05D5\u05D2\u05DE\u05D4 \u05E7\u05E6\u05E8\u05D4 \u05D9\u05D5\u05EA\u05E8 \u05D1\u05E9\u05D5\u05E8\u05EA \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9
   if(document.getElementById("shb-bot").offsetWidth < 600) input.placeholder = "\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3? \u2728";
