@@ -1,3 +1,4 @@
+
 /* Shabaton course-search bot
    Duda HTML widget:
      <div id="shb-bot"></div>
@@ -943,6 +944,26 @@
   }
 
   unclip(); window.addEventListener("resize", unclip);
+  /* \u05D3\u05D5\u05D3\u05D0: \u05D0\u05DD \u05D4-header \u05E9\u05DC \u05D4\u05D0\u05EA\u05E8 \u05DE\u05D5\u05E0\u05D7 \u05DE\u05E2\u05DC \u05D4\u05D1\u05D5\u05D8 (overlay), \u05D4\u05DB\u05D5\u05EA\u05E8\u05EA \u05E0\u05D7\u05EA\u05DB\u05EA \u2013 \u05DE\u05D5\u05E1\u05D9\u05E4\u05D9\u05DD \u05E8\u05D9\u05D5\u05D5\u05D7 \u05E2\u05DC\u05D9\u05D5\u05DF \u05DC\u05E4\u05D9 \u05D2\u05D5\u05D1\u05D4 \u05D4\u05D7\u05E4\u05D9\u05E4\u05D4 */
+  var heroEl = document.querySelector("#shb-bot .shb-hero"), basePad = null;
+  function fixTop(){
+    if(!heroEl) return;
+    heroEl.style.paddingTop = "";
+    if(basePad === null) basePad = parseFloat(getComputedStyle(heroEl).paddingTop) || 0;
+    var r = botRoot.getBoundingClientRect();
+    if(r.top < 0 || r.top > window.innerHeight - 10) return;
+    var hit = document.elementFromPoint(r.left + r.width/2, r.top + 4);
+    if(!hit || botRoot.contains(hit)) return;
+    for(var el = hit; el && el !== document.body; el = el.parentElement){
+      var pos = getComputedStyle(el).position;
+      if(pos === "fixed" || pos === "sticky" || pos === "absolute"){
+        var ov = el.getBoundingClientRect().bottom - r.top;
+        if(ov > 0 && ov < 400) heroEl.style.setProperty("padding-top", (basePad + ov) + "px", "important");
+        return;
+      }
+    }
+  }
+  setTimeout(fixTop, 50); setTimeout(fixTop, 800); window.addEventListener("load", fixTop); window.addEventListener("resize", fixTop);
   // \u05D3\u05D5\u05D2\u05DE\u05D0\u05D5\u05EA \u05DC\u05D7\u05D9\u05E6\u05D5\u05EA \u05DE\u05EA\u05D7\u05EA \u05DC\u05E9\u05D5\u05E8\u05EA \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9
   // \u05D1\u05E1\u05DC\u05D5\u05DC\u05E8 \u2013 \u05D3\u05D5\u05D2\u05DE\u05D4 \u05E7\u05E6\u05E8\u05D4 \u05D9\u05D5\u05EA\u05E8 \u05D1\u05E9\u05D5\u05E8\u05EA \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9
   if(document.getElementById("shb-bot").offsetWidth < 600) input.placeholder = "\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3? \u2728";
