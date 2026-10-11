@@ -1,908 +1,437 @@
-/* Shabaton course-search bot
-   Duda HTML widget:
-     <div id="shb-bot"></div>
-     <script src="https://duda-ai-bot.vercel.app/course-bot/bot.js" defer></script>
-   Only one search mode (no toggle):  <div id="shb-bot" data-mode="free"></div>  or  data-mode="pick"
-*/
-(function(){
-  var me = document.currentScript || (function(s){ return s[s.length-1]; })(document.getElementsByTagName("script"));
-  var BASE = me.src.replace(/[^\/]*$/, "");
-  var root = document.getElementById("shb-bot");
-  if(!root){ root = document.createElement("div"); root.id = "shb-bot"; me.parentNode.insertBefore(root, me); }
-  if(root.getAttribute("data-shb-ready")) return;
-  root.setAttribute("data-shb-ready","1");
-  root.setAttribute("dir","rtl");
-  var qm = (me.src.match(/[?&]mode=(free|pick)/i) || [])[1];
-  if(qm && !root.getAttribute("data-mode")) root.setAttribute("data-mode", qm.toLowerCase());
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>שבתון-בוט — עוזר שבתון AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --blue: #0982bc; --blue-dark: #0770a3; --blue-deep: #055a85; --blue-light: #e8f4fb; --cyan: #0bb5e0;
+  --orange: #e8630a; --orange-soft: #f07e2a;
+  --bg: #f0f6fb; --surface: #ffffff;
+  --text: #1a2a3a; --text-muted: #6b7a8a; --border: #d4e6f4;
+  --radius: 20px; --shadow: 0 6px 28px rgba(9,130,188,0.13);
+  --maxw: 1080px;
+  --gutter: max(16px, calc((100% - var(--maxw)) / 2));
+  --font: 'Heebo', Arial, sans-serif;
+}
+html, body { height: 100%; margin: 0; font-family: var(--font); background: var(--bg); color: var(--text); direction: rtl; overflow: hidden; }
+button { font-family: var(--font); }
 
-  if(!document.getElementById("shb-font")){
-    var lf = document.createElement("link"); lf.id="shb-font"; lf.rel="stylesheet";
-    lf.href = "https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap";
-    document.head.appendChild(lf);
-  }
-  var st = document.createElement("style");
-  st.textContent = "\n/* \u05D4\u05EA\u05DE\u05D5\u05E0\u05D4: \u05D0\u05E4\u05E9\u05E8 \u05DC\u05D4\u05D7\u05DC\u05D9\u05E3 \u05D1\u05DB\u05EA\u05D5\u05D1\u05EA \u05E9\u05DC \u05EA\u05DE\u05D5\u05E0\u05D4 \u05E9\u05D4\u05D5\u05E2\u05DC\u05EA\u05D4 \u05DC\u05D3\u05D5\u05D3\u05D0 \u2013 url(\"https://...\") */\n#shb-bot{--shb-img:url(\"__BASE__hero.jpg\");\n  --blue:#0982bc;--orange:#e8630a;--tx:#1a2a3a;--br:#d4e6f4;\n  font-family:\"Heebo\",Arial,sans-serif;color:var(--tx);direction:rtl;container-type:inline-size}\n#shb-bot *{box-sizing:border-box;margin:0;padding:0}\n#shb-bot .shb-hero{position:relative;background:var(--shb-img) center 28%/cover no-repeat;overflow:hidden;padding:64px 28px 44px;min-height:480px;display:flex;align-items:center}\n#shb-bot .shb-hero::before{content:\"\";position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,60,95,.50) 0%,rgba(7,60,95,.62) 55%,rgba(7,60,95,.80) 100%)}\n#shb-bot .shb-in{position:relative;width:100%;max-width:740px;margin:0 auto;text-align:center}\n#shb-bot .shb-title{color:#fff !important;-webkit-text-fill-color:#fff !important;font-family:\"Heebo\",Arial,sans-serif !important;font-size:34px !important;font-weight:800 !important;line-height:1.25 !important;text-shadow:0 2px 10px rgba(0,0,0,.35);margin:0 !important;background:none !important}\n#shb-bot .shb-sub{color:#fff !important;-webkit-text-fill-color:#fff !important;opacity:.95;font-size:17px;margin:10px 0 22px;text-shadow:0 1px 6px rgba(0,0,0,.3)}\n#shb-bot .shb-bar{display:flex;align-items:center;background:#fff;border-radius:50px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.28)}\n#shb-bot .shb-bar input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:500 18px \"Heebo\",Arial,sans-serif;color:var(--tx);padding:0 18px;direction:rtl}\n#shb-bot .shb-bar button{background:linear-gradient(135deg,var(--orange),#f07e2a);color:#fff;border:0;border-radius:40px;padding:13px 26px;font:700 17px \"Heebo\",Arial,sans-serif;white-space:nowrap;cursor:pointer;box-shadow:0 3px 10px rgba(232,99,10,.4)}\n#shb-bot .shb-bar button:hover{filter:brightness(1.07)}\n#shb-bot .shb-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}\n#shb-bot .shb-sug{justify-content:safe center;margin-top:14px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}\n#shb-bot .shb-sug::-webkit-scrollbar{display:none}\n#shb-bot .shb-sug .shb-chip{flex:0 0 auto;white-space:nowrap;padding:6px 12px}\n#shb-bot .shb-sug{gap:5px}\n#shb-bot .shb-chip{border:1.5px solid var(--br);color:var(--blue);background:#fff;border-radius:20px;padding:6px 14px;font:500 14px \"Heebo\",Arial,sans-serif;cursor:pointer;transition:all .15s}\n#shb-bot .shb-sug .shb-chip{background:rgba(255,255,255,.92);border-color:transparent}\n#shb-bot .shb-chip:hover{background:var(--blue);color:#fff;border-color:var(--blue)}\n/* \u05D0\u05D6\u05D5\u05E8 \u05D4\u05EA\u05E9\u05D5\u05D1\u05D5\u05EA \u2013 \u05DE\u05D5\u05E4\u05D9\u05E2 \u05E8\u05E7 \u05D0\u05D7\u05E8\u05D9 \u05D4\u05E9\u05D0\u05DC\u05D4 \u05D4\u05E8\u05D0\u05E9\u05D5\u05E0\u05D4 */\n#shb-bot .shb-panel{display:none;margin-top:18px;background:rgba(247,250,253,.97);border-radius:16px;overflow:hidden;text-align:right;box-shadow:0 6px 24px rgba(0,0,0,.2)}\n#shb-bot .shb-panel.on{display:block;animation:shbUp .25s ease}\n#shb-bot .shb-bar-top{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--br);background:#fff;font-size:13px;color:#6b7a8a;font-weight:500}\n#shb-bot .shb-clear{background:#fff;border:1.5px solid var(--br);color:#6b7a8a;border-radius:10px;padding:5px 12px;font:500 13px \"Heebo\",Arial,sans-serif;cursor:pointer;transition:all .15s}\n#shb-bot .shb-clear:hover{border-color:var(--blue);color:var(--blue);background:#e8f4fb}\n#shb-bot .shb-log{position:relative;padding:14px;max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}\n#shb-bot .shb-msg{max-width:88%;padding:10px 14px;border-radius:16px;line-height:1.5;font-size:15px;white-space:pre-line;animation:shbUp .25s ease}\n@keyframes shbUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}\n#shb-bot .shb-bot-msg{align-self:flex-start;background:#fff;border:1px solid var(--br);border-top-right-radius:4px}\n#shb-bot .shb-user-msg{align-self:flex-end;background:var(--blue);color:#fff;border-top-left-radius:4px;font-weight:500}\n#shb-bot .shb-go{display:inline-block;margin:8px 0 0 6px;background:var(--orange);color:#fff !important;text-decoration:none;border-radius:24px;padding:8px 18px;font-weight:700;font-size:14.5px;box-shadow:0 3px 10px rgba(232,99,10,.3)}\n#shb-bot .shb-go:hover{filter:brightness(1.08)}\n#shb-bot .shb-foot{margin-top:10px}\n#shb-bot .shb-md{white-space:pre-line;line-height:1.55}\n#shb-bot .shb-md strong{color:var(--blue)}\n#shb-bot .shb-link{color:var(--blue);font-weight:600;text-decoration:underline}\n#shb-bot .shb-md .shb-go{margin:6px 0}\n#shb-bot .shb-typing{display:inline-flex;gap:5px;padding:4px 2px}\n#shb-bot .shb-typing i{width:8px;height:8px;border-radius:50%;background:var(--blue);display:inline-block;animation:shbDot 1.2s infinite ease-in-out}\n#shb-bot .shb-typing i:nth-child(2){animation-delay:.2s}\n#shb-bot .shb-typing i:nth-child(3){animation-delay:.4s}\n@keyframes shbDot{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-5px)}}\n#shb-bot .shb-items{display:flex;flex-direction:column;gap:8px;margin-top:10px}\n#shb-bot .shb-item{display:block;text-decoration:none;background:#fff;border:1.5px solid var(--br);border-radius:12px;padding:10px 12px;transition:border-color .15s, box-shadow .15s}\n#shb-bot .shb-item:hover{border-color:var(--blue);box-shadow:0 3px 12px rgba(9,130,188,.15)}\n#shb-bot .shb-item b{display:block;color:var(--blue);font-size:15px;font-weight:700;line-height:1.35}\n#shb-bot .shb-item span{display:block;color:var(--tx);font-size:13.5px;line-height:1.4;margin-top:3px;white-space:normal}\n#shb-bot .shb-item small{display:block;color:#6b7a8a;font-size:12px;margin-top:4px}\n#shb-bot .shb-going-sum{color:#6b7a8a;font-size:13.5px;margin-top:4px}\n#shb-bot .shb-prog{height:4px;background:#e8f4fb;border-radius:4px;overflow:hidden;margin:10px 0 4px}\n#shb-bot .shb-prog i{display:block;height:100%;width:0;background:var(--orange);animation:shbGo 1.6s linear forwards}\n@keyframes shbGo{to{width:100%}}\n#shb-bot .shb-list .shb-go{display:block;margin:6px 0 0;text-align:right}\n#shb-bot .shb-go.alt{background:#fff;color:var(--blue) !important;border:1.5px solid var(--blue);box-shadow:none}\n/* \u05D1\u05D7\u05D9\u05E8\u05EA \u05D0\u05D5\u05E4\u05DF \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9: \u05D7\u05D5\u05E4\u05E9\u05D9 / \u05DC\u05E4\u05D9 \u05EA\u05D7\u05D5\u05DD */\n#shb-bot .shb-modes{display:inline-flex;gap:4px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:40px;padding:4px;margin:0 0 14px;backdrop-filter:blur(4px)}\n#shb-bot .shb-mode{background:transparent;border:0;color:#fff;border-radius:30px;padding:7px 18px;font:600 15px \"Heebo\",Arial,sans-serif;cursor:pointer;transition:all .15s;white-space:nowrap}\n#shb-bot .shb-mode:hover{background:rgba(255,255,255,.15)}\n#shb-bot .shb-mode.on{background:#fff;color:var(--blue);box-shadow:0 2px 8px rgba(0,0,0,.18)}\n#shb-bot .shb-sub-pick,#shb-bot .shb-sub-only{display:none}\n/* \u05D5\u05D5\u05D9\u05D3\u05D2'\u05D8 \u05E2\u05DD \u05DE\u05E0\u05D2\u05E0\u05D5\u05DF \u05D0\u05D7\u05D3 \u05D1\u05DC\u05D1\u05D3 (data-mode=\"free\" / \"pick\") \u2013 \u05D1\u05DC\u05D9 \u05DE\u05EA\u05D2 */\n#shb-bot.shb-fixed .shb-modes{display:none}\n#shb-bot.shb-fixed.shb-pick-only .shb-sub{margin-bottom:22px}\n#shb-bot.shb-free-only .shb-sub-free{display:none}\n#shb-bot.shb-free-only .shb-sub-only{display:inline}\n#shb-bot .shb-pick{display:none;align-items:center;background:#fff;border-radius:50px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.28)}\n#shb-bot .shb-pick select{flex:1;min-width:0;height:46px;border:0;outline:0;background:transparent url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%230982bc' stroke-width='2'/%3E%3C/svg%3E\") no-repeat left 14px center;\n  -webkit-appearance:none;appearance:none;font:500 17px \"Heebo\",Arial,sans-serif;color:var(--tx);padding:0 16px 0 34px;direction:rtl;cursor:pointer;border-radius:40px}\n#shb-bot .shb-pick select:focus-visible{background-color:#eef6fc}\n#shb-bot .shb-pick select + select{border-right:1.5px solid var(--br);border-radius:0}\n#shb-bot .shb-pick select.shb-need{background-color:#fff1e8;color:var(--orange);border-radius:40px;animation:shbShake .35s}\n@keyframes shbShake{25%{transform:translateX(4px)}75%{transform:translateX(-4px)}}\n#shb-bot .shb-pick button{background:linear-gradient(135deg,var(--orange),#f07e2a);color:#fff;border:0;border-radius:40px;padding:13px 26px;font:700 17px \"Heebo\",Arial,sans-serif;white-space:nowrap;cursor:pointer;box-shadow:0 3px 10px rgba(232,99,10,.4)}\n#shb-bot .shb-pick button:hover{filter:brightness(1.07)}\n#shb-bot.shb-pickmode .shb-pick{display:flex}\n#shb-bot.shb-pickmode #shb-form,#shb-bot.shb-pickmode #shb-sug,#shb-bot.shb-pickmode #shb-panel,#shb-bot.shb-pickmode .shb-sub-free{display:none}\n#shb-bot.shb-pickmode .shb-sub-pick{display:inline}\n\n/* \u05E1\u05DC\u05D5\u05DC\u05E8 */\n@container (max-width:600px){\n  #shb-bot .shb-hero{padding:30px 14px 20px;min-height:400px;border-radius:0;background-position:center 15%;align-items:flex-start}\n  #shb-bot .shb-title{font-size:23px !important}\n  #shb-bot .shb-sub{font-size:14.5px;margin:8px 0 16px}\n  #shb-bot .shb-bar input{font-size:16px;padding:0 12px}\n  #shb-bot .shb-bar button{padding:11px 16px;font-size:15px}\n  #shb-bot .shb-sug{overflow:hidden;gap:5px}\n  #shb-bot .shb-sug .shb-chip{padding:6px 10px;font-size:13px}\n  #shb-bot .shb-log{padding:10px;max-height:360px}\n  #shb-bot .shb-panel{margin-top:14px}\n  #shb-bot .shb-msg{max-width:92%}\n  #shb-bot .shb-modes{margin-bottom:12px}\n  #shb-bot .shb-mode{padding:6px 13px;font-size:14px}\n  #shb-bot .shb-pick{flex-direction:column;align-items:stretch;border-radius:18px;padding:6px;gap:4px}\n  #shb-bot .shb-pick select{flex:none;width:100%;height:46px;font-size:16px;border-radius:12px}\n  #shb-bot .shb-pick select + select{border-right:0;border-top:1.5px solid var(--br);border-radius:0 0 12px 12px}\n  #shb-bot .shb-pick button{padding:12px 16px;font-size:16px;border-radius:14px}\n}\n@media (max-width:600px){\n  #shb-bot .shb-hero{padding:30px 14px 20px;min-height:0;border-radius:0}\n  #shb-bot .shb-title{font-size:23px !important}\n}\n/* ===== \u05E4\u05E1 \u05D1\u05E8\u05D5\u05D7\u05D1 \u05DE\u05DC\u05D0 \u05E9\u05DC \u05D4\u05DE\u05E1\u05DA \u2013 \u05D2\u05DD \u05DB\u05E9\u05D4\u05D5\u05D5\u05D9\u05D3\u05D2'\u05D8 \u05E0\u05DE\u05E6\u05D0 \u05D1\u05EA\u05D5\u05DA \u05E2\u05DE\u05D5\u05D3\u05D4 \u05E6\u05E8\u05D4 \u05D1\u05D3\u05D5\u05D3\u05D0 ===== */\n#shb-bot{width:100vw;max-width:100vw;position:relative;margin-inline:calc(50% - 50vw)}\nhtml,body{overflow-x:hidden}\n".replace(/__BASE__/g, BASE);
-  document.head.appendChild(st);
-  root.innerHTML = "  <div class=\"shb-hero\">\n    <div class=\"shb-in\">\n      <div class=\"shb-title\" role=\"heading\" aria-level=\"2\">\u05DE\u05E6\u05D0\u05D5 \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9 \u05DC\u05D9\u05DE\u05D5\u05D3, \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D5\u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05D9\u05D5\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D9\u05DD \u05DC\u05DB\u05DD</div>\n      <p class=\"shb-sub\"><span class=\"shb-sub-free\">\u05DB\u05EA\u05D1\u05D5 \u05D1\u05DE\u05D9\u05DC\u05D9\u05DD \u05E9\u05DC\u05DB\u05DD \u05DE\u05D4 \u05D5\u05D0\u05D9\u05E4\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3, \u05D7\u05E4\u05E9\u05D5 \u05DE\u05D5\u05E1\u05D3 \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD \u05DE\u05E1\u05D5\u05D9\u05DD, \u05D0\u05D5 \u05D1\u05D7\u05E8\u05D5 \u05DE\u05EA\u05D5\u05DA \u05E8\u05E9\u05D9\u05DE\u05EA \u05D4\u05EA\u05D7\u05D5\u05DE\u05D9\u05DD</span><span class=\"shb-sub-only\">\u05DB\u05EA\u05D1\u05D5 \u05D1\u05DE\u05D9\u05DC\u05D9\u05DD \u05E9\u05DC\u05DB\u05DD \u05DE\u05D4 \u05D5\u05D0\u05D9\u05E4\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3, \u05D0\u05D5 \u05D7\u05E4\u05E9\u05D5 \u05DE\u05D5\u05E1\u05D3 \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD \u05DE\u05E1\u05D5\u05D9\u05DD</span><span class=\"shb-sub-pick\">\u05D1\u05D7\u05E8\u05D5 \u05EA\u05D7\u05D5\u05DD \u05DC\u05D9\u05DE\u05D5\u05D3 \u05D5\u05D0\u05D6\u05D5\u05E8, \u05D5\u05E0\u05E2\u05D1\u05D9\u05E8 \u05D0\u05EA\u05DB\u05DD \u05DC\u05E8\u05E9\u05D9\u05DE\u05EA \u05D4\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD</span></p>\n      <div class=\"shb-modes\" role=\"tablist\" aria-label=\"\u05D0\u05D5\u05E4\u05DF \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9\">\n        <button type=\"button\" class=\"shb-mode on\" data-mode=\"free\" role=\"tab\" aria-selected=\"true\">\u2728 \u05D7\u05D9\u05E4\u05D5\u05E9 \u05D7\u05D5\u05E4\u05E9\u05D9</button>\n        <button type=\"button\" class=\"shb-mode\" data-mode=\"pick\" role=\"tab\" aria-selected=\"false\">\u2630 \u05D1\u05D7\u05D9\u05E8\u05D4 \u05DC\u05E4\u05D9 \u05EA\u05D7\u05D5\u05DD</button>\n      </div>\n      <form class=\"shb-bar\" id=\"shb-form\" autocomplete=\"off\">\n        <input id=\"shb-input\" type=\"text\" placeholder=\"\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3? \u05E1\u05E4\u05E8\u05D5 \u05DC\u05E0\u05D5 \u05D5\u05E0\u05DE\u05E6\u05D0 \u05D1\u05E9\u05D1\u05D9\u05DC\u05DB\u05DD \u2728\" aria-label=\"\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3?\" enterkeyhint=\"search\">\n        <button type=\"submit\">\u05D7\u05E4\u05E9\u05D5 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD</button>\n      </form>\n      <form class=\"shb-pick\" id=\"shb-pick\" autocomplete=\"off\">\n        <select id=\"shb-disc\" aria-label=\"\u05EA\u05D7\u05D5\u05DD \u05DC\u05D9\u05DE\u05D5\u05D3\"><option value=\"\">\u05D1\u05D7\u05E8\u05D5 \u05EA\u05D7\u05D5\u05DD \u05DC\u05D9\u05DE\u05D5\u05D3</option></select>\n        <select id=\"shb-area\" aria-label=\"\u05D0\u05D6\u05D5\u05E8\"></select>\n        <button type=\"submit\">\u05D7\u05E4\u05E9\u05D5 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD</button>\n      </form>\n      <div class=\"shb-chips shb-sug\" id=\"shb-sug\"></div>\n      <div class=\"shb-panel\" id=\"shb-panel\">\n        <div class=\"shb-bar-top\"><span>\u05EA\u05D5\u05E6\u05D0\u05D5\u05EA \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9</span><button type=\"button\" class=\"shb-clear\" id=\"shb-clear\" aria-label=\"\u05E0\u05D9\u05E7\u05D5\u05D9 \u05D4\u05E9\u05D9\u05D7\u05D4\">\uD83D\uDDD1\uFE0F \u05E0\u05D9\u05E7\u05D5\u05D9 \u05E9\u05D9\u05D7\u05D4</button></div>\n        <div class=\"shb-log\" id=\"shb-log\" aria-live=\"polite\"></div>\n      </div>\n    </div>\n  </div>";
+/* ───────── מעטפת ───────── */
+.app { position: relative; display: flex; flex-direction: column; height: 100%; height: 100dvh; overflow: hidden;
+  background:
+    radial-gradient(520px 380px at 8% 78%, rgba(9,130,188,0.09), transparent 70%),
+    radial-gradient(460px 340px at 94% 62%, rgba(232,99,10,0.07), transparent 70%),
+    var(--bg); }
+@supports not (height: 100dvh) { .app { height: 100%; } }
 
-  function start(){
+/* ───────── Hero ───────── */
+.hero { position: relative; flex-shrink: 0; color: #fff; z-index: 3;
+  background: linear-gradient(125deg, var(--blue-deep) 0%, var(--blue) 52%, var(--cyan) 100%);
+  padding: 26px var(--gutter) 58px; transition: padding .35s ease; }
+.hero .deco { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.hero .wave { position: absolute; bottom: -1px; right: 0; left: 0; width: 100%; height: 38px; display: block; pointer-events: none; transition: height .35s ease; }
+.hero-inner { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.header-avatar { position: relative; width: 72px; height: 72px; flex-shrink: 0; border-radius: 22px; display: flex; align-items: center; justify-content: center; font-size: 40px;
+  background: rgba(255,255,255,0.97); box-shadow: 0 8px 24px rgba(3,50,80,0.35), 0 0 0 6px rgba(255,255,255,0.22); transition: all .35s ease; }
+.header-avatar::after { content: ''; position: absolute; bottom: -4px; left: -4px; width: 16px; height: 16px; border-radius: 50%; background: #2ecc71; border: 3px solid #fff; }
+.header-text h1 { display: flex; align-items: center; gap: 10px; font-size: 34px; font-weight: 900; line-height: 1.1; letter-spacing: -0.3px; text-shadow: 0 2px 12px rgba(3,50,80,0.25); transition: font-size .35s ease; }
+.header-badge { background: var(--orange); color: #fff; font-size: 12px; font-weight: 800; padding: 3px 11px; border-radius: 20px; letter-spacing: .5px; text-shadow: none; box-shadow: 0 3px 10px rgba(232,99,10,0.45); }
+.header-text p { font-size: 16px; font-weight: 400; opacity: .93; margin-top: 6px; max-height: 40px; overflow: hidden; transition: all .3s ease; }
+.hero-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.pill { display: inline-flex; align-items: center; gap: 7px; background: rgba(255,255,255,0.16); color: #fff; border: 1.5px solid rgba(255,255,255,0.38); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  padding: 9px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; transition: all .2s; white-space: nowrap; }
+.pill:hover { background: #fff; color: var(--blue-dark); border-color: #fff; }
 
-  /* ---- \u05D4\u05D2\u05D3\u05E8\u05D5\u05EA ---- */
-  /* \u05D3\u05E4\u05D9 \u05D4\u05EA\u05D5\u05E6\u05D0\u05D5\u05EA \u05D1\u05D0\u05EA\u05E8 \u2013 \u05D0\u05D5\u05EA\u05D4 \u05DC\u05D5\u05D2\u05D9\u05E7\u05D4 \u05DB\u05DE\u05D5 items_list_duda.asp, \u05D1\u05DC\u05D9 \u05EA\u05DC\u05D5\u05EA \u05D1\u05E9\u05E8\u05EA \u05D7\u05D9\u05E6\u05D5\u05E0\u05D9:
-     \u05E9\u05DD \u05D4\u05EA\u05D7\u05D5\u05DD \u05DC\u05E4\u05D9 \u05E7\u05D5\u05D3 Discipline, \u05D5\u05EA\u05D7\u05D9\u05DC\u05EA \u05D4\u05DB\u05EA\u05D5\u05D1\u05EA \u05DC\u05E4\u05D9 \u05E7\u05D5\u05D3 \u05D4\u05D0\u05D6\u05D5\u05E8 (AreaCode) */
-  var RESULT_NAMES = {"1": "\u05D1\u05D9\u05E9\u05D5\u05DC \u05D5\u05E7\u05D5\u05E0\u05D3\u05D9\u05D8\u05D5\u05E8\u05D9\u05D4", "3": "\u05E8\u05E4\u05D5\u05D0\u05D4 \u05DE\u05E9\u05DC\u05D9\u05DE\u05D4", "5": "\u05D1\u05E8\u05D9\u05D0\u05D5\u05EA \u05D5\u05EA\u05D6\u05D5\u05E0\u05D4 \u05E0\u05DB\u05D5\u05E0\u05D4", "6": "\u05D0\u05DE\u05E0\u05D5\u05EA \u05D5\u05D0\u05D5\u05DE\u05E0\u05D5\u05D9\u05D5\u05EA", "8": "\u05D7\u05D9\u05E0\u05D5\u05DA \u05E1\u05D1\u05D9\u05D1\u05EA\u05D9, \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9 \u05D0\u05E8\u05E5 \u05D9\u05E9\u05E8\u05D0\u05DC", "9": "\u05D7\u05D9\u05E0\u05D5\u05DA \u05D2\u05D5\u05E4\u05E0\u05D9", "13": "\u05D8\u05DB\u05E0\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4 \u05D3\u05D9\u05D2\u05D9\u05D8\u05DC\u05D9\u05EA \u05D5\u05D0\u05D9\u05E0\u05D8\u05E8\u05E0\u05D8", "16": "\u05E9\u05E4\u05D5\u05EA, \u05D4\u05D5\u05E8\u05D0\u05EA \u05E9\u05E4\u05D5\u05EA,\u05EA\u05E8\u05D2\u05D5\u05DD", "17": "\u05DE\u05D5\u05E1\u05D9\u05E7\u05D4", "18": "\u05D2\u05D9\u05E9\u05D5\u05E8, \u05DE\u05E9\u05E4\u05D8", "19": "\u05D3\u05E8\u05DE\u05D4, \u05E4\u05E1\u05D9\u05DB\u05D5\u05D3\u05E8\u05DE\u05D4, \u05EA\u05D9\u05D0\u05D8\u05E8\u05D5\u05DF \u05D1\u05D5\u05D1\u05D5\u05EA", "20": "\u05D9\u05D4\u05D3\u05D5\u05EA, \u05DE\u05D5\u05E8\u05E9\u05EA \u05D9\u05E9\u05E8\u05D0\u05DC \u05D5\u05D3\u05EA\u05D5\u05EA", "21": "\u05D7\u05D9\u05E0\u05D5\u05DA \u05D5\u05D4\u05D5\u05E8\u05D0\u05D4", "22": "\u05D4\u05E2\u05E6\u05DE\u05D4 \u05D5\u05D4\u05EA\u05E4\u05EA\u05D7\u05D5\u05EA \u05D0\u05D9\u05E9\u05D9\u05EA", "25": "\u05EA\u05D9\u05D9\u05E8\u05D5\u05EA", "26": "\u05E0\u05D9\u05D4\u05D5\u05DC \u05D7\u05D9\u05E0\u05D5\u05DB\u05D9", "27": "\u05E4\u05D9\u05EA\u05D5\u05D7 \u05DE\u05E7\u05E6\u05D5\u05E2\u05D9 \u05DC\u05DE\u05D5\u05E8\u05D9\u05DD", "28": "\u05E2\u05D9\u05E6\u05D5\u05D1 \u05D4\u05E1\u05D1\u05D9\u05D1\u05D4", "29": "\u05DC\u05E7\u05D5\u05D9\u05D5\u05EA \u05DC\u05DE\u05D9\u05D3\u05D4 \u05D5\u05D7\u05D9\u05E0\u05D5\u05DA \u05DE\u05D9\u05D5\u05D7\u05D3", "30": "\u05D4\u05D3\u05E8\u05DB\u05EA \u05D4\u05D5\u05E8\u05D9\u05DD, \u05D6\u05D5\u05D2\u05D9\u05D5\u05EA \u05D5\u05DE\u05E9\u05E4\u05D7\u05D4", "34": "\u05DE\u05D3\u05E2\u05D9 \u05D4\u05E8\u05D5\u05D7", "35": "\u05DE\u05EA\u05DE\u05D8\u05D9\u05E7\u05D4 \u05D5\u05DE\u05D3\u05E2\u05D9\u05DD", "36": "\u05D7\u05D1\u05E8\u05D4 \u05D5\u05E7\u05D4\u05D9\u05DC\u05D4", "39": "\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7", "42": "\u05E4\u05E1\u05D9\u05DB\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4 \u05D5\u05D9\u05D9\u05E2\u05D5\u05E5", "43": "\u05EA\u05E8\u05E4\u05D9\u05D4 \u05D5\u05D8\u05D9\u05E4\u05D5\u05DC", "44": "\u05DB\u05EA\u05D9\u05D1\u05D4 \u05D9\u05D5\u05E6\u05E8\u05EA - \u05DB\u05EA\u05D9\u05D1\u05D4 \u05E2\u05D9\u05D5\u05E0\u05D9\u05EA - \u05DB\u05EA\u05D9\u05D1\u05D4 \u05D0\u05E7\u05D3\u05DE\u05D9\u05EA", "45": "\u05D4\u05E0\u05D7\u05D9\u05D9\u05EA \u05E7\u05D1\u05D5\u05E6\u05D5\u05EA", "46": "\u05E2\u05D9\u05E6\u05D5\u05D1 \u05D0\u05D5\u05E4\u05E0\u05D4 - \u05EA\u05E4\u05D9\u05E8\u05D4", "48": "\u05DE\u05E0\u05D4\u05DC \u05E2\u05E1\u05E7\u05D9\u05DD - \u05E4\u05D9\u05E0\u05E0\u05E1\u05D9\u05DD - \u05D9\u05D6\u05DE\u05D5\u05EA", "50": "\u05D0\u05D9\u05DE\u05D5\u05DF - NLP - Coaching", "51": "\u05D2\u05D9\u05DC \u05E8\u05DA - \u05D7\u05D9\u05E0\u05D5\u05DA \u05E7\u05D3\u05DD \u05D9\u05E1\u05D5\u05D3\u05D9", "52": "\u05EA\u05E7\u05E9\u05D5\u05E8\u05EA \u05D1\u05D9\u05DF-\u05D0\u05D9\u05E9\u05D9\u05EA", "58": "\u05D0\u05E7\u05D3\u05DE\u05D9 - \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9", "61": "\u05DE\u05D9\u05D3\u05E2\u05E0\u05D5\u05EA \u05D5\u05E1\u05E4\u05E8\u05E0\u05D5\u05EA", "64": "\u05D2\u05E8\u05E4\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4 \u05D5\u05E0\u05D5\u05DE\u05E8\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4", "69": "\u05E2\u05D9\u05E6\u05D5\u05D1 \u05E4\u05E0\u05D9\u05DD - home styling", "73": "\u05E6\u05D9\u05DC\u05D5\u05DD", "75": "\u05E6\u05D5\u05E8\u05E4\u05D5\u05EA \u05D5\u05EA\u05DB\u05E9\u05D9\u05D8\u05E0\u05D5\u05EA", "77": "\u05E2\u05E8\u05D9\u05DB\u05D4 \u05DC\u05E9\u05D5\u05E0\u05D9\u05EA", "78": "\u05D0\u05D9\u05E4\u05D5\u05E8, \u05D8\u05D9\u05E4\u05D5\u05D7 \u05D0\u05D9\u05E9\u05D9 \u05D5\u05E1\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2", "79": "\u05D0\u05D5\u05E4\u05E7 \u05D7\u05D3\u05E9 - \u05E2\u05D5\u05D6 \u05DC\u05EA\u05DE\u05D5\u05E8\u05D4", "80": "\u05D4\u05E2\u05E6\u05DE\u05D4 \u05E0\u05E9\u05D9\u05EA - \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9 \u05E0\u05E9\u05D9\u05DD \u05D5\u05DE\u05D2\u05D3\u05E8", "83": "\u05D9\u05D9\u05E2\u05D5\u05E5 \u05D0\u05E8\u05D2\u05D5\u05E0\u05D9", "85": "\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9", "87": "\u05D8\u05D9\u05D5\u05DC \u05E1\u05D9\u05D5\u05E8 \u05D5\u05E0\u05D5\u05E4\u05E9", "89": "\u05EA\u05D5\u05D0\u05E8 \u05E9\u05DC\u05D9\u05E9\u05D9 - \u05D3\u05D5\u05E7\u05D8\u05D5\u05E8\u05D8", "92": "\u05DC\u05D2\u05D9\u05DE\u05DC\u05D0\u05D9\u05DD", "93": "\u05E1\u05E4\u05D5\u05E8\u05D8, \u05DE\u05D7\u05D5\u05DC \u05D5\u05EA\u05E0\u05D5\u05E2\u05D4", "94": "\u05EA\u05E8\u05D1\u05D5\u05EA \u05D4\u05E2\u05E9\u05E8\u05D4 \u05D5\u05D0\u05E7\u05D8\u05D5\u05D0\u05DC\u05D9\u05D4", "96": "\u05D9\u05D9\u05E2\u05D5\u05E5 \u05D7\u05D9\u05E0\u05D5\u05DB\u05D9", "101": "\u05E0\u05D9\u05EA\u05D5\u05D7 \u05D4\u05EA\u05E0\u05D4\u05D2\u05D5\u05EA", "103": "\u05E7\u05D5\u05DC\u05E0\u05D5\u05E2", "104": "\u05DC\u05E6\u05D9\u05D1\u05D5\u05E8 \u05D4\u05D3\u05EA\u05D9", "105": "\u05D4\u05D5\u05E8\u05D0\u05D4 \u05DE\u05EA\u05E7\u05E0\u05EA - \u05DE\u05D5\u05EA\u05D0\u05DE\u05EA", "106": "\u05DE\u05D9\u05D9\u05E0\u05D3\u05E4\u05D5\u05DC\u05E0\u05E1 \u05D5\u05DE\u05D3\u05D9\u05D8\u05E6\u05D9\u05D4"};
-  var RESULT_BASE = {0:"https://www.shabaton.online/results-all/", 1:"https://www.shabaton.online/search-results-merkaz/",
-                     4:"https://www.shabaton.online/results-Zafon/", 6:"https://www.shabaton.online/results-sharon/",
-                     7:"https://www.shabaton.online/results-jerusalem/", 12:"https://www.shabaton.online/results-shfea-darom/"};
-  var SHABI_URL  = "https://www.shabaton.online/shabaton-bot";        // \u05E9\u05D1\u05D9 \u05D1\u05D5\u05D8
-  var REMOTE_ID  = 39;                                                 // \u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7
+/* מצב שיחה — ה-hero מתכווץ כדי לפנות מקום להודעות */
+.app.chatting .hero { padding-top: 12px; padding-bottom: 40px; }
+.app.chatting .composer { margin-top: -28px; }
+.app.chatting .hero .wave { height: 22px; }
+.app.chatting .header-avatar { width: 44px; height: 44px; font-size: 24px; border-radius: 14px; box-shadow: 0 4px 14px rgba(3,50,80,0.3), 0 0 0 3px rgba(255,255,255,0.22); }
+.app.chatting .header-avatar::after { width: 12px; height: 12px; border-width: 2px; }
+.app.chatting .brand { gap: 12px; }
+.app.chatting .header-text h1 { font-size: 22px; }
+.app.chatting .header-text p { max-height: 0; margin-top: 0; opacity: 0; }
 
-  /* ---- \u05D0\u05D6\u05D5\u05E8\u05D9\u05DD (AreaCode) ---- */
-  var AREAS = [
-    {id:1,  name:"\u05EA\u05DC-\u05D0\u05D1\u05D9\u05D1 \u05D5\u05D4\u05DE\u05E8\u05DB\u05D6", kw:["\u05EA\u05DC \u05D0\u05D1\u05D9\u05D1","\u05EA\u05DC-\u05D0\u05D1\u05D9\u05D1","\u05EA\"\u05D0","\u05DE\u05E8\u05DB\u05D6","\u05D1\u05D9\u05E4\u05D5","\u05E8\u05DE\u05EA \u05D2\u05DF","\u05D2\u05D1\u05E2\u05EA\u05D9\u05D9\u05DD","\u05D7\u05D5\u05DC\u05D5\u05DF","\u05D1\u05EA \u05D9\u05DD","\u05D1\u05EA-\u05D9\u05DD","\u05E4\u05EA\u05D7 \u05EA\u05E7\u05D5","\u05E4\u05EA\u05D7 \u05EA\u05E7\u05D5\u05D4","\u05E4\"\u05EA","\u05E8\u05D0\u05E9\u05D5\u05DF \u05DC\u05E6\u05D9\u05D5\u05DF","\u05E8\u05D0\u05E9\u05D5\u05DF-\u05DC\u05E6\u05D9\u05D5\u05DF","\u05E8\u05D0\u05E9\u05DC\"\u05E6","\u05E8\u05D0\u05E9\u05DC\u05E6","\u05D1\u05E0\u05D9 \u05D1\u05E8\u05E7","\u05D0\u05D5\u05E8 \u05D9\u05D4\u05D5\u05D3\u05D4","\u05D9\u05D4\u05D5\u05D3","\u05E7\u05E8\u05D9\u05EA \u05D0\u05D5\u05E0\u05D5","\u05E7\u05E8\u05D9\u05D9\u05EA \u05D0\u05D5\u05E0\u05D5","\u05D2\u05E0\u05D9 \u05EA\u05E7\u05D5\u05D5\u05D4","\u05D2\u05D1\u05E2\u05EA \u05E9\u05DE\u05D5\u05D0\u05DC","\u05E1\u05D1\u05D9\u05D5\u05DF","\u05D1\u05D0\u05E8 \u05D9\u05E2\u05E7\u05D1","\u05D0\u05DC\u05E2\u05D3","\u05DC\u05D5\u05D3","\u05E8\u05DE\u05DC\u05D4","\u05DE\u05D5\u05D3\u05D9\u05E2\u05D9\u05DF","\u05E8\u05D0\u05E9 \u05D4\u05E2\u05D9\u05DF","\u05E9\u05D5\u05D4\u05DD","\u05D1\u05D9\u05EA \u05D3\u05D2\u05DF","\u05DB\u05E4\u05E8 \u05D7\u05D1\"\u05D3","\u05DE\u05D6\u05D5\u05E8"]},
-    {id:4,  name:"\u05D7\u05D9\u05E4\u05D4 \u05D5\u05D4\u05E6\u05E4\u05D5\u05DF",    kw:["\u05D7\u05D9\u05E4\u05D4","\u05E6\u05E4\u05D5\u05DF","\u05E7\u05E8\u05D9\u05D5\u05EA","\u05E7\u05E8\u05D9\u05EA \u05D1\u05D9\u05D0\u05DC\u05D9\u05E7","\u05E7\u05E8\u05D9\u05D9\u05EA \u05D1\u05D9\u05D0\u05DC\u05D9\u05E7","\u05E7\u05E8\u05D9\u05EA \u05DE\u05D5\u05E6\u05E7\u05D9\u05DF","\u05E7\u05E8\u05D9\u05D9\u05EA \u05DE\u05D5\u05E6\u05E7\u05D9\u05DF","\u05E7\u05E8\u05D9\u05EA \u05D0\u05EA\u05D0","\u05E7\u05E8\u05D9\u05D9\u05EA \u05D0\u05EA\u05D0","\u05E7\u05E8\u05D9\u05EA \u05D9\u05DD","\u05E7\u05E8\u05D9\u05D9\u05EA \u05D9\u05DD","\u05E7\u05E8\u05D9\u05EA \u05D7\u05D9\u05D9\u05DD","\u05D8\u05D9\u05E8\u05EA \u05DB\u05E8\u05DE\u05DC","\u05D8\u05D9\u05E8\u05EA \u05D4\u05DB\u05E8\u05DE\u05DC","\u05E0\u05E9\u05E8","\u05DB\u05E8\u05DE\u05DC","\u05D8\u05D1\u05E2\u05D5\u05DF","\u05E2\u05DB\u05D5","\u05E0\u05D4\u05E8\u05D9\u05D4","\u05DE\u05E2\u05DC\u05D5\u05EA","\u05D8\u05D1\u05E8\u05D9\u05D4","\u05E2\u05E4\u05D5\u05DC\u05D4","\u05DB\u05E8\u05DE\u05D9\u05D0\u05DC","\u05E0\u05E6\u05E8\u05EA","\u05E0\u05D5\u05E3 \u05D4\u05D2\u05DC\u05D9\u05DC","\u05E6\u05E4\u05EA","\u05E7\u05E8\u05D9\u05EA \u05E9\u05DE\u05D5\u05E0\u05D4","\u05E7\u05E8\u05D9\u05D9\u05EA \u05E9\u05DE\u05D5\u05E0\u05D4","\u05E7\u05E6\u05E8\u05D9\u05DF","\u05E8\u05D0\u05E9 \u05E4\u05D9\u05E0\u05D4","\u05D7\u05E6\u05D5\u05E8","\u05D1\u05D9\u05EA \u05E9\u05D0\u05DF","\u05DE\u05D2\u05D3\u05DC \u05D4\u05E2\u05DE\u05E7","\u05E9\u05E4\u05E8\u05E2\u05DD","\u05E1\u05D7\u05E0\u05D9\u05DF","\u05D8\u05DE\u05E8\u05D4","\u05D0\u05D5\u05DD \u05D0\u05DC \u05E4\u05D7\u05DD","\u05E8\u05DE\u05EA \u05D9\u05E9\u05D9","\u05D2\u05DC\u05D9\u05DC","\u05D2\u05D5\u05DC\u05DF","\u05D9\u05E7\u05E0\u05E2\u05DD","\u05D9\u05D5\u05E7\u05E0\u05E2\u05DD","\u05D6\u05DB\u05E8\u05D5\u05DF \u05D9\u05E2\u05E7\u05D1","\u05D3\u05DC\u05D9\u05EA \u05D0\u05DC \u05DB\u05E8\u05DE\u05DC","\u05E2\u05DE\u05E7 \u05D9\u05D6\u05E8\u05E2\u05D0\u05DC","\u05E2\u05DE\u05E7"]},
-    {id:6,  name:"\u05D4\u05E9\u05E8\u05D5\u05DF",          kw:["\u05E9\u05E8\u05D5\u05DF","\u05E0\u05EA\u05E0\u05D9\u05D4","\u05DB\u05E4\u05E8 \u05E1\u05D1\u05D0","\u05E8\u05E2\u05E0\u05E0\u05D4","\u05D4\u05E8\u05E6\u05DC\u05D9\u05D4","\u05D4\u05D5\u05D3 \u05D4\u05E9\u05E8\u05D5\u05DF","\u05E8\u05DE\u05EA \u05D4\u05E9\u05E8\u05D5\u05DF","\u05D7\u05D3\u05E8\u05D4","\u05DB\u05E4\u05E8 \u05D9\u05D5\u05E0\u05D4","\u05D0\u05D1\u05DF \u05D9\u05D4\u05D5\u05D3\u05D4","\u05E7\u05D3\u05D9\u05DE\u05D4","\u05E6\u05D5\u05E8\u05DF","\u05EA\u05DC \u05DE\u05D5\u05E0\u05D3","\u05E4\u05E8\u05D3\u05E1 \u05D7\u05E0\u05D4","\u05DB\u05E8\u05DB\u05D5\u05E8","\u05D0\u05D5\u05E8 \u05E2\u05E7\u05D9\u05D1\u05D0","\u05E7\u05D9\u05E1\u05E8\u05D9\u05D4","\u05D1\u05E0\u05D9\u05DE\u05D9\u05E0\u05D4","\u05D7\u05E8\u05D9\u05E9","\u05E2\u05DE\u05E7 \u05D7\u05E4\u05E8","\u05D8\u05D9\u05D9\u05D1\u05D4","\u05D8\u05D9\u05E8\u05D4","\u05E7\u05DC\u05E0\u05E1\u05D5\u05D5\u05D4","\u05DB\u05E4\u05E8 \u05E7\u05D0\u05E1\u05DD"]},
-    {id:7,  name:"\u05D9\u05E8\u05D5\u05E9\u05DC\u05D9\u05DD \u05D5\u05D4\u05E1\u05D1\u05D9\u05D1\u05D4",kw:["\u05D9\u05E8\u05D5\u05E9\u05DC\u05D9\u05DD","\u05D9-\u05DD","\u05D1\u05D9\u05EA \u05E9\u05DE\u05E9","\u05DE\u05D1\u05E9\u05E8\u05EA","\u05DE\u05E2\u05DC\u05D4 \u05D0\u05D3\u05D5\u05DE\u05D9\u05DD","\u05D2\u05D5\u05E9 \u05E2\u05E6\u05D9\u05D5\u05DF","\u05D0\u05E4\u05E8\u05EA","\u05D1\u05D9\u05EA\u05E8","\u05DE\u05D5\u05D3\u05D9\u05E2\u05D9\u05DF \u05E2\u05D9\u05DC\u05D9\u05EA","\u05E7\u05E8\u05D9\u05EA \u05D9\u05E2\u05E8\u05D9\u05DD","\u05E7\u05E8\u05D9\u05D9\u05EA \u05D9\u05E2\u05E8\u05D9\u05DD","\u05D0\u05D1\u05D5 \u05D2\u05D5\u05E9","\u05E6\u05D5\u05E8 \u05D4\u05D3\u05E1\u05D4","\u05DE\u05D5\u05E6\u05D0","\u05D1\u05D9\u05EA \u05D0\u05DC","\u05D2\u05D1\u05E2\u05EA \u05D6\u05D0\u05D1"]},
-    {id:12, name:"\u05D4\u05E9\u05E4\u05DC\u05D4 \u05D5\u05D4\u05D3\u05E8\u05D5\u05DD",   kw:["\u05E9\u05E4\u05DC\u05D4","\u05D3\u05E8\u05D5\u05DD","\u05D1\u05D0\u05E8 \u05E9\u05D1\u05E2","\u05D1\u05D0\u05E8-\u05E9\u05D1\u05E2","\u05D1\"\u05E9","\u05D0\u05E9\u05D3\u05D5\u05D3","\u05D0\u05E9\u05E7\u05DC\u05D5\u05DF","\u05E8\u05D7\u05D5\u05D1\u05D5\u05EA","\u05E0\u05E1 \u05E6\u05D9\u05D5\u05E0\u05D4","\u05DE\u05D6\u05DB\u05E8\u05EA \u05D1\u05EA\u05D9\u05D4","\u05E7\u05E8\u05D9\u05EA \u05E2\u05E7\u05E8\u05D5\u05DF","\u05E7\u05E8\u05D9\u05D9\u05EA \u05E2\u05E7\u05E8\u05D5\u05DF","\u05D1\u05D0\u05E8 \u05D8\u05D5\u05D1\u05D9\u05D4","\u05E7\u05E8\u05D9\u05EA \u05D2\u05EA","\u05E7\u05E8\u05D9\u05D9\u05EA \u05D2\u05EA","\u05E7\u05E8\u05D9\u05EA \u05DE\u05DC\u05D0\u05DB\u05D9","\u05E7\u05E8\u05D9\u05D9\u05EA \u05DE\u05DC\u05D0\u05DB\u05D9","\u05D0\u05D9\u05DC\u05EA","\u05D9\u05D1\u05E0\u05D4","\u05D2\u05DF \u05D9\u05D1\u05E0\u05D4","\u05D2\u05D3\u05E8\u05D4","\u05D3\u05D9\u05DE\u05D5\u05E0\u05D4","\u05E2\u05E8\u05D3","\u05D9\u05E8\u05D5\u05D7\u05DD","\u05E0\u05EA\u05D9\u05D1\u05D5\u05EA","\u05E9\u05D3\u05E8\u05D5\u05EA","\u05D0\u05D5\u05E4\u05E7\u05D9\u05DD","\u05DE\u05E6\u05E4\u05D4 \u05E8\u05DE\u05D5\u05DF","\u05DC\u05D4\u05D1\u05D9\u05DD","\u05DE\u05D9\u05EA\u05E8","\u05E8\u05D4\u05D8","\u05E2\u05D5\u05D8\u05E3","\u05E0\u05D2\u05D1"]},
-    {id:0,  name:"\u05DB\u05DC \u05D4\u05D0\u05E8\u05E5",        kw:["\u05DB\u05DC \u05D4\u05D0\u05E8\u05E5","\u05DB\u05DC \u05D4\u05D0\u05D6\u05D5\u05E8\u05D9\u05DD","\u05D1\u05DB\u05DC \u05D4\u05D0\u05E8\u05E5","\u05DC\u05D0 \u05DE\u05E9\u05E0\u05D4","\u05D1\u05DB\u05DC \u05DE\u05E7\u05D5\u05DD","\u05DC\u05D0 \u05D7\u05E9\u05D5\u05D1 \u05D0\u05D9\u05E4\u05D4","\u05D1\u05DB\u05DC \u05D0\u05D6\u05D5\u05E8","\u05D1\u05DB\u05DC \u05D4\u05D0\u05D6\u05D5\u05E8\u05D9\u05DD"]}
-  ];
-  var REMOTE_KW = ["\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7","\u05DE\u05E8\u05D7\u05D5\u05E7","\u05D0\u05D5\u05E0\u05DC\u05D9\u05D9\u05DF","\u05D0\u05D5\u05DF \u05DC\u05D9\u05D9\u05DF","\u05D0\u05D5\u05DF-\u05DC\u05D9\u05D9\u05DF","online","\u05D6\u05D5\u05DD","zoom","\u05DE\u05E7\u05D5\u05D5\u05DF","\u05DE\u05E7\u05D5\u05D5\u05E0\u05EA","\u05DE\u05E7\u05D5\u05D5\u05E0\u05D9\u05DD","\u05DE\u05D4\u05D1\u05D9\u05EA","\u05D3\u05E8\u05DA \u05D4\u05DE\u05D7\u05E9\u05D1","\u05D5\u05D9\u05E8\u05D8\u05D5\u05D0\u05DC\u05D9","\u05D5\u05D9\u05E8\u05D8\u05D5\u05D0\u05DC\u05D9\u05EA","\u05D0\u05D9\u05E0\u05D8\u05E8\u05E0\u05D8\u05D9"];
+/* ───────── אזור ההודעות ───────── */
+#shabaton-chat-messages { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; -webkit-overflow-scrolling: touch;
+  padding: 10px var(--gutter) 18px; position: relative; z-index: 2; }
+#shabaton-chat-messages::-webkit-scrollbar { width: 8px; }
+#shabaton-chat-messages::-webkit-scrollbar-track { background: transparent; }
+#shabaton-chat-messages::-webkit-scrollbar-thumb { background: rgba(9,130,188,0.45); border-radius: 4px; }
+#shabaton-chat-messages::-webkit-scrollbar-thumb:hover { background: var(--blue-dark); }
 
-  /* ---- \u05EA\u05D7\u05D5\u05DE\u05D9 \u05DC\u05D9\u05DE\u05D5\u05D3 (Discipline) \u2013 \u05D0\u05D5\u05EA\u05DD \u05E7\u05D5\u05D3\u05D9\u05DD \u05DB\u05DE\u05D5 \u05D1\u05E1\u05E7\u05E8\u05D9\u05E4\u05D8 ----
-     \u05DC\u05D4\u05D5\u05E1\u05E4\u05EA \u05DE\u05D9\u05DC\u05D4 \u05E0\u05E8\u05D3\u05E4\u05EA: \u05DE\u05D5\u05E1\u05D9\u05E4\u05D9\u05DD \u05D0\u05D5\u05EA\u05D4 \u05DC\u05E8\u05E9\u05D9\u05DE\u05D4 \u05E9\u05DC \u05D4\u05EA\u05D7\u05D5\u05DD.
-     \u05DE\u05D9\u05DC\u05D9\u05DD \u05D1\u05D0\u05E0\u05D2\u05DC\u05D9\u05EA \u05E2\u05D3 3 \u05D0\u05D5\u05EA\u05D9\u05D5\u05EA (ai, nlp...) \u05E0\u05D1\u05D3\u05E7\u05D5\u05EA \u05DB\u05DE\u05D9\u05DC\u05D4 \u05E9\u05DC\u05DE\u05D4 \u05D1\u05DC\u05D1\u05D3. */
-  var DISC = [
-    [79,"\u05D0\u05D5\u05E4\u05E7 \u05D7\u05D3\u05E9 / \u05E2\u05D5\u05D6 \u05DC\u05EA\u05DE\u05D5\u05E8\u05D4",["\u05D0\u05D5\u05E4\u05E7 \u05D7\u05D3\u05E9","\u05E2\u05D5\u05D6 \u05DC\u05EA\u05DE\u05D5\u05E8\u05D4","\u05D0\u05D5\u05E4\"\u05D7","\u05D0\u05D5\u05E4\u05D7"]],
-    [50,"\u05D0\u05D9\u05DE\u05D5\u05DF - NLP / Coaching",["\u05D0\u05D9\u05DE\u05D5\u05DF","\u05E7\u05D5\u05D0\u05E6'\u05D9\u05E0\u05D2","\u05E7\u05D5\u05D0\u05E6\u05D9\u05E0\u05D2","\u05E7\u05D0\u05D5\u05E6'\u05D9\u05E0\u05D2","coaching","nlp","\u05DE\u05D0\u05DE\u05DF \u05D0\u05D9\u05E9\u05D9","\u05DE\u05D0\u05DE\u05E0\u05EA","\u05DC\u05D9\u05D9\u05E3 \u05E7\u05D5\u05D0\u05E6'\u05D9\u05E0\u05D2","\u05D0\u05D9\u05DE\u05D5\u05DF \u05D0\u05D9\u05E9\u05D9","\u05D0\u05D9\u05DE\u05D5\u05DF \u05D6\u05D5\u05D2\u05D9","\u05D0\u05D9\u05DE\u05D5\u05DF \u05E2\u05E1\u05E7\u05D9","\u05DE\u05E0\u05D8\u05D5\u05E8\u05D9\u05E0\u05D2"]],
-    [78,"\u05D0\u05D9\u05E4\u05D5\u05E8, \u05D8\u05D9\u05E4\u05D5\u05D7 \u05D0\u05D9\u05E9\u05D9 \u05D5\u05E1\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2",["\u05D0\u05D9\u05E4\u05D5\u05E8","\u05D8\u05D9\u05E4\u05D5\u05D7","\u05E1\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2","\u05DE\u05D0\u05E4\u05E8\u05EA","\u05E7\u05D5\u05E1\u05DE\u05D8\u05D9\u05E7\u05D4","\u05E7\u05D5\u05E1\u05DE\u05D8\u05D9\u05E7\u05D0\u05D9\u05EA","\u05DE\u05E0\u05D9\u05E7\u05D5\u05E8","\u05E4\u05D3\u05D9\u05E7\u05D5\u05E8","\u05E6\u05D9\u05E4\u05D5\u05E8\u05E0\u05D9\u05D9\u05DD","\u05E8\u05D9\u05E1\u05D9\u05DD","\u05D2\u05D1\u05D5\u05EA","\u05E2\u05D9\u05E6\u05D5\u05D1 \u05E9\u05D9\u05E2\u05E8","\u05EA\u05E1\u05E4\u05D5\u05E8\u05EA","\u05D9\u05D9\u05E2\u05D5\u05E5 \u05EA\u05D3\u05DE\u05D9\u05EA","\u05E1\u05D8\u05D9\u05D9\u05DC\u05D9\u05E1\u05D8\u05D9\u05EA"]],
-    [6,"\u05D0\u05DE\u05E0\u05D5\u05EA \u05D5\u05D0\u05D5\u05DE\u05E0\u05D5\u05D9\u05D5\u05EA",["\u05D0\u05DE\u05E0\u05D5\u05EA","\u05D0\u05D5\u05DE\u05E0\u05D5\u05EA","\u05E6\u05D9\u05D5\u05E8","\u05E4\u05D9\u05E1\u05D5\u05DC","\u05E7\u05E8\u05DE\u05D9\u05E7\u05D4","\u05E8\u05D9\u05E9\u05D5\u05DD","\u05E4\u05E1\u05D9\u05E4\u05E1","\u05D9\u05E6\u05D9\u05E8\u05D4","\u05E6\u05D1\u05E2\u05D9 \u05DE\u05D9\u05DD","\u05D0\u05E7\u05D5\u05D5\u05E8\u05DC","\u05D0\u05E7\u05E8\u05D9\u05DC\u05D9\u05E7","\u05D5\u05D9\u05D8\u05E8\u05D0\u05D6'","\u05D6\u05DB\u05D5\u05DB\u05D9\u05EA","\u05E7\u05DC\u05D9\u05D2\u05E8\u05E4\u05D9\u05D4","\u05D0\u05D9\u05D5\u05E8","\u05E7\u05D5\u05DC\u05D0\u05D6'","\u05DE\u05E0\u05D3\u05DC\u05D5\u05EA","\u05E2\u05D1\u05D5\u05D3\u05EA \u05D9\u05D3","\u05E8\u05E7\u05DE\u05D4","\u05E7\u05D3\u05E8\u05D5\u05EA"]],
-    [58,"\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9",["\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9","\u05DC\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9","\u05DE\u05D0\u05E1\u05D8\u05E8","m.a","m.ed","\u05EA\u05D5\u05D0\u05E8 \u05DE\u05D5\u05E1\u05DE\u05DA","\u05DE\u05D5\u05E1\u05DE\u05DA","\u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD \u05D0\u05E7\u05D3\u05DE\u05D9\u05D9\u05DD"]],
-    [1,"\u05D1\u05D9\u05E9\u05D5\u05DC \u05D5\u05E7\u05D5\u05E0\u05D3\u05D9\u05D8\u05D5\u05E8\u05D9\u05D4",["\u05D1\u05D9\u05E9\u05D5\u05DC","\u05E7\u05D5\u05E0\u05D3\u05D9\u05D8\u05D5\u05E8\u05D9\u05D4","\u05D0\u05E4\u05D9\u05D9\u05D4","\u05D0\u05E4\u05D9\u05D4","\u05E7\u05D9\u05E0\u05D5\u05D7\u05D9\u05DD","\u05E9\u05E3","\u05E2\u05D5\u05D2\u05D5\u05EA","\u05DE\u05D8\u05D1\u05D7","\u05E7\u05D9\u05D9\u05D8\u05E8\u05D9\u05E0\u05D2","\u05E9\u05D5\u05E7\u05D5\u05DC\u05D3","\u05E4\u05D8\u05D9\u05E1\u05E8\u05D9","\u05DE\u05D0\u05E4\u05D9\u05DD","\u05D0\u05E4\u05D9\u05D9\u05EA \u05DC\u05D7\u05DD","\u05DE\u05D7\u05DE\u05E6\u05EA","\u05E1\u05D5\u05E9\u05D9","\u05D8\u05D1\u05E2\u05D5\u05E0\u05D9","\u05D8\u05D1\u05E2\u05D5\u05E0\u05D9\u05EA","\u05D1\u05D9\u05D9\u05E7\u05D9\u05E0\u05D2","\u05E2\u05D9\u05E6\u05D5\u05D1 \u05E2\u05D5\u05D2\u05D5\u05EA","\u05E7\u05D5\u05DC\u05D9\u05E0\u05E8\u05D9\u05D4","\u05E7\u05D5\u05DC\u05D9\u05E0\u05E8\u05D9"]],
-    [5,"\u05D1\u05E8\u05D9\u05D0\u05D5\u05EA \u05D5\u05EA\u05D6\u05D5\u05E0\u05D4 \u05E0\u05DB\u05D5\u05E0\u05D4",["\u05EA\u05D6\u05D5\u05E0\u05D4","\u05D1\u05E8\u05D9\u05D0\u05D5\u05EA","\u05D3\u05D9\u05D0\u05D8\u05D4","\u05D0\u05D5\u05E8\u05D7 \u05D7\u05D9\u05D9\u05DD \u05D1\u05E8\u05D9\u05D0","\u05EA\u05D6\u05D5\u05E0\u05D0\u05D9","\u05EA\u05D6\u05D5\u05E0\u05D0\u05D9\u05EA","\u05D9\u05E8\u05D9\u05D3\u05D4 \u05D1\u05DE\u05E9\u05E7\u05DC","\u05D4\u05E8\u05D2\u05DC\u05D9 \u05D0\u05DB\u05D9\u05DC\u05D4","\u05EA\u05D5\u05E1\u05E4\u05D9 \u05EA\u05D6\u05D5\u05E0\u05D4","\u05D1\u05E8\u05D9\u05D0\u05D5\u05EA \u05D4\u05D0\u05D9\u05E9\u05D4"]],
-    [51,"\u05D2\u05D9\u05DC \u05E8\u05DA - \u05D7\u05D9\u05E0\u05D5\u05DA \u05E7\u05D3\u05DD \u05D9\u05E1\u05D5\u05D3\u05D9",["\u05D2\u05D9\u05DC \u05E8\u05DA","\u05D4\u05D2\u05D9\u05DC \u05D4\u05E8\u05DA","\u05D2\u05DF \u05D9\u05DC\u05D3\u05D9\u05DD","\u05D2\u05E0\u05E0\u05EA","\u05D2\u05E0\u05E0\u05D5\u05EA","\u05E7\u05D3\u05DD \u05D9\u05E1\u05D5\u05D3\u05D9","\u05E4\u05E2\u05D5\u05D8\u05D5\u05EA","\u05D2\u05DF \u05D7\u05D5\u05D1\u05D4","\u05D8\u05E8\u05D5\u05DD \u05D7\u05D5\u05D1\u05D4","\u05DE\u05E2\u05D5\u05DF","\u05D2\u05D9\u05DC \u05D4\u05D2\u05DF","\u05D4\u05D2\u05D9\u05DC \u05D4\u05E6\u05E2\u05D9\u05E8"]],
-    [18,"\u05D2\u05D9\u05E9\u05D5\u05E8, \u05DE\u05E9\u05E4\u05D8",["\u05D2\u05D9\u05E9\u05D5\u05E8","\u05DE\u05E9\u05E4\u05D8","\u05DE\u05E9\u05E4\u05D8\u05D9\u05DD","\u05DE\u05D2\u05E9\u05E8","\u05DE\u05D2\u05E9\u05E8\u05EA","\u05D2\u05D9\u05E8\u05D5\u05E9\u05D9\u05DF","\u05D9\u05D9\u05E9\u05D5\u05D1 \u05E1\u05DB\u05E1\u05D5\u05DB\u05D9\u05DD","\u05D1\u05D5\u05E8\u05E8\u05D5\u05EA","\u05D3\u05D9\u05E0\u05D9 \u05E2\u05D1\u05D5\u05D3\u05D4","\u05D3\u05D9\u05E0\u05D9 \u05DE\u05E9\u05E4\u05D7\u05D4"]],
-    [64,"\u05D2\u05E8\u05E4\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4 \u05D5\u05E0\u05D5\u05DE\u05E8\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4",["\u05D2\u05E8\u05E4\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4","\u05D2\u05E8\u05E4\u05D5\u05DC\u05D5\u05D2","\u05E0\u05D5\u05DE\u05E8\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4","\u05DB\u05EA\u05D1 \u05D9\u05D3","\u05E7\u05E8\u05D9\u05D0\u05D4 \u05D1\u05DB\u05E3","\u05D0\u05E1\u05D8\u05E8\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4","\u05D8\u05D0\u05E8\u05D5\u05D8"]],
-    [19,"\u05D3\u05E8\u05DE\u05D4, \u05E4\u05E1\u05D9\u05DB\u05D5\u05D3\u05E8\u05DE\u05D4, \u05EA\u05D9\u05D0\u05D8\u05E8\u05D5\u05DF \u05D1\u05D5\u05D1\u05D5\u05EA",["\u05D3\u05E8\u05DE\u05D4","\u05E4\u05E1\u05D9\u05DB\u05D5\u05D3\u05E8\u05DE\u05D4","\u05EA\u05D9\u05D0\u05D8\u05E8\u05D5\u05DF","\u05EA\u05D0\u05D8\u05E8\u05D5\u05DF","\u05D1\u05D5\u05D1\u05D5\u05EA","\u05DE\u05E9\u05D7\u05E7","\u05E9\u05D7\u05E7\u05DF","\u05E9\u05D7\u05E7\u05E0\u05D9\u05EA","\u05E1\u05D8\u05E0\u05D3\u05D0\u05E4","\u05D0\u05D9\u05DE\u05E4\u05E8\u05D5\u05D1\u05D9\u05D6\u05E6\u05D9\u05D4","\u05D1\u05D9\u05D1\u05DC\u05D9\u05D5\u05D3\u05E8\u05DE\u05D4","\u05E1\u05D5\u05E6\u05D9\u05D5\u05D3\u05E8\u05DE\u05D4"]],
-    [30,"\u05D4\u05D3\u05E8\u05DB\u05EA \u05D4\u05D5\u05E8\u05D9\u05DD, \u05D6\u05D5\u05D2\u05D9\u05D5\u05EA \u05D5\u05DE\u05E9\u05E4\u05D7\u05D4",["\u05D4\u05D3\u05E8\u05DB\u05EA \u05D4\u05D5\u05E8\u05D9\u05DD","\u05D4\u05D5\u05E8\u05D5\u05EA","\u05D4\u05D5\u05E8\u05D9\u05DD","\u05D6\u05D5\u05D2\u05D9\u05D5\u05EA","\u05DE\u05E9\u05E4\u05D7\u05D4","\u05DE\u05E9\u05E4\u05D7\u05EA\u05D9","\u05D0\u05D9\u05DE\u05D4\u05D5\u05EA","\u05D0\u05D1\u05D4\u05D5\u05EA","\u05D9\u05D9\u05E2\u05D5\u05E5 \u05D6\u05D5\u05D2\u05D9","\u05D2\u05D9\u05D3\u05D5\u05DC \u05D9\u05DC\u05D3\u05D9\u05DD","\u05D7\u05D9\u05E0\u05D5\u05DA \u05D9\u05DC\u05D3\u05D9\u05DD"]],
-    [105,"\u05D4\u05D5\u05E8\u05D0\u05D4 \u05DE\u05EA\u05E7\u05E0\u05EA / \u05DE\u05D5\u05EA\u05D0\u05DE\u05EA",["\u05D4\u05D5\u05E8\u05D0\u05D4 \u05DE\u05EA\u05E7\u05E0\u05EA","\u05D4\u05D5\u05E8\u05D0\u05D4 \u05DE\u05D5\u05EA\u05D0\u05DE\u05EA","\u05DE\u05D5\u05EA\u05D0\u05DE\u05EA","\u05DE\u05D5\u05E8\u05D4 \u05DE\u05EA\u05E7\u05E0\u05EA","\u05DE\u05D5\u05E8\u05D4 \u05DE\u05E9\u05DC\u05D1\u05EA","\u05E9\u05D9\u05DC\u05D5\u05D1"]],
-    [45,"\u05D4\u05E0\u05D7\u05D9\u05D9\u05EA \u05E7\u05D1\u05D5\u05E6\u05D5\u05EA",["\u05D4\u05E0\u05D7\u05D9\u05D9\u05EA \u05E7\u05D1\u05D5\u05E6\u05D5\u05EA","\u05DE\u05E0\u05D7\u05D4 \u05E7\u05D1\u05D5\u05E6\u05D5\u05EA","\u05D4\u05E0\u05D7\u05D9\u05D4","\u05E7\u05D1\u05D5\u05E6\u05D5\u05EA","\u05DE\u05E0\u05D7\u05D4","\u05D4\u05E0\u05D7\u05D9\u05D9\u05EA \u05E1\u05D3\u05E0\u05D0\u05D5\u05EA","\u05E1\u05D3\u05E0\u05D0\u05D5\u05EA","\u05D3\u05D9\u05E0\u05DE\u05D9\u05E7\u05D4 \u05E7\u05D1\u05D5\u05E6\u05EA\u05D9\u05EA"]],
-    [22,"\u05D4\u05E2\u05E6\u05DE\u05D4 \u05D5\u05D4\u05EA\u05E4\u05EA\u05D7\u05D5\u05EA \u05D0\u05D9\u05E9\u05D9\u05EA",["\u05D4\u05E2\u05E6\u05DE\u05D4","\u05D4\u05EA\u05E4\u05EA\u05D7\u05D5\u05EA \u05D0\u05D9\u05E9\u05D9\u05EA","\u05E6\u05DE\u05D9\u05D7\u05D4 \u05D0\u05D9\u05E9\u05D9\u05EA","\u05DE\u05D5\u05D3\u05E2\u05D5\u05EA \u05E2\u05E6\u05DE\u05D9\u05EA","\u05DE\u05D9\u05DE\u05D5\u05E9 \u05E2\u05E6\u05DE\u05D9","\u05D1\u05D9\u05D8\u05D7\u05D5\u05DF \u05E2\u05E6\u05DE\u05D9","\u05D1\u05D8\u05D7\u05D5\u05DF \u05E2\u05E6\u05DE\u05D9","\u05D3\u05D9\u05DE\u05D5\u05D9 \u05E2\u05E6\u05DE\u05D9","\u05D7\u05D5\u05E1\u05DF","\u05D4\u05E2\u05E6\u05DE\u05D4 \u05E0\u05E9\u05D9\u05EA","\u05D4\u05E2\u05E6\u05DE\u05EA \u05E0\u05E9\u05D9\u05DD","\u05DE\u05D2\u05D3\u05E8","\u05DC\u05D9\u05DE\u05D5\u05D3\u05D9 \u05E0\u05E9\u05D9\u05DD","\u05E4\u05DE\u05D9\u05E0\u05D9\u05D6\u05DD","\u05DC\u05E0\u05E9\u05D9\u05DD"]],
-    [36,"\u05D7\u05D1\u05E8\u05D4 \u05D5\u05E7\u05D4\u05D9\u05DC\u05D4",["\u05E7\u05D4\u05D9\u05DC\u05D4","\u05E7\u05D4\u05D9\u05DC\u05EA\u05D9","\u05E7\u05D4\u05D9\u05DC\u05EA\u05D9\u05EA","\u05D7\u05D1\u05E8\u05D4 \u05D5\u05E7\u05D4\u05D9\u05DC\u05D4","\u05DE\u05E2\u05D5\u05E8\u05D1\u05D5\u05EA \u05D7\u05D1\u05E8\u05EA\u05D9\u05EA","\u05D4\u05EA\u05E0\u05D3\u05D1\u05D5\u05EA","\u05E2\u05D1\u05D5\u05D3\u05D4 \u05E1\u05D5\u05E6\u05D9\u05D0\u05DC\u05D9\u05EA","\u05DE\u05E0\u05D4\u05D9\u05D2\u05D5\u05EA \u05E7\u05D4\u05D9\u05DC\u05EA\u05D9\u05EA","\u05E1\u05D5\u05E6\u05D9\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4"]],
-    [9,"\u05D7\u05D9\u05E0\u05D5\u05DA \u05D2\u05D5\u05E4\u05E0\u05D9",["\u05D7\u05D9\u05E0\u05D5\u05DA \u05D2\u05D5\u05E4\u05E0\u05D9","\u05D7\u05E0\"\u05D2","\u05D7\u05E0\u05D2","\u05DE\u05D5\u05E8\u05D4 \u05DC\u05E1\u05E4\u05D5\u05E8\u05D8","\u05DE\u05D5\u05E8\u05D4 \u05DC\u05D4\u05EA\u05E2\u05DE\u05DC\u05D5\u05EA","\u05D4\u05EA\u05E2\u05DE\u05DC\u05D5\u05EA"]],
-    [21,"\u05D7\u05D9\u05E0\u05D5\u05DA \u05D5\u05D4\u05D5\u05E8\u05D0\u05D4",["\u05D7\u05D9\u05E0\u05D5\u05DA \u05D5\u05D4\u05D5\u05E8\u05D0\u05D4","\u05E4\u05D3\u05D2\u05D5\u05D2\u05D9\u05D4","\u05D3\u05D9\u05D3\u05E7\u05D8\u05D9\u05E7\u05D4","\u05E9\u05D9\u05D8\u05D5\u05EA \u05D4\u05D5\u05E8\u05D0\u05D4","\u05E0\u05D9\u05D4\u05D5\u05DC \u05DB\u05D9\u05EA\u05D4","\u05D4\u05D5\u05E8\u05D0\u05D4","\u05D4\u05DB\u05E9\u05E8\u05EA \u05DE\u05D5\u05E8\u05D9\u05DD","\u05EA\u05E2\u05D5\u05D3\u05EA \u05D4\u05D5\u05E8\u05D0\u05D4","\u05D4\u05E1\u05D1\u05EA \u05D0\u05E7\u05D3\u05DE\u05D0\u05D9\u05DD","\u05D4\u05E1\u05D1\u05D4 \u05DC\u05D4\u05D5\u05E8\u05D0\u05D4","\u05D7\u05D3\u05E9\u05E0\u05D5\u05EA \u05E4\u05D3\u05D2\u05D5\u05D2\u05D9\u05EA"]],
-    [8,"\u05D7\u05D9\u05E0\u05D5\u05DA \u05E1\u05D1\u05D9\u05D1\u05EA\u05D9, \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9 \u05D0\u05E8\u05E5 \u05D9\u05E9\u05E8\u05D0\u05DC",["\u05E1\u05D1\u05D9\u05D1\u05EA\u05D9","\u05E7\u05D9\u05D9\u05DE\u05D5\u05EA","\u05D0\u05E7\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4","\u05D0\u05E8\u05E5 \u05D9\u05E9\u05E8\u05D0\u05DC","\u05D9\u05D3\u05D9\u05E2\u05EA \u05D4\u05D0\u05E8\u05E5","\u05D2\u05D9\u05D0\u05D5\u05D2\u05E8\u05E4\u05D9\u05D4","\u05D2\u05D9\u05E0\u05D5\u05DF","\u05D2\u05D9\u05E0\u05D4","\u05D1\u05D5\u05D8\u05E0\u05D9\u05E7\u05D4","\u05E6\u05E4\u05E8\u05D5\u05EA","\u05D7\u05E7\u05DC\u05D0\u05D5\u05EA","\u05E4\u05E8\u05DE\u05E7\u05DC\u05E6'\u05E8","\u05D0\u05E8\u05DB\u05D9\u05D0\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4"]],
-    [87,"\u05D8\u05D9\u05D5\u05DC \u05E1\u05D9\u05D5\u05E8 \u05D5\u05E0\u05D5\u05E4\u05E9",["\u05D8\u05D9\u05D5\u05DC","\u05D8\u05D9\u05D5\u05DC\u05D9\u05DD","\u05E1\u05D9\u05D5\u05E8","\u05E0\u05D5\u05E4\u05E9","\u05DE\u05D3\u05E8\u05D9\u05DA \u05D8\u05D9\u05D5\u05DC\u05D9\u05DD","\u05D4\u05D3\u05E8\u05DB\u05EA \u05D8\u05D9\u05D5\u05DC\u05D9\u05DD","\u05D8\u05E8\u05E7","\u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD","\u05D2\u05D9\u05D7\u05D5\u05EA"]],
-    [13,"\u05D8\u05DB\u05E0\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4 \u05D5\u05D1\u05D9\u05E0\u05D4 \u05DE\u05DC\u05D0\u05DB\u05D5\u05EA\u05D9\u05EA",["\u05D8\u05DB\u05E0\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4","\u05D1\u05D9\u05E0\u05D4 \u05DE\u05DC\u05D0\u05DB\u05D5\u05EA\u05D9\u05EA","\u05D1\u05D9\u05E0\u05D4","ai","gpt","chatgpt","\u05E6'\u05D0\u05D8","\u05D2'\u05DE\u05D9\u05E0\u05D9","\u05E7\u05DC\u05D5\u05D3","\u05DE\u05D7\u05E9\u05D1","\u05D0\u05D9\u05E0\u05D8\u05E8\u05E0\u05D8","\u05D3\u05D9\u05D2\u05D9\u05D8\u05DC","\u05EA\u05DB\u05E0\u05D5\u05EA","\u05E4\u05D9\u05D9\u05EA\u05D5\u05DF","python","\u05D1\u05E0\u05D9\u05D9\u05EA \u05D0\u05EA\u05E8\u05D9\u05DD","\u05D0\u05EA\u05E8\u05D9\u05DD","\u05D5\u05D5\u05E8\u05D3\u05E4\u05E8\u05E1","\u05D0\u05E4\u05DC\u05D9\u05E7\u05E6\u05D9\u05D5\u05EA","\u05E1\u05D9\u05D9\u05D1\u05E8","\u05D3\u05D0\u05D8\u05D4","\u05E0\u05EA\u05D5\u05E0\u05D9\u05DD","\u05E2\u05D9\u05E6\u05D5\u05D1 \u05D2\u05E8\u05E4\u05D9","\u05D2\u05E8\u05E4\u05D9\u05E7\u05D4","\u05D0\u05D9\u05DC\u05D5\u05E1\u05D8\u05E8\u05D9\u05D9\u05D8\u05D5\u05E8","\u05DE\u05D3\u05D9\u05D4 \u05D7\u05D1\u05E8\u05EA\u05D9\u05EA","\u05E8\u05E9\u05EA\u05D5\u05EA \u05D7\u05D1\u05E8\u05EA\u05D9\u05D5\u05EA","\u05E7\u05E0\u05D1\u05D4","canva","\u05D0\u05E7\u05E1\u05DC","excel","\u05D0\u05D5\u05E4\u05D9\u05E1"]],
-    [20,"\u05D9\u05D4\u05D3\u05D5\u05EA, \u05DE\u05D5\u05E8\u05E9\u05EA \u05D9\u05E9\u05E8\u05D0\u05DC \u05D5\u05D3\u05EA\u05D5\u05EA",["\u05D9\u05D4\u05D3\u05D5\u05EA","\u05DE\u05D5\u05E8\u05E9\u05EA","\u05EA\u05E0\"\u05DA","\u05EA\u05E0\u05DA","\u05D3\u05EA\u05D5\u05EA","\u05EA\u05DC\u05DE\u05D5\u05D3","\u05D7\u05E1\u05D9\u05D3\u05D5\u05EA","\u05E7\u05D1\u05DC\u05D4","\u05E4\u05E8\u05E9\u05EA \u05E9\u05D1\u05D5\u05E2","\u05E4\u05E8\u05E9\u05EA \u05D4\u05E9\u05D1\u05D5\u05E2","\u05EA\u05D5\u05E8\u05D4","\u05D2\u05DE\u05E8\u05D0","\u05D4\u05DC\u05DB\u05D4","\u05DE\u05D3\u05E8\u05E9","\u05DE\u05D7\u05E9\u05D1\u05EA \u05D9\u05E9\u05E8\u05D0\u05DC","\u05D7\u05D2\u05D9 \u05D9\u05E9\u05E8\u05D0\u05DC","\u05EA\u05E4\u05D9\u05DC\u05D4","\u05E4\u05D9\u05D5\u05D8"]],
-    [83,"\u05D9\u05D9\u05E2\u05D5\u05E5 \u05D0\u05E8\u05D2\u05D5\u05E0\u05D9",["\u05D9\u05D9\u05E2\u05D5\u05E5 \u05D0\u05E8\u05D2\u05D5\u05E0\u05D9","\u05D9\u05E2\u05D5\u05E5 \u05D0\u05E8\u05D2\u05D5\u05E0\u05D9","\u05D0\u05E8\u05D2\u05D5\u05E0\u05D9","\u05E4\u05D9\u05EA\u05D5\u05D7 \u05D0\u05E8\u05D2\u05D5\u05E0\u05D9","\u05DE\u05E9\u05D0\u05D1\u05D9 \u05D0\u05E0\u05D5\u05E9","\u05D2\u05D9\u05D5\u05E1 \u05E2\u05D5\u05D1\u05D3\u05D9\u05DD","\u05D9\u05D9\u05E2\u05D5\u05E5 \u05E2\u05E1\u05E7\u05D9","hr"]],
-    [96,"\u05D9\u05D9\u05E2\u05D5\u05E5 \u05D7\u05D9\u05E0\u05D5\u05DB\u05D9",["\u05D9\u05D9\u05E2\u05D5\u05E5 \u05D7\u05D9\u05E0\u05D5\u05DB\u05D9","\u05D9\u05E2\u05D5\u05E5 \u05D7\u05D9\u05E0\u05D5\u05DB\u05D9","\u05D9\u05D5\u05E2\u05E6\u05EA \u05D7\u05D9\u05E0\u05D5\u05DB\u05D9\u05EA","\u05D9\u05D5\u05E2\u05E5 \u05D7\u05D9\u05E0\u05D5\u05DB\u05D9","\u05D9\u05D5\u05E2\u05E6\u05EA \u05D1\u05D9\u05EA \u05E1\u05E4\u05E8","\u05D9\u05D9\u05E2\u05D5\u05E5 \u05D1\u05D1\u05D9\u05EA \u05E1\u05E4\u05E8"]],
-    [44,"\u05DB\u05EA\u05D9\u05D1\u05D4 \u05D9\u05D5\u05E6\u05E8\u05EA / \u05E2\u05D9\u05D5\u05E0\u05D9\u05EA / \u05D0\u05E7\u05D3\u05DE\u05D9\u05EA",["\u05DB\u05EA\u05D9\u05D1\u05D4","\u05DC\u05DB\u05EA\u05D5\u05D1","\u05E1\u05E4\u05E8\u05D5\u05EA","\u05E9\u05D9\u05E8\u05D4","\u05E4\u05E8\u05D5\u05D6\u05D4","\u05E1\u05D9\u05E4\u05D5\u05E8","\u05E1\u05D9\u05E4\u05D5\u05E8\u05D9\u05DD","\u05EA\u05E1\u05E8\u05D9\u05D8","\u05EA\u05E1\u05E8\u05D9\u05D8\u05D0\u05D5\u05EA","\u05E7\u05D5\u05E4\u05D9\u05E8\u05D9\u05D9\u05D8\u05D9\u05E0\u05D2","\u05D1\u05DC\u05D5\u05D2","\u05D4\u05D5\u05E6\u05D0\u05D4 \u05DC\u05D0\u05D5\u05E8","\u05DC\u05DB\u05EA\u05D5\u05D1 \u05E1\u05E4\u05E8"]],
-    [92,"\u05DC\u05D2\u05D9\u05DE\u05DC\u05D0\u05D9\u05DD",["\u05D2\u05D9\u05DE\u05DC\u05D0\u05D9\u05DD","\u05D2\u05DE\u05DC\u05D0\u05D9\u05DD","\u05E4\u05E0\u05E1\u05D9\u05D5\u05E0\u05E8\u05D9\u05DD","\u05E4\u05E8\u05D9\u05E9\u05D4","\u05E4\u05D5\u05E8\u05E9\u05D9\u05DD","\u05D4\u05DB\u05E0\u05D4 \u05DC\u05E4\u05E8\u05D9\u05E9\u05D4","\u05D2\u05D9\u05DC \u05D4\u05D6\u05D4\u05D1","\u05D2\u05D9\u05DC \u05D4\u05E9\u05DC\u05D9\u05E9\u05D9","\u05DE\u05D1\u05D5\u05D2\u05E8\u05D9\u05DD"]],
-    [104,"\u05DC\u05E6\u05D9\u05D1\u05D5\u05E8 \u05D4\u05D3\u05EA\u05D9",["\u05E6\u05D9\u05D1\u05D5\u05E8 \u05D4\u05D3\u05EA\u05D9","\u05D3\u05EA\u05D9","\u05D3\u05EA\u05D9\u05EA","\u05D3\u05EA\u05D9\u05D9\u05DD","\u05D3\u05EA\u05D9\u05D5\u05EA","\u05D7\u05E8\u05D3\u05D9","\u05D7\u05E8\u05D3\u05D9\u05EA","\u05E9\u05D5\u05DE\u05E8\u05D9 \u05DE\u05E6\u05D5\u05D5\u05EA","\u05DB\u05D9\u05EA\u05D5\u05EA \u05E0\u05E4\u05E8\u05D3\u05D5\u05EA","\u05E0\u05E4\u05E8\u05D3"]],
-    [29,"\u05DC\u05E7\u05D5\u05D9\u05D5\u05EA \u05DC\u05DE\u05D9\u05D3\u05D4 \u05D5\u05D7\u05D9\u05E0\u05D5\u05DA \u05DE\u05D9\u05D5\u05D7\u05D3",["\u05DC\u05E7\u05D5\u05D9\u05D5\u05EA \u05DC\u05DE\u05D9\u05D3\u05D4","\u05DC\u05E7\u05D5\u05EA \u05DC\u05DE\u05D9\u05D3\u05D4","\u05DC\u05E7\u05D5\u05D9\u05D9 \u05DC\u05DE\u05D9\u05D3\u05D4","\u05DC\u05E7\u05D5\u05D9\u05D5\u05EA","\u05D7\u05D9\u05E0\u05D5\u05DA \u05DE\u05D9\u05D5\u05D7\u05D3","\u05D4\u05E4\u05E8\u05E2\u05D5\u05EA \u05E7\u05E9\u05D1","\u05D4\u05E4\u05E8\u05E2\u05EA \u05E7\u05E9\u05D1","\u05E7\u05E9\u05D1 \u05D5\u05E8\u05D9\u05DB\u05D5\u05D6","adhd","\u05D3\u05D9\u05E1\u05DC\u05E7\u05E6\u05D9\u05D4","\u05D3\u05D9\u05E1\u05D2\u05E8\u05E4\u05D9\u05D4","\u05D3\u05D9\u05E1\u05E7\u05DC\u05E7\u05D5\u05DC\u05D9\u05D4","\u05D0\u05D5\u05D8\u05D9\u05D6\u05DD","\u05E2\u05DC \u05D4\u05E8\u05E6\u05E3","\u05D0\u05E1\u05E4\u05E8\u05D2\u05E8","\u05E6\u05E8\u05DB\u05D9\u05DD \u05DE\u05D9\u05D5\u05D7\u05D3\u05D9\u05DD","\u05EA\u05DC\u05DE\u05D9\u05D3\u05D9\u05DD \u05DE\u05EA\u05E7\u05E9\u05D9\u05DD","\u05D0\u05D1\u05D7\u05D5\u05DF","\u05DE\u05D0\u05D1\u05D7\u05E0\u05EA","\u05D0\u05D1\u05D7\u05D5\u05DF \u05D3\u05D9\u05D3\u05E7\u05D8\u05D9"]],
-    [34,"\u05DE\u05D3\u05E2\u05D9 \u05D4\u05E8\u05D5\u05D7",["\u05DE\u05D3\u05E2\u05D9 \u05D4\u05E8\u05D5\u05D7","\u05D4\u05D9\u05E1\u05D8\u05D5\u05E8\u05D9\u05D4","\u05E4\u05D9\u05DC\u05D5\u05E1\u05D5\u05E4\u05D9\u05D4","\u05D0\u05E0\u05EA\u05E8\u05D5\u05E4\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4","\u05DE\u05D9\u05EA\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4","\u05DE\u05D3\u05E2\u05D9 \u05D4\u05D7\u05D1\u05E8\u05D4","\u05EA\u05D5\u05DC\u05D3\u05D5\u05EA"]],
-    [17,"\u05DE\u05D5\u05E1\u05D9\u05E7\u05D4",["\u05DE\u05D5\u05E1\u05D9\u05E7\u05D4","\u05DE\u05D5\u05D6\u05D9\u05E7\u05D4","\u05DE\u05D5\u05D6\u05D9\u05E7\u05DC\u05D9","\u05DE\u05D5\u05E1\u05D9\u05E7\u05DC\u05D9","\u05D2\u05D9\u05D8\u05E8\u05D4","\u05E4\u05E1\u05E0\u05EA\u05E8","\u05E0\u05D2\u05D9\u05E0\u05D4","\u05EA\u05D5\u05E4\u05D9\u05DD","\u05DE\u05E7\u05D4\u05DC\u05D4","\u05D6\u05DE\u05E8\u05D4","\u05E9\u05D9\u05E8\u05D4","\u05D6\u05DE\u05E8","\u05DB\u05D9\u05E0\u05D5\u05E8","\u05D7\u05DC\u05D9\u05DC","\u05D9\u05D5\u05E7\u05DC\u05D9\u05DC\u05D9","\u05D3\u05E8\u05D1\u05D5\u05E7\u05D4","\u05D4\u05DC\u05D7\u05E0\u05D4","\u05D4\u05E4\u05E7\u05D4 \u05DE\u05D5\u05D6\u05D9\u05E7\u05DC\u05D9\u05EA","\u05E4\u05D9\u05EA\u05D5\u05D7 \u05E7\u05D5\u05DC","\u05D3\u05D9 \u05D2'\u05D9\u05D9","dj"]],
-    [61,"\u05DE\u05D9\u05D3\u05E2\u05E0\u05D5\u05EA \u05D5\u05E1\u05E4\u05E8\u05E0\u05D5\u05EA",["\u05E1\u05E4\u05E8\u05E0\u05D5\u05EA","\u05DE\u05D9\u05D3\u05E2\u05E0\u05D5\u05EA","\u05E1\u05E4\u05E8\u05D9\u05D9\u05D4","\u05E1\u05E4\u05E8\u05D9\u05D4","\u05E1\u05E4\u05E8\u05DF","\u05E1\u05E4\u05E8\u05E0\u05D9\u05EA","\u05DE\u05D9\u05D3\u05E2\u05DF","\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF","\u05D0\u05E8\u05DB\u05D9\u05D5\u05E0\u05D0\u05D5\u05EA"]],
-    [106,"\u05DE\u05D9\u05D9\u05E0\u05D3\u05E4\u05D5\u05DC\u05E0\u05E1 \u05D5\u05DE\u05D3\u05D9\u05D8\u05E6\u05D9\u05D4",["\u05DE\u05D9\u05D9\u05E0\u05D3\u05E4\u05D5\u05DC\u05E0\u05E1","\u05DE\u05D3\u05D9\u05D8\u05E6\u05D9\u05D4","\u05E7\u05E9\u05D9\u05D1\u05D5\u05EA","\u05D9\u05D5\u05D2\u05D4","\u05E0\u05E9\u05D9\u05DE\u05D4","\u05E0\u05E9\u05D9\u05DE\u05D5\u05EA","\u05E9\u05E7\u05D8 \u05E4\u05E0\u05D9\u05DE\u05D9","\u05D8\u05D0\u05D9 \u05E6'\u05D9","\u05E6'\u05D9 \u05E7\u05D5\u05E0\u05D2","\u05D4\u05E8\u05E4\u05D9\u05D4","\u05D3\u05DE\u05D9\u05D5\u05DF \u05DE\u05D5\u05D3\u05E8\u05DA","\u05E8\u05D5\u05D7\u05E0\u05D9\u05D5\u05EA"]],
-    [48,"\u05DE\u05E0\u05D4\u05DC \u05E2\u05E1\u05E7\u05D9\u05DD / \u05E4\u05D9\u05E0\u05E0\u05E1\u05D9\u05DD / \u05D9\u05D6\u05DE\u05D5\u05EA",["\u05DE\u05E0\u05D4\u05DC \u05E2\u05E1\u05E7\u05D9\u05DD","\u05E2\u05E1\u05E7\u05D9\u05DD","\u05E2\u05E1\u05E7","\u05E4\u05D9\u05E0\u05E0\u05E1\u05D9\u05DD","\u05E4\u05D9\u05E0\u05E0\u05E1\u05D9","\u05D9\u05D6\u05DE\u05D5\u05EA","\u05D9\u05D6\u05DD","\u05DB\u05DC\u05DB\u05DC\u05D4","\u05E9\u05D5\u05E7 \u05D4\u05D4\u05D5\u05DF","\u05D4\u05E9\u05E7\u05E2\u05D5\u05EA","\u05E9\u05D9\u05D5\u05D5\u05E7","\u05E9\u05D9\u05D5\u05D5\u05E7 \u05D3\u05D9\u05D2\u05D9\u05D8\u05DC\u05D9","\u05E0\u05D9\u05D4\u05D5\u05DC","\u05DE\u05E0\u05D4\u05DC\u05D9\u05DD","\u05D4\u05E0\u05D4\u05DC\u05EA \u05D7\u05E9\u05D1\u05D5\u05E0\u05D5\u05EA","\u05D7\u05E9\u05D1\u05D5\u05E0\u05D0\u05D5\u05EA","\u05E8\u05D0\u05D9\u05D9\u05EA \u05D7\u05E9\u05D1\u05D5\u05DF","\u05DB\u05E1\u05E4\u05D9\u05DD","\u05E1\u05D8\u05D0\u05E8\u05D8\u05D0\u05E4","\u05E0\u05D3\u05DC\"\u05DF","\u05E0\u05D3\u05DC\u05DF","\u05DE\u05DB\u05D9\u05E8\u05D5\u05EA","\u05DE\u05E1\u05D7\u05E8","\u05D8\u05E8\u05D9\u05D9\u05D3\u05D9\u05E0\u05D2","\u05E7\u05E8\u05D9\u05E4\u05D8\u05D5","\u05EA\u05DB\u05E0\u05D5\u05DF \u05E4\u05D9\u05E0\u05E0\u05E1\u05D9","mba"]],
-    [35,"\u05DE\u05EA\u05DE\u05D8\u05D9\u05E7\u05D4 \u05D5\u05DE\u05D3\u05E2\u05D9\u05DD",["\u05DE\u05EA\u05DE\u05D8\u05D9\u05E7\u05D4","\u05DE\u05D3\u05E2\u05D9\u05DD","\u05DE\u05D3\u05E2","\u05E4\u05D9\u05D6\u05D9\u05E7\u05D4","\u05E4\u05D9\u05E1\u05D9\u05E7\u05D4","\u05DB\u05D9\u05DE\u05D9\u05D4","\u05D1\u05D9\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4","\u05D1\u05D9\u05D5\u05D8\u05DB\u05E0\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4","\u05D0\u05E1\u05D8\u05E8\u05D5\u05E0\u05D5\u05DE\u05D9\u05D4","\u05D7\u05DC\u05DC","\u05DE\u05D3\u05E2\u05D9 \u05D4\u05D8\u05D1\u05E2","\u05DE\u05D3\u05E2\u05D9 \u05D4\u05D7\u05D9\u05D9\u05DD","\u05E1\u05D8\u05D8\u05D9\u05E1\u05D8\u05D9\u05E7\u05D4","\u05D7\u05E9\u05D1\u05D5\u05DF"]],
-    [26,"\u05E0\u05D9\u05D4\u05D5\u05DC \u05D7\u05D9\u05E0\u05D5\u05DB\u05D9",["\u05E0\u05D9\u05D4\u05D5\u05DC \u05D7\u05D9\u05E0\u05D5\u05DB\u05D9","\u05DE\u05E0\u05D4\u05DC \u05D1\u05D9\u05EA \u05E1\u05E4\u05E8","\u05DE\u05E0\u05D4\u05DC\u05EA \u05D1\u05D9\u05EA \u05E1\u05E4\u05E8","\u05E0\u05D9\u05D4\u05D5\u05DC \u05D1\u05D9\u05EA \u05E1\u05E4\u05E8","\u05DE\u05E0\u05D4\u05D9\u05D2\u05D5\u05EA \u05D7\u05D9\u05E0\u05D5\u05DB\u05D9\u05EA","\u05E0\u05D9\u05D4\u05D5\u05DC \u05D1\u05D7\u05D9\u05E0\u05D5\u05DA","\u05DE\u05E0\u05D4\u05DC\u05D9\u05DD \u05D1\u05D7\u05D9\u05E0\u05D5\u05DA","\u05E1\u05D2\u05DF \u05DE\u05E0\u05D4\u05DC","\u05E1\u05D2\u05E0\u05D9\u05EA \u05DE\u05E0\u05D4\u05DC\u05EA","\u05E8\u05DB\u05D6\u05EA","\u05E8\u05DB\u05D6\u05D5\u05EA","\u05E4\u05D9\u05E7\u05D5\u05D7","\u05DE\u05E4\u05E7\u05D7","\u05DE\u05E4\u05E7\u05D7\u05EA"]],
-    [101,"\u05E0\u05D9\u05EA\u05D5\u05D7 \u05D4\u05EA\u05E0\u05D4\u05D2\u05D5\u05EA",["\u05E0\u05D9\u05EA\u05D5\u05D7 \u05D4\u05EA\u05E0\u05D4\u05D2\u05D5\u05EA","aba","\u05D4\u05EA\u05E0\u05D4\u05D2\u05D5\u05EA\u05D9","\u05D4\u05EA\u05E0\u05D4\u05D2\u05D5\u05EA","\u05DE\u05E0\u05EA\u05D7 \u05D4\u05EA\u05E0\u05D4\u05D2\u05D5\u05EA","\u05DE\u05E0\u05EA\u05D7\u05EA \u05D4\u05EA\u05E0\u05D4\u05D2\u05D5\u05EA","bcba"]],
-    [93,"\u05E1\u05E4\u05D5\u05E8\u05D8, \u05DE\u05D7\u05D5\u05DC \u05D5\u05EA\u05E0\u05D5\u05E2\u05D4",["\u05E1\u05E4\u05D5\u05E8\u05D8","\u05DE\u05D7\u05D5\u05DC","\u05E8\u05D9\u05E7\u05D5\u05D3","\u05E8\u05D9\u05E7\u05D5\u05D3\u05D9\u05DD","\u05E8\u05D9\u05E7\u05D5\u05D3\u05D9 \u05E2\u05DD","\u05D1\u05DC\u05D8","\u05D4\u05D9\u05E4 \u05D4\u05D5\u05E4","\u05EA\u05E0\u05D5\u05E2\u05D4","\u05E4\u05D9\u05DC\u05D0\u05D8\u05D9\u05E1","\u05DB\u05D5\u05E9\u05E8","\u05D0\u05D9\u05DE\u05D5\u05DF \u05DB\u05D5\u05E9\u05E8","\u05DE\u05D0\u05DE\u05DF \u05DB\u05D5\u05E9\u05E8","\u05D7\u05D3\u05E8 \u05DB\u05D5\u05E9\u05E8","\u05D6\u05D5\u05DE\u05D1\u05D4","\u05E8\u05D9\u05E6\u05D4","\u05E9\u05D7\u05D9\u05D9\u05D4","\u05D4\u05DC\u05D9\u05DB\u05D4 \u05E0\u05D5\u05E8\u05D3\u05D9\u05EA","\u05E4\u05DC\u05D3\u05E0\u05E7\u05E8\u05D9\u05D9\u05D6","\u05D0\u05DE\u05E0\u05D5\u05D9\u05D5\u05EA \u05DC\u05D7\u05D9\u05DE\u05D4","\u05E7\u05E8\u05D1 \u05DE\u05D2\u05E2"]],
-    [46,"\u05E2\u05D9\u05E6\u05D5\u05D1 \u05D0\u05D5\u05E4\u05E0\u05D4 / \u05EA\u05E4\u05D9\u05E8\u05D4",["\u05D0\u05D5\u05E4\u05E0\u05D4","\u05EA\u05E4\u05D9\u05E8\u05D4","\u05EA\u05D5\u05E4\u05E8\u05EA","\u05DE\u05DB\u05D5\u05E0\u05EA \u05EA\u05E4\u05D9\u05E8\u05D4","\u05E2\u05D9\u05E6\u05D5\u05D1 \u05D1\u05D2\u05D3\u05D9\u05DD","\u05D1\u05D2\u05D3\u05D9\u05DD","\u05D2\u05D6\u05E8\u05E0\u05D5\u05EA","\u05E1\u05E8\u05D9\u05D2\u05D4"]],
-    [28,"\u05E2\u05D9\u05E6\u05D5\u05D1 \u05D4\u05E1\u05D1\u05D9\u05D1\u05D4",["\u05E2\u05D9\u05E6\u05D5\u05D1 \u05D4\u05E1\u05D1\u05D9\u05D1\u05D4","\u05E2\u05D9\u05E6\u05D5\u05D1 \u05E1\u05D1\u05D9\u05D1\u05EA","\u05E2\u05D9\u05E6\u05D5\u05D1 \u05E1\u05D1\u05D9\u05D1\u05D4","\u05E2\u05D9\u05E6\u05D5\u05D1 \u05DB\u05D9\u05EA\u05D4","\u05EA\u05E4\u05D0\u05D5\u05E8\u05D4"]],
-    [69,"\u05E2\u05D9\u05E6\u05D5\u05D1 \u05E4\u05E0\u05D9\u05DD / home styling",["\u05E2\u05D9\u05E6\u05D5\u05D1 \u05E4\u05E0\u05D9\u05DD","\u05D4\u05D5\u05DD \u05E1\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2","home styling","\u05E2\u05D9\u05E6\u05D5\u05D1 \u05D4\u05D1\u05D9\u05EA","\u05E2\u05D9\u05E6\u05D5\u05D1 \u05D3\u05D9\u05E8\u05D4","\u05D0\u05D3\u05E8\u05D9\u05DB\u05DC\u05D5\u05EA \u05E4\u05E0\u05D9\u05DD","\u05E1\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2 \u05DC\u05D1\u05D9\u05EA","\u05D4\u05DC\u05D1\u05E9\u05EA \u05D1\u05D9\u05EA","\u05E4\u05E0\u05D2 \u05E9\u05D5\u05D0\u05D9","\u05E9\u05D9\u05E4\u05D5\u05E5"]],
-    [77,"\u05E2\u05E8\u05D9\u05DB\u05D4 \u05DC\u05E9\u05D5\u05E0\u05D9\u05EA",["\u05E2\u05E8\u05D9\u05DB\u05D4 \u05DC\u05E9\u05D5\u05E0\u05D9\u05EA","\u05E2\u05D5\u05E8\u05DA \u05DC\u05E9\u05D5\u05E0\u05D9","\u05E2\u05D5\u05E8\u05DB\u05EA \u05DC\u05E9\u05D5\u05E0\u05D9\u05EA","\u05D4\u05D2\u05D4\u05D4","\u05E2\u05E8\u05D9\u05DB\u05EA \u05D8\u05E7\u05E1\u05D8\u05D9\u05DD","\u05E2\u05E8\u05D9\u05DB\u05EA \u05EA\u05D5\u05DB\u05DF","\u05E2\u05D1\u05E8\u05D9\u05EA \u05EA\u05E7\u05E0\u05D9\u05EA","\u05DC\u05E9\u05D5\u05DF","\u05D3\u05E7\u05D3\u05D5\u05E7"]],
-    [27,"\u05E4\u05D9\u05EA\u05D5\u05D7 \u05DE\u05E7\u05E6\u05D5\u05E2\u05D9 \u05DC\u05DE\u05D5\u05E8\u05D9\u05DD",["\u05E4\u05D9\u05EA\u05D5\u05D7 \u05DE\u05E7\u05E6\u05D5\u05E2\u05D9","\u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05EA \u05DC\u05DE\u05D5\u05E8\u05D9\u05DD","\u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05D9\u05D5\u05EA \u05DC\u05DE\u05D5\u05E8\u05D9\u05DD","\u05E7\u05D5\u05E8\u05E1\u05D9 \u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05EA","\u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05D9\u05D5\u05EA"]],
-    [42,"\u05E4\u05E1\u05D9\u05DB\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4 \u05D5\u05D9\u05D9\u05E2\u05D5\u05E5",["\u05E4\u05E1\u05D9\u05DB\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4","\u05E4\u05E1\u05D9\u05DB\u05D5\u05DC\u05D5\u05D2","\u05E4\u05E1\u05D9\u05DB\u05D5\u05DC\u05D5\u05D2\u05D9\u05EA","\u05D9\u05D9\u05E2\u05D5\u05E5","\u05D9\u05E2\u05D5\u05E5","\u05D9\u05D5\u05E2\u05E5","\u05D9\u05D5\u05E2\u05E6\u05EA","\u05D1\u05E8\u05D9\u05D0\u05D5\u05EA \u05D4\u05E0\u05E4\u05E9","\u05E0\u05E4\u05E9","\u05E4\u05E1\u05D9\u05DB\u05D5\u05D0\u05E0\u05DC\u05D9\u05D6\u05D4","\u05D4\u05EA\u05DE\u05DB\u05E8\u05D5\u05D9\u05D5\u05EA","\u05D8\u05E8\u05D0\u05D5\u05DE\u05D4"]],
-    [75,"\u05E6\u05D5\u05E8\u05E4\u05D5\u05EA \u05D5\u05EA\u05DB\u05E9\u05D9\u05D8\u05E0\u05D5\u05EA",["\u05E6\u05D5\u05E8\u05E4\u05D5\u05EA","\u05EA\u05DB\u05E9\u05D9\u05D8","\u05E6\u05D5\u05E8\u05E3","\u05D7\u05E8\u05D5\u05D6\u05D9\u05DD","\u05E9\u05E8\u05E9\u05E8\u05D0\u05D5\u05EA","\u05D8\u05D1\u05E2\u05D5\u05EA","\u05E2\u05D1\u05D5\u05D3\u05EA \u05DE\u05EA\u05DB\u05EA"]],
-    [73,"\u05E6\u05D9\u05DC\u05D5\u05DD",["\u05E6\u05D9\u05DC\u05D5\u05DD","\u05DE\u05E6\u05DC\u05DE\u05D4","\u05E6\u05DC\u05DD","\u05E6\u05DC\u05DE\u05EA","\u05E4\u05D5\u05D8\u05D5\u05E9\u05D5\u05E4","photoshop","\u05DC\u05D9\u05D9\u05D8\u05E8\u05D5\u05DD","\u05E2\u05E8\u05D9\u05DB\u05EA \u05EA\u05DE\u05D5\u05E0\u05D5\u05EA","\u05EA\u05DE\u05D5\u05E0\u05D5\u05EA","\u05E6\u05D9\u05DC\u05D5\u05DD \u05D1\u05E1\u05DE\u05D0\u05E8\u05D8\u05E4\u05D5\u05DF","\u05E6\u05D9\u05DC\u05D5\u05DD \u05D1\u05D8\u05DC\u05E4\u05D5\u05DF"]],
-    [103,"\u05E7\u05D5\u05DC\u05E0\u05D5\u05E2",["\u05E7\u05D5\u05DC\u05E0\u05D5\u05E2","\u05E1\u05E8\u05D8\u05D9\u05DD","\u05E1\u05E8\u05D8","\u05E2\u05E8\u05D9\u05DB\u05EA \u05D5\u05D9\u05D3\u05D0\u05D5","\u05D5\u05D9\u05D3\u05D0\u05D5","\u05D9\u05D5\u05D8\u05D9\u05D5\u05D1","youtube","\u05D8\u05D9\u05E7\u05D8\u05D5\u05E7","\u05D1\u05D9\u05DE\u05D5\u05D9","\u05D0\u05E0\u05D9\u05DE\u05E6\u05D9\u05D4","\u05E6\u05D9\u05DC\u05D5\u05DD \u05D5\u05D9\u05D3\u05D0\u05D5"]],
-    [3,"\u05E8\u05E4\u05D5\u05D0\u05D4 \u05DE\u05E9\u05DC\u05D9\u05DE\u05D4",["\u05E8\u05E4\u05D5\u05D0\u05D4 \u05DE\u05E9\u05DC\u05D9\u05DE\u05D4","\u05E8\u05E4\u05DC\u05E7\u05E1\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4","\u05E8\u05E4\u05DC\u05E7\u05E1\u05D5\u05DC\u05D5\u05D2","\u05E9\u05D9\u05D0\u05E6\u05D5","\u05E0\u05D8\u05D5\u05E8\u05D5\u05E4\u05EA\u05D9\u05D4","\u05E0\u05D8\u05D5\u05E8\u05D5\u05E4\u05EA","\u05D4\u05D5\u05DE\u05D0\u05D5\u05E4\u05EA\u05D9\u05D4","\u05D4\u05D5\u05DE\u05D0\u05D5\u05E4\u05EA","\u05D3\u05D9\u05E7\u05D5\u05E8","\u05E2\u05D9\u05E1\u05D5\u05D9","\u05E2\u05D9\u05E1\u05D5\u05D9\u05D9\u05DD","\u05DE\u05E1\u05D0\u05D6'","\u05D8\u05D5\u05D5\u05D9\u05E0\u05D4","\u05D0\u05E8\u05D5\u05DE\u05EA\u05E8\u05E4\u05D9\u05D4","\u05E9\u05DE\u05E0\u05D9\u05DD \u05D0\u05EA\u05E8\u05D9\u05D9\u05DD","\u05E4\u05E8\u05D7\u05D9 \u05D1\u05D0\u05DA","\u05E8\u05E4\u05D5\u05D0\u05D4 \u05E1\u05D9\u05E0\u05D9\u05EA","\u05E8\u05E4\u05D5\u05D0\u05D4 \u05D8\u05D1\u05E2\u05D9\u05EA","\u05D4\u05D5\u05DC\u05D9\u05E1\u05D8\u05D9","\u05D4\u05D5\u05DC\u05D9\u05E1\u05D8\u05D9\u05EA","\u05E8\u05D9\u05E4\u05D5\u05D9","\u05E8\u05D9\u05D9\u05E7\u05D9","\u05E7\u05D9\u05E0\u05E1\u05D9\u05D5\u05DC\u05D5\u05D2\u05D9\u05D4","\u05E6\u05DE\u05D7\u05D9 \u05DE\u05E8\u05E4\u05D0","\u05D0\u05E7\u05D5\u05E4\u05D5\u05E0\u05E7\u05D8\u05D5\u05E8\u05D4","\u05D4\u05D9\u05DC\u05D9\u05E0\u05D2"]],
-    [16,"\u05E9\u05E4\u05D5\u05EA, \u05D4\u05D5\u05E8\u05D0\u05EA \u05E9\u05E4\u05D5\u05EA, \u05EA\u05E8\u05D2\u05D5\u05DD",["\u05E9\u05E4\u05D5\u05EA","\u05E9\u05E4\u05D4","\u05D0\u05E0\u05D2\u05DC\u05D9\u05EA","\u05E2\u05E8\u05D1\u05D9\u05EA","\u05E1\u05E4\u05E8\u05D3\u05D9\u05EA","\u05E6\u05E8\u05E4\u05EA\u05D9\u05EA","\u05D0\u05D9\u05D8\u05DC\u05E7\u05D9\u05EA","\u05D2\u05E8\u05DE\u05E0\u05D9\u05EA","\u05E8\u05D5\u05E1\u05D9\u05EA","\u05E4\u05D5\u05E8\u05D8\u05D5\u05D2\u05D6\u05D9\u05EA","\u05D9\u05E4\u05E0\u05D9\u05EA","\u05E1\u05D9\u05E0\u05D9\u05EA","\u05E7\u05D5\u05E8\u05D9\u05D0\u05E0\u05D9\u05EA","\u05D9\u05D5\u05D5\u05E0\u05D9\u05EA","\u05D9\u05D9\u05D3\u05D9\u05E9","\u05E9\u05E4\u05EA \u05E1\u05D9\u05DE\u05E0\u05D9\u05DD","\u05E2\u05D1\u05E8\u05D9\u05EA","\u05D4\u05D5\u05E8\u05D0\u05EA \u05E2\u05D1\u05E8\u05D9\u05EA","\u05D0\u05D5\u05DC\u05E4\u05DF","\u05EA\u05E8\u05D2\u05D5\u05DD","\u05DE\u05EA\u05D5\u05E8\u05D2\u05DE\u05DF","\u05DE\u05EA\u05D5\u05E8\u05D2\u05DE\u05E0\u05D5\u05EA"]],
-    [89,"\u05EA\u05D5\u05D0\u05E8 \u05E9\u05DC\u05D9\u05E9\u05D9 - \u05D3\u05D5\u05E7\u05D8\u05D5\u05E8\u05D8",["\u05D3\u05D5\u05E7\u05D8\u05D5\u05E8\u05D8","\u05D3\u05D5\u05E7\u05D8\u05D5\u05E8\u05E0\u05D8","\u05EA\u05D5\u05D0\u05E8 \u05E9\u05DC\u05D9\u05E9\u05D9","phd"]],
-    [85,"\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u05D0\u05E7\u05D5\u05D5\u05D9\u05D5\u05D5\u05DC\u05E0\u05D8",["\u05D0\u05E7\u05D5\u05D5\u05D9\u05D5\u05D5\u05DC\u05E0\u05D8","\u05E9\u05D5\u05D5\u05D4 \u05E2\u05E8\u05DA \u05DC\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9"]],
-    [25,"\u05EA\u05D9\u05D9\u05E8\u05D5\u05EA",["\u05EA\u05D9\u05D9\u05E8\u05D5\u05EA","\u05DE\u05D5\u05E8\u05D4 \u05D3\u05E8\u05DA","\u05DE\u05D3\u05E8\u05D9\u05DA \u05EA\u05D9\u05D9\u05E8\u05D9\u05DD","\u05D4\u05D3\u05E8\u05DB\u05EA \u05EA\u05D9\u05D9\u05E8\u05D9\u05DD","\u05DE\u05DC\u05D5\u05E0\u05D0\u05D5\u05EA"]],
-    [52,"\u05EA\u05E7\u05E9\u05D5\u05E8\u05EA \u05D1\u05D9\u05DF-\u05D0\u05D9\u05E9\u05D9\u05EA",["\u05EA\u05E7\u05E9\u05D5\u05E8\u05EA \u05D1\u05D9\u05DF \u05D0\u05D9\u05E9\u05D9\u05EA","\u05EA\u05E7\u05E9\u05D5\u05E8\u05EA \u05D1\u05D9\u05E0\u05D0\u05D9\u05E9\u05D9\u05EA","\u05D1\u05D9\u05DF \u05D0\u05D9\u05E9\u05D9\u05EA","\u05EA\u05E7\u05E9\u05D5\u05E8\u05EA","\u05EA\u05E7\u05E9\u05D5\u05E8\u05EA \u05DE\u05E7\u05E8\u05D1\u05EA","\u05E9\u05E4\u05EA \u05D2\u05D5\u05E3","\u05E4\u05E8\u05D6\u05E0\u05D8\u05E6\u05D9\u05D4","\u05E8\u05D8\u05D5\u05E8\u05D9\u05E7\u05D4","\u05E0\u05D0\u05D5\u05DD","\u05DE\u05E9\u05D0 \u05D5\u05DE\u05EA\u05DF","\u05D3\u05D9\u05D1\u05D5\u05E8 \u05DE\u05D5\u05DC \u05E7\u05D4\u05DC","\u05E2\u05DE\u05D9\u05D3\u05D4 \u05DE\u05D5\u05DC \u05E7\u05D4\u05DC","\u05D4\u05E8\u05E6\u05D0\u05D4","\u05DC\u05D4\u05E8\u05E6\u05D5\u05EA","\u05E4\u05D5\u05D3\u05E7\u05D0\u05E1\u05D8"]],
-    [94,"\u05EA\u05E8\u05D1\u05D5\u05EA \u05D4\u05E2\u05E9\u05E8\u05D4 \u05D5\u05D0\u05E7\u05D8\u05D5\u05D0\u05DC\u05D9\u05D4",["\u05D4\u05E2\u05E9\u05E8\u05D4","\u05D0\u05E7\u05D8\u05D5\u05D0\u05DC\u05D9\u05D4","\u05EA\u05E8\u05D1\u05D5\u05EA","\u05D4\u05E8\u05E6\u05D0\u05D5\u05EA","\u05E4\u05D5\u05DC\u05D9\u05D8\u05D9\u05E7\u05D4","\u05D2\u05D9\u05D0\u05D5\u05E4\u05D5\u05DC\u05D9\u05D8\u05D9\u05E7\u05D4","\u05DE\u05D6\u05E8\u05D7 \u05EA\u05D9\u05DB\u05D5\u05DF","\u05D9\u05D9\u05E0\u05D5\u05EA","\u05D8\u05E2\u05D9\u05DE\u05D5\u05EA \u05D9\u05D9\u05DF"]],
-    [43,"\u05EA\u05E8\u05E4\u05D9\u05D4 \u05D5\u05D8\u05D9\u05E4\u05D5\u05DC",["\u05EA\u05E8\u05E4\u05D9\u05D4","\u05D8\u05D9\u05E4\u05D5\u05DC","\u05DE\u05D8\u05E4\u05DC","\u05DE\u05D8\u05E4\u05DC\u05EA","\u05D8\u05D9\u05E4\u05D5\u05DC\u05D9","\u05D8\u05D9\u05E4\u05D5\u05DC\u05D9\u05EA","\u05E4\u05E1\u05D9\u05DB\u05D5\u05EA\u05E8\u05E4\u05D9\u05D4","\u05EA\u05E8\u05E4\u05D9\u05D4 \u05D1\u05D0\u05DE\u05E0\u05D5\u05EA","\u05D0\u05DE\u05E0\u05D5\u05EA \u05D8\u05D9\u05E4\u05D5\u05DC\u05D9\u05EA","\u05D3\u05E8\u05DE\u05D4 \u05EA\u05E8\u05E4\u05D9\u05D4","\u05EA\u05E8\u05E4\u05D9\u05D4 \u05D1\u05DE\u05D5\u05D6\u05D9\u05E7\u05D4","\u05DE\u05D5\u05D6\u05D9\u05E7\u05D4 \u05D8\u05D9\u05E4\u05D5\u05DC\u05D9\u05EA","\u05EA\u05E8\u05E4\u05D9\u05D4 \u05D1\u05EA\u05E0\u05D5\u05E2\u05D4","\u05D8\u05D9\u05E4\u05D5\u05DC \u05D1\u05DE\u05E9\u05D7\u05E7","\u05D8\u05D9\u05E4\u05D5\u05DC \u05E8\u05D2\u05E9\u05D9","\u05D1\u05D9\u05D1\u05DC\u05D9\u05D5\u05EA\u05E8\u05E4\u05D9\u05D4","\u05D8\u05D9\u05E4\u05D5\u05DC \u05D1\u05D1\u05E2\u05DC\u05D9 \u05D7\u05D9\u05D9\u05DD","\u05D2\u05E9\u05D8\u05D0\u05DC\u05D8","cbt"]]
-  ].map(function(d){return {id:d[0],name:d[1],kw:d[2]};});
+/* ───────── ברוכים הבאים + נושאים ───────── */
+.welcome-box { background: var(--surface); border-radius: 26px; padding: 30px 34px 26px; box-shadow: var(--shadow); border: 1.5px solid var(--border); margin: 0 0 20px; position: relative; overflow: hidden; }
+.welcome-box::before { content: ''; position: absolute; top: 0; right: 0; left: 0; height: 5px; background: linear-gradient(90deg, var(--blue) 0%, var(--cyan) 60%, var(--orange) 100%); }
+.welcome-title { font-size: 28px; font-weight: 800; color: var(--blue-deep); line-height: 1.2; }
+.welcome-title em { font-style: normal; color: var(--orange); }
+.welcome-sub { font-size: 16px; line-height: 1.7; color: var(--text-muted); margin-top: 6px; }
+.topics-label { font-size: 13px; font-weight: 700; color: var(--text-muted); letter-spacing: .3px; margin: 22px 0 10px; display: flex; align-items: center; gap: 10px; }
+.topics-label::after { content: ''; flex: 1; border-top: 1.5px dashed var(--border); }
+.topics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.topic { display: flex; align-items: center; gap: 13px; text-align: right; text-decoration: none; color: var(--text); background: #fff; border: 1.5px solid var(--border); border-radius: 18px; padding: 14px 16px; cursor: pointer; transition: transform .2s, box-shadow .2s, border-color .2s; }
+.topic:hover { transform: translateY(-3px); border-color: var(--c, var(--blue)); box-shadow: 0 10px 24px color-mix(in srgb, var(--c, #0982bc) 22%, transparent); }
+.topic:active { transform: translateY(0); }
+.t-ico { width: 48px; height: 48px; flex-shrink: 0; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 25px; background: color-mix(in srgb, var(--c, #0982bc) 14%, #fff); }
+.t-body { display: flex; flex-direction: column; min-width: 0; }
+.t-body b { font-size: 16px; font-weight: 700; line-height: 1.25; color: var(--text); }
+.t-body small { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; line-height: 1.3; }
+.topic.faq { --c: #7a5cf0; background: linear-gradient(135deg, #faf8ff, #fff); }
+.warn { display: flex; gap: 10px; align-items: flex-start; background: #fff8e1; border: 1.5px solid #ffd966; border-radius: 14px; padding: 11px 15px; margin-top: 18px; font-size: 14px; color: #7a5c00; line-height: 1.6; }
+.warn a { color: var(--blue-dark); font-weight: 700; }
 
-  /* \u05DE\u05D9\u05DC\u05D9\u05DD \u05E9\u05DE\u05E2\u05D9\u05D3\u05D5\u05EA \u05E2\u05DC \u05E9\u05D0\u05DC\u05D4 \u05DB\u05DC\u05DC\u05D9\u05EA \u05E2\u05DC \u05E9\u05E0\u05EA \u05E9\u05D1\u05EA\u05D5\u05DF (\u05D5\u05DC\u05D0 \u05E2\u05DC \u05E7\u05D5\u05E8\u05E1) */
-  var SHABI_KW = ["\u05D6\u05DB\u05D0\u05D5\u05EA","\u05D6\u05DB\u05D0\u05D9","\u05D6\u05DB\u05D0\u05D9\u05EA","\u05E7\u05E8\u05DF \u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05EA","\u05D4\u05E7\u05E8\u05DF","\u05DE\u05D9\u05DE\u05D5\u05DF","\u05EA\u05E7\u05E6\u05D9\u05D1","\u05D4\u05D7\u05D6\u05E8","\u05D2\u05DE\u05D5\u05DC","\u05DB\u05DE\u05D4 \u05E9\u05E2\u05D5\u05EA","\u05E9\u05E2\u05D5\u05EA \u05DC\u05D9\u05DE\u05D5\u05D3","\u05D4\u05D9\u05E7\u05E3","\u05DE\u05E1 \u05D4\u05DB\u05E0\u05E1\u05D4","\u05DE\u05E9\u05DB\u05D5\u05E8\u05EA","\u05E9\u05DB\u05E8","\u05D8\u05D5\u05E4\u05E1","\u05D8\u05E4\u05E1\u05D9\u05DD","\u05D3\u05D9\u05D5\u05D5\u05D7","\u05D0\u05D9\u05E9\u05D5\u05E8","\u05DE\u05E9\u05E8\u05D3 \u05D4\u05D7\u05D9\u05E0\u05D5\u05DA","\u05D4\u05E1\u05EA\u05D3\u05E8\u05D5\u05EA","\u05D0\u05E8\u05D2\u05D5\u05DF \u05D4\u05DE\u05D5\u05E8\u05D9\u05DD","\u05D5\u05EA\u05E7","\u05D3\u05D7\u05D9\u05D9\u05D4","\u05DC\u05D3\u05D7\u05D5\u05EA","\u05E4\u05D9\u05E6\u05D5\u05DC","\u05D7\u05E6\u05D9 \u05E9\u05D1\u05EA\u05D5\u05DF","\u05DE\u05EA\u05D9 \u05DE\u05EA\u05D7\u05D9\u05DC","\u05EA\u05E9\u05DC\u05D5\u05DD","\u05E8\u05D2\u05D5\u05DC\u05E6\u05D9\u05D4","\u05EA\u05E7\u05E0\u05D5\u05DF","\u05DB\u05DC\u05DC\u05D9\u05DD","\u05D7\u05D5\u05D1\u05EA","\u05DE\u05D5\u05EA\u05E8","\u05D1\u05D9\u05D8\u05D5\u05D7 \u05DC\u05D0\u05D5\u05DE\u05D9","\u05DE\u05E2\u05E0\u05E7","\u05E4\u05E0\u05E1\u05D9\u05D4","\u05D4\u05E4\u05E8\u05E9\u05D5\u05EA","\u05E7\u05D5\u05E4\u05EA \u05D2\u05DE\u05DC","\u05DE\u05D4 \u05DE\u05D2\u05D9\u05E2","\u05DE\u05D2\u05D9\u05E2 \u05DC\u05D9","\u05E9\u05D1\u05EA\u05D5\u05DF \u05D1\u05D7\u05D5\"\u05DC","\u05D7\u05D5\"\u05DC","\u05D7\u05D5\u05E5 \u05DC\u05D0\u05E8\u05E5","\u05D9\u05DE\u05D9 \u05DE\u05D7\u05DC\u05D4","\u05D7\u05D5\u05E4\u05E9\u05EA \u05DC\u05D9\u05D3\u05D4","\u05D4\u05E8\u05D9\u05D5\u05DF","\u05D4\u05D9\u05E8\u05D9\u05D5\u05DF","\u05DE\u05D5\u05DB\u05E8","\u05DE\u05D5\u05DB\u05E8\u05D9\u05DD","\u05DE\u05D0\u05D5\u05E9\u05E8","\u05DE\u05D0\u05D5\u05E9\u05E8\u05D9\u05DD","\u05D4\u05D7\u05D6\u05E8 \u05E9\u05DB\u05E8 \u05DC\u05D9\u05DE\u05D5\u05D3","\u05E9\u05DB\u05E8 \u05DC\u05D9\u05DE\u05D5\u05D3"];
+/* מצב שיחה: אחרי השאלה הראשונה מפנים מקום לתשובה */
+.app.chatting .welcome-box { display: none; }
 
-  /* ---- \u05D0\u05D9\u05E0\u05D3\u05E7\u05E1 \u05E0\u05D5\u05E9\u05D0\u05D9 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u2013 \u05E0\u05D3\u05DC\u05D4 \u05DE\u05D3\u05E4\u05D9 \u05D4\u05EA\u05D5\u05E6\u05D0\u05D5\u05EA \u05D1\u05D0\u05EA\u05E8 (\u05D0\u05D5\u05E7\u05D8\u05D5\u05D1\u05E8 2026) ----
-     \u05E0\u05D5\u05E9\u05D0 \u2192 \u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05E9\u05D1\u05D4\u05DD \u05DE\u05D5\u05E4\u05D9\u05E2\u05D9\u05DD \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0, \u05DE\u05D4\u05DE\u05EA\u05D0\u05D9\u05DD \u05D1\u05D9\u05D5\u05EA\u05E8.
-     0 \u05D1\u05E1\u05D5\u05E3 \u05D4\u05E8\u05E9\u05D9\u05DE\u05D4 = \u05D9\u05E9 \u05EA\u05D7\u05D5\u05DD \u05DE\u05E8\u05DB\u05D6\u05D9 \u05D0\u05D7\u05D3, \u05D5\u05D4\u05D1\u05D5\u05D8 \u05D1\u05D5\u05D7\u05E8 \u05D1\u05D5 \u05D9\u05E9\u05D9\u05E8\u05D5\u05EA. */
-  var COURSE_IDX = window.SHB_COURSE_IDX || {};   // course_index.js
+/* ───────── הודעות ───────── */
+.shabaton-message { margin-bottom: 18px; animation: fadeUp .3s ease; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.shabaton-message-bot { display: flex; gap: 12px; align-items: flex-start; }
+.shabaton-message-user { display: flex; justify-content: flex-end; }
+.shabaton-bot-avatar { width: 40px; height: 40px; border-radius: 13px; background: linear-gradient(135deg, var(--blue) 0%, var(--cyan) 100%); display: flex; align-items: center; justify-content: center; font-size: 21px; flex-shrink: 0; box-shadow: 0 4px 12px rgba(9,130,188,0.32); }
+.shabaton-message-content { background: #fff; padding: 15px 20px; border-radius: 6px 22px 22px 22px; max-width: min(82%, 780px); border: 1px solid var(--border); box-shadow: 0 3px 14px rgba(9,130,188,0.08); line-height: 1.55; font-size: 15.5px; color: var(--text); direction: rtl; text-align: right; overflow-wrap: anywhere; }
+.shabaton-message-content h3 { font-size: 15.5px; font-weight: 700; margin: 6px 0 2px; }
+.shabaton-message-content h3 a { color: var(--blue); text-decoration: underline; font-weight: 700; }
+.shabaton-message-content p, .shabaton-message-content li { margin: 2px 0; line-height: 1.55; }
+.shabaton-h3 { font-weight: 700; }
+.shabaton-h3 a { color: var(--blue-dark); text-decoration: none; border-bottom: 1.5px solid rgba(9,130,188,0.35); }
+.shabaton-h3 a:hover { border-bottom-color: var(--blue-dark); }
+.shabaton-message-user .shabaton-message-content { background: linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%); color: #fff; border: none; border-radius: 22px 22px 22px 6px; font-weight: 500; box-shadow: 0 5px 16px rgba(9,130,188,0.32); }
+.shabaton-typing { display: flex; gap: 5px; padding: 16px 20px; background: #fff; border: 1px solid var(--border); border-radius: 6px 22px 22px 22px; box-shadow: 0 3px 14px rgba(9,130,188,0.08); }
+.shabaton-typing span { width: 10px; height: 10px; border-radius: 50%; background: var(--blue); animation: typingBounce 1.2s ease-in-out infinite; display: inline-block; }
+.shabaton-typing span:nth-child(2) { animation-delay: .2s; }
+.shabaton-typing span:nth-child(3) { animation-delay: .4s; }
+@keyframes typingBounce { 0%,60%,100% { transform: translateY(0); opacity: .4; } 30% { transform: translateY(-9px); opacity: 1; } }
 
-  /* ---- \u05D0\u05D9\u05E0\u05D3\u05E7\u05E1 \u05DE\u05D5\u05E1\u05D3\u05D5\u05EA \u05DC\u05D9\u05DE\u05D5\u05D3 (\u05E0\u05D8\u05E2\u05DF \u05DE-institutions_index.js) ----
-     g: [\u05E9\u05DD \u05D4\u05DE\u05D5\u05E1\u05D3, [[\u05DB\u05D5\u05EA\u05E8\u05EA \u05D3\u05E3, \u05DB\u05EA\u05D5\u05D1\u05EA], ...]]  p: \u05E9\u05DD/\u05DB\u05D9\u05E0\u05D5\u05D9 \u05DE\u05DC\u05D0 \u2192 \u05DE\u05D5\u05E1\u05D3\u05D5\u05EA  k: \u05DE\u05D9\u05DC\u05D4 \u05D9\u05D9\u05D7\u05D5\u05D3\u05D9\u05EA \u05D1\u05E9\u05DD \u2192 \u05DE\u05D5\u05E1\u05D3\u05D5\u05EA */
-  var INST = window.SHB_INST || {pages:[], g:[], p:{}, a:{}, k:{}};
-  if(!INST.pages) INST.pages = []; if(!INST.a) INST.a = {};
-  var MAX_LIST = 6;   // \u05E2\u05D3 \u05DB\u05DE\u05D4 \u05D3\u05E4\u05D9\u05DD \u05DE\u05E6\u05D9\u05D2\u05D9\u05DD \u05DB\u05E8\u05E9\u05D9\u05DE\u05D4; \u05DE\u05E2\u05D1\u05E8 \u05DC\u05D6\u05D4 \u2013 \u05D3\u05E3 \u05D4\u05EA\u05D5\u05E6\u05D0\u05D5\u05EA \u05E9\u05DC \u05D4\u05EA\u05D7\u05D5\u05DD
+/* ───────── שורת הקלט — בראש הדף, מתחת לכותרת (תמיד גלויה, גם אם ה-iframe גבוה מהמסך) ───────── */
+.composer { flex-shrink: 0; position: relative; z-index: 5; padding: 0 var(--gutter); margin-top: -34px; }
+.input-wrapper { display: flex; align-items: center; gap: 10px; background: #fff; border: 2.5px solid var(--border); border-radius: 60px; padding: 8px 24px 8px 8px; box-shadow: 0 10px 34px rgba(9,130,188,0.18); transition: border-color .25s, box-shadow .25s; }
+.input-wrapper:focus-within { border-color: var(--blue); box-shadow: 0 0 0 5px rgba(9,130,188,0.12), 0 10px 34px rgba(9,130,188,0.18); }
+#shabaton-chat-input { flex: 1; border: none; outline: none; font-size: 18px; font-family: var(--font); font-weight: 500; color: var(--text); background: transparent; direction: rtl; text-align: right; min-width: 0; padding: 8px 0; }
+#shabaton-chat-input::placeholder { color: #9fb1bd; font-weight: 400; }
+#shabaton-chat-send { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, var(--orange) 0%, var(--orange-soft) 100%); border: none; color: #fff; font-size: 21px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 5px 16px rgba(232,99,10,0.45); transition: all .2s; }
+#shabaton-chat-send:hover:not(:disabled) { transform: scale(1.08) rotate(-6deg); }
+#shabaton-chat-send:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+.disclaimer { text-align: center; font-size: 11.5px; color: #8fa1ae; padding: 8px 0 2px; line-height: 1.5; }
+.disclaimer b { color: #b26b00; font-weight: 700; }
+.disclaimer a { color: var(--blue-dark); font-weight: 600; }
 
-  /* ---- \u05DB\u05DC\u05D9\u05DD ---- */
-  function norm(t){
-    return (" " + (t||"").toLowerCase()
-      .replace(/[\u0591-\u05C7]/g,"")      // \u05E0\u05D9\u05E7\u05D5\u05D3
-      .replace(/[\u05F4]/g,'"').replace(/[\u05F3\u2019]/g,"'")
-      .replace(/[-\u2013_,.!?;:()\/\\]/g," ")
-      // \u05DB\u05EA\u05D9\u05D1 \u05E9\u05D5\u05E0\u05D4 \u05DC\u05D0\u05D5\u05EA\u05D4 \u05DE\u05D9\u05DC\u05D4: \u05DE\u05D5\u05D6\u05D9\u05E7\u05D4=\u05DE\u05D5\u05E1\u05D9\u05E7\u05D4, \u05D0\u05D5\u05DE\u05E0\u05D5\u05EA=\u05D0\u05DE\u05E0\u05D5\u05EA, \u05EA\u05D0\u05D8\u05E8\u05D5\u05DF=\u05EA\u05D9\u05D0\u05D8\u05E8\u05D5\u05DF
-      .replace(/\u05DE\u05D5\u05D6\u05D9\u05E7/g,"\u05DE\u05D5\u05E1\u05D9\u05E7").replace(/\u05D0\u05D5\u05DE\u05E0\u05D5/g,"\u05D0\u05DE\u05E0\u05D5").replace(/\u05EA\u05D0\u05D8\u05E8/g,"\u05EA\u05D9\u05D0\u05D8\u05E8")
-      .replace(/\s+/g," ") + " ");
-  }
-  function has(t,kw){
-    var k = norm(kw).trim();
-    if(/^[a-z.]{1,3}$/.test(k)) return t.indexOf(" "+k+" ") > -1;   // ai, nlp, ma \u2013 \u05DE\u05D9\u05DC\u05D4 \u05E9\u05DC\u05DE\u05D4 \u05D1\u05DC\u05D1\u05D3
-    return t.indexOf(k) > -1;
-  }
-  // \u05D0\u05D6\u05D5\u05E8\u05D9\u05DD \u05E9\u05D6\u05D5\u05D4\u05D5, \u05DC\u05E4\u05D9 \u05D4\u05D4\u05EA\u05D0\u05DE\u05D4 \u05D4\u05D0\u05E8\u05D5\u05DB\u05D4 \u05D1\u05D9\u05D5\u05EA\u05E8 ("\u05DE\u05D5\u05D3\u05D9\u05E2\u05D9\u05DF \u05E2\u05D9\u05DC\u05D9\u05EA" \u2192 \u05D9\u05E8\u05D5\u05E9\u05DC\u05D9\u05DD, \u05DC\u05D0 "\u05DE\u05D5\u05D3\u05D9\u05E2\u05D9\u05DF" \u2192 \u05DE\u05E8\u05DB\u05D6)
-  function findAreas(t){
-    function best(a){ return Math.max.apply(null, a.kw.map(function(k){ return has(t,k) ? norm(k).trim().length : 0; })); }
-    return AREAS.filter(function(a){ return best(a) > 0; }).sort(function(x,y){ return best(y) - best(x); });
-  }
-  function findDisc(t){
-    var res = [];
-    DISC.forEach(function(d){
-      var score = 0;
-      var seenK = {};
-      d.kw.forEach(function(k){ var nk = norm(k).trim(); if(!seenK[nk] && has(t,k)){ seenK[nk] = 1; score += nk.length; } });
-      if(score) res.push({d:d,score:score});
-    });
-    res.sort(function(a,b){return b.score-a.score;});
-    // \u05EA\u05E8\u05E4\u05D9\u05D4 = \u05D8\u05D9\u05E4\u05D5\u05DC: "\u05D8\u05D9\u05E4\u05D5\u05DC \u05D1\u05D0\u05DE\u05E0\u05D5\u05EA", "\u05EA\u05E8\u05E4\u05D9\u05D4 \u05D1\u05DE\u05D5\u05E1\u05D9\u05E7\u05D4" \u2192 \u05EA\u05D7\u05D5\u05DD \u05EA\u05E8\u05E4\u05D9\u05D4 \u05D5\u05D8\u05D9\u05E4\u05D5\u05DC
-    if(/ [\u05D5\u05D1\u05D4\u05DC]?(?:\u05EA\u05E8\u05E4\u05D9|\u05D8\u05D9\u05E4\u05D5\u05DC)|\u05EA\u05E8\u05E4\u05D9\u05D4 /.test(t) && res.some(function(r){ return r.d.id === 43; }))
-      res = res.filter(function(r){ return r.d.id === 43; });
-    // \u05D0\u05DD \u05D4\u05E8\u05D0\u05E9\u05D5\u05DF \u05D1\u05E8\u05D5\u05E8 \u05D9\u05D5\u05EA\u05E8 \u05DE\u05D4\u05E9\u05D0\u05E8 \u2013 \u05D1\u05D5\u05D7\u05E8\u05D9\u05DD \u05D0\u05D5\u05EA\u05D5
-    if(res.length>1 && res[0].score >= res[1].score*2) res = [res[0]];
-    return res.map(function(r){return r.d;});
-  }
-  // \u05D4\u05DE\u05D9\u05DC\u05D4 \u05DE\u05EA\u05D7\u05D9\u05DC\u05D4 \u05D1\u05EA\u05D7\u05D9\u05DC\u05EA \u05DE\u05D9\u05DC\u05D4 \u05D1\u05D8\u05E7\u05E1\u05D8 (\u05DE\u05D5\u05EA\u05E8\u05EA \u05D0\u05D5\u05EA \u05E9\u05D9\u05DE\u05D5\u05E9: \u05D1/\u05D4/\u05D5/\u05DC/\u05DE/\u05E9)
-  function wordStart(t, w){ var P=" \u05D4\u05D5\u05D1\u05DC\u05DE\u05E9"; for(var i=0;i<P.length;i++){ if(t.indexOf(" "+(P[i]===" "?"":P[i])+w) > -1) return true; } return false; }
-  // \u05D5\u05D4\u05DE\u05D9\u05DC\u05D4 \u05DE\u05E1\u05EA\u05D9\u05D9\u05DE\u05EA \u05DB\u05DE\u05D9\u05DC\u05D4 \u05E9\u05DC\u05DE\u05D4, \u05D0\u05D5 \u05D1\u05E1\u05D9\u05D5\u05DE\u05EA \u05E8\u05D1\u05D9\u05DD/\u05E0\u05E7\u05D1\u05D4 \u05E0\u05E4\u05D5\u05E6\u05D4
-  function wordEnd(t, w){ return [" ","\u05D9\u05DD ","\u05D5\u05EA ","\u05D4 "].some(function(e){ return t.indexOf(w+e) > -1; }); }
-  // \u05D7\u05D9\u05E4\u05D5\u05E9 \u05E0\u05D5\u05E9\u05D0 \u05E7\u05D5\u05E8\u05E1 \u05D1\u05D0\u05D9\u05E0\u05D3\u05E7\u05E1 (\u05DB\u05D5\u05DC\u05DC \u05E6\u05D5\u05E8\u05D5\u05EA \u05E8\u05D1\u05D9\u05DD: \u05DE\u05E0\u05D3\u05DC\u05D5\u05EA \u2192 \u05DE\u05E0\u05D3\u05DC\u05D4)
-  function findCourseTopic(t){
-    var best = null;
-    Object.keys(COURSE_IDX).forEach(function(k){
-      var stem = norm(k).trim().replace(/(\u05D5\u05EA|\u05D9\u05DD|\u05D4)$/, "");
-      var nk = norm(k).trim();
-      var exact = /^[a-z.]{1,3}$/.test(nk) ? has(t,k) : wordStart(t, nk) && wordEnd(t, nk);
-      var ok = exact || (stem.length >= 4 && wordStart(t, stem));
-      // \u05D4\u05EA\u05D0\u05DE\u05D4 \u05DE\u05D3\u05D5\u05D9\u05E7\u05EA \u05E2\u05D3\u05D9\u05E4\u05D4 \u05E2\u05DC \u05D4\u05EA\u05D0\u05DE\u05D4 \u05DC\u05E4\u05D9 \u05E9\u05D5\u05E8\u05E9; \u05D1\u05D9\u05DF \u05E9\u05D5\u05D5\u05EA \u2013 \u05D4\u05DE\u05D9\u05DC\u05D4 \u05D4\u05D0\u05E8\u05D5\u05DB\u05D4 \u05D9\u05D5\u05EA\u05E8
-      if(ok && (!best || (exact && !best.exact) || (exact === best.exact && k.length > best.kw.length)))
-        best = {kw:k, list:COURSE_IDX[k], exact:exact};
-    });
-    if(!best) return null;
-    var direct = best.list[best.list.length-1] === 0;
-    var ids = best.list.filter(function(id){ return id && discById(id); });
-    if(!ids.length) return null;
-    return {kw:best.kw, ids:ids, direct:direct || ids.length === 1};
-  }
-  // \u05D6\u05D9\u05D4\u05D5\u05D9 \u05DE\u05D5\u05E1\u05D3 \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD \u05D1\u05D8\u05E7\u05E1\u05D8: \u05E9\u05DD \u05DE\u05DC\u05D0 / \u05DB\u05D9\u05E0\u05D5\u05D9, \u05D0\u05D5 \u05DE\u05D9\u05DC\u05D4 \u05D9\u05D9\u05D7\u05D5\u05D3\u05D9\u05EA \u05D1\u05E9\u05DD (\u05D2\u05DD \u05E2\u05DD \u05D0\u05D5\u05EA \u05E9\u05D9\u05DE\u05D5\u05E9: "\u05D1\u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9")
-  var AREA_WORDS = null;
-  function findInstitutions(t){
-    var score = {}, P = "\u05D4\u05D5\u05D1\u05DC\u05DE\u05E9";
-    function add(ids, sc){ ids.forEach(function(i){ score[i] = Math.max(score[i]||0, sc); }); }
-    if(!AREA_WORDS){ AREA_WORDS = {}; AREAS.forEach(function(a){ a.kw.forEach(function(k){ AREA_WORDS[norm(k).trim()] = 1; }); }); }
-    Object.keys(INST.p).forEach(function(p){
-      if(AREA_WORDS[p]) return;   // \u05DB\u05D9\u05E0\u05D5\u05D9 \u05E9\u05D4\u05D5\u05D0 \u05E9\u05DD \u05E2\u05D9\u05E8 ("\u05E8\u05DE\u05EA \u05D2\u05DF") \u2013 \u05DC\u05D0 \u05DE\u05D6\u05D4\u05D9\u05DD \u05DC\u05E4\u05D9\u05D5 \u05DE\u05D5\u05E1\u05D3
-      var hit = t.indexOf(" "+p+" ") > -1;
-      for(var j=0; !hit && j<P.length; j++) hit = t.indexOf(" "+P[j]+p+" ") > -1;
-      if(hit) add(INST.p[p], 100 + p.length);
-    });
-    t.trim().split(" ").forEach(function(w){
-      w = w.replace(/['"]/g, "");
-      if(INST.k[w]) add(INST.k[w], w.length);
-      else if(w.length > 4 && P.indexOf(w[0]) > -1 && INST.k[w.slice(1)]) add(INST.k[w.slice(1)], w.length - 1);
-    });
-    var ids = Object.keys(score).map(Number);
-    if(!ids.length) return [];
-    var top = Math.max.apply(null, ids.map(function(i){ return score[i]; }));
-    // \u05DB\u05E9\u05E9\u05DD \u05DE\u05DC\u05D0 \u05D6\u05D5\u05D4\u05D4 \u2013 \u05DE\u05EA\u05E2\u05DC\u05DE\u05D9\u05DD \u05DE\u05D4\u05EA\u05D0\u05DE\u05D5\u05EA \u05D7\u05DC\u05E9\u05D5\u05EA \u05DC\u05DE\u05D9\u05DC\u05D4 \u05D1\u05D5\u05D3\u05D3\u05EA
-    return ids.filter(function(i){ return top < 100 || score[i] >= 100; })
-              .sort(function(a,b){ return score[b]-score[a]; }).slice(0,5);
-  }
-  // \u05DB\u05D9\u05E0\u05D5\u05D9 \u05E1\u05E4\u05E6\u05D9\u05E4\u05D9 ("\u05D5\u05D9\u05E0\u05D2\u05D9\u05D9\u05D8 \u05E1\u05E4\u05D5\u05E8\u05D8") \u2013 \u05DE\u05D5\u05D1\u05D9\u05DC \u05DC\u05D3\u05E3 \u05D0\u05D7\u05D3
-  function findAlias(t){
-    var best = null, P = "\u05D4\u05D5\u05D1\u05DC\u05DE\u05E9";
-    Object.keys(INST.a).forEach(function(p){
-      var hit = t.indexOf(" "+p+" ") > -1;
-      for(var j=0; !hit && j<P.length; j++) hit = t.indexOf(" "+P[j]+p+" ") > -1;
-      if(hit && (!best || p.length > best.length)) best = p;
-    });
-    return best === null ? null : INST.a[best];
-  }
+/* ───────── טאבלט ───────── */
+@media (max-width: 900px) {
+  .topics { grid-template-columns: repeat(2, 1fr); }
+  .header-text h1 { font-size: 28px; }
+}
 
-  /* ---- \u05D3\u05E4\u05D9\u05DD: \u05D7\u05D9\u05E4\u05D5\u05E9 \u05DC\u05E4\u05D9 \u05E0\u05D5\u05E9\u05D0, \u05E1\u05D9\u05E0\u05D5\u05DF \u05DC\u05E4\u05D9 \u05D0\u05D6\u05D5\u05E8, \u05DE\u05E2\u05D1\u05E8 \u05D9\u05E9\u05D9\u05E8 \u05D0\u05D5 \u05E8\u05E9\u05D9\u05DE\u05D4 ---- */
-  // strict = \u05D1\u05D9\u05D8\u05D5\u05D9 \u05D7\u05D5\u05E4\u05E9\u05D9 \u05E9\u05D4\u05D2\u05D5\u05DC\u05E9 \u05DB\u05EA\u05D1: \u05DE\u05D9\u05DC\u05D4 \u05E9\u05DC\u05DE\u05D4, \u05D0\u05D5 \u05E6\u05D5\u05E8\u05EA \u05E8\u05D1\u05D9\u05DD (\u05DE\u05E0\u05D3\u05DC\u05D5\u05EA \u2192 \u05DE\u05E0\u05D3\u05DC\u05D4)
-  function pageMatches(term, strict){
-    var nt = norm(term).trim(); if(nt.replace(/ /g,"").length < 3) return [];
-    var st = nt.replace(strict ? /(\u05D5\u05EA|\u05D9\u05DD)$/ : /(\u05D5\u05EA|\u05D9\u05DD|\u05D4)$/, "");
-    var out = [], generic = [];
-    INST.pages.forEach(function(p, i){
-      var tx = " " + p[5] + " ";
-      var ok = strict ? (wordStart(tx, nt) && wordEnd(tx, nt)) : wordStart(tx, nt);
-      if(!ok && st.length >= 4 && st !== nt) ok = wordStart(tx, st);
-      if(ok) (/^\u05E7\u05D5\u05E8\u05E1\u05D9 /.test(p[0]) ? generic : out).push(i);
-    });
-    return out.length ? out : generic;   // \u05D3\u05E4\u05D9 \u05E7\u05D8\u05DC\u05D5\u05D2 \u05DB\u05DC\u05DC\u05D9\u05D9\u05DD ("\u05E7\u05D5\u05E8\u05E1\u05D9 \u05D0\u05DE\u05E0\u05D5\u05EA...") \u05E8\u05E7 \u05DB\u05E9\u05D0\u05D9\u05DF \u05D3\u05E3 \u05E1\u05E4\u05E6\u05D9\u05E4\u05D9
-  }
-  var PAGE_AREAS = null;
-  function pageAreas(i){
-    if(!PAGE_AREAS) PAGE_AREAS = {};
-    if(PAGE_AREAS[i]) return PAGE_AREAS[i];
-    var r = {areas:{}, remote:false, national:false};
-    INST.pages[i][3].forEach(function(l){
-      var t = norm(l);
-      findAreas(t).forEach(function(a){ if(a.id) r.areas[a.id] = 1; });
-      if(isRemote(t)) r.remote = true;
-      if(/\u05D0\u05E8\u05E6\u05D9\u05EA|\u05DB\u05DC \u05D4\u05D0\u05E8\u05E5|\u05D1\u05E8\u05D7\u05D1\u05D9 \u05D4\u05D0\u05E8\u05E5/.test(t)) r.national = true;
-    });
-    return (PAGE_AREAS[i] = r);
-  }
-  // \u05E2\u05D9\u05E8 \u05E1\u05E4\u05E6\u05D9\u05E4\u05D9\u05EA (\u05DC\u05D0 \u05D0\u05D6\u05D5\u05E8 \u05DB\u05DC\u05DC\u05D9 \u05DB\u05DE\u05D5 "\u05DE\u05E8\u05DB\u05D6" \u05D0\u05D5 "\u05E6\u05E4\u05D5\u05DF")
-  var REGION_WORDS = ["\u05DE\u05E8\u05DB\u05D6","\u05E6\u05E4\u05D5\u05DF","\u05E9\u05E8\u05D5\u05DF","\u05E9\u05E4\u05DC\u05D4","\u05D3\u05E8\u05D5\u05DD","\u05E0\u05D2\u05D1","\u05D2\u05DC\u05D9\u05DC","\u05D2\u05D5\u05DC\u05DF","\u05E2\u05DE\u05E7","\u05E2\u05DE\u05E7 \u05D9\u05D6\u05E8\u05E2\u05D0\u05DC","\u05DB\u05E8\u05DE\u05DC","\u05E7\u05E8\u05D9\u05D5\u05EA","\u05E2\u05D5\u05D8\u05E3","\u05D2\u05D5\u05E9 \u05E2\u05E6\u05D9\u05D5\u05DF"];
-  function cityNorm(x){
-    return norm(x).replace(/\u05E7\u05E8\u05D9\u05D9\u05EA/g,"\u05E7\u05E8\u05D9\u05EA").replace(/\u05EA\u05E7\u05D5\u05D5\u05D4/g,"\u05EA\u05E7\u05D5\u05D4").replace(/\u05E8\u05D0\u05E9\u05DC['"]?\u05E6/g,"\u05E8\u05D0\u05E9\u05D5\u05DF \u05DC\u05E6\u05D9\u05D5\u05DF")
-      .replace(/ \u05EA['"]\u05D0 /g," \u05EA\u05DC \u05D0\u05D1\u05D9\u05D1 ").replace(/ \u05E4['"]\u05EA /g," \u05E4\u05EA\u05D7 \u05EA\u05E7\u05D5\u05D4 ").replace(/ \u05D1['"]\u05E9 /g," \u05D1\u05D0\u05E8 \u05E9\u05D1\u05E2 ").replace(/ \u05D9 \u05DD /g," \u05D9\u05E8\u05D5\u05E9\u05DC\u05D9\u05DD ");
-  }
-  function findCity(t){
-    var best = null;
-    AREAS.forEach(function(a){ if(!a.id) return; a.kw.forEach(function(k){
-      var nk = norm(k).trim();
-      if(REGION_WORDS.indexOf(nk) > -1 || !has(t,k)) return;
-      if(!best || nk.length > best.kw.length) best = {kw:nk, area:a.id};
-    }); });
-    if(!best) return null;
-    // \u05E9\u05DD \u05D4\u05E2\u05D9\u05E8 \u05DB\u05E4\u05D9 \u05E9\u05D4\u05D2\u05D5\u05DC\u05E9 \u05DB\u05EA\u05D1 \u05D0\u05D5\u05EA\u05D5 ("\u05E4\u05EA\u05D7 \u05EA\u05E7\u05D5\u05D5\u05D4"), \u05D1\u05DC\u05D9 \u05D0\u05D5\u05EA \u05D4\u05E9\u05D9\u05DE\u05D5\u05E9
-    var i = t.indexOf(best.kw), j = t.indexOf(" ", i + best.kw.length);
-    var shown = t.slice(i, j < 0 ? undefined : j).trim();
-    var key = cityNorm(best.kw).trim().replace(/\u05D4$/, "");
-    return {key:key, name:shown, area:best.area};
-  }
-  function inCity(i, city){
-    return INST.pages[i][3].some(function(l){ return cityNorm(l).indexOf(city.key) > -1; });
-  }
-  function filterCity(list, city){ return list.filter(function(i){ return inCity(i, city); }); }
-  function allPages(){ return INST.pages.map(function(p, i){ return i; }); }
+/* ───────── סלולר ───────── */
+@media (max-width: 640px) {
+  .hero { padding: 14px 16px 46px; }
+  .hero .wave { height: 26px; }
+  .hero-inner { gap: 10px; }
+  .brand { gap: 12px; }
+  .header-avatar { width: 54px; height: 54px; font-size: 30px; border-radius: 17px; box-shadow: 0 6px 18px rgba(3,50,80,0.35), 0 0 0 4px rgba(255,255,255,0.22); }
+  .header-text h1 { font-size: 23px; gap: 8px; }
+  .header-badge { font-size: 10.5px; padding: 2px 8px; }
+  .header-text p { font-size: 13px; margin-top: 3px; }
+  .pill.faq-pill { display: none; }
+  .pill { padding: 8px 11px; background: rgba(255,255,255,0.24); }
+  .pill .lbl { display: none; }
+  .app.chatting .hero { padding: 9px 16px 34px; }
+  .app.chatting .header-text h1 { font-size: 18px; }
+  .app.chatting .header-avatar { width: 38px; height: 38px; font-size: 21px; border-radius: 12px; }
 
-  function filterPages(list, area, remote){
-    return list.filter(function(i){
-      var r = pageAreas(i);
-      if(remote) return r.remote;
-      if(area === null || area === 0) return true;
-      return !!r.areas[area] || r.national;
-    });
-  }
-  // \u05DC\u05E4\u05D9 \u05E1\u05D3\u05E8 \u05D4\u05DE\u05D5\u05E0\u05D7\u05D9\u05DD (\u05D4\u05D1\u05D9\u05D8\u05D5\u05D9 \u05D4\u05DE\u05DC\u05D0 \u05E7\u05D5\u05D3\u05DD, \u05D0\u05D7\u05E8 \u05DB\u05DA \u05D4\u05E0\u05D5\u05E9\u05D0) \u2013 \u05D4\u05E8\u05D0\u05E9\u05D5\u05DF \u05E9\u05DE\u05D5\u05E6\u05D0 \u05D3\u05E4\u05D9\u05DD
-  function resolvePages(){
-    for(var k=0; k<state.terms.length; k++){
-      var m = pageMatches(state.terms[k], k === 0 && state.strictFirst);
-      if(m.length) return {term:state.terms[k], pages:m};
-    }
-    return null;
-  }
-  function locLine(i){
-    var l = INST.pages[i][3].slice(0,3).join(" \u00B7 ");
-    return l ? "\uD83D\uDCCD " + l : "";
-  }
-  function pageCard(i){
-    var p = INST.pages[i];
-    return '<a class="shb-item" href="'+p[1]+'" target="_top"><b>'+esc(p[0])+'</b>' +
-           (p[2] ? '<span>'+esc(p[2])+'</span>' : '') +
-           (locLine(i) ? '<small>'+esc(locLine(i))+'</small>' : '') + '</a>';
-  }
-  function listPages(list, intro, footer){
-    var foot = footer ? '<div class="shb-foot"><a class="shb-go" href="'+footer.href+'" target="_top">'+esc(footer.label)+'</a></div>' : '';
-    var el = bubble(esc(intro) + '<div class="shb-items">' + list.slice(0, 12).map(pageCard).join("") + '</div>' + foot, "bot");
-    if(el.offsetHeight > log.clientHeight - 20) log.scrollTop = el.offsetTop - 8;
-  }
-  // \u05D3\u05E3 \u05D0\u05D7\u05D3 \u05E9\u05E2\u05D5\u05E0\u05D4 \u05E2\u05DC \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9 \u2013 \u05E2\u05D5\u05D1\u05E8\u05D9\u05DD \u05D0\u05DC\u05D9\u05D5 \u05D9\u05E9\u05D9\u05E8\u05D5\u05EA
-  function goTo(url, title, summary){
-    var lt = title.charAt(0) === "\u05D4" ? title.slice(1) : title;
-    var html = '<div class="shb-going">\u05DE\u05E6\u05D0\u05EA\u05D9 \u05D1\u05D3\u05D9\u05D5\u05E7 \u05D0\u05EA \u05DE\u05D4 \u05E9\u05D7\u05D9\u05E4\u05E9\u05EA\u05DD \uD83C\uDFAF<br>\u05DE\u05E2\u05D1\u05D9\u05E8\u05D9\u05DD \u05D0\u05EA\u05DB\u05DD \u05DC<b>'+esc(lt)+'</b>\u2026</div>' +
-               (summary ? '<div class="shb-going-sum">'+esc(summary)+'</div>' : '') +
-               '<div class="shb-prog"><i></i></div>' +
-               '<a class="shb-go" href="'+url+'" target="_top">\u05DC\u05D0 \u05E2\u05D1\u05E8\u05EA\u05DD? \u05DC\u05D7\u05E6\u05D5 \u05DB\u05D0\u05DF \u2190</a>';
-    bubble(html, "bot");
-    setTimeout(function(){ try{ window.top.location.href = url; } catch(e){ window.location.href = url; } }, 1600);
-  }
-  function goPage(i){ var p = INST.pages[i]; goTo(p[1], p[0], p[2]); }
+  #shabaton-chat-messages { padding: 8px 12px 14px; }
+  .welcome-box { padding: 22px 16px 16px; border-radius: 22px; }
+  .welcome-title { font-size: 22px; }
+  .welcome-sub { font-size: 14px; }
+  .topics-label { margin-top: 16px; }
+  .topics { grid-template-columns: 1fr 1fr; gap: 9px; }
+  .topic { gap: 9px; padding: 10px; border-radius: 15px; }
+  .t-ico { width: 38px; height: 38px; font-size: 20px; border-radius: 12px; }
+  .t-body b { font-size: 14px; }
+  .t-body small { display: none; }
+  .hero .d-sun, .hero .d-cap { display: none; }
+  .warn { font-size: 12.5px; padding: 9px 12px; }
 
-  function showInstitution(i){
-    var g = INST.g[i], name = g[0], pages = g[1];
-    if(pages.length === 1){ goPage(pages[0]); return; }
-    var lname = name.charAt(0) === "\u05D4" ? name.slice(1) : name;   // "\u05DC\u05D4\u05DE\u05E8\u05DB\u05D6" \u2192 "\u05DC\u05DE\u05E8\u05DB\u05D6"
-    listPages(pages, "\u05DC"+lname+" \u05D9\u05E9 "+pages.length+" \u05D3\u05E4\u05D9\u05DD \u05D1\u05D0\u05EA\u05E8 \u05E9\u05D1\u05EA\u05D5\u05DF. \u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05D4\u05D3\u05E3 \u05D4\u05DE\u05EA\u05D0\u05D9\u05DD:");
-  }
-  /* ---- \u05DB\u05E9\u05DC\u05D0 \u05E0\u05DE\u05E6\u05D0 \u05DE\u05D5\u05E1\u05D3 \u05D0\u05D5 \u05E7\u05D5\u05E8\u05E1: \u05D4\u05D5\u05D3\u05E2\u05D4 \u05E0\u05E2\u05D9\u05DE\u05D4 + \u05D4\u05E6\u05E2\u05D5\u05EA \u05D7\u05DC\u05D5\u05E4\u05D9\u05D5\u05EA ---- */
-  var WHATSAPP_URL = "https://chat.whatsapp.com/Hrc27GwXmDkBcRF2bWSyCs";
-  var FILLER = ("\u05E7\u05D5\u05E8\u05E1 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9 \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD \u05DC\u05DC\u05DE\u05D5\u05D3 \u05DC\u05D5\u05DE\u05D3\u05D9\u05DD \u05D0\u05E0\u05D9 \u05D0\u05E0\u05D7\u05E0\u05D5 \u05DE\u05D7\u05E4\u05E9 \u05DE\u05D7\u05E4\u05E9\u05EA \u05DE\u05D7\u05E4\u05E9\u05D9\u05DD \u05E8\u05D5\u05E6\u05D4 \u05E8\u05D5\u05E6\u05D9\u05DD \u05DE\u05E9\u05D4\u05D5 \u05D1\u05EA\u05D7\u05D5\u05DD \u05EA\u05D7\u05D5\u05DD \u05E9\u05DC \u05E2\u05DC \u05D9\u05E9 \u05D4\u05D0\u05DD " +
-                "\u05D0\u05E4\u05E9\u05E8 \u05DC\u05D9 \u05DC\u05E0\u05D5 \u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05EA \u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05D9\u05D5\u05EA \u05E1\u05D3\u05E0\u05D4 \u05E1\u05D3\u05E0\u05EA \u05E1\u05D3\u05E0\u05D0\u05D5\u05EA \u05D1\u05D0\u05D6\u05D5\u05E8 \u05D0\u05D6\u05D5\u05E8 \u05E2\u05DD \u05D0\u05D5 \u05D2\u05DD \u05DE\u05D4 \u05D0\u05D9\u05E4\u05D4 \u05D0\u05D9\u05D6\u05D4 \u05D0\u05D9\u05D6\u05D5 \u05D8\u05D5\u05D1 \u05D8\u05D5\u05D1\u05D4 \u05DE\u05D5\u05DE\u05DC\u05E5 \u05DE\u05D5\u05E1\u05D3 " +
-                "\u05DE\u05DB\u05DC\u05DC\u05EA \u05DE\u05DB\u05DC\u05DC\u05D4 \u05D4\u05DE\u05DB\u05DC\u05DC\u05D4 \u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05EA \u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05D4 \u05D4\u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05D4 \u05DE\u05DB\u05D5\u05DF \u05E1\u05DE\u05D9\u05E0\u05E8 \u05E1\u05D8\u05D5\u05D3\u05D9\u05D5 \u05D4\u05D0\u05E7\u05D3\u05DE\u05D9\u05EA \u05D4\u05E7\u05E8\u05D9\u05D4 \u05E7\u05DE\u05E4\u05D5\u05E1 \u05D1\u05D9\u05EA \u05E1\u05E4\u05E8 \u05D1\u05E9\u05D1\u05EA\u05D5\u05DF \u05E9\u05D1\u05EA\u05D5\u05DF \u05DC\u05E9\u05D1\u05EA\u05D5\u05DF " +
-                "\u05DE\u05E2\u05E0\u05D9\u05D9\u05DF \u05DE\u05E2\u05E0\u05D9\u05D9\u05E0\u05D9\u05DD \u05D7\u05D3\u05E9 \u05D7\u05D3\u05E9\u05D4 \u05E0\u05D7\u05DE\u05D3 \u05DE\u05D5\u05DE\u05DC\u05E6\u05D9\u05DD \u05DB\u05DC\u05E9\u05D4\u05D5 \u05D8\u05D5\u05D1\u05D9\u05DD \u05D4\u05DB\u05D9 \u05D1\u05D1\u05E7\u05E9\u05D4 \u05EA\u05D5\u05D3\u05D4 \u05E9\u05DC\u05D5\u05DD \u05D4\u05D9\u05D9").split(" ");
-  var INST_WORDS = ["\u05DE\u05DB\u05DC\u05DC\u05EA","\u05DE\u05DB\u05DC\u05DC\u05D4","\u05D4\u05DE\u05DB\u05DC\u05DC\u05D4","\u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05EA","\u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05D4","\u05D4\u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05D4","\u05DE\u05DB\u05D5\u05DF","\u05E1\u05DE\u05D9\u05E0\u05E8","\u05E1\u05D8\u05D5\u05D3\u05D9\u05D5","\u05D4\u05D0\u05E7\u05D3\u05DE\u05D9\u05EA","\u05D4\u05E7\u05E8\u05D9\u05D4","\u05E7\u05DE\u05E4\u05D5\u05E1","\u05DE\u05D5\u05E1\u05D3","\u05D1\u05D9\u05EA \u05E1\u05E4\u05E8"];
-  var POPULAR = [6,13,22,43,106,16,73,93];   // \u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05DC\u05D4\u05E6\u05E2\u05D4 \u05DB\u05E9\u05D0\u05D9\u05DF \u05E9\u05D5\u05DD \u05E8\u05DE\u05D6
+  .shabaton-message-content { max-width: calc(100% - 52px); padding: 12px 15px; font-size: 15px; border-radius: 6px 18px 18px 18px; }
+  .shabaton-message-user .shabaton-message-content { max-width: 88%; border-radius: 18px 18px 18px 6px; }
+  .shabaton-bot-avatar { width: 34px; height: 34px; font-size: 18px; border-radius: 11px; }
+  .shabaton-message-bot { gap: 9px; }
 
-  function subjectOf(text){
-    var t = norm(text);
-    // \u05DE\u05E1\u05D9\u05E8\u05D9\u05DD \u05E9\u05DE\u05D5\u05EA \u05D0\u05D6\u05D5\u05E8\u05D9\u05DD/\u05E2\u05E8\u05D9\u05DD, \u05D2\u05DD \u05E2\u05DD \u05D0\u05D5\u05EA \u05E9\u05D9\u05DE\u05D5\u05E9 ("\u05D1\u05E9\u05E4\u05DC\u05D4", "\u05D4\u05E9\u05E4\u05DC\u05D4", "\u05DC\u05D9\u05E8\u05D5\u05E9\u05DC\u05D9\u05DD")
-    var kws = [];
-    AREAS.forEach(function(a){ a.kw.forEach(function(k){ kws.push(norm(k).trim()); }); });
-    REMOTE_KW.forEach(function(k){ kws.push(norm(k).trim()); });
-    kws.sort(function(x,y){ return y.length - x.length; }).forEach(function(k){
-      ["","\u05D1","\u05D4","\u05DC","\u05DE","\u05D5","\u05D5\u05D1","\u05D1\u05D4"].forEach(function(p){ t = t.split(" "+p+k+" ").join(" "); });
-    });
-    return t.trim().split(" ").filter(function(w){ return w.length > 1 && FILLER.indexOf(w) === -1; }).join(" ");
-  }
-  function lev(a, b){
-    var m = a.length, n = b.length, d = [], i, j;
-    for(i=0;i<=m;i++){ d[i]=[i]; } for(j=0;j<=n;j++){ d[0][j]=j; }
-    for(i=1;i<=m;i++) for(j=1;j<=n;j++)
-      d[i][j] = Math.min(d[i-1][j]+1, d[i][j-1]+1, d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
-    return d[m][n];
-  }
-  // "\u05D0\u05D5\u05DC\u05D9 \u05D4\u05EA\u05DB\u05D5\u05D5\u05E0\u05EA\u05DD \u05DC...": \u05D4\u05E9\u05D5\u05D5\u05D0\u05D4 \u05DC\u05E9\u05DE\u05D5\u05EA \u05EA\u05D7\u05D5\u05DE\u05D9\u05DD, \u05E0\u05D5\u05E9\u05D0\u05D9 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D5\u05E9\u05DE\u05D5\u05EA \u05DE\u05D5\u05E1\u05D3\u05D5\u05EA (\u05DE\u05EA\u05D0\u05D9\u05DD \u05D2\u05DD \u05DC\u05E9\u05D2\u05D9\u05D0\u05D5\u05EA \u05DB\u05EA\u05D9\u05D1)
-  var VOCAB = null;
-  function vocab(){
-    if(VOCAB) return VOCAB;
-    VOCAB = [];
-    DISC.forEach(function(d){ if(NO_COURSES[d.id]) return; d.kw.forEach(function(k){ VOCAB.push({w:norm(k).trim(), label:k, inst:false, run:function(){ handle(k); }}); }); });
-    Object.keys(COURSE_IDX).forEach(function(k){ VOCAB.push({w:norm(k).trim(), label:k, inst:false, run:function(){ handle(k); }}); });
-    Object.keys(INST.k).forEach(function(k){ INST.k[k].forEach(function(i){
-      VOCAB.push({w:k, label:INST.g[i][0], inst:true, run:function(){ showInstitution(i); }}); }); });
-    return VOCAB;
-  }
-  function suggest(subject, wantInst){
-    var words = subject.split(" ").filter(function(w){ return w.length >= 4; });
-    if(!words.length) return [];
-    var best = {};
-    vocab().forEach(function(v){
-      if(v.w.length < 4 || v.inst !== !!wantInst) return;
-      var sc = 9;
-      words.forEach(function(w){
-        var dist = lev(w, v.w), len = Math.max(w.length, v.w.length);
-        var r = dist / len;
-        if((dist === 1 && len >= 4) || (dist === 2 && len >= 7)) sc = Math.min(sc, r);
-        else if(w.length >= 4 && v.w.length >= 4 && (v.w.indexOf(w) > -1 || w.indexOf(v.w) > -1)) sc = Math.min(sc, 0.3);
-      });
-      if(sc < 9 && (!best[v.label] || sc < best[v.label].sc)) best[v.label] = {sc:sc, v:v};
-    });
-    return Object.keys(best).map(function(k){ return best[k]; })
-      .sort(function(a,b){ return a.sc - b.sc || a.v.label.length - b.v.label.length; })
-      .slice(0,4).map(function(b){ return {label:b.v.label, action:b.v.run}; });
-  }
-  function notFound(text, t){
-    var subject = subjectOf(text);
-    var isInst = INST_WORDS.some(function(w){ return t.indexOf(" "+w+" ") > -1; });
-    var sugg = suggest(subject, isInst);
-    var help = [{label:"\u05DC\u05E9\u05D0\u05D5\u05DC \u05D0\u05EA \u05E9\u05D1\u05EA\u05D5\u05DF-\u05D1\u05D5\u05D8", href:shabiUrl(text), alt:true},
-                {label:"\u05DC\u05E9\u05D0\u05D5\u05DC \u05D1\u05E7\u05D1\u05D5\u05E6\u05EA \u05D4\u05D5\u05D5\u05D8\u05E1\u05D0\u05E4", href:WHATSAPP_URL, alt:true, ext:true}];
-    var what = subject ? " \u201E"+subject+"\u201D" : "";
-    if(isInst){
-      say("\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05D1\u05D0\u05EA\u05E8 \u05E9\u05D1\u05EA\u05D5\u05DF \u05D0\u05EA \u05D4\u05DE\u05D5\u05E1\u05D3"+what+" \uD83D\uDE41\n\u05D9\u05D9\u05EA\u05DB\u05DF \u05E9\u05D4\u05D5\u05D0 \u05E2\u05D3\u05D9\u05D9\u05DF \u05DC\u05D0 \u05DE\u05E4\u05E8\u05E1\u05DD \u05D0\u05E6\u05DC\u05E0\u05D5 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD, \u05D0\u05D5 \u05E9\u05D4\u05E9\u05DD \u05DB\u05EA\u05D5\u05D1 \u05E7\u05E6\u05EA \u05D0\u05D7\u05E8\u05EA." +
-          (sugg.length ? "\n\n\u05D0\u05D5\u05DC\u05D9 \u05D4\u05EA\u05DB\u05D5\u05D5\u05E0\u05EA\u05DD \u05DC:" : "\n\n\u05D0\u05E4\u05E9\u05E8 \u05DC\u05D7\u05E4\u05E9 \u05DC\u05E4\u05D9 \u05E0\u05D5\u05E9\u05D0 \u05D4\u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD \u2013 \u05DC\u05DE\u05E9\u05DC:"),
-          sugg.length ? sugg : POPULAR.slice(0,5).map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; }));
-    } else if(subject){
-      say("\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05D1\u05D0\u05EA\u05E8 \u05E7\u05D5\u05E8\u05E1 \u05D1\u05E0\u05D5\u05E9\u05D0"+what+" \uD83D\uDE41\n\u05D9\u05D9\u05EA\u05DB\u05DF \u05E9\u05E2\u05D3\u05D9\u05D9\u05DF \u05D0\u05D9\u05DF \u05E7\u05D5\u05E8\u05E1 \u05DB\u05D6\u05D4, \u05D0\u05D5 \u05E9\u05D4\u05D5\u05D0 \u05DE\u05D5\u05E4\u05D9\u05E2 \u05EA\u05D7\u05EA \u05E9\u05DD \u05D0\u05D7\u05E8." +
-          (sugg.length ? "\n\n\u05D0\u05D5\u05DC\u05D9 \u05D4\u05EA\u05DB\u05D5\u05D5\u05E0\u05EA\u05DD \u05DC:" : "\n\n\u05D0\u05D5\u05DC\u05D9 \u05D9\u05E2\u05E0\u05D9\u05D9\u05DF \u05D0\u05EA\u05DB\u05DD \u05D0\u05D7\u05D3 \u05DE\u05D4\u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05D4\u05D0\u05DC\u05D4:"),
-          sugg.length ? sugg : POPULAR.map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; }));
-    } else {
-      say("\u05DB\u05D3\u05D9 \u05E9\u05D0\u05DE\u05E6\u05D0 \u05DC\u05DB\u05DD \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD, \u05DB\u05EA\u05D1\u05D5 \u05DC\u05D9:\n\u2022 \u05E0\u05D5\u05E9\u05D0 \u05D0\u05D5 \u05EA\u05D7\u05D5\u05DD \u2013 \u05DC\u05DE\u05E9\u05DC \u05E6\u05D9\u05DC\u05D5\u05DD, \u05D0\u05D9\u05DE\u05D5\u05DF, \u05D0\u05E0\u05D2\u05DC\u05D9\u05EA, \u05D9\u05D5\u05D2\u05D4\n\u2022 \u05DE\u05D9\u05E7\u05D5\u05DD \u2013 \u05EA\u05DC-\u05D0\u05D1\u05D9\u05D1 \u05D5\u05D4\u05DE\u05E8\u05DB\u05D6, \u05D7\u05D9\u05E4\u05D4 \u05D5\u05D4\u05E6\u05E4\u05D5\u05DF, \u05D4\u05E9\u05E8\u05D5\u05DF, \u05D9\u05E8\u05D5\u05E9\u05DC\u05D9\u05DD, \u05D4\u05E9\u05E4\u05DC\u05D4 \u05D5\u05D4\u05D3\u05E8\u05D5\u05DD \u2013 \u05D0\u05D5 \u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7\n\u2022 \u05D0\u05D5 \u05E9\u05DD \u05E9\u05DC \u05DE\u05D5\u05E1\u05D3 \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD \u2013 \u05DC\u05DE\u05E9\u05DC \u05E1\u05DE\u05D9\u05E0\u05E8 \u05D4\u05E7\u05D9\u05D1\u05D5\u05E6\u05D9\u05DD, \u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9");
-      return;
-    }
-    say("\u05E8\u05D5\u05E6\u05D9\u05DD \u05E2\u05D6\u05E8\u05D4 \u05D0\u05D9\u05E9\u05D9\u05EA? \u05D0\u05E4\u05E9\u05E8 \u05DC\u05E9\u05D0\u05D5\u05DC \u05D0\u05EA \u05E9\u05D1\u05EA\u05D5\u05DF-\u05D1\u05D5\u05D8 \u05D0\u05D5 \u05D0\u05EA \u05D7\u05D1\u05E8\u05D9 \u05D4\u05E7\u05D1\u05D5\u05E6\u05D4 \u05E9\u05DC\u05E0\u05D5 \u05D1\u05D5\u05D5\u05D8\u05E1\u05D0\u05E4 \uD83D\uDCAC", null, help);
-  }
+  .composer { padding: 0 12px; margin-top: -30px; }
+  .app.chatting .composer { margin-top: -24px; }
+  .input-wrapper { padding: 6px 18px 6px 6px; border-width: 2px; }
+  #shabaton-chat-input { font-size: 16px; }
+  #shabaton-chat-send { width: 46px; height: 46px; font-size: 19px; }
+  .disclaimer { font-size: 10.5px; padding: 6px 0 0; }
+}
+@media (max-width: 360px) { .topics { grid-template-columns: 1fr; } }
 
-  function discKw(d, t){
-    var best = "";
-    d.kw.forEach(function(k){ if(has(t,k) && k.length > best.length) best = k; });
-    return best;
-  }
-  /* ---- \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9: \u05DB\u05DC\u05DC\u05D9 \u2192 \u05D3\u05E3 \u05D4\u05EA\u05D7\u05D5\u05DD; \u05E2\u05DD \u05D4\u05EA\u05DE\u05D7\u05D5\u05EA \u2192 \u05E8\u05E7 \u05DE\u05D5\u05E1\u05D3\u05D5\u05EA \u05E9\u05DE\u05E6\u05D9\u05E2\u05D9\u05DD \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u05D1\u05D4\u05EA\u05DE\u05D7\u05D5\u05EA ---- */
-  var MA_ID = 58;
-  var MA_MORE = {label:"\u05DC\u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD \u05E0\u05D5\u05E1\u05E4\u05D9\u05DD \u05E9\u05DC \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u2190", href:"https://www.shabaton.online/results-all/" + encodeURI("\u05D0\u05E7\u05D3\u05DE\u05D9 - \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9")};
-  var MA_RE = / (?:[\u05DC\u05D1]?\u05EA\u05D5\u05D0\u05E8 (?:\u05D4)?\u05E9\u05E0\u05D9|[\u05DC\u05D1]?\u05EA\u05D0\u05E8\u05D9\u05DD \u05E9\u05E0\u05D9\u05D9\u05DD|\u05DE\u05D5\u05E1\u05DE\u05DA|m ed|m a|ma|\u05DE\u05D0\u05E1\u05D8\u05E8) /;
-  var MA_WORDS = ["\u05EA\u05D5\u05D0\u05E8","\u05D4\u05EA\u05D5\u05D0\u05E8","\u05DC\u05EA\u05D5\u05D0\u05E8","\u05D1\u05EA\u05D5\u05D0\u05E8","\u05E9\u05E0\u05D9","\u05D4\u05E9\u05E0\u05D9","\u05EA\u05D0\u05E8\u05D9\u05DD","\u05E9\u05E0\u05D9\u05D9\u05DD","\u05DE\u05D5\u05E1\u05DE\u05DA","m","ed","a","ma","\u05DE\u05D0\u05E1\u05D8\u05E8"];
-  var MA_GENERIC = ["\u05D7\u05D9\u05E0\u05D5\u05DA","\u05D4\u05D5\u05E8\u05D0\u05D4","\u05D7\u05D9\u05E0\u05D5\u05DB\u05D9","\u05D0\u05E7\u05D3\u05DE\u05D9","\u05D0\u05E7\u05D3\u05DE\u05D0\u05D9","\u05DC\u05D9\u05DE\u05D5\u05D3\u05D9","\u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD","\u05D1\u05DE\u05DB\u05DC\u05DC\u05D4","\u05D1\u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05D4"];
-  function isMA(t){ return MA_RE.test(t); }
-  function maSpecialty(text){
-    var w = subjectOf(text).split(" ").filter(function(x){ return x && MA_WORDS.indexOf(x) === -1; });
-    w = w.map(function(x, i){ return (i === 0 || x.charAt(0) === "\u05D5") ? x.replace(/^(\u05D5\u05D1|\u05D1|\u05DC|\u05D5)(?=..)/, "") : x; });
-    if(w.every(function(x){ return MA_GENERIC.indexOf(x.replace(/^[\u05D5\u05D1\u05DC]/,"")) > -1 || MA_GENERIC.indexOf(x) > -1; })) return "";
-    return w.join(" ");
-  }
-  // \u05DE\u05D9\u05DC\u05D9\u05DD \u05E0\u05E8\u05D3\u05E4\u05D5\u05EA \u05D1\u05D4\u05EA\u05DE\u05D7\u05D5\u05D9\u05D5\u05EA: \u05EA\u05E8\u05E4\u05D9\u05D4 = \u05D8\u05D9\u05E4\u05D5\u05DC, \u05D0\u05DE\u05E0\u05D5\u05EA = \u05D0\u05DE\u05E0\u05D5\u05D9\u05D5\u05EA \u05D5\u05DB\u05D5'
-  var SYN = [["\u05DE\u05EA\u05DE\u05D8\u05D9","\u05DE\u05EA\u05DE\u05D8\u05D9\u05EA","\u05DE\u05EA\u05DE\u05D8\u05D9\u05E7\u05D4","\u05D7\u05E9\u05D1\u05D5\u05DF"],["\u05EA\u05E8\u05E4\u05D9\u05D4","\u05EA\u05E8\u05E4\u05D9\u05D5\u05EA","\u05D8\u05D9\u05E4\u05D5\u05DC","\u05D8\u05D9\u05E4\u05D5\u05DC\u05D9","\u05D8\u05D9\u05E4\u05D5\u05DC\u05D9\u05EA","\u05EA\u05E8\u05E4\u05D9\u05E1\u05D8"],["\u05DE\u05D5\u05E1\u05D9\u05E7\u05D4","\u05DE\u05D5\u05E1\u05D9\u05E7\u05DC\u05D9","\u05DE\u05D5\u05E1\u05D9\u05E7\u05DC\u05D9\u05EA"],["\u05D0\u05DE\u05E0\u05D5\u05EA","\u05D0\u05DE\u05E0\u05D5\u05D9\u05D5\u05EA","\u05D0\u05DE\u05E0\u05D5\u05EA\u05D9"],
-             ["\u05DE\u05D7\u05D5\u05DC","\u05E8\u05D9\u05E7\u05D5\u05D3"],["\u05EA\u05E0\u05D5\u05E2\u05D4"],["\u05D7\u05D6\u05D5\u05EA\u05D9\u05EA","\u05D7\u05D6\u05D5\u05EA\u05D9","\u05E4\u05DC\u05E1\u05D8\u05D9\u05EA"],["\u05D1\u05D9\u05D1\u05DC\u05D9\u05D5\u05EA\u05E8\u05E4\u05D9\u05D4","\u05DB\u05EA\u05D9\u05D1\u05D4"],["\u05E4\u05E1\u05D9\u05DB\u05D5\u05D3\u05E8\u05DE\u05D4","\u05D3\u05E8\u05DE\u05D4"]];
-  var SPEC_STOP = ["\u05D1\u05D0\u05DE\u05E6\u05E2\u05D5\u05EA","\u05E9\u05DC","\u05E2\u05DD","\u05D0\u05D5","\u05D2\u05DD","\u05D0\u05EA","\u05E2\u05DC","\u05D1\u05E9\u05D9\u05DC\u05D5\u05D1","\u05D5"];
-  // \u05D4\u05E9\u05D5\u05D5\u05D0\u05EA \u05DE\u05D9\u05DC\u05D9\u05DD: \u05DE\u05D5\u05E8\u05D9\u05D3\u05D9\u05DD \u05E1\u05D9\u05D5\u05DE\u05EA (\u05D5\u05EA/\u05D9\u05DD/\u05D4...), \u05D5\u05DE\u05E0\u05E1\u05D9\u05DD \u05D2\u05DD \u05D1\u05DC\u05D9 \u05D0\u05D5\u05EA \u05E9\u05D9\u05DE\u05D5\u05E9 \u05D1\u05EA\u05D7\u05D9\u05DC\u05EA \u05D4\u05DE\u05D9\u05DC\u05D4 (\u05D1/\u05DC/\u05D5/\u05D4...)
-  function suf(w){ return w.length >= 5 ? w.replace(/(\u05D5\u05EA|\u05D9\u05DD|\u05D9\u05EA|\u05D9|\u05D4)$/, "") : w; }
-  var PREF = ["\u05D5","\u05D1","\u05D4","\u05DC","\u05DE","\u05E9","\u05D5\u05D1","\u05D5\u05D4","\u05D5\u05DC","\u05D5\u05DE","\u05D1\u05D4","\u05DC\u05D4","\u05DE\u05D4"];
-  function variants(w){
-    var v = [suf(w)];
-    PREF.forEach(function(p){ if(w.indexOf(p) === 0 && w.length - p.length >= 3) v.push(suf(w.slice(p.length))); });
-    return v;
-  }
-  var SPEC_GENERIC = ["\u05D7\u05D9\u05E0\u05D5\u05DA","\u05D4\u05D5\u05E8\u05D0\u05D4","\u05D4\u05D5\u05E8\u05D0\u05EA","\u05DC\u05D9\u05DE\u05D5\u05D3\u05D9","\u05EA\u05D7\u05D5\u05DD","\u05DE\u05E1\u05DC\u05D5\u05DC","\u05D4\u05EA\u05DE\u05D7\u05D5\u05EA","\u05D1\u05D4\u05EA\u05DE\u05D7\u05D5\u05EA"];
-  function specWords(spec){
-    var ws = norm(spec).replace(/['"]/g, "").trim().split(" ").filter(function(w){ return w.length >= 2 && SPEC_STOP.indexOf(w) < 0; });
-    // "\u05D7\u05D9\u05E0\u05D5\u05DA \u05DE\u05EA\u05DE\u05D8\u05D9" = "\u05D4\u05D5\u05E8\u05D0\u05EA \u05D4\u05DE\u05EA\u05DE\u05D8\u05D9\u05E7\u05D4": \u05DE\u05D9\u05DC\u05D9\u05DD \u05DB\u05DC\u05DC\u05D9\u05D5\u05EA \u05DC\u05D0 \u05E0\u05D3\u05E8\u05E9\u05D5\u05EA \u05DB\u05E9\u05D9\u05E9 \u05DE\u05D9\u05DC\u05D4 \u05E1\u05E4\u05E6\u05D9\u05E4\u05D9\u05EA
-    var spec2 = ws.filter(function(w){ return !variants(w).some(function(v){ return SPEC_GENERIC.map(suf).indexOf(v) > -1; }); });
-    if(spec2.length) ws = spec2;
-    return ws
-      .map(function(w){
-        var vs = variants(w), group = null;
-        SYN.forEach(function(g){ if(g.some(function(x){ return vs.indexOf(suf(x)) > -1; })) group = g; });
-        return group ? group.map(suf) : vs;
-      });
-  }
-  // \u05DB\u05DC \u05DE\u05D9\u05DC\u05D5\u05EA \u05D4\u05D4\u05EA\u05DE\u05D7\u05D5\u05EA (\u05D0\u05D5 \u05DE\u05D9\u05DC\u05D4 \u05E0\u05E8\u05D3\u05E4\u05EA) \u05DE\u05D5\u05E4\u05D9\u05E2\u05D5\u05EA \u05D1\u05D8\u05E7\u05E1\u05D8
-  function hasAll(text, words){
-    var set = {};
-    text.split(" ").forEach(function(tok){ if(tok) variants(tok).forEach(function(v){ set[v] = 1; }); });
-    return words.every(function(alts){ return alts.some(function(a){ return set[a]; }); });
-  }
-  // \u05D3\u05E4\u05D9 \u05D4\u05E9\u05EA\u05DC\u05DE\u05D5\u05D9\u05D5\u05EA / \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9 \u05EA\u05E2\u05D5\u05D3\u05D4 / \u05E4\u05D9\u05EA\u05D5\u05D7 \u05DE\u05E7\u05E6\u05D5\u05E2\u05D9 \u05D0\u05D9\u05E0\u05DD \u05D3\u05E4\u05D9 \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 (\u05D2\u05DD \u05D0\u05DD \u05DE\u05D5\u05D6\u05DB\u05E8 \u05D1\u05D4\u05DD \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9)
-  var NON_ACADEMIC = /\u05D4\u05E9\u05EA\u05DC\u05DE\u05D5|\u05DC\u05D9\u05DE\u05D5\u05D3\u05D9 \u05EA\u05E2\u05D5\u05D3\u05D4|\u05DC\u05D9\u05DE\u05D5\u05D3\u05D9 \u05D4\u05DE\u05E9\u05DA|\u05E4\u05D9\u05EA\u05D5\u05D7 \u05DE\u05E7\u05E6\u05D5\u05E2\u05D9|\u05DC\u05D9\u05DE\u05D5\u05D3\u05D9 \u05D7\u05D5\u05E5/;
-  function nonAcademic(i){ var tt = norm(INST.pages[i][0]); return NON_ACADEMIC.test(tt) && !MA_RE.test(" " + tt + " "); }
-  function isMAPage(i){
-    var p = INST.pages[i];
-    if(nonAcademic(i)) return false;
-    if(MA_RE.test(" " + norm(p[0]) + " ")) return true;
-    return p[5].split("\u00B6").some(function(l){ l = " " + l.trim() + " "; return MA_RE.test(l) && l.indexOf("\u05D0\u05E7\u05D5\u05D5\u05D9\u05D5\u05D5\u05DC\u05E0\u05D8") < 0; });
-  }
-  function maPages(spec){
-    var words = specWords(spec), out = [];
-    if(!words.length) return out;
-    INST.pages.forEach(function(p, i){
-      if(nonAcademic(i)) return;
-      var tx = p[5].replace(/['"]/g, ""), titleMA = MA_RE.test(" " + norm(p[0]) + " ");
-      // \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u05D5\u05D4\u05EA\u05DE\u05D7\u05D5\u05EA \u05D1\u05D0\u05D5\u05EA\u05D4 \u05E9\u05D5\u05E8\u05D4 (\u05DC\u05D0 "\u05D0\u05E7\u05D5\u05D5\u05D9\u05D5\u05D5\u05DC\u05E0\u05D8"), \u05D0\u05D5 \u05D3\u05E3 \u05E9\u05DB\u05D5\u05DC\u05D5 \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9
-      var lines = tx.split("\u00B6"), ok = false;
-      if(titleMA) ok = hasAll(" " + tx + " ", words);
-      for(var k=0; !ok && k<lines.length; k++){
-        var line = " " + lines[k].trim() + " ";
-        if(MA_RE.test(line) && line.indexOf("\u05D0\u05E7\u05D5\u05D5\u05D9\u05D5\u05D5\u05DC\u05E0\u05D8") < 0 && hasAll(line, words)) ok = true;
-      }
-      if(ok) out.push(i);
-    });
-    return out;
-  }
+/* נמוך (מסך לרוחב בסלולר / iframe קצר) */
+@media (max-height: 560px) { .hero { padding-top: 10px; padding-bottom: 34px; } .header-text p { display: none; } .header-avatar { width: 44px; height: 44px; font-size: 24px; } .header-text h1 { font-size: 22px; } }
 
-  function isRemote(t){ return REMOTE_KW.some(function(k){return has(t,k);}); }
-  /* ---- \u05E9\u05D0\u05DC\u05D5\u05EA \u05D9\u05D3\u05E2 \u05D5\u05D6\u05DB\u05D5\u05D9\u05D5\u05EA: \u05D4\u05EA\u05E9\u05D5\u05D1\u05D4 \u05DE\u05D2\u05D9\u05E2\u05D4 \u05DE\u05E9\u05D1\u05EA\u05D5\u05DF-\u05D1\u05D5\u05D8 \u05D5\u05DE\u05D5\u05E6\u05D2\u05EA \u05DB\u05D0\u05DF, \u05D1\u05DC\u05D9 \u05DC\u05E2\u05D1\u05D5\u05E8 \u05D3\u05E3 ---- */
-  var SHABI_API = "https://duda-ai-bot.vercel.app/api/ai_chat_v2";
-  var shabiHist = [], shabiMode = false, shabiBusy = false;
-  var QUESTION_RE = /\?| (?:\u05DE\u05D4|\u05DE\u05D4\u05D5|\u05DE\u05D4\u05D9|\u05D0\u05D9\u05DA|\u05DB\u05D9\u05E6\u05D3|\u05D4\u05D0\u05DD|\u05DB\u05DE\u05D4|\u05DE\u05EA\u05D9|\u05DC\u05DE\u05D4|\u05DE\u05D3\u05D5\u05E2|\u05DE\u05D9|\u05D0\u05D9\u05E4\u05D4|\u05D4\u05D9\u05DB\u05DF|\u05D0\u05E4\u05E9\u05E8|\u05DE\u05D5\u05EA\u05E8|\u05E6\u05E8\u05D9\u05DA|\u05D7\u05D9\u05D9\u05D1|\u05D7\u05D9\u05D9\u05D1\u05EA|\u05DE\u05D2\u05D9\u05E2) /;
-  // \u05E9\u05D0\u05DC\u05EA \u05D9\u05D3\u05E2 ("\u05DE\u05D4 \u05D6\u05D4 \u05D0\u05D5\u05E4\u05E7 \u05D7\u05D3\u05E9?", "\u05D0\u05D9\u05DA \u05E0\u05E8\u05E9\u05DE\u05D9\u05DD?") \u2013 \u05DC\u05E2\u05D5\u05DE\u05EA \u05E9\u05D0\u05DC\u05EA \u05D7\u05D9\u05E4\u05D5\u05E9 ("\u05D4\u05D0\u05DD \u05D9\u05E9 \u05E7\u05D5\u05E8\u05E1 \u05D9\u05D5\u05D2\u05D4 \u05D1\u05D7\u05D9\u05E4\u05D4?")
-  var KNOW_Q = /^\s*(?:\u05D5?(?:\u05DE\u05D4 \u05D6\u05D4|\u05DE\u05D4\u05D5|\u05DE\u05D4\u05D9|\u05DE\u05D4 \u05D4\u05D4\u05D1\u05D3\u05DC|\u05DE\u05D4 \u05E7\u05D5\u05E8\u05D4|\u05DE\u05D4 \u05E2\u05DD|\u05DE\u05D4 \u05E6\u05E8\u05D9\u05DA|\u05DE\u05D4 \u05D4|\u05D0\u05D9\u05DA|\u05DB\u05D9\u05E6\u05D3|\u05DC\u05DE\u05D4|\u05DE\u05D3\u05D5\u05E2|\u05D4\u05D0\u05DD|\u05DB\u05DE\u05D4|\u05DE\u05EA\u05D9|\u05E2\u05D3 \u05DE\u05EA\u05D9|\u05DE\u05D9 ))/;
-  var SEARCH_Q = /(?:^| )(?:\u05D9\u05E9|\u05D9\u05E9 \u05DC\u05DB\u05DD|\u05D0\u05D9\u05E4\u05D4|\u05D4\u05D9\u05DB\u05DF|\u05DC\u05DE\u05E6\u05D5\u05D0|\u05DE\u05D7\u05E4\u05E9|\u05DE\u05D7\u05E4\u05E9\u05EA|\u05DE\u05D7\u05E4\u05E9\u05D9\u05DD|\u05DE\u05DE\u05DC\u05D9\u05E6|\u05DE\u05D5\u05DE\u05DC\u05E5|\u05DE\u05D5\u05DE\u05DC\u05E6\u05D9\u05DD|\u05D4\u05DB\u05D9 \u05D8\u05D5\u05D1)(?: |$|\?)/;
-  function knowledgeQ(text){ var x = String(text).replace(/[\u05F4"]/g,'"'); return KNOW_Q.test(x) && !SEARCH_Q.test(" " + x + " "); }
-  function looksLikeQuestion(text){ return QUESTION_RE.test(" " + text + " ") || QUESTION_RE.test(norm(text)); }
-  function mdToHtml(md){
-    var links = [];
-    var t = String(md || "").replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, function(m, label, url){ links.push([label, url]); return "\u0001" + (links.length-1) + "\u0001"; });
-    t = t.replace(/(https?:\/\/[^\s<>"'\]\)]+)/g, function(m, url){ links.push([url, url]); return "\u0001" + (links.length-1) + "\u0001"; });
-    t = esc(t).replace(/^\s*\|?[-:\s|]+\|\s*$/gm, "")                 // \u05E9\u05D5\u05E8\u05D5\u05EA \u05D4\u05E4\u05E8\u05D3\u05D4 \u05E9\u05DC \u05D8\u05D1\u05DC\u05D4
-      .replace(/^\s*\|(.+)\|\s*$/gm, function(m, row){ return row.split("|").map(function(c){ return c.trim(); }).join(" \u00B7 "); })
-      .replace(/^#{1,4}\s*(.+)$/gm, "<strong>$1</strong>")
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/^\s*[\*\-]\s+/gm, "\u2022 ").replace(/(^|\s)\*(?!\*)/g, "$1")
-      .replace(/\n{3,}/g, "\n\n").trim();
-    return t.replace(/\u0001(\d+)\u0001/g, function(m, i){
-      var l = links[+i]; if(!l) return "";
-      var cta = /\u05DC\u05D7\u05E6\u05D5|\u05DC\u05D7\u05E6\u05D9|\u05DC\u05D7\u05E5|\u05DC\u05D4\u05E8\u05E9\u05DE\u05D4|\u05DC\u05E8\u05E9\u05D9\u05DE\u05D4|\u05DC\u05E4\u05E8\u05D8\u05D9\u05DD|\u05DC\u05D3\u05E3/.test(l[0]);
-      return '<a class="'+(cta ? "shb-go" : "shb-link")+'" href="'+l[1]+'" target="_top">'+esc(l[0])+'</a>';
-    });
-  }
-  function askShabi(text){
-    if(shabiBusy) return;
-    shabiBusy = true; shabiMode = true;
-    var typing = bubble('<span class="shb-typing"><i></i><i></i><i></i></span>', "bot");
-    var payload = JSON.stringify({ message: text, history: shabiHist.slice(-6), site: "shabaton" });
-    shabiHist.push({ role: "user", content: text });
-    fetch(SHABI_API, { method: "POST", headers: { "Content-Type": "text/plain" }, body: payload })
-      .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
-      .then(function(d){
-        typing.remove();
-        var reply = d && d.reply;
-        if(!reply) throw new Error("empty");
-        shabiHist.push({ role: "assistant", content: reply });
-        var el = bubble('<div class="shb-md">' + mdToHtml(reply) + '</div>', "bot");
-        if(el.offsetHeight > log.clientHeight - 20) log.scrollTop = el.offsetTop - 8;
-      })
-      .catch(function(){
-        if(typing.parentNode) typing.remove();
-        shabiMode = false;
-        say("\u05DC\u05D0 \u05D4\u05E6\u05DC\u05D7\u05EA\u05D9 \u05DC\u05E7\u05D1\u05DC \u05EA\u05E9\u05D5\u05D1\u05D4 \u05DB\u05E8\u05D2\u05E2 \uD83D\uDE41\n\u05D0\u05E4\u05E9\u05E8 \u05DC\u05E9\u05D0\u05D5\u05DC \u05D0\u05EA \u05E9\u05D1\u05EA\u05D5\u05DF-\u05D1\u05D5\u05D8 \u05D9\u05E9\u05D9\u05E8\u05D5\u05EA:", null,
-            [{label:"\u05DC\u05E9\u05D0\u05D5\u05DC \u05D0\u05EA \u05E9\u05D1\u05EA\u05D5\u05DF-\u05D1\u05D5\u05D8", href:shabiUrl(text), alt:true}]);
-      })
-      .then(function(){ shabiBusy = false; });
-  }
-  // \u05D4\u05D0\u05DD \u05D1\u05D4\u05D5\u05D3\u05E2\u05D4 \u05D9\u05E9 \u05E1\u05D9\u05DE\u05DF \u05DC\u05D7\u05D9\u05E4\u05D5\u05E9 \u05E7\u05D5\u05E8\u05E1 (\u05EA\u05D7\u05D5\u05DD, \u05E0\u05D5\u05E9\u05D0, \u05DE\u05D5\u05E1\u05D3, \u05D0\u05D6\u05D5\u05E8)
-  function courseSignals(t){
-    return findDisc(t).length > 0 || !!findCourseTopic(t) || findInstitutions(t).length > 0 || findAlias(t) !== null ||
-           findAreas(t).length > 0 || isRemote(t) || isMA(t);
-  }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+.shabaton-consult-btn { margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
 
-  function isShabiQ(t){ return SHABI_KW.some(function(k){return has(t,k);}); }
-  function areaById(id){ for(var i=0;i<AREAS.length;i++) if(AREAS[i].id===id) return AREAS[i]; }
-  function discById(id){ for(var i=0;i<DISC.length;i++) if(DISC[i].id===id) return DISC[i]; }
-  function resultUrl(discId, areaId){
-    var base = RESULT_BASE[areaId] || RESULT_BASE[0], name = RESULT_NAMES[discId] || "";
-    return encodeURI(base + name);
-  }
-  function shabiUrl(q){ return SHABI_URL + (q ? "?q=" + encodeURIComponent(q) : ""); }
+  <header class="hero">
+    <svg class="deco" viewBox="0 0 1200 260" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+      <defs>
+        <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.6" fill="#fff" fill-opacity=".24"/></pattern>
+        <radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+        <linearGradient id="fade" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset=".7" stop-color="#fff" stop-opacity=".05"/></linearGradient>
+        <mask id="dotmask"><rect width="1200" height="260" fill="url(#fade)"/></mask>
+      </defs>
+      <rect width="1200" height="260" fill="url(#dots)" mask="url(#dotmask)"/>
+      <circle cx="640" cy="40" r="230" fill="url(#glow)"/>
+      <g fill="none" stroke="#fff" stroke-opacity=".17" stroke-width="2">
+        <circle cx="80" cy="250" r="110"/><circle cx="80" cy="250" r="170"/><circle cx="80" cy="250" r="230"/>
+      </g>
+      <!-- כובע בוגר -->
+      <g class="d-cap" transform="translate(610 128) rotate(-8) scale(1.5)" fill="#fff" fill-opacity=".1" stroke="#fff" stroke-opacity=".42" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+        <path d="M0 -40 L82 -8 L0 24 L-82 -8 Z"/>
+        <path d="M-46 8 V38 C-46 58 46 58 46 38 V8"/>
+        <path d="M82 -8 V30" /><circle cx="82" cy="34" r="5" fill="#e8630a" fill-opacity=".9" stroke="none"/>
+      </g>
+      <g class="d-sun"><circle cx="470" cy="70" r="30" fill="#e8630a" fill-opacity=".92"/>
+      <circle cx="470" cy="70" r="50" fill="none" stroke="#e8630a" stroke-opacity=".5" stroke-width="3"/></g>
+      <circle cx="820" cy="200" r="9" fill="#fff" fill-opacity=".55"/>
+      <circle cx="40" cy="150" r="6" fill="#fff" fill-opacity=".5"/>
+    </svg>
+    <div class="hero-inner">
+      <div class="brand">
+        <div class="header-avatar">🤖</div>
+        <div class="header-text">
+          <h1>שַׁבָּתוֹן-בּוֹט <span class="header-badge">AI</span></h1>
+          <p>עוזר שבתון חכם — שאלו, וקבלו תשובה!</p>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <a class="pill faq-pill" href="https://www.shabaton.online/shabaton-qa" target="_blank">❓ <span class="lbl">שאלות נפוצות</span></a>
+        <button class="pill" id="shabaton-clear-chat" aria-label="נקה שיחה">🗑️ <span class="lbl">נקה</span></button>
+      </div>
+    </div>
+    <svg class="wave" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <path d="M0 22 C 220 48 460 -4 720 18 S 1200 46 1440 14 V40 H0 Z" fill="#f0f6fb"/>
+    </svg>
+  </header>
 
-  /* ---- \u05DE\u05DE\u05E9\u05E7 ---- */
-  var log = document.getElementById("shb-log");
-  var panel = document.getElementById("shb-panel");
-  var input = document.getElementById("shb-input");
-  var state = {disc:null, area:null, remote:false, terms:[], strictFirst:false, city:null, pageMode:false};
+  <div class="composer">
+    <div class="input-wrapper">
+      <input type="text" id="shabaton-chat-input" placeholder="שאלו אותי על קורסים, שנת שבתון, מענקים..." autocomplete="off" enterkeyhint="send">
+      <button id="shabaton-chat-send" aria-label="שליחה" disabled>➤</button>
+    </div>
+    <div class="disclaimer">הצ'אט מבוסס AI ומספק מידע כללי בלבד. אין לראות בתשובות תחליף לייעוץ מקצועי. · <b>בוט בהרצה</b> — יש לבדוק את התשובות.</div>
+  </div>
 
-  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
-  function bubble(html, who){
-    var el = document.createElement("div");
-    el.className = "shb-msg " + (who==="user" ? "shb-user-msg" : "shb-bot-msg");
-    el.innerHTML = html;
-    log.appendChild(el); panel.classList.add("on"); log.scrollTop = log.scrollHeight;
-    unclip();
-    return el;
-  }
-  /* \u05D3\u05D5\u05D3\u05D0: \u05D0\u05DD \u05D4\u05DE\u05E7\u05D8\u05E2 \u05E9\u05D4\u05D5\u05D5\u05D9\u05D3\u05D2'\u05D8 \u05D9\u05D5\u05E9\u05D1 \u05D1\u05D5 \u05E7\u05D9\u05D1\u05DC \u05D2\u05D5\u05D1\u05D4 \u05E7\u05D1\u05D5\u05E2, \u05EA\u05D9\u05D1\u05EA \u05D4\u05EA\u05E9\u05D5\u05D1\u05D5\u05EA \u05E0\u05D7\u05EA\u05DB\u05EA.
-     \u05DE\u05E8\u05D7\u05D9\u05D1\u05D9\u05DD \u05D0\u05EA \u05D4\u05DE\u05E7\u05D8\u05E2\u05D9\u05DD \u05E9\u05E2\u05D5\u05D8\u05E4\u05D9\u05DD \u05D0\u05EA \u05D4\u05D1\u05D5\u05D8 \u05DB\u05DA \u05E9\u05D9\u05DB\u05D9\u05DC\u05D5 \u05D0\u05D5\u05EA\u05D5 (\u05E8\u05E7 \u05D0\u05DD \u05D4\u05DD \u05E7\u05D8\u05E0\u05D9\u05DD \u05DE\u05DE\u05E0\u05D5) */
-  function unclip(){
-    var root = document.getElementById("shb-bot");
-    if(!root) return;
-    var need = root.getBoundingClientRect().height;
-    for(var el = root.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement){
-      if(el.clientHeight + 2 < need || el.scrollHeight > el.clientHeight + 2){
-        var cs = getComputedStyle(el);
-        if(cs.height !== "auto"){ el.style.setProperty("height","auto","important"); }
-        if(cs.maxHeight !== "none"){ el.style.setProperty("max-height","none","important"); }
-      }
-    }
-  }
-  function say(text, chips, links){
-    var html = esc(text);
-    if(links && links.length){
-      html += "<div" + (links.length > 2 ? ' class="shb-list"' : '') + ">" + links.map(function(l){
-        return '<a class="shb-go'+(l.alt?' alt':'')+'" href="'+l.href+'" target="'+(l.ext?'_blank" rel="noopener':'_top')+'">'+esc(l.label)+'</a>';
-      }).join(" ") + "</div>";
-    }
-    var el = bubble(html,"bot");
-    if(chips && chips.length){
-      var box = document.createElement("div"); box.className = "shb-chips";
-      chips.forEach(function(c){
-        var b = document.createElement("button"); b.type="button"; b.className="shb-chip"; b.textContent=c.label;
-        b.onclick = function(){ bubble(esc(c.label),"user"); c.action(); };
-        box.appendChild(b);
-      });
-      el.appendChild(box); log.scrollTop = log.scrollHeight;
-    }
-    // \u05D4\u05D5\u05D3\u05E2\u05D4 \u05D0\u05E8\u05D5\u05DB\u05D4 (\u05DC\u05DE\u05E9\u05DC \u05E8\u05E9\u05D9\u05DE\u05EA \u05D3\u05E4\u05D9\u05DD) \u2013 \u05D2\u05D5\u05DC\u05DC\u05D9\u05DD \u05DC\u05EA\u05D7\u05D9\u05DC\u05EA\u05D4 \u05DB\u05D3\u05D9 \u05E9\u05D9\u05E8\u05D0\u05D5 \u05D0\u05EA \u05D4\u05DB\u05D5\u05EA\u05E8\u05EA
-    if(el.offsetHeight > log.clientHeight - 20) log.scrollTop = el.offsetTop - 8;
-  }
+  <main id="shabaton-chat-messages">
+    <section class="welcome-box" style="direction:rtl;text-align:right">
+      <h2 class="welcome-title">שלום! אני שַׁבָּתוֹן-בּוֹט <em>👋</em></h2>
+      <p class="welcome-sub">העוזר הוירטואלי שלכם לשנת השבתון. אעזור לכם למצוא קורסים ומידע חשוב על שנת השבתון.</p>
 
-  function areaChips(){
-    var chips = AREAS.map(function(a){ return {label:a.name, action:function(){ state.area=a.id; state.remote=false; next(); }}; });
-    chips.push({label:"\uD83D\uDCBB \u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7", action:function(){ state.remote=true; next(); }});
-    return chips;
-  }
+      <div class="topics-label">במה אפשר לעזור?</div>
+      <div class="topics">
+        <button class="suggestion-chip topic" data-q="קורסי טיולים" style="--c:#16a34a"><span class="t-ico">🥾</span><span class="t-body"><b>קורסי טיולים</b><small>קורסים לפי תחום ואזור</small></span></button>
+        <button class="suggestion-chip topic" data-q="כמה מענק חודשי?" style="--c:#e8630a"><span class="t-ico">💰</span><span class="t-body"><b>כמה מענק חודשי?</b><small>המענק במהלך השבתון</small></span></button>
+        <button class="suggestion-chip topic" data-q="קורסי הדרכת הורים" style="--c:#db2777"><span class="t-ico">👨‍👩‍👧</span><span class="t-body"><b>קורסי הדרכת הורים</b><small>קורסים והסמכות</small></span></button>
+        <button class="suggestion-chip topic" data-q="ביטוח לאומי בשבתון" style="--c:#0982bc"><span class="t-ico">🛡️</span><span class="t-body"><b>ביטוח לאומי בשבתון</b><small>זכויות במהלך השבתון</small></span></button>
+        <button class="suggestion-chip topic" data-q="קורס הנחיית קבוצות" style="--c:#0d9488"><span class="t-ico">🧑‍🤝‍🧑</span><span class="t-body"><b>הנחיית קבוצות</b><small>קורסים ומוסדות</small></span></button>
+        <a class="topic faq" href="https://www.shabaton.online/shabaton-qa" target="_blank"><span class="t-ico">❓</span><span class="t-body"><b>שאלות נפוצות</b><small>כל התשובות במקום אחד</small></span></a>
+      </div>
 
-  /* \u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05E9\u05D0\u05D9\u05DF \u05D1\u05D4\u05DD \u05DB\u05E8\u05D2\u05E2 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05DC\u05D4\u05E6\u05D9\u05E2 \u2013 \u05D4\u05D1\u05D5\u05D8 \u05DE\u05E1\u05D1\u05D9\u05E8 \u05D5\u05DE\u05E6\u05D9\u05E2 \u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05E7\u05E8\u05D5\u05D1\u05D9\u05DD */
-  var NO_COURSES = {
-    103: {msg:"\u05DB\u05E8\u05D2\u05E2 \u05D0\u05D9\u05DF \u05D1\u05D0\u05EA\u05E8 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05EA\u05D7\u05D5\u05DD \u05D4\u05E7\u05D5\u05DC\u05E0\u05D5\u05E2 \uD83C\uDFAC\n\u05D0\u05D5\u05DC\u05D9 \u05D9\u05E2\u05E0\u05D9\u05D9\u05DF \u05D0\u05EA\u05DB\u05DD \u05D0\u05D7\u05D3 \u05DE\u05D4\u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05D4\u05E7\u05E8\u05D5\u05D1\u05D9\u05DD:", alt:[73,94]},
-    78:  {msg:"\u05DB\u05E8\u05D2\u05E2 \u05D0\u05D9\u05DF \u05D1\u05D0\u05EA\u05E8 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05EA\u05D7\u05D5\u05DD \u05D4\u05D0\u05D9\u05E4\u05D5\u05E8, \u05D4\u05D8\u05D9\u05E4\u05D5\u05D7 \u05D5\u05D4\u05E1\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2 \uD83D\uDC84\n\u05D0\u05D5\u05DC\u05D9 \u05D9\u05E2\u05E0\u05D9\u05D9\u05DF \u05D0\u05EA\u05DB\u05DD \u05D0\u05D7\u05D3 \u05DE\u05D4\u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05D4\u05E7\u05E8\u05D5\u05D1\u05D9\u05DD:", alt:[46,6,22]}
+      <div class="warn"><span>⚠️</span><span><strong>בוט בהרצה</strong> - יש לבדוק את תשובות הבוט.<br>
+      לייעוץ נוסף במידת הצורך <a href="https://chat.whatsapp.com/Hrc27GwXmDkBcRF2bWSyCs?s=cl&p=i&mlu=4&ilr=4" target="_blank">פנו לקבוצת הווטסאפ שלנו</a></span></div>
+    </section>
+  </main>
+
+</div>
+<script>
+(function() {
+  var CONFIG = {
+    apiUrl: 'https://duda-ai-bot.vercel.app/api/ai_chat_v2',
+    site: 'shabaton'
   };
 
-  function next(){
-    if(state.disc && NO_COURSES[state.disc]){
-      var nc = NO_COURSES[state.disc]; state.disc = null;
-      say(nc.msg, nc.alt.map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; }));
-      return;
-    }
-    // \u05E0\u05D5\u05E9\u05D0/\u05EA\u05D7\u05D5\u05DD \u2192 \u05EA\u05DE\u05D9\u05D3 \u05D3\u05E3 \u05E8\u05E9\u05D9\u05DE\u05EA \u05D4\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05EA\u05D7\u05D5\u05DD. \u05D3\u05E4\u05D9 \u05DE\u05D5\u05E1\u05D3\u05D5\u05EA \u05E8\u05E7 \u05DC\u05D1\u05D9\u05D8\u05D5\u05D9 \u05E9\u05DC\u05D0 \u05E9\u05D9\u05D9\u05DA \u05DC\u05EA\u05D7\u05D5\u05DD (\u05E9\u05DD \u05E9\u05D9\u05D8\u05D4, \u05DE\u05E8\u05E6\u05D4...)
-    var R = state.pageMode && state.terms.length ? resolvePages() : null;
-    var areaName = state.area !== null && state.area !== 0 ? areaById(state.area).name : "";
+  console.log('[SHABI] chat.html loaded');
+  var app       = document.getElementById('app');
+  var messages  = document.getElementById('shabaton-chat-messages');
+  var chatInput = document.getElementById('shabaton-chat-input');
+  var chatSend  = document.getElementById('shabaton-chat-send');
+  var clearBtn  = document.getElementById('shabaton-clear-chat');
 
-    // \u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7
-    if(state.remote && R){
-      var fr = filterPages(R.pages, null, true);
-      if(fr.length === 1){ goPage(fr[0]); reset(); return; }
-      if(fr.length > 1 && fr.length <= MAX_LIST){
-        listPages(fr, "\u05DE\u05E6\u05D0\u05EA\u05D9 "+fr.length+" \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D \u05D1\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7. \u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:"); reset(); return;
-      }
-    }
-    if(state.remote && R && R.pages.length <= MAX_LIST){
-      listPages(R.pages, "\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D \u05D1\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7 \uD83D\uDE41\n\u05D0\u05D1\u05DC \u05D9\u05E9 \u05DB\u05D0\u05DC\u05D4 \u05E4\u05E0\u05D9\u05DD \u05D0\u05DC \u05E4\u05E0\u05D9\u05DD \u2013 \u05D0\u05D5\u05DC\u05D9 \u05D0\u05D7\u05D3 \u05DE\u05D4\u05DD \u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:"); reset(); return;
-    }
-    if(state.remote && !state.disc){ goTo(resultUrl(REMOTE_ID,0), "\u05D4\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7"); reset(); return; }
-    if(state.remote){
-      // \u05D4\u05EA\u05D7\u05D5\u05DD \u05E9\u05D1\u05D9\u05E7\u05E9\u05D5 \u05E7\u05D5\u05D3\u05DD (\u05DB\u05E4\u05EA\u05D5\u05E8 \u05DB\u05EA\u05D5\u05DD, \u05DE\u05D9\u05DE\u05D9\u05DF), \u05D5\u05DC\u05E6\u05D9\u05D3\u05D5 \u05DB\u05DC \u05D4\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7
+  var isBusy = false, history = [];
+
+  // renderMarkdown — כולל SHABTITLE_N_END approach
+  function renderMarkdown(text) {
+    if (!text) return '';
+    try {
       var links = [];
-      if(state.disc) links.push({label:"\u05E7\u05D5\u05E8\u05E1\u05D9 "+discById(state.disc).name, href:resultUrl(state.disc,0)});
-      links.push({label:"\u05DB\u05DC \u05D4\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7", href:resultUrl(REMOTE_ID,0), alt:!!state.disc});
-      say(state.disc ? "\u05DE\u05E6\u05D0\u05EA\u05D9! \u05D4\u05E0\u05D4 \u05D4\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05EA\u05D7\u05D5\u05DD \u201E"+discById(state.disc).name+"\u201D \u2013 \u05D7\u05DC\u05E7\u05DD \u05DE\u05EA\u05E7\u05D9\u05D9\u05DE\u05D9\u05DD \u05D1\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7 \u05D5\u05D1\u05D6\u05D5\u05DD.\n\u05D5\u05DC\u05E6\u05D9\u05D3\u05DD \u2013 \u05DB\u05DC \u05D4\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7 \u05D1\u05D0\u05EA\u05E8:"
-                     : "\u05D4\u05E0\u05D4 \u05DB\u05DC \u05D4\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7:", null, links);
-      reset(); return;
-    }
-    // \u05D3\u05E4\u05D9\u05DD \u05E9\u05E2\u05D5\u05E0\u05D9\u05DD \u05E2\u05DC \u05D4\u05E0\u05D5\u05E9\u05D0
-    var cityNote = "";
-    if(R && state.city){
-      var fc = filterCity(R.pages, state.city);
-      if(fc.length === 1){ goPage(fc[0]); reset(); return; }
-      if(fc.length > 1 && fc.length <= MAX_LIST){
-        listPages(fc, "\u05DE\u05E6\u05D0\u05EA\u05D9 "+fc.length+" \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D \u05D1"+state.city.name+". \u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:"); reset(); return;
-      }
-      if(fc.length === 0) cityNote = "\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D \u05D1"+state.city.name+" \u05E2\u05E6\u05DE\u05D4, \u05D0\u05D1\u05DC \u05D9\u05E9 \u05D1\u05D0\u05D6\u05D5\u05E8 "+areaName+":";
-    }
-    if(R){
-      if(state.area !== null){
-        var fa = filterPages(R.pages, state.area, false);
-        if(fa.length === 1 && !cityNote){ goPage(fa[0]); reset(); return; }
-        if(fa.length === 1 && cityNote){ listPages(fa, cityNote); reset(); return; }
-        if(fa.length > 1 && fa.length <= MAX_LIST){
-          listPages(fa, cityNote || ("\u05DE\u05E6\u05D0\u05EA\u05D9 "+fa.length+" \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D"+(areaName ? " \u05D1\u05D0\u05D6\u05D5\u05E8 "+areaName : "")+". \u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:")); reset(); return;
-        }
-        if(fa.length === 0 && R.pages.length <= MAX_LIST){
-          listPages(R.pages, "\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D \u05D1\u05D0\u05D6\u05D5\u05E8 "+areaName+" \uD83D\uDE41\n\u05D0\u05D1\u05DC \u05D9\u05E9 \u05DB\u05D0\u05DC\u05D4 \u05D1\u05DE\u05E7\u05D5\u05DE\u05D5\u05EA \u05D0\u05D7\u05E8\u05D9\u05DD \u2013 \u05D0\u05D5\u05DC\u05D9 \u05D0\u05D7\u05D3 \u05DE\u05D4\u05DD \u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:"); reset(); return;
-        }
-      } else {
-        if(R.pages.length === 1){ goPage(R.pages[0]); reset(); return; }
-        if(R.pages.length <= MAX_LIST){
-          listPages(R.pages, "\u05DE\u05E6\u05D0\u05EA\u05D9 "+R.pages.length+" \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \u201E"+R.term+"\u201D. \u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DD \u05DC\u05DB\u05DD:"); reset(); return;
-        }
-      }
-      // \u05D4\u05E8\u05D1\u05D4 \u05D3\u05E4\u05D9\u05DD \u2013 \u05DE\u05DE\u05E9\u05D9\u05DB\u05D9\u05DD \u05DC\u05D3\u05E3 \u05D4\u05EA\u05D5\u05E6\u05D0\u05D5\u05EA \u05E9\u05DC \u05D4\u05EA\u05D7\u05D5\u05DD (\u05D4\u05EA\u05D7\u05D5\u05DD \u05D4\u05E0\u05E4\u05D5\u05E5 \u05D1\u05D9\u05D5\u05EA\u05E8 \u05D1\u05D9\u05DF \u05D4\u05D3\u05E4\u05D9\u05DD, \u05D0\u05DD \u05DC\u05D0 \u05D9\u05D3\u05D5\u05E2)
-      if(!state.disc){
-        var cnt = {};
-        R.pages.forEach(function(i){ INST.pages[i][4].forEach(function(f){ if(discById(f)) cnt[f] = (cnt[f]||0) + 1; }); });
-        var bestF = Object.keys(cnt).sort(function(a,b){ return cnt[b]-cnt[a]; })[0];
-        if(bestF) state.disc = Number(bestF);
-      }
-    }
-    if(state.disc && state.area!==null){
-      var d = discById(state.disc), a = areaById(state.area);
-      goTo(resultUrl(d.id,a.id), "\u05D4\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05EA\u05D7\u05D5\u05DD \u201E"+d.name+"\u201D \u05D1\u05D0\u05D6\u05D5\u05E8 "+a.name);
-      reset(); return;
-    }
-    if(state.disc){
-      say("\u05D0\u05D9\u05D6\u05D4 \u05D9\u05D5\u05E4\u05D9, "+discById(state.disc).name+" \uD83D\uDE42\n\u05D1\u05D0\u05D9\u05D6\u05D4 \u05D0\u05D6\u05D5\u05E8 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3?", areaChips()); return;
-    }
-    if(state.city && !state.disc){
-      var cp = filterCity(allPages(), state.city), cty = state.city;
-      var chips = POPULAR.map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; });
-      if(cp.length) chips.push({label:"\uD83C\uDFEB \u05D4\u05DE\u05D5\u05E1\u05D3\u05D5\u05EA \u05D1"+cty.name+" ("+cp.length+")", action:function(){
-        listPages(cp, "\u05D4\u05DE\u05D5\u05E1\u05D3\u05D5\u05EA \u05E9\u05DE\u05E7\u05D9\u05D9\u05DE\u05D9\u05DD \u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1"+cty.name+":"); reset(); }});
-      say("\u05E8\u05E9\u05DE\u05EA\u05D9: "+cty.name+" \uD83D\uDCCD\n\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3? \u05DB\u05EA\u05D1\u05D5 \u05E0\u05D5\u05E9\u05D0 \u05D0\u05D5 \u05EA\u05D7\u05D5\u05DD, \u05D0\u05D5 \u05D1\u05D7\u05E8\u05D5 \u05DE\u05D4\u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05D4\u05E4\u05D5\u05E4\u05D5\u05DC\u05E8\u05D9\u05D9\u05DD:", chips);
-      return;
-    }
-    if(state.area!==null){
-      say("\u05E8\u05E9\u05DE\u05EA\u05D9: "+areaById(state.area).name+" \uD83D\uDCCD\n\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3? \u05DB\u05EA\u05D1\u05D5 \u05E0\u05D5\u05E9\u05D0 \u05D0\u05D5 \u05EA\u05D7\u05D5\u05DD, \u05D0\u05D5 \u05D1\u05D7\u05E8\u05D5 \u05DE\u05D4\u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05D4\u05E4\u05D5\u05E4\u05D5\u05DC\u05E8\u05D9\u05D9\u05DD:",
-          POPULAR.map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; })); return;
-    }
-  }
-  // \u05E9\u05D0\u05DC\u05D4 \u05D7\u05D3\u05E9\u05D4 \u05DE\u05E0\u05E7\u05D4 \u05D0\u05EA \u05D4\u05EA\u05E9\u05D5\u05D1\u05D5\u05EA \u05D4\u05E7\u05D5\u05D3\u05DE\u05D5\u05EA. \u05E0\u05E9\u05D0\u05E8\u05D9\u05DD \u05D1\u05D0\u05D5\u05EA\u05D4 \u05E9\u05D9\u05D7\u05D4 \u05E8\u05E7 \u05DB\u05E9\u05D4\u05D4\u05D5\u05D3\u05E2\u05D4 \u05D4\u05D9\u05D0 \u05EA\u05E9\u05D5\u05D1\u05D4 \u05DC\u05E9\u05D0\u05DC\u05EA \u05D4\u05D1\u05D5\u05D8:
-  //  \u2022 \u05D4\u05D1\u05D5\u05D8 \u05E9\u05D0\u05DC "\u05D1\u05D0\u05D9\u05D6\u05D4 \u05D0\u05D6\u05D5\u05E8?" \u05D5\u05D4\u05D2\u05D5\u05DC\u05E9 \u05DB\u05EA\u05D1 \u05E8\u05E7 \u05DE\u05D9\u05E7\u05D5\u05DD ("\u05D4\u05E9\u05E8\u05D5\u05DF")
-  //  \u2022 \u05D4\u05D1\u05D5\u05D8 \u05E9\u05D0\u05DC "\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3?" \u05D5\u05D4\u05D2\u05D5\u05DC\u05E9 \u05DB\u05EA\u05D1 \u05E8\u05E7 \u05E0\u05D5\u05E9\u05D0 ("\u05D9\u05D5\u05D2\u05D4")
-  function startNew(text){
-    var pendingArea  = !!state.disc && state.area === null && !state.remote;   // \u05DE\u05D7\u05DB\u05D4 \u05DC\u05D0\u05D6\u05D5\u05E8
-    var pendingTopic = !state.disc && (state.area !== null || state.remote);  // \u05DE\u05D7\u05DB\u05D4 \u05DC\u05E0\u05D5\u05E9\u05D0
-    var followUp = false;
-    if(text && (pendingArea || pendingTopic)){
-      var t = norm(text);
-      var hasInst  = findInstitutions(t).length > 0;
-      var hasArea  = findAreas(t).length > 0 || isRemote(t);
-      var hasTopic = findDisc(t).length > 0 || !!findCourseTopic(t);
-      followUp = !hasInst && ((pendingArea && hasArea && !hasTopic) || (pendingTopic && hasTopic && !hasArea));
-    }
-    if(!followUp && shabiMode && text && !courseSignals(norm(text))) followUp = true;
-    if(!followUp){ reset(); log.innerHTML = ""; shabiHist = []; shabiMode = false; }
-  }
-  function reset(){ state = {disc:null, area:null, remote:false, terms:[], strictFirst:false, city:null, pageMode:false}; }
-
-  function handle(text){
-    var t = norm(text);
-
-    // \u05E9\u05D0\u05DC\u05EA \u05D6\u05DB\u05D5\u05D9\u05D5\u05EA/\u05D9\u05D3\u05E2, \u05D0\u05D5 \u05E9\u05D0\u05DC\u05EA \u05D4\u05DE\u05E9\u05DA \u05DC\u05EA\u05E9\u05D5\u05D1\u05D4 \u05E9\u05DC \u05E9\u05D1\u05EA\u05D5\u05DF-\u05D1\u05D5\u05D8 \u2013 \u05E2\u05D5\u05E0\u05D9\u05DD \u05DB\u05D0\u05DF
-    var sig = courseSignals(t);
-    if((isShabiQ(t) && (!sig || looksLikeQuestion(text))) || knowledgeQ(text) || (shabiMode && !sig)){ askShabi(text); return; }
-    shabiMode = false;
-
-    // \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9
-    if(isMA(t)){
-      var areasMA = findAreas(t), aMA = areasMA.length ? areasMA[0].id : null;
-      // \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u05D1\u05DE\u05D5\u05E1\u05D3 \u05DE\u05E1\u05D5\u05D9\u05DD ("\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u05D1\u05D0\u05D5\u05E0\u05D9\u05D1\u05E8\u05E1\u05D9\u05D8\u05EA \u05D7\u05D9\u05E4\u05D4") \u2013 \u05D3\u05E4\u05D9 \u05D4\u05EA\u05D5\u05D0\u05E8 \u05D4\u05E9\u05E0\u05D9 \u05E9\u05DC \u05D4\u05DE\u05D5\u05E1\u05D3
-      var instMA = findInstitutions(t);
-      if(instMA.length === 1){
-        var gp = INST.g[instMA[0]][1].filter(isMAPage);
-        if(gp.length === 1){ goPage(gp[0]); return; }
-        if(gp.length > 1){ listPages(gp, "\u05DE\u05E1\u05DC\u05D5\u05DC\u05D9 \u05D4\u05EA\u05D5\u05D0\u05E8 \u05D4\u05E9\u05E0\u05D9 \u05E9\u05DC "+INST.g[instMA[0]][0]+":", MA_MORE); return; }
-      }
-      var spec = maSpecialty(text);
-      if(!spec){ goTo(resultUrl(MA_ID, aMA === null ? 0 : aMA), "\u05DE\u05E1\u05DC\u05D5\u05DC\u05D9 \u05D4\u05EA\u05D5\u05D0\u05E8 \u05D4\u05E9\u05E0\u05D9" + (aMA ? " \u05D1\u05D0\u05D6\u05D5\u05E8 " + areaById(aMA).name : "")); return; }
-      var mp = maPages(spec), mf = aMA ? filterPages(mp, aMA, false) : mp;
-      if(mf.length === 1){ goPage(mf[0]); return; }
-      if(mf.length > 1){ listPages(mf, "\u05DE\u05D5\u05E1\u05D3\u05D5\u05EA \u05E9\u05DE\u05E6\u05D9\u05E2\u05D9\u05DD \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u05D1\u201E"+spec+"\u201D"+(aMA ? " \u05D1\u05D0\u05D6\u05D5\u05E8 "+areaById(aMA).name : "")+":", MA_MORE); return; }
-      if(mp.length){ listPages(mp, "\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u05D1\u201E"+spec+"\u201D \u05D1\u05D0\u05D6\u05D5\u05E8 "+areaById(aMA).name+", \u05D0\u05D1\u05DC \u05D9\u05E9 \u05D1\u05DE\u05E7\u05D5\u05DE\u05D5\u05EA \u05D0\u05D7\u05E8\u05D9\u05DD:", MA_MORE); return; }
-      // \u05DC\u05D0 \u05E0\u05DE\u05E6\u05D0\u05D4 \u05D4\u05EA\u05DE\u05D7\u05D5\u05EA \u2013 \u05D0\u05D5\u05DC\u05D9 \u05D6\u05D4 \u05E9\u05DD \u05E9\u05DC \u05DE\u05D5\u05E1\u05D3 ("\u05D2\u05D5\u05E8\u05D3\u05D5\u05DF \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9") \u2192 \u05DE\u05DE\u05E9\u05D9\u05DB\u05D9\u05DD \u05DC\u05D6\u05D9\u05D4\u05D5\u05D9 \u05DE\u05D5\u05E1\u05D3\u05D5\u05EA
-      if(findAlias(t) !== null || findInstitutions(t).length){ /* \u05DE\u05DE\u05E9\u05D9\u05DB\u05D9\u05DD */ } else {
-      say("\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05D1\u05D0\u05EA\u05E8 \u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u05D1\u201E"+spec+"\u201D \uD83D\uDE41\n\u05D0\u05E4\u05E9\u05E8 \u05DC\u05E2\u05D9\u05D9\u05DF \u05D1\u05DB\u05DC \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9 \u05D4\u05EA\u05D5\u05D0\u05E8 \u05D4\u05E9\u05E0\u05D9 \u05D1\u05D0\u05EA\u05E8:", null,
-          [{label:"\u05DC\u05DB\u05DC \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9 \u05D4\u05EA\u05D5\u05D0\u05E8 \u05D4\u05E9\u05E0\u05D9 \u2190", href:resultUrl(MA_ID, 0)}]);
-      return;
-      }
-    }
-
-    // \u05DB\u05D9\u05E0\u05D5\u05D9 \u05E9\u05DE\u05D5\u05D1\u05D9\u05DC \u05DC\u05D3\u05E3 \u05DE\u05E1\u05D5\u05D9\u05DD ("\u05D5\u05D9\u05E0\u05D2\u05D9\u05D9\u05D8 \u05E1\u05E4\u05D5\u05E8\u05D8", "\u05E9\u05D9\u05D8\u05EA \u05E2\u05D5\u05D2\u05DF")
-    var al = findAlias(t);
-    if(al !== null){ reset(); goPage(al); return; }
-
-    // \u05D7\u05D9\u05E4\u05D5\u05E9 \u05DC\u05E4\u05D9 \u05DE\u05D5\u05E1\u05D3 \u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD (\u05E1\u05DE\u05D9\u05E0\u05E8 \u05D4\u05E7\u05D9\u05D1\u05D5\u05E6\u05D9\u05DD, \u05D7\u05DE\u05D3\u05EA, \u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9...)
-    var insts = findInstitutions(t);
-    // "\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05E7\u05E8\u05D9\u05D9\u05EA \u05D0\u05D5\u05E0\u05D5" \u2013 \u05E9\u05DD \u05E2\u05D9\u05E8 \u05E9\u05DE\u05DB\u05D9\u05DC \u05E9\u05DD \u05E9\u05DC \u05DE\u05D5\u05E1\u05D3: \u05DE\u05EA\u05D9\u05D9\u05D7\u05E1\u05D9\u05DD \u05DC\u05E2\u05D9\u05E8, \u05D0\u05DC\u05D0 \u05D0\u05DD \u05DB\u05EA\u05D1\u05D5 \u05D1\u05DE\u05E4\u05D5\u05E8\u05E9 \u05DE\u05DB\u05DC\u05DC\u05D4/\u05D0\u05E7\u05D3\u05DE\u05D9\u05EA \u05D5\u05DB\u05D5'
-    var c0 = findCity(t);
-    if(insts.length && c0 && !INST_WORDS.some(function(w){ return t.indexOf(" "+w+" ") > -1; })){
-      var tNoCity = t.split(" "+c0.name+" ").join(" ").split(c0.name).join(" ");
-      if(!findInstitutions(tNoCity).length) insts = [];
-    }
-    if(insts.length === 1){ reset(); showInstitution(insts[0]); return; }
-    if(insts.length > 1){
-      reset();
-      say("\u05DE\u05E6\u05D0\u05EA\u05D9 \u05DB\u05DE\u05D4 \u05DE\u05D5\u05E1\u05D3\u05D5\u05EA \u05E9\u05DE\u05EA\u05D0\u05D9\u05DE\u05D9\u05DD \u05DC\u05D1\u05E7\u05E9\u05D4. \u05DC\u05D0\u05D9\u05D6\u05D4 \u05D4\u05EA\u05DB\u05D5\u05D5\u05E0\u05EA\u05DD?",
-          insts.map(function(i){ return {label:INST.g[i][0], action:function(){ showInstitution(i); }}; }));
-      return;
-    }
-
-    var discs = findDisc(t), areas = findAreas(t), remote = isRemote(t);
-
-    if(remote) state.remote = true;
-    if(areas.length) state.area = areas[0].id;
-    var city = findCity(t);
-    if(city){ state.city = city; state.area = city.area; }
-
-    // \u05DE\u05D5\u05E0\u05D7\u05D9 \u05D7\u05D9\u05E4\u05D5\u05E9 \u05DC\u05D3\u05E4\u05D9\u05DD: \u05D4\u05D1\u05D9\u05D8\u05D5\u05D9 \u05D4\u05DE\u05DC\u05D0 \u05E9\u05D4\u05D2\u05D5\u05DC\u05E9 \u05DB\u05EA\u05D1, \u05D4\u05E0\u05D5\u05E9\u05D0 \u05E9\u05D6\u05D5\u05D4\u05D4, \u05D5\u05DE\u05D9\u05DC\u05EA \u05D4\u05EA\u05D7\u05D5\u05DD
-    var subj = subjectOf(text), hit = findCourseTopic(t), terms = [];
-    if(subj && subj.replace(/ /g,"").length >= 3) terms.push(subj);
-    if(hit) terms.push(hit.kw);
-    discs.forEach(function(d){ var k = discKw(d, t); if(k) terms.push(k); });
-    if(terms.length){ state.terms = terms; state.strictFirst = !!subj && terms[0] === subj; }
-    var few = false;   // \u05E0\u05D5\u05E9\u05D0 \u05DE\u05D5\u05DB\u05E8 \u2192 \u05EA\u05DE\u05D9\u05D3 \u05DC\u05E4\u05D9 \u05EA\u05D7\u05D5\u05DD (\u05DC\u05D0 \u05DC\u05E4\u05D9 \u05DE\u05D5\u05E1\u05D3\u05D5\u05EA)
-
-    // \u05DC\u05D0 \u05D6\u05D5\u05D4\u05D4 \u05EA\u05D7\u05D5\u05DD \u2013 \u05DE\u05D7\u05E4\u05E9\u05D9\u05DD \u05D0\u05EA \u05D4\u05E0\u05D5\u05E9\u05D0 \u05D1\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05E9\u05D1\u05D0\u05EA\u05E8
-    if(!discs.length && !state.disc){
-      if(hit && hit.direct){
-        discs = [discById(hit.ids[0])];
-      } else if(hit && few){
-        next(); return;
-      } else if(hit){
-        say("\u05E7\u05D5\u05E8\u05E1\u05D9\u05DD \u05D1\u05E0\u05D5\u05E9\u05D0 \""+hit.kw+"\" \u05DE\u05D5\u05E4\u05D9\u05E2\u05D9\u05DD \u05D1\u05D0\u05EA\u05E8 \u05D1\u05DB\u05DE\u05D4 \u05EA\u05D7\u05D5\u05DE\u05D9\u05DD. \u05D1\u05D0\u05D9\u05D6\u05D4 \u05EA\u05D7\u05D5\u05DD \u05DC\u05D7\u05E4\u05E9?",
-          hit.ids.map(function(id){ var d=discById(id); return {label:d.name, action:function(){ state.disc=d.id; next(); }}; }));
-        return;
-      }
-    }
-
-    // "\u05EA\u05E8\u05E4\u05D9\u05D4 \u05D1\u05DE\u05D5\u05E1\u05D9\u05E7\u05D4", "\u05D8\u05D9\u05E4\u05D5\u05DC \u05D1\u05EA\u05E0\u05D5\u05E2\u05D4", "\u05EA\u05E8\u05E4\u05D9\u05D4 \u05D1\u05D1\u05D9\u05E9\u05D5\u05DC" \u2013 \u05E1\u05D5\u05D2 \u05E9\u05DC \u05EA\u05E8\u05E4\u05D9\u05D4 \u2192 \u05EA\u05D7\u05D5\u05DD \u05EA\u05E8\u05E4\u05D9\u05D4 \u05D5\u05D8\u05D9\u05E4\u05D5\u05DC
-    if(discs.length > 1 && discs.some(function(d){ return d.id === 43; }) && / (?:[\u05D1\u05D4\u05DC\u05D5]?(?:\u05EA\u05E8\u05E4\u05D9|\u05D8\u05D9\u05E4\u05D5\u05DC)|\S*\u05EA\u05E8\u05E4\u05D9)/.test(t)){
-      discs = [discById(43)];
-    }
-    if(discs.length > 1 && !state.disc && few){ next(); return; }
-    if(discs.length > 1 && !state.disc){
-      say("\u05DE\u05E6\u05D0\u05EA\u05D9 \u05DB\u05DE\u05D4 \u05EA\u05D7\u05D5\u05DE\u05D9\u05DD \u05E9\u05DE\u05EA\u05D0\u05D9\u05DE\u05D9\u05DD \u05DC\u05D1\u05E7\u05E9\u05D4. \u05DC\u05D0\u05D9\u05D6\u05D4 \u05DE\u05D4\u05DD \u05D4\u05EA\u05DB\u05D5\u05D5\u05E0\u05EA\u05DD?",
-        discs.slice(0,5).map(function(d){ return {label:d.name, action:function(){ state.disc=d.id; next(); }}; }));
-      return;
-    }
-    if(discs.length === 1) state.disc = discs[0].id;
-
-    // \u05E9\u05D0\u05DC\u05D4 \u05E2\u05DC \u05EA\u05D7\u05D5\u05DD \u05E9\u05E0\u05E9\u05DE\u05E2\u05EA \u05DB\u05DE\u05D5 \u05E9\u05D0\u05DC\u05EA \u05D6\u05DB\u05D5\u05D9\u05D5\u05EA (\u05DC\u05DE\u05E9\u05DC "\u05D4\u05D0\u05DD \u05E7\u05D5\u05E8\u05E1 \u05D9\u05D5\u05D2\u05D4 \u05DE\u05D5\u05DB\u05E8 \u05DC\u05E9\u05D1\u05EA\u05D5\u05DF?") \u2013 \u05DE\u05E6\u05D9\u05E2\u05D9\u05DD \u05D0\u05EA \u05E9\u05EA\u05D9 \u05D4\u05D3\u05E8\u05DB\u05D9\u05DD
-    if(state.disc && !state.remote && state.area===null && isShabiQ(t)){
-      askShabi(text); reset();
-      return;
-    }
-
-    if(state.disc || state.remote || (state.area!==null && !isShabiQ(t))){ next(); return; }
-
-    // \u05DC\u05D0 \u05D6\u05D5\u05D4\u05D4 \u05E7\u05D5\u05E8\u05E1 \u2013 \u05D0\u05D5\u05DC\u05D9 \u05E9\u05D0\u05DC\u05D4 \u05DB\u05DC\u05DC\u05D9\u05EA \u05E2\u05DC \u05E9\u05E0\u05EA \u05E9\u05D1\u05EA\u05D5\u05DF
-    if(!isShabiQ(t) && subj){
-      // \u05D1\u05D9\u05D8\u05D5\u05D9 \u05E9\u05DC\u05D0 \u05DE\u05D5\u05DB\u05E8 \u05DB\u05E0\u05D5\u05E9\u05D0, \u05D0\u05D1\u05DC \u05DE\u05D5\u05E4\u05D9\u05E2 \u05D1\u05D3\u05E4\u05D9\u05DD (\u05DC\u05DE\u05E9\u05DC \u05E9\u05DD \u05E9\u05DC \u05E9\u05D9\u05D8\u05D4 \u05D0\u05D5 \u05DE\u05E8\u05E6\u05D4)
-      var words = subj.split(" ").filter(function(w){ return w.length >= 3; });
-      if(words.length >= 2 || (words.length === 1 && words[0].length >= 4)){
-        var Rs = {term:subj, pages:pageMatches(subj, true)};
-        var fs = filterPages(Rs.pages, state.area, state.remote);
-        var askedInst = INST_WORDS.some(function(w){ return t.indexOf(" "+w+" ") > -1; });
-        if(fs.length >= 1 && askedInst){
-          // \u05E9\u05D0\u05DC\u05D5 \u05E2\u05DC \u05DE\u05D5\u05E1\u05D3 \u05E9\u05D0\u05D9\u05DF \u05DC\u05D5 \u05D3\u05E3, \u05D0\u05D1\u05DC \u05D4\u05D5\u05D0 \u05DE\u05D5\u05D6\u05DB\u05E8 \u05D1\u05D3\u05E3 \u05D0\u05D7\u05E8
-          listPages(fs.slice(0, MAX_LIST), "\u05DC\u05D0 \u05DE\u05E6\u05D0\u05EA\u05D9 \u05D1\u05D0\u05EA\u05E8 \u05D3\u05E3 \u05E9\u05DC \u201E"+subj+"\u201D \uD83D\uDE41\n\u05D0\u05D1\u05DC \u05D4\u05D5\u05D0 \u05DE\u05D5\u05D6\u05DB\u05E8 \u05DB\u05D0\u05DF \u2013 \u05D0\u05D5\u05DC\u05D9 \u05D6\u05D4 \u05DE\u05D4 \u05E9\u05D7\u05D9\u05E4\u05E9\u05EA\u05DD:"); reset(); return;
-        }
-        if(fs.length >= 1 && fs.length <= MAX_LIST){ state.terms = [subj]; state.strictFirst = true; state.pageMode = true; next(); return; }
-      }
-    }
-    if(isShabiQ(t) || looksLikeQuestion(text)){ askShabi(text); return; }
-    notFound(text, t);
+      var t = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, function(m, label, url) {
+        links.push({ url: url, label: label }); return '\x01' + (links.length-1) + '\x01';
+      });
+      t = t.replace(/(https?:\/\/[^\s<>"'\[\]]+)/g, function(m, url) {
+        links.push({ url: url, label: url, isRaw: true }); return '\x01' + (links.length-1) + '\x01';
+      });
+      var tableMap = {}, tableIdx = 0;
+      t = t.replace(/((?:^\|.+\|\s*$\n?)+)/gm, function(block) {
+        var rows = block.trim().split('\n');
+        var htmlRows = rows.map(function(row, ri) {
+          var cells = row.split('|').slice(1, -1);
+          if (cells.every(function(c){ return /^[-:\s]+$/.test(c.trim()); })) return null;
+          var ct = ri===0?'th':'td', cs = ri===0?'padding:7px 12px;border:1px solid #b8cfe8;background:#deeaf8;font-weight:700;text-align:right':'padding:6px 12px;border:1px solid #dde8f5;text-align:right;font-size:13px';
+          return '<tr>'+cells.map(function(c){ return '<'+ct+' style="'+cs+'">'+c.trim()+'</'+ct+'>'; }).join('')+'</tr>';
+        }).filter(Boolean);
+        var key = '||TABLE'+(tableIdx++)+'||';
+        tableMap[key] = '<table style="border-collapse:collapse;width:100%;direction:rtl;margin:8px 0">'+htmlRows.join('')+'</table>';
+        return key;
+      });
+      t = t.replace(/\*\*(\x01(\d+)\x01)\*\*/g, function(m, ph, idx) { return 'SHABTITLE_'+idx+'_END'; });
+      t = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      Object.keys(tableMap).forEach(function(k){ t = t.replace(k, tableMap[k]); });
+      t = t.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#0982bc;font-weight:700">$1</strong>');
+      t = t.replace(/(?<!\*)\*(?!\*)/g, '');
+      t = t.replace(/--+/g, '');
+      t = t.replace(/\n/g, '<br>');
+      var seenH3Urls = {};
+      t = t.replace(/SHABTITLE_(\d+)_END/g, function(m, idx2) {
+        var link = links[parseInt(idx2)];
+        if (!link) return m;
+        if (seenH3Urls[link.url]) return '';
+        seenH3Urls[link.url] = true;
+        return '<span class="shabaton-h3">🏫 <a href="'+link.url+'" target="_blank">'+link.label+'</a></span>';
+      });
+      t = t.replace(/(<span class="shabaton-h3">[\s\S]*?<\/span>)<br>/g, '$1<br>');
+      var footerKw = ['כל קורסי','כל הקורסים','הרשם','קבוצת הוואטסאפ','עלון שבתון','אפשר לשאול','לשאול בקבוצת'];
+      t = t.replace(/\x01(\d+)\x01/g, function(m, i) {
+        var link = links[parseInt(i, 10)];
+        if (!link) return '';
+        var url = link.url;
+        try { url = new URL(url).href; } catch(e2) {}
+        if (link.isRaw) return '<a href="'+url+'" target="_blank" style="color:#0982bc">'+url+'</a>';
+        var ll = link.label.toLowerCase();
+        var ctaLabels = ['לחצו כאן', 'לחץ כאן', 'לחצי כאן', 'לרשימה המסוננת', 'לרשימת המוסדות'];
+        if (ctaLabels.some(function(w){ return ll.indexOf(w)!==-1; }))
+          return '<a href="'+url+'" target="_blank" style="display:inline-block;background:#e8630a;color:#fff;padding:7px 18px;border-radius:24px;font-weight:700;text-decoration:none;margin:6px 0">'+link.label+'</a>';
+        if (footerKw.some(function(w){ return ll.indexOf(w.toLowerCase())!==-1; }))
+          return '<span style="display:inline-flex;align-items:center;gap:3px;margin:2px 4px"><a href="'+url+'" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline">'+link.label+'</a></span>';
+        if (ll.indexOf('פייסבוק')!==-1 || ll.indexOf('הצטרפ')!==-1)
+          return '<a href="'+url+'" target="_blank" style="color:#0982bc;text-decoration:underline">'+link.label+'</a>';
+        if (url.indexOf('/results-')!==-1)
+          return '<a href="'+url+'" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline">'+link.label+'</a>';
+        return '<a href="'+url+'" target="_blank" style="display:inline-block;background:#e8630a;color:#fff;padding:7px 18px;border-radius:24px;font-weight:700;text-decoration:none;margin:6px 0">'+link.label+'</a>';
+      });
+      t = t.replace(/<strong[^>]*>(<a [^>]+>([^<]+)<\/a>)<\/strong>/g, function(m, aTag, label) {
+        var lbl = label.toLowerCase();
+        if (lbl.indexOf('שאול')!==-1||lbl.indexOf('הרשם')!==-1||lbl.indexOf('פייסבוק')!==-1||lbl.indexOf('הצטרפ')!==-1||lbl.indexOf('פנו')!==-1||lbl.indexOf('לפירוט')!==-1) return m;
+        return '<span class="shabaton-h3">🏫 '+aTag+'</span>';
+      });
+      t = t.replace(/^#{1,3}\s+(.+)$/mg, '<span class="shabaton-h3">$1</span>');
+      return t;
+    } catch(e) { return text; }
   }
 
-  // \u05E0\u05D9\u05E7\u05D5\u05D9 \u05D4\u05E9\u05D9\u05D7\u05D4 \u2013 \u05DE\u05D5\u05D7\u05E7 \u05D0\u05EA \u05D4\u05D4\u05D5\u05D3\u05E2\u05D5\u05EA \u05D5\u05DE\u05D0\u05E4\u05E1 \u05D0\u05EA \u05DE\u05D4 \u05E9\u05D4\u05D1\u05D5\u05D8 \u05D6\u05DB\u05E8 (\u05EA\u05D7\u05D5\u05DD/\u05D0\u05D6\u05D5\u05E8)
-  document.getElementById("shb-clear").addEventListener("click", function(){
-    log.innerHTML = ""; panel.classList.remove("on"); reset(); shabiHist = []; shabiMode = false;
-    input.value = ""; input.focus();
-  });
-
-  document.getElementById("shb-form").addEventListener("submit", function(e){
-    e.preventDefault();
-    var v = input.value.trim(); if(!v) return;
-    startNew(v);
-    bubble(esc(v),"user"); input.value = "";
-    handle(v);
-  });
-
-  /* ---- \u05D7\u05D9\u05E4\u05D5\u05E9 \u05DC\u05E4\u05D9 \u05EA\u05D7\u05D5\u05DD \u05D5\u05D0\u05D6\u05D5\u05E8 (\u05DB\u05DE\u05D5 \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9 \u05D4\u05D9\u05E9\u05DF) \u2013 \u05D4\u05D2\u05D5\u05DC\u05E9 \u05D1\u05D5\u05D7\u05E8 \u05D1\u05D9\u05DF \u05E9\u05E0\u05D9 \u05D0\u05D5\u05E4\u05E0\u05D9 \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9 ---- */
-  var botRoot = document.getElementById("shb-bot");
-  var selDisc = document.getElementById("shb-disc"), selArea = document.getElementById("shb-area");
-  var PICK_HIDE = {80:1, 85:1};   // \u05DC\u05D0 \u05DE\u05D5\u05E6\u05D2\u05D9\u05DD \u05D1\u05E8\u05E9\u05D9\u05DE\u05D4 (\u05D4\u05E2\u05E6\u05DE\u05D4 \u05E0\u05E9\u05D9\u05EA \u2192 \u05D4\u05E2\u05E6\u05DE\u05D4 \u05D0\u05D9\u05E9\u05D9\u05EA; \u05D0\u05E7\u05D5\u05D5\u05D9\u05D5\u05D5\u05DC\u05E0\u05D8)
-  DISC.filter(function(d){ return !NO_COURSES[d.id] && !PICK_HIDE[d.id] && RESULT_NAMES[d.id]; })
-    .map(function(d){ return {id:d.id, name:d.name}; })
-    .concat([{id:REMOTE_ID, name:"\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7"}])
-    .sort(function(a,b){ return a.name.localeCompare(b.name, "he"); })
-    .forEach(function(d){ var o = document.createElement("option"); o.value = d.id; o.textContent = d.name; selDisc.appendChild(o); });
-  [{id:0, name:"\u05DB\u05DC \u05D4\u05D0\u05E8\u05E5"}].concat(AREAS.filter(function(a){ return a.id !== 0; })).forEach(function(a){
-    var o = document.createElement("option"); o.value = a.id; o.textContent = a.id === 0 ? "\u05DB\u05DC \u05D4\u05D0\u05E8\u05E5 (\u05DB\u05DC \u05D4\u05D0\u05D6\u05D5\u05E8\u05D9\u05DD)" : a.name; selArea.appendChild(o);
-  });
-  selDisc.addEventListener("change", function(){
-    selDisc.classList.remove("shb-need");
-    selArea.disabled = +selDisc.value === REMOTE_ID;   // \u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7 \u2013 \u05D1\u05DC\u05D9 \u05D0\u05D6\u05D5\u05E8
-    if(selArea.disabled) selArea.value = "0";
-  });
-  document.getElementById("shb-pick").addEventListener("submit", function(e){
-    e.preventDefault();
-    if(!selDisc.value){
-      selDisc.classList.remove("shb-need"); void selDisc.offsetWidth; selDisc.classList.add("shb-need"); selDisc.focus(); return;
+  function addMessage(text, who) {
+    var wrap = document.createElement('div');
+    wrap.className = 'shabaton-message';
+    if (who === 'bot') {
+      wrap.innerHTML = '<div class="shabaton-message-bot"><div class="shabaton-bot-avatar">&#129302;</div><div class="shabaton-message-content">' + renderMarkdown(text) + '</div></div>';
+    } else {
+      wrap.innerHTML = '<div class="shabaton-message-user"><div class="shabaton-message-content">' + text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') + '</div></div>';
     }
-    var d = +selDisc.value, url = resultUrl(d, d === REMOTE_ID ? 0 : +selArea.value);
-    try{ window.top.location.href = url; } catch(err){ window.location.href = url; }
-  });
-  function setMode(m, save){
-    botRoot.classList.toggle("shb-pickmode", m === "pick");
-    [].forEach.call(botRoot.querySelectorAll(".shb-mode"), function(b){
-      var on = b.getAttribute("data-mode") === m; b.classList.toggle("on", on); b.setAttribute("aria-selected", on ? "true" : "false");
+    messages.appendChild(wrap);
+    messages.scrollTop = messages.scrollHeight;
+    return wrap;
+  }
+  // מגלגל כך שההודעה (השאלה) תהיה בראש אזור השיחה – והתשובה מתחילה מיד מתחתיה
+  function scrollToMessage(el) {
+    if (!el) return;
+    messages.scrollTop += el.getBoundingClientRect().top - messages.getBoundingClientRect().top - 8;
+  }
+
+  function addTyping() {
+    var wrap = document.createElement('div');
+    wrap.className = 'shabaton-message shabaton-typing-wrap';
+    wrap.innerHTML = '<div class="shabaton-message-bot"><div class="shabaton-bot-avatar">&#129302;</div><div class="shabaton-typing"><span></span><span></span><span></span></div></div>';
+    messages.appendChild(wrap);
+    messages.scrollTop = messages.scrollHeight;
+    return wrap;
+  }
+
+  function sendMessage() {
+    var msg = chatInput.value.trim();
+    if (!msg || isBusy) return;
+    chatInput.value = ''; chatSend.disabled = true;
+    app.classList.add('chatting');   // עיצוב: ה-hero מתכווץ וממסך הברכה גולל למעלה
+    var questionEl = addMessage(msg, 'user');
+    history.push({ role: 'user', content: msg });
+    var typingEl = addTyping();
+    isBusy = true;
+    fetch(CONFIG.apiUrl, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ message: msg, history: history.slice(-6), site: CONFIG.site })
+    })
+    .then(function(r){ if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function(d){
+      typingEl.remove();
+      var reply = d.reply || 'מצטערים, אירעה שגיאה.';
+      addMessage(reply, 'bot');
+      scrollToMessage(questionEl);
+      history.push({ role: 'assistant', content: reply });
+    })
+    .catch(function(){
+      typingEl.remove();
+      addMessage('מצטערים, יש תקלה.', 'bot');
+    })
+    .finally(function(){ isBusy = false; });
+  }
+
+  chatSend.addEventListener('click', sendMessage);
+  chatInput.addEventListener('keypress', function(e){ if (e.key==='Enter'){ e.preventDefault(); sendMessage(); } });
+  chatInput.addEventListener('input', function(){ chatSend.disabled = !chatInput.value.trim(); });
+  // suggestion chips — הטקסט שנשלח הוא data-q (אם קיים), אחרת תוכן הכפתור
+  document.querySelectorAll('.suggestion-chip').forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      chatInput.value = (chip.getAttribute('data-q') || chip.textContent).trim();
+      chatSend.disabled = false;
+      sendMessage();
     });
-    if(save){ try{ localStorage.setItem("shb-mode", m); }catch(e){} }
-    unclip();
-  }
-  [].forEach.call(botRoot.querySelectorAll(".shb-mode"), function(b){
-    b.addEventListener("click", function(){ var m = b.getAttribute("data-mode"); setMode(m, true); (m === "pick" ? selDisc : input).focus(); });
-  });
-  // \u05DE\u05E0\u05D2\u05E0\u05D5\u05DF \u05E7\u05D1\u05D5\u05E2 \u05DC\u05E4\u05D9 \u05D4\u05D5\u05D5\u05D9\u05D3\u05D2'\u05D8: <div id="shb-bot" data-mode="free"> \u05D0\u05D5 data-mode="pick"; \u05D1\u05DC\u05D9 \u2013 \u05D4\u05D2\u05D5\u05DC\u05E9 \u05D1\u05D5\u05D7\u05E8
-  var fixedMode = (botRoot.getAttribute("data-mode") || "").toLowerCase();
-  if(fixedMode === "free" || fixedMode === "pick"){
-    botRoot.classList.add("shb-fixed", fixedMode === "pick" ? "shb-pick-only" : "shb-free-only");
-    setMode(fixedMode);
-  } else {
-    try{ if(localStorage.getItem("shb-mode") === "pick") setMode("pick"); }catch(e){}
-  }
-
-  unclip(); window.addEventListener("resize", unclip);
-  // \u05D3\u05D5\u05D2\u05DE\u05D0\u05D5\u05EA \u05DC\u05D7\u05D9\u05E6\u05D5\u05EA \u05DE\u05EA\u05D7\u05EA \u05DC\u05E9\u05D5\u05E8\u05EA \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9
-  // \u05D1\u05E1\u05DC\u05D5\u05DC\u05E8 \u2013 \u05D3\u05D5\u05D2\u05DE\u05D4 \u05E7\u05E6\u05E8\u05D4 \u05D9\u05D5\u05EA\u05E8 \u05D1\u05E9\u05D5\u05E8\u05EA \u05D4\u05D7\u05D9\u05E4\u05D5\u05E9
-  if(document.getElementById("shb-bot").offsetWidth < 600) input.placeholder = "\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3? \u2728";
-  var sug = document.getElementById("shb-sug");
-  var narrow = document.getElementById("shb-bot").offsetWidth < 600;
-  (narrow ? ["\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9","\u05D4\u05D0\u05E7\u05D3\u05DE\u05D9\u05EA \u05D0\u05D5\u05E0\u05D5","\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7"]
-          : ["\u05E7\u05D5\u05E8\u05E1 \u05E4\u05E1\u05D9\u05E4\u05E1 \u05D1\u05E9\u05E4\u05DC\u05D4","\u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9-\u05D5\u05D9\u05E0\u05D2\u05D9\u05D9\u05D8","\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7","\u05DE\u05E8\u05DB\u05D6 \u05E9\u05E4\u05E8 \u05DC\u05D4\u05D5\u05E8\u05D5\u05EA","\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u05D1\u05EA\u05E8\u05E4\u05D9\u05D4","AI \u05D1\u05DE\u05E8\u05DB\u05D6"]).forEach(function(x){
-    var b = document.createElement("button"); b.type="button"; b.className="shb-chip"; b.textContent=x;
-    b.onclick = function(){ startNew(); bubble(esc(x),"user"); handle(x); };
-    sug.appendChild(b);
   });
 
-  }
-  // index files load first; the bot starts even if they fail (keywords still work)
-  var v = "?v=" + Math.floor(Date.now()/3600000), pending = 2, started = false;
-  function done(){ if(--pending <= 0 && !started){ started = true; start(); } }
-  ["course_index.js", "institutions_index.js"].forEach(function(f){
-    var sc = document.createElement("script");
-    sc.src = BASE + f + v; sc.onload = done; sc.onerror = done;
-    document.head.appendChild(sc);
+  if (clearBtn) clearBtn.addEventListener('click', function(){
+    history = [];
+    messages.querySelectorAll('.shabaton-message').forEach(function(el){ el.remove(); });
+    app.classList.remove('chatting');
+    messages.scrollTop = 0;
   });
+
+  // שאלה שהועברה מבוט חיפוש הקורסים (shabaton-bot?q=...) – נשלחת אוטומטית
+  (function autoAsk(){
+    function fromSearch(s){ try { return new URLSearchParams(s).get('q') || ''; } catch(e){ return ''; } }
+    var q = fromSearch(window.location.search);
+    if (!q) { try { q = fromSearch(window.top.location.search); } catch(e){} }   // אם הבוט בתוך iframe באותו דומיין
+    q = (q || '').trim().slice(0, 500);
+    if (!q) return;
+    // מנקים את q מהכתובת כדי שרענון הדף לא ישלח שוב את השאלה
+    try {
+      var w = window.location.search.indexOf('q=') > -1 ? window : window.top;
+      var u = new URL(w.location.href); u.searchParams.delete('q');
+      w.history.replaceState(null, '', u.pathname + u.search + u.hash);
+    } catch(e){}
+    chatInput.value = q;
+    chatSend.disabled = false;
+    sendMessage();
+  })();
+
 })();
+
+</script>
+</body>
+</html>
