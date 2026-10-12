@@ -19,7 +19,7 @@ on:
       - 'course-bot/topics.json'
       - 'scripts/build_course_bot_index.py'
   workflow_run:
-    workflows: ['עדכון מוסדות מ-Excel']
+    workflows: ['עדכון מוסדות מ-Excel', 'עדכון מועדי קורסים מ-Excel']
     types: [completed]
 
 permissions:
@@ -52,11 +52,17 @@ jobs:
           course-bot/topics.json \
           course-bot/course_index.js
 
+    - name: 📅 תאריך עדכון המאגר (מוצג ב-footer של האתרים)
+      if: ${{ github.event_name != 'push' || contains(join(github.event.commits.*.modified, ','), 'data/') }}
+      run: |
+        echo "{\"updated\":\"$(TZ=Asia/Jerusalem date +%F)\"}" > course-bot/site-updated.json
+        cat course-bot/site-updated.json
+
     - name: 💾 שמירה ל-GitHub
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add course-bot/course_index.js course-bot/institutions_index.js
+        git add course-bot/course_index.js course-bot/institutions_index.js course-bot/site-updated.json
         if git diff --cached --quiet; then
           echo "⏭️ אין שינויים באינדקס"
         else
