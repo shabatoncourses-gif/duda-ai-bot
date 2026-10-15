@@ -968,12 +968,72 @@
   if(document.getElementById("shb-bot").offsetWidth < 600) input.placeholder = "\u05DE\u05D4 \u05EA\u05E8\u05E6\u05D5 \u05DC\u05DC\u05DE\u05D5\u05D3? \u2728";
   var sug = document.getElementById("shb-sug");
   var narrow = document.getElementById("shb-bot").offsetWidth < 600;
-  (narrow ? ["\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9","\u05D4\u05D0\u05E7\u05D3\u05DE\u05D9\u05EA \u05D0\u05D5\u05E0\u05D5","\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7"]
-          : ["\u05E7\u05D5\u05E8\u05E1 \u05E4\u05E1\u05D9\u05E4\u05E1 \u05D1\u05E9\u05E4\u05DC\u05D4","\u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9-\u05D5\u05D9\u05E0\u05D2\u05D9\u05D9\u05D8","\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7","\u05DE\u05E8\u05DB\u05D6 \u05E9\u05E4\u05E8 \u05DC\u05D4\u05D5\u05E8\u05D5\u05EA","\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u05D1\u05EA\u05E8\u05E4\u05D9\u05D4","AI \u05D1\u05DE\u05E8\u05DB\u05D6"]).forEach(function(x){
-    var b = document.createElement("button"); b.type="button"; b.className="shb-chip"; b.textContent=x;
-    b.onclick = function(){ startNew(); bubble(esc(x),"user"); handle(x); };
-    sug.appendChild(b);
-  });
+
+  /* ---- \u05D0\u05D9\u05D6\u05D4 \u05D0\u05EA\u05E8? shabaton.online \u05D0\u05D5 morim.boutique (\u05D0\u05E4\u05E9\u05E8 \u05DC\u05DB\u05E4\u05D5\u05EA: <div id="shb-bot" data-site="morim">) ---- */
+  var SITE = (botRoot.getAttribute("data-site") || (/morim\.boutique/i.test(location.hostname) ? "morim" : "shabaton")).toLowerCase();
+
+  /* ---- \u05DB\u05E4\u05EA\u05D5\u05E8\u05D9 \u05D4\u05D3\u05D5\u05D2\u05DE\u05D4: \u05D1\u05E8\u05D9\u05E8\u05EA \u05DE\u05D7\u05D3\u05DC \u05DC\u05DB\u05DC \u05D0\u05EA\u05E8. \u05D0\u05E4\u05E9\u05E8 \u05DC\u05E0\u05D4\u05DC \u05D0\u05D5\u05EA\u05DD \u05DE\u05D2\u05D9\u05DC\u05D9\u05D5\u05DF \u05D2\u05D5\u05D2\u05DC (\u05E8\u05D0\u05D5 SHB_CHIPS_CSV) ---- */
+  var DEFAULT_CHIPS = {
+    shabaton: { desktop: ["\u05E7\u05D5\u05E8\u05E1 \u05E4\u05E1\u05D9\u05E4\u05E1 \u05D1\u05E9\u05E4\u05DC\u05D4","\u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9-\u05D5\u05D9\u05E0\u05D2\u05D9\u05D9\u05D8","\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7","\u05DE\u05E8\u05DB\u05D6 \u05E9\u05E4\u05E8 \u05DC\u05D4\u05D5\u05E8\u05D5\u05EA","\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u05D1\u05EA\u05E8\u05E4\u05D9\u05D4","AI \u05D1\u05DE\u05E8\u05DB\u05D6"],
+                mobile:  ["\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9","\u05D4\u05D0\u05E7\u05D3\u05DE\u05D9\u05EA \u05D0\u05D5\u05E0\u05D5","\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7"] },
+    morim:    { desktop: ["\u05E7\u05D5\u05E8\u05E1\u05D9 \u05E4\u05E1\u05D9\u05E4\u05E1","\u05D4\u05E2\u05E6\u05DE\u05D4 \u05D0\u05D9\u05E9\u05D9\u05EA","\u05D1\u05D9\u05E9\u05D5\u05DC \u05D5\u05E7\u05D5\u05E0\u05D3\u05D9\u05D8\u05D5\u05E8\u05D9\u05D4","\u05D8\u05D9\u05D5\u05DC\u05D9\u05DD \u05D5\u05E1\u05DE\u05D9\u05E0\u05E8\u05D9\u05DD","\u05D1\u05E8\u05D9\u05D0\u05D5\u05EA \u05D2\u05D5\u05E3 \u05D5\u05E0\u05E4\u05E9","\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7"],
+                mobile:  ["\u05E7\u05D5\u05E8\u05E1\u05D9 \u05E4\u05E1\u05D9\u05E4\u05E1","\u05D4\u05E2\u05E6\u05DE\u05D4 \u05D0\u05D9\u05E9\u05D9\u05EA","\u05D1\u05D9\u05E9\u05D5\u05DC"] }
+  };
+  /* \u05D4\u05D2\u05D9\u05DC\u05D9\u05D5\u05DF: \u05DC\u05E9\u05D5\u05E0\u05D9\u05EA \u05D1\u05D2\u05D9\u05DC\u05D9\u05D5\u05DF knassim (\u05D0\u05D5 \u05DB\u05DC \u05D2\u05D9\u05DC\u05D9\u05D5\u05DF \u05D0\u05D7\u05E8), \u05DE\u05E4\u05D5\u05E8\u05E1\u05DE\u05EA \u05DB-CSV. \u05DB\u05D5\u05EA\u05E8\u05D5\u05EA \u05D1\u05E9\u05D5\u05E8\u05D4 \u05D4\u05E8\u05D0\u05E9\u05D5\u05E0\u05D4:
+       \u05D0\u05EA\u05E8 (shabaton / morim / \u05E8\u05D9\u05E7 = \u05E9\u05E0\u05D9\u05D4\u05DD) | \u05DE\u05DB\u05E9\u05D9\u05E8 (\u05DE\u05D7\u05E9\u05D1 / \u05E1\u05DC\u05D5\u05DC\u05E8 / \u05E8\u05D9\u05E7 = \u05E9\u05E0\u05D9\u05D4\u05DD) | \u05DB\u05D9\u05EA\u05D5\u05D1 | \u05E7\u05D9\u05E9\u05D5\u05E8 (\u05DC\u05D0 \u05D7\u05D5\u05D1\u05D4) | \u05E1\u05D3\u05E8 (\u05DC\u05D0 \u05D7\u05D5\u05D1\u05D4)
+     \u05D1\u05DC\u05D9 \u05E7\u05D9\u05E9\u05D5\u05E8 \u2013 \u05DC\u05D7\u05D9\u05E6\u05D4 \u05DE\u05D7\u05E4\u05E9\u05EA \u05D0\u05EA \u05D4\u05DB\u05D9\u05EA\u05D5\u05D1 \u05D1\u05D1\u05D5\u05D8. \u05E2\u05DD \u05E7\u05D9\u05E9\u05D5\u05E8 \u2013 \u05DC\u05D7\u05D9\u05E6\u05D4 \u05E2\u05D5\u05D1\u05E8\u05EA \u05D9\u05E9\u05E8 \u05DC\u05D3\u05E3. */
+  var SHB_CHIPS_CSV = botRoot.getAttribute("data-chips-csv") || "https://docs.google.com/spreadsheets/d/e/2PACX-1vTSOnpw09Uw0s-frgl131D9fERzV-20gSD_u3HlaSewwKMMpJ1h1K1N73Ycl_EPWuwKskVmrEl8u5Lo/pub?gid=638881863&single=true&output=csv";
+
+  function renderChips(list){
+    sug.innerHTML = "";
+    list.forEach(function(c){
+      var x = c.text, b = document.createElement("button"); b.type="button"; b.className="shb-chip"; b.textContent=x;
+      b.onclick = c.url ? function(){ try{ window.top.location.href = c.url; }catch(e){ location.href = c.url; } }
+                        : function(){ startNew(); bubble(esc(x),"user"); handle(x); };
+      sug.appendChild(b);
+    });
+    // \u05D1\u05E1\u05DC\u05D5\u05DC\u05E8 \u05D0\u05D9\u05DF \u05D2\u05DC\u05D9\u05DC\u05D4 \u2013 \u05DB\u05E4\u05EA\u05D5\u05E8 \u05E9\u05DC\u05D0 \u05E0\u05DB\u05E0\u05E1 \u05D1\u05E9\u05D5\u05E8\u05D4 \u05D9\u05D5\u05E8\u05D3
+    if(narrow){ var guard = 20; while(guard-- && sug.lastChild && sug.scrollWidth > sug.clientWidth + 1) sug.removeChild(sug.lastChild); }
+  }
+  var dflt = DEFAULT_CHIPS[SITE] || DEFAULT_CHIPS.shabaton;
+  renderChips((narrow ? dflt.mobile : dflt.desktop).map(function(t){ return {text:t}; }));
+
+  if(SHB_CHIPS_CSV){
+    fetch(SHB_CHIPS_CSV + (SHB_CHIPS_CSV.indexOf("?") > -1 ? "&" : "?") + "t=" + Math.floor(Date.now()/300000))
+      .then(function(r){ if(!r.ok) throw 0; return r.text(); })
+      .then(function(t){
+        var rows = csvRows(t); if(rows.length < 2) return;
+        var head = rows[0].map(function(h){ return String(h).trim(); });
+        function col(re){ for(var i = 0; i < head.length; i++) if(re.test(head[i])) return i; return -1; }
+        var cSite = col(/\u05D0\u05EA\u05E8|site/i), cDev = col(/\u05DE\u05DB\u05E9\u05D9\u05E8|\u05EA\u05E6\u05D5\u05D2\u05D4|device/i), cText = col(/\u05DB\u05D9\u05EA\u05D5\u05D1|\u05D8\u05E7\u05E1\u05D8|\u05DB\u05E4\u05EA\u05D5\u05E8|text|label/i),
+            cUrl = col(/\u05E7\u05D9\u05E9\u05D5\u05E8|\u05DC\u05D9\u05E0\u05E7|url|link/i), cOrd = col(/\u05E1\u05D3\u05E8|order/i);
+        if(cText < 0) return;
+        var dev = narrow ? /\u05E1\u05DC\u05D5\u05DC|\u05E0\u05D9\u05D9\u05D3|mobile/i : /\u05DE\u05D7\u05E9\u05D1|\u05D3\u05E1\u05E7|desktop/i;
+        var list = rows.slice(1).map(function(r, i){
+          return { text:String(r[cText] || "").trim(), url:cUrl > -1 ? String(r[cUrl] || "").trim() : "",
+                   site:cSite > -1 ? String(r[cSite] || "").trim().toLowerCase() : "", dev:cDev > -1 ? String(r[cDev] || "").trim() : "",
+                   ord:cOrd > -1 && String(r[cOrd]).trim() !== "" ? +r[cOrd] : 1000 + i };
+        }).filter(function(c){
+          return c.text && (!c.site || /\u05D4\u05DB\u05DC|all|\u05E9\u05E0\u05D9/.test(c.site) || c.site.indexOf(SITE) > -1 || (SITE === "morim" && /\u05DE\u05D5\u05E8\u05D9\u05DD|\u05D1\u05D5\u05D8\u05D9\u05E7/.test(c.site)) || (SITE === "shabaton" && /\u05E9\u05D1\u05EA\u05D5\u05DF/.test(c.site)))
+                 && (!c.dev || /\u05D4\u05DB\u05DC|all|\u05E9\u05E0\u05D9/i.test(c.dev) || dev.test(c.dev));
+        }).sort(function(a,b){ return a.ord - b.ord; });
+        if(list.length) renderChips(list);
+      })
+      .catch(function(){});
+  }
+  function csvRows(t){
+    var rows = [], row = [], f = "", q = false;
+    for(var i = 0; i < t.length; i++){
+      var ch = t[i];
+      if(q){ if(ch === '"'){ if(t[i+1] === '"'){ f += '"'; i++; } else q = false; } else f += ch; }
+      else if(ch === '"') q = true;
+      else if(ch === ","){ row.push(f); f = ""; }
+      else if(ch === "\n" || ch === "\r"){ if(ch === "\r" && t[i+1] === "\n") i++; row.push(f); rows.push(row); row = []; f = ""; }
+      else f += ch;
+    }
+    if(f !== "" || row.length){ row.push(f); rows.push(row); }
+    return rows.filter(function(r){ return r.some(function(x){ return String(x).trim(); }); });
+  }
 
   }
   // index files load first; the bot starts even if they fail (keywords still work)
