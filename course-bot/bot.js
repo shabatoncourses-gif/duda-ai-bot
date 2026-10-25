@@ -973,11 +973,12 @@
   var SITE = (botRoot.getAttribute("data-site") || (/morim\.boutique/i.test(location.hostname) ? "morim" : "shabaton")).toLowerCase();
 
   /* ---- \u05DB\u05E4\u05EA\u05D5\u05E8\u05D9 \u05D4\u05D3\u05D5\u05D2\u05DE\u05D4: \u05D1\u05E8\u05D9\u05E8\u05EA \u05DE\u05D7\u05D3\u05DC \u05DC\u05DB\u05DC \u05D0\u05EA\u05E8. \u05D0\u05E4\u05E9\u05E8 \u05DC\u05E0\u05D4\u05DC \u05D0\u05D5\u05EA\u05DD \u05DE\u05D2\u05D9\u05DC\u05D9\u05D5\u05DF \u05D2\u05D5\u05D2\u05DC (\u05E8\u05D0\u05D5 SHB_CHIPS_CSV) ---- */
+  /* \u05D2\u05D9\u05D1\u05D5\u05D9 \u05D1\u05DC\u05D1\u05D3: \u05DE\u05D5\u05E6\u05D2 \u05E8\u05E7 \u05D0\u05DD \u05D4\u05D2\u05D9\u05DC\u05D9\u05D5\u05DF \u05DC\u05D0 \u05E2\u05D5\u05E0\u05D4. \u05D6\u05D4\u05D4 \u05DC\u05DC\u05E9\u05D5\u05E0\u05D9\u05EA "\u05DB\u05E4\u05EA\u05D5\u05E8\u05D9\u05DD" (25.10.2026) */
   var DEFAULT_CHIPS = {
-    shabaton: { desktop: ["\u05E7\u05D5\u05E8\u05E1 \u05E4\u05E1\u05D9\u05E4\u05E1 \u05D1\u05E9\u05E4\u05DC\u05D4","\u05DC\u05D5\u05D9\u05E0\u05E1\u05E7\u05D9-\u05D5\u05D9\u05E0\u05D2\u05D9\u05D9\u05D8","\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7","\u05DE\u05E8\u05DB\u05D6 \u05E9\u05E4\u05E8 \u05DC\u05D4\u05D5\u05E8\u05D5\u05EA","\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 \u05D1\u05EA\u05E8\u05E4\u05D9\u05D4","AI \u05D1\u05DE\u05E8\u05DB\u05D6"],
-                mobile:  ["\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9","\u05D4\u05D0\u05E7\u05D3\u05DE\u05D9\u05EA \u05D0\u05D5\u05E0\u05D5","\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7"] },
-    morim:    { desktop: ["\u05E7\u05D5\u05E8\u05E1\u05D9 \u05E4\u05E1\u05D9\u05E4\u05E1","\u05D4\u05E2\u05E6\u05DE\u05D4 \u05D0\u05D9\u05E9\u05D9\u05EA","\u05D1\u05D9\u05E9\u05D5\u05DC \u05D5\u05E7\u05D5\u05E0\u05D3\u05D9\u05D8\u05D5\u05E8\u05D9\u05D4","\u05D8\u05D9\u05D5\u05DC\u05D9\u05DD \u05D5\u05E1\u05DE\u05D9\u05E0\u05E8\u05D9\u05DD","\u05D1\u05E8\u05D9\u05D0\u05D5\u05EA \u05D2\u05D5\u05E3 \u05D5\u05E0\u05E4\u05E9","\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7"],
-                mobile:  ["\u05E7\u05D5\u05E8\u05E1\u05D9 \u05E4\u05E1\u05D9\u05E4\u05E1","\u05D4\u05E2\u05E6\u05DE\u05D4 \u05D0\u05D9\u05E9\u05D9\u05EA","\u05D1\u05D9\u05E9\u05D5\u05DC"] }
+    shabaton: { desktop: [{text:"\u05D1\u05D9\u05E0\u05D4 \u05DE\u05DC\u05D0\u05DB\u05D5\u05EA\u05D9\u05EA", url:"https://www.shabaton.online/search-results-merkaz/%D7%98%D7%9B%D7%A0%D7%95%D7%9C%D7%95%D7%92%D7%99%D7%94%20%D7%93%D7%99%D7%92%D7%99%D7%98%D7%9C%D7%99%D7%AA%20%D7%95%D7%90%D7%99%D7%A0%D7%98%D7%A8%D7%A0%D7%98"}, {text:"\u05D4\u05D5\u05E8\u05D0\u05D4 \u05DE\u05EA\u05E7\u05E0\u05EA", url:"https://www.shabaton.online/results-all/%D7%94%D7%95%D7%A8%D7%90%D7%94%20%D7%9E%D7%AA%D7%A7%D7%A0%D7%AA%20-%20%D7%9E%D7%95%D7%AA%D7%90%D7%9E%D7%AA"}, {text:"\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7", url:"https://www.shabaton.online/results-all/%D7%9C%D7%9E%D7%99%D7%93%D7%94%20%D7%9E%D7%A8%D7%97%D7%95%D7%A7"}, {text:"\u05E0\u05D9\u05EA\u05D5\u05D7 \u05D4\u05EA\u05E0\u05D4\u05D2\u05D5\u05EA"}, {text:"\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9 - \u05DB\u05DC \u05D4\u05D4\u05EA\u05DE\u05D7\u05D5\u05D9\u05D5\u05EA", url:"https://www.shabaton.online/results-all/%D7%90%D7%A7%D7%93%D7%9E%D7%99%20-%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99"}],
+                mobile:  [{text:"\u05EA\u05D5\u05D0\u05E8 \u05E9\u05E0\u05D9", url:"https://www.shabaton.online/results-all/%D7%90%D7%A7%D7%93%D7%9E%D7%99%20-%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99"}, {text:"\u05E0\u05D9\u05EA\u05D5\u05D7 \u05D4\u05EA\u05E0\u05D4\u05D2\u05D5\u05EA"}, {text:"\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7", url:"https://www.shabaton.online/results-all/%D7%9C%D7%9E%D7%99%D7%93%D7%94%20%D7%9E%D7%A8%D7%97%D7%95%D7%A7"}] },
+    morim:    { desktop: [{text:"\u05E7\u05D5\u05E8\u05E1\u05D9 \u05E0\u05D2\u05E8\u05D5\u05EA", url:"https://www.morim.boutique/%D7%A7%D7%95%D7%A8%D7%A1%D7%99-%D7%A0%D7%92%D7%A8%D7%95%D7%AA-%D7%95%D7%97%D7%99%D7%93%D7%95%D7%A9-%D7%A8%D7%94%D7%99%D7%98%D7%99%D7%9D"}, {text:"\u05D4\u05E2\u05E6\u05DE\u05D4 \u05D0\u05D9\u05E9\u05D9\u05EA", url:"https://www.morim.boutique/empowering"}, {text:"\u05D1\u05D9\u05E9\u05D5\u05DC \u05D5\u05E7\u05D5\u05E0\u05D3\u05D9\u05D8\u05D5\u05E8\u05D9\u05D4", url:"https://www.morim.boutique/cooking"}, {text:"\u05D8\u05D9\u05D5\u05DC\u05D9\u05DD \u05D5\u05E1\u05DE\u05D9\u05E0\u05E8\u05D9\u05DD", url:"https://www.morim.boutique/trips"}, {text:"\u05D1\u05E8\u05D9\u05D0\u05D5\u05EA \u05D2\u05D5\u05E3 \u05D5\u05E0\u05E4\u05E9", url:"https://www.morim.boutique/health"}, {text:"\u05DC\u05DE\u05D9\u05D3\u05D4 \u05DE\u05E8\u05D7\u05D5\u05E7", url:"https://www.shabaton.online/results-all/%D7%9C%D7%9E%D7%99%D7%93%D7%94%20%D7%9E%D7%A8%D7%97%D7%95%D7%A7"}],
+                mobile:  [{text:"\u05E7\u05D5\u05E8\u05E1\u05D9 \u05E0\u05D2\u05E8\u05D5\u05EA", url:"https://www.morim.boutique/%D7%A7%D7%95%D7%A8%D7%A1%D7%99-%D7%A0%D7%92%D7%A8%D7%95%D7%AA-%D7%95%D7%97%D7%99%D7%93%D7%95%D7%A9-%D7%A8%D7%94%D7%99%D7%98%D7%99%D7%9D"}, {text:"\u05D4\u05E2\u05E6\u05DE\u05D4 \u05D0\u05D9\u05E9\u05D9\u05EA", url:"https://www.morim.boutique/empowering"}, {text:"\u05D1\u05D9\u05E9\u05D5\u05DC", url:"https://www.morim.boutique/cooking"}] }
   };
   /* \u05D4\u05D2\u05D9\u05DC\u05D9\u05D5\u05DF: \u05DC\u05E9\u05D5\u05E0\u05D9\u05EA \u05D1\u05D2\u05D9\u05DC\u05D9\u05D5\u05DF knassim (\u05D0\u05D5 \u05DB\u05DC \u05D2\u05D9\u05DC\u05D9\u05D5\u05DF \u05D0\u05D7\u05E8), \u05DE\u05E4\u05D5\u05E8\u05E1\u05DE\u05EA \u05DB-CSV. \u05DB\u05D5\u05EA\u05E8\u05D5\u05EA \u05D1\u05E9\u05D5\u05E8\u05D4 \u05D4\u05E8\u05D0\u05E9\u05D5\u05E0\u05D4:
        \u05D0\u05EA\u05E8 (shabaton / morim / \u05E8\u05D9\u05E7 = \u05E9\u05E0\u05D9\u05D4\u05DD) | \u05DE\u05DB\u05E9\u05D9\u05E8 (\u05DE\u05D7\u05E9\u05D1 / \u05E1\u05DC\u05D5\u05DC\u05E8 / \u05E8\u05D9\u05E7 = \u05E9\u05E0\u05D9\u05D4\u05DD) | \u05DB\u05D9\u05EA\u05D5\u05D1 | \u05E7\u05D9\u05E9\u05D5\u05E8 (\u05DC\u05D0 \u05D7\u05D5\u05D1\u05D4) | \u05E1\u05D3\u05E8 (\u05DC\u05D0 \u05D7\u05D5\u05D1\u05D4)
@@ -996,18 +997,24 @@
     if(narrow){ var guard = 20; while(guard-- && sug.lastChild && sug.scrollWidth > sug.clientWidth + 1) sug.removeChild(sug.lastChild); }
   }
   var dflt = DEFAULT_CHIPS[SITE] || DEFAULT_CHIPS.shabaton;
-  renderChips((narrow ? dflt.mobile : dflt.desktop).map(function(t){ return {text:t}; }));
+  // \u05DC\u05D0 \u05DE\u05E6\u05D9\u05D2\u05D9\u05DD \u05E7\u05D5\u05D3\u05DD \u05D0\u05EA \u05D1\u05E8\u05D9\u05E8\u05EA \u05D4\u05DE\u05D7\u05D3\u05DC (\u05D6\u05D4 \u05D9\u05E6\u05E8 "\u05D4\u05D1\u05D4\u05D5\u05D1" \u05E9\u05DC \u05DB\u05E4\u05EA\u05D5\u05E8\u05D9\u05DD \u05D9\u05E9\u05E0\u05D9\u05DD).
+  // \u05DE\u05D7\u05DB\u05D9\u05DD \u05DC\u05D2\u05D9\u05DC\u05D9\u05D5\u05DF; \u05E8\u05E7 \u05D0\u05DD \u05D4\u05D5\u05D0 \u05DC\u05D0 \u05D4\u05D2\u05D9\u05E2 \u05EA\u05D5\u05DA 2.5 \u05E9\u05E0\u05D9\u05D5\u05EA (\u05D0\u05D5 \u05E0\u05DB\u05E9\u05DC) \u2013 \u05DE\u05D5\u05E6\u05D2\u05EA \u05D1\u05E8\u05D9\u05E8\u05EA \u05D4\u05DE\u05D7\u05D3\u05DC.
+  sug.style.minHeight = "31px";   // \u05E9\u05D5\u05DE\u05E8\u05D9\u05DD \u05DE\u05E7\u05D5\u05DD \u05DC\u05E9\u05D5\u05E8\u05D4 \u2013 \u05D1\u05DC\u05D9 \u05E7\u05E4\u05D9\u05E6\u05D4 \u05DB\u05E9\u05D4\u05DB\u05E4\u05EA\u05D5\u05E8\u05D9\u05DD \u05DE\u05D5\u05E4\u05D9\u05E2\u05D9\u05DD
+  var chipsShown = false;
+  function showChips(list){ chipsShown = true; renderChips(list); }
+  function showDefaultChips(){ if(!chipsShown) showChips((narrow ? dflt.mobile : dflt.desktop).map(function(t){ return typeof t === "string" ? {text:t} : t; })); }
+  if(!SHB_CHIPS_CSV) showDefaultChips(); else setTimeout(showDefaultChips, 2500);
 
   if(SHB_CHIPS_CSV){
     fetch(SHB_CHIPS_CSV + (SHB_CHIPS_CSV.indexOf("?") > -1 ? "&" : "?") + "t=" + Math.floor(Date.now()/300000))
       .then(function(r){ if(!r.ok) throw 0; return r.text(); })
       .then(function(t){
-        var rows = csvRows(t); if(rows.length < 2) return;
+        var rows = csvRows(t); if(rows.length < 2) return showDefaultChips();
         var head = rows[0].map(function(h){ return String(h).trim(); });
         function col(re){ for(var i = 0; i < head.length; i++) if(re.test(head[i])) return i; return -1; }
         var cSite = col(/\u05D0\u05EA\u05E8|site/i), cDev = col(/\u05DE\u05DB\u05E9\u05D9\u05E8|\u05EA\u05E6\u05D5\u05D2\u05D4|device/i), cText = col(/\u05DB\u05D9\u05EA\u05D5\u05D1|\u05D8\u05E7\u05E1\u05D8|\u05DB\u05E4\u05EA\u05D5\u05E8|text|label/i),
             cUrl = col(/\u05E7\u05D9\u05E9\u05D5\u05E8|\u05DC\u05D9\u05E0\u05E7|url|link/i), cOrd = col(/\u05E1\u05D3\u05E8|order/i);
-        if(cText < 0) return;
+        if(cText < 0) return showDefaultChips();
         var dev = narrow ? /\u05E1\u05DC\u05D5\u05DC|\u05E0\u05D9\u05D9\u05D3|mobile/i : /\u05DE\u05D7\u05E9\u05D1|\u05D3\u05E1\u05E7|desktop/i;
         var list = rows.slice(1).map(function(r, i){
           return { text:String(r[cText] || "").trim(), url:cUrl > -1 ? String(r[cUrl] || "").trim() : "",
@@ -1017,9 +1024,9 @@
           return c.text && (!c.site || /\u05D4\u05DB\u05DC|all|\u05E9\u05E0\u05D9/.test(c.site) || c.site.indexOf(SITE) > -1 || (SITE === "morim" && /\u05DE\u05D5\u05E8\u05D9\u05DD|\u05D1\u05D5\u05D8\u05D9\u05E7/.test(c.site)) || (SITE === "shabaton" && /\u05E9\u05D1\u05EA\u05D5\u05DF/.test(c.site)))
                  && (!c.dev || /\u05D4\u05DB\u05DC|all|\u05E9\u05E0\u05D9/i.test(c.dev) || dev.test(c.dev));
         }).sort(function(a,b){ return a.ord - b.ord; });
-        if(list.length) renderChips(list);
+        if(list.length) showChips(list); else showDefaultChips();
       })
-      .catch(function(){});
+      .catch(function(){ showDefaultChips(); });
   }
   function csvRows(t){
     var rows = [], row = [], f = "", q = false;
