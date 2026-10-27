@@ -9,7 +9,8 @@ on:
         default: '🔄 עדכון known_institutions מ-Excel'
   push:
     paths:
-      - 'data/מסד_דודא.xlsx'
+      # מתאים גם ל"מסד_דודא.xlsx" (קו תחתון) וגם ל"מסד דודא.xlsx" (רווח) וכל וריאציה דומה
+      - 'data/מסד*דודא*.xlsx'
 
 jobs:
   update-institutions:
@@ -29,13 +30,19 @@ jobs:
 
     - name: 🔄 הרצת update_institutions.py
       run: |
-        if [ -f "data/מסד_דודא.xlsx" ]; then
+        # חיפוש גמיש של קובץ האקסל: "מסד_דודא.xlsx" או "מסד דודא.xlsx" (או וריאציה דומה).
+        # אם יש כמה קבצים כאלה - נלקח המעודכן ביותר.
+        EXCEL_FILE=$(ls -t data/מסד*דודא*.xlsx 2>/dev/null | head -n 1)
+        if [ -n "$EXCEL_FILE" ]; then
+          echo "📊 נמצא קובץ: $EXCEL_FILE"
           echo "📊 מריץ update_institutions.py..."
           python scripts/update_institutions.py \
-            "data/מסד_דודא.xlsx" \
+            "$EXCEL_FILE" \
             "data/study-fields.json"
         else
-          echo "❌ קובץ Excel לא נמצא: data/מסד_דודא.xlsx"
+          echo "❌ קובץ Excel לא נמצא בתיקיית data/ (חיפשתי מסד*דודא*.xlsx)"
+          echo "📂 תוכן תיקיית data/:"
+          ls -la data/ | grep -i xlsx || echo "  (לא נמצאו קבצי xlsx)"
           exit 1
         fi
 
