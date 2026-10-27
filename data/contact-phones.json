@@ -111,6 +111,7 @@
     "לוי בר גיל": "https://www.shabaton.online/contact-us-phone/170",
     "דנה קינד": "https://www.shabaton.online/contact-us-phone/164",
     "יפית מורדוף": "https://www.shabaton.online/contact-us-phone/133",
+    "המרכז החברתי: פעילויות חברתיות וייעוץ למען חינוך חברתי": "https://www.shabaton.online/contact-us-phone/196",
     "מכללת אפרתה": "https://www.shabaton.online/contact-us-phone/5",
     "האקדמית חמדת": "https://www.shabaton.online/contact-us-phone/10",
     "המכללה האקדמית לחינוך עש דוד ילין": "https://www.shabaton.online/contact-us-phone/197",
@@ -401,7 +402,6 @@
         "ניהול",
         "ייעוץ",
         "ארגוני",
-        "וייעוץ",
         "עסקי",
         "מודל",
         "המצוינות",
@@ -1618,6 +1618,27 @@
       "strongWords": [
         "יפית",
         "מורדוף"
+      ]
+    },
+    {
+      "name": "המרכז החברתי: פעילויות חברתיות וייעוץ למען חינוך חברתי",
+      "url": "https://www.shabaton.online/contact-us-phone/196",
+      "words": [
+        "החברתי:",
+        "פעילויות",
+        "חברתיות",
+        "וייעוץ",
+        "למען",
+        "חינוך",
+        "חברתי"
+      ],
+      "strongWords": [
+        "החברתי:",
+        "פעילויות",
+        "חברתיות",
+        "למען",
+        "חינוך",
+        "חברתי"
       ]
     }
   ]
