@@ -22,7 +22,6 @@
     "המכללה האקדמית בוינגייט - בית הספר להשתלמויות": "https://www.shabaton.online/contact-us-phone/26",
     "ד'ר שולמית רונן": "https://www.shabaton.online/contact-us-phone/28",
     "גבאי שוקי - נומרולוג": "https://www.shabaton.online/contact-us-phone/30",
-    "פוקוס - המרכז ללימוד צילום": "https://www.shabaton.online/contact-us-phone/31",
     "מכללת גישות – להנחיה, אימון ,ניהול, ייעוץ ארגוני וייעוץ עסקי על פי מודל המצוינות של ד'ר צבי ברק": "https://www.shabaton.online/contact-us-phone/32",
     "אורנים - היחידה ללימודי חוץ": "https://www.shabaton.online/contact-us-phone/33",
     "אוניברסיטת חיפה": "https://www.shabaton.online/contact-us-phone/35",
@@ -118,7 +117,6 @@
     "אוניברסיטת תל": "https://www.shabaton.online/contact-us-phone/19",
     "אוניברסיטת בר אילן": "https://www.shabaton.online/contact-us-phone/24",
     "גבאי שוקי": "https://www.shabaton.online/contact-us-phone/30",
-    "פוקוס": "https://www.shabaton.online/contact-us-phone/31",
     "מכללת גישות": "https://www.shabaton.online/contact-us-phone/32",
     "אורנים": "https://www.shabaton.online/contact-us-phone/33",
     "מכללת ביטוי לאמנות ועיצוב": "https://www.shabaton.online/contact-us-phone/37",
@@ -361,20 +359,6 @@
         "גבאי",
         "שוקי",
         "נומרולוג"
-      ]
-    },
-    {
-      "name": "פוקוס - המרכז ללימוד צילום",
-      "url": "https://www.shabaton.online/contact-us-phone/31",
-      "words": [
-        "פוקוס",
-        "ללימוד",
-        "צילום"
-      ],
-      "strongWords": [
-        "פוקוס",
-        "ללימוד",
-        "צילום"
       ]
     },
     {
