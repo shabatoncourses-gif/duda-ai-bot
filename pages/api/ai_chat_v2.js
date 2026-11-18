@@ -253,6 +253,28 @@ function wordBoundaryIncludes(text, term) {
   return re.test(text);
 }
 
+// ── נרמול כתיב עברי להשוואת ערים/מקומות ──
+// "פתח תקווה" / "פתח תקוה" / "פתח-תקווה" הן אותה עיר, אבל includes() רגיל
+// מפספס: הנתונים (locations) כתובים בכתיב אחד והגולשת מקלידה בכתיב אחר.
+// הנרמול סימטרי (מופעל על שני הצדדים): מקף→רווח, וו→ו, יי→י.
+function normHe(s) {
+  return String(s || '').toLowerCase().replace(/[-\u05BE]/g, ' ').replace(/\s+/g, ' ')
+    .replace(/\u05D5\u05D5/g, '\u05D5').replace(/\u05D9\u05D9/g, '\u05D9').trim();
+}
+// מסיר מהודעה את שם העיר (בכל וריאציות הכתיב, גם עם תחילית "ב"/"ל"/"מ"), כדי ששם העיר
+// לא ישמש כ"מונח נושאי". דוגמה: "נגרות באזור פתח תקווה" — "תקווה" הוא חלק משם העיר,
+// לא נושא, ובלי זה הבוט סינן מוסדות שמתארים "חוסן ותקווה".
+function stripCityFromTopic(message, city) {
+  if (!message || !city) return message;
+  const pat = normHe(city).split('').map(ch => {
+    if (ch === ' ') return '[\\s\\-\u05BE]+';
+    if (ch === '\u05D5' || ch === '\u05D9') return ch + '{1,2}';
+    return ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }).join('');
+  const re = new RegExp('(^|[^\\u05D0-\\u05EA])[בלמכהוש]{0,2}' + pat + '(?=$|[^\\u05D0-\\u05EA])', 'g');
+  return message.replace(re, '$1 ').replace(/\s+/g, ' ').trim();
+}
+
 // ── "בונוס-ספציפיות" לכמה שמות-תוכנית ידועים ──
 // נצפה בפרודקשן: "השתלמויות במסגרת אופק חדש" — "השתלמויות" (9 תווים, מילה
 // גנרית שמתאימה כמעט לכל שדה) ניצחה את "אופק חדש" (8 תווים, שם-תוכנית
@@ -319,6 +341,9 @@ function detectRegion(q) {
 // "הידרותרפיה"), אין להציג את כל המוסדות בתחום — רק את אלו שבאמת
 // מזכירים את המונח הספציפי בתיאור שלהם.
 function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeywords) {
+  // "מיומנויות חברתיות" / "כישורים חברתיים" / "מיומנויות וכישורים חברתיים" — הנושא הוא "חברתי";
+  // המילים "מיומנויות/כישורים" כלליות מדי כדי לשמש מונח מצמצם (ואז נשארו רק מוסדות שכתבו בדיוק את הצירוף).
+  message = message.replace(/(?:מיומנויות|כישורים|כישורי)(?:\s+(?:ו?כישורים|ו?מיומנויות))?\s+(חברתי[\u05D0-\u05EA]*)/g, '$1');
   const msgL = message.toLowerCase();
   const stopwords = new Set([
     'קורס','קורסי','קורסים','לימודי','לימוד','לימודים','בתחום','אזור','מה','יש','של',
@@ -432,7 +457,10 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
 
   // בודקים את כל המועמדים, ובוחרים את ההתאמה הצרה ביותר (לא הראשונה שנמצאה)
   // aliasing: מונחים עם וריאציות נפוצות
-  const termAliases = { 'אומנות': ['אומנות','אמנות'], 'אמנות': ['אמנות','אומנות'],
+  // נטיות של "חברתי" (חברתיות/חברתיים/חברתית/החברתית) — אותו נושא בתיאורי המוסדות
+  const socialForms = ['חברתיות','חברתיים','חברתית','החברתית','החברתי','חברתי'];
+  const termAliases = { 'חברתיות': socialForms, 'חברתיים': socialForms, 'חברתית': socialForms,
+    'אומנות': ['אומנות','אמנות'], 'אמנות': ['אמנות','אומנות'],
     'טיפולי': ['טיפולי','טיפול','טיפולית','תרפיה'], 'טיפולית': ['טיפולית','טיפול','טיפולי','תרפיה'],
     'תרפיה': ['תרפיה','טיפול','טיפולי','טיפולית'] };
   // נצפה בפרודקשן: מוסד "אקו פלייבק" משתמש במילה "תרפיה" (לא "טיפול") בתיאור
@@ -1680,6 +1708,21 @@ function fixTypos(msg) {
     .replace(/chatgpt/gi, 'בינה מלאכותית')
     .replace(/chat gpt/gi, 'בינה מלאכותית')
     .replace(/קנווה|קנבה|קאנבה|קאנווה|קנבא|קאנבא/g, 'canva')
+    // ── ראשי-תיבות לועזיים שהגולשות מקלידות בתעתיק עברי ("סיביטי" = CBT) ──
+    // בתיאורי המוסדות ובמילות-המפתח המונחים כתובים באותיות לטיניות בלבד, ולכן בלי
+    // ההמרה כאן הבוט לא מזהה את התחום, וגם סינון-המונח לא מוצא אף מוסד ספציפי.
+    // תחילית עברית (ב/ל/מ/כ/ה/ו/ש) נבלעת; גבול-מילה עברי נשמר כדי לא לפגוע במילים אחרות.
+    .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}(?:סי[\s.\-]*בי[\s.\-]*טי|סיבי[\s.\-]*טי)(?![\u05D0-\u05EA])/g, '$1 CBT ')
+    .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}(?:אן|אנ)[\s.\-]*אל[\s.\-]*פי(?![\u05D0-\u05EA])/g, '$1 NLP ')
+    .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}אנ?אלפי(?![\u05D0-\u05EA])/g, '$1 NLP ')
+    .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}די[\s.\-]*בי[\s.\-]*טי(?![\u05D0-\u05EA])/g, '$1 DBT ')
+    .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}(?:אדהד|אד[\s.\-]*הד)(?![\u05D0-\u05EA])/g, '$1 ADHD ')
+    .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}(?:איי|אי)[\s.\-]*בי[\s.\-]*איי(?![\u05D0-\u05EA])/g, '$1 ABA ')
+    .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}אם[\s.\-]*בי[\s.\-]*אס[\s.\-]*אר(?![\u05D0-\u05EA])/g, '$1 MBSR ')
+    .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}פוטושופ(?![\u05D0-\u05EA])/g, '$1 photoshop ')
+    .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}וורדפרס(?![\u05D0-\u05EA])/g, '$1 wordpress ')
+    .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}וויקס(?![\u05D0-\u05EA])/g, '$1 wix ')
+    .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}פייתון(?![\u05D0-\u05EA])/g, '$1 python ')
     .replace(/home\s*styl(e|ing)/gi, 'הום סטיילינג')
     .replace(/עיצוב פנים/g, 'הום סטיילינג')
     .replace(/\bלנפש\b/g, 'להעצמה')
@@ -2165,7 +2208,7 @@ async function buildContext(message, history, precomputedQA, apiKey) {
   // שם צריך דיוק, לא recall: מילים גנריות שההרחבה הסמנטית מוסיפה (כמו
   // "טיפול"/"צילום" עבור "פוטותרפיה") היו גורמות לסינון להיות רחב מדי
   // ולהראות שורות קורס לא-קשורות.
-  const msgForNarrowing = stripPrerequisiteQualifiers(message);
+  let msgForNarrowing = stripPrerequisiteQualifiers(message);   // let: אחרי זיהוי עיר מסירים ממנה את שם העיר (ראו סינון-עיר)
   if (sfForKI) {
     const msgLKI2 = msgForFieldMatch.toLowerCase();
     let bestLen = 0;
@@ -2387,15 +2430,20 @@ async function buildContext(message, history, precomputedQA, apiKey) {
     if (knownOnly && !wasCombined) {
       const sfRegions = loadJSON('regions.json');
       const allRegionCities = sfRegions ? sfRegions.regions.flatMap(r => r.cities || []) : [];
-      const msgLower = msgForFieldMatch.toLowerCase();
+      // השוואה בכתיב מנורמל — "פתח תקווה" = "פתח תקוה" = "פתח-תקווה"
+      const msgLower = normHe(msgForFieldMatch);
       const mentionedCity = allRegionCities.find(c =>
-        c.length >= 4 && wordBoundaryIncludes(msgLower, c.toLowerCase())
+        c.length >= 4 && wordBoundaryIncludes(msgLower, normHe(c))
       );
       if (mentionedCity) {
+        const mentionedCityN = normHe(mentionedCity);
         const cityFiltered = knownOnly.filter(ki =>
-          (ki.locations || []).some(loc => loc.toLowerCase().includes(mentionedCity.toLowerCase()))
+          (ki.locations || []).some(loc => normHe(loc).includes(mentionedCityN))
         );
         if (cityFiltered.length > 0) {
+          // העיר משמשת כאן לסינון גיאוגרפי — לכן היא לא יכולה לשמש גם כ"מונח נושאי"
+          // (אחרת "פתח תקווה" → המונח "תקווה" → מוסדות עם "חוסן ותקווה" בתיאור).
+          msgForNarrowing = stripCityFromTopic(msgForNarrowing, mentionedCity);
           // ── מודעות למונח-ספציפי לפני שממצים לעיר ──
           // נצפה בפרודקשן: "קורס פסיפס בירושלים" צמצם קודם ל-6 מוסדות-אמנות
           // הממוקמים בירושלים (אף אחד לא פסיפס), ורק *אז* ניסה סינון-נושאי
@@ -3268,7 +3316,7 @@ async function buildContext(message, history, precomputedQA, apiKey) {
       // חיפוש עיר ספציפית בהודעה
       const regionCitiesAll = (region.cities || []).map(c => c.toLowerCase());
       const mentionedCityForNoField = regionCitiesAll.find(c =>
-        c.length >= 4 && wordBoundaryIncludes(msgForFieldMatch.toLowerCase(), c)
+        c.length >= 4 && wordBoundaryIncludes(normHe(msgForFieldMatch), normHe(c))
       ) || (region.keywords || []).map(k=>k.toLowerCase()).find(k =>
         k.length >= 4 && wordBoundaryIncludes(msgForFieldMatch.toLowerCase(), k)
       );
@@ -3282,7 +3330,7 @@ async function buildContext(message, history, precomputedQA, apiKey) {
           for (const ki of (sfItem.known_institutions || [])) {
             if (!seenUrls.has(ki.url) &&
                 (ki.url || '').match(/shabaton\.online|morim\.boutique/) &&
-                (ki.locations || []).some(loc => loc.toLowerCase().includes(mentionedCityForNoField))) {
+                (ki.locations || []).some(loc => normHe(loc).includes(normHe(mentionedCityForNoField)))) {
               cityInstitutions.push({ ...ki, fieldName: sfItem.name });
               seenUrls.add(ki.url);
             }
