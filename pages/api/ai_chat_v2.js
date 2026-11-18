@@ -344,7 +344,45 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
   // "מיומנויות חברתיות" / "כישורים חברתיים" / "מיומנויות וכישורים חברתיים" — הנושא הוא "חברתי";
   // המילים "מיומנויות/כישורים" כלליות מדי כדי לשמש מונח מצמצם (ואז נשארו רק מוסדות שכתבו בדיוק את הצירוף).
   message = message.replace(/(?:מיומנויות|כישורים|כישורי)(?:\s+(?:ו?כישורים|ו?מיומנויות))?\s+(חברתי[\u05D0-\u05EA]*)/g, '$1');
-  const msgL = message.toLowerCase();
+  let msgL = message.toLowerCase();
+  // ── צירוף-נושא ידוע (keyword רב-מילתי של תחום, כמו "עבודה סוציאלית") ──
+  // הצירוף הוא מונח אחד: אסור שמילה בודדת ממנו ("עבודה") תשמש כמונח מצמצם
+  // ותתאים לכל תיאור שמזכיר "עבודה" (עבודה עם ילדים, עבודה קהילתית...).
+  // מוצאים צירופים כאלה בהודעה, בודקים אותם כמועמד קודם, ומוציאים אותם מהטקסט
+  // כך שמילותיהם לא ייספרו שוב כמילים נפרדות.
+  const protectedPhrases = [];
+  const degreePhrases = [];
+  try {
+    const sfData = loadJSON('study-fields.json');
+    const sfList = Array.isArray(sfData) ? sfData : (sfData && (sfData.fields || sfData.studyFields)) || [];
+    const seenP = new Set();
+    for (const f of sfList) {
+      for (const k of (f.keywords || [])) {
+        const kl = String(k).toLowerCase().trim();
+        if (!/^[\u05D0-\u05EA]{2,}(?:\s+[\u05D0-\u05EA]{2,})+$/.test(kl) || seenP.has(kl)) continue;
+        seenP.add(kl);
+        if (wordBoundaryIncludes(msgL, kl)) {
+          // רמת תואר ("תואר שני", "תואר ראשון בחינוך") היא תנאי/רמה ולא נושא —
+          // מוציאים אותה מהטקסט אבל לא משתמשים בה כמונח מצמצם.
+          if (/^תואר\s+(?:ראשון|שני|שלישי)(?:\s|$)/.test(kl)) degreePhrases.push(kl);
+          else {
+            // מגינים על הצירוף רק אם הוא עצמו מופיע בתיאורים, או שאחת ממילותיו לא מופיעה
+            // באף תיאור (נושא שלא קיים במאגר, כמו "עבודה סוציאלית"). אם כל מילה מופיעה
+            // בנפרד אבל הצירוף לא — משאירים את ההתנהגות הרגילה (התאמה לפי מילים).
+            const txts = institutions.map(ki => ((ki.title || '') + ' ' + (ki.description || '')).toLowerCase());
+            const phraseFound = txts.some(t => t.includes(kl));
+            const wordAbsent = kl.split(' ').some(w => w.length >= 4 && !txts.some(t => t.includes(w)));
+            if (phraseFound || wordAbsent) protectedPhrases.push(kl);
+          }
+        }
+      }
+    }
+    protectedPhrases.sort((x, y) => y.length - x.length);
+    for (const ph of [...protectedPhrases, ...degreePhrases]) {
+      const idx = msgL.indexOf(ph);
+      if (idx >= 0) msgL = msgL.slice(0, idx) + ' ' + msgL.slice(idx + ph.length);
+    }
+  } catch (e) {}
   const stopwords = new Set([
     'קורס','קורסי','קורסים','לימודי','לימוד','לימודים','בתחום','אזור','מה','יש','של',
     'על','עם','גם','כל','אני','את','אתה','אילו','איזה','מוסדות','שמציעים',
@@ -355,6 +393,8 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
     'שש','חובה','רשות','נקודות','שעות','ש"ש',
     // מילות פעולה לימודיות כלליות — לא נושא
     'ללמוד','למוד','ולמוד','ללמד','ולמד','להכשיר','לרכוש','לפתח','לרכוש',
+    // סוג/רמת תואר — לא נושא לימוד ("תואר שני ב-X" — הנושא הוא X)
+    'תואר','תארים',
     // מילות אזור/מיקום — לא נושא לימוד
     'באיזור','באזור','איזור','אזור','פרדס','כרכור','רכור','חנה','פרונטלי','פרונטל','פנים',
     'ירושלים','תל אביב','חיפה','באר שבע'
@@ -383,7 +423,7 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
     return false;
   };
 
-  const candidates = [];
+  const candidates = [...protectedPhrases];
   for (let i = 0; i < rawWords.length - 1; i++) {
     const w1 = rawWords[i], w2 = rawWords[i+1];
     if (isStop(w1) || isStop(w2)) continue;
