@@ -1759,6 +1759,7 @@ function fixTypos(msg) {
     .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}(?:אדהד|אד[\s.\-]*הד)(?![\u05D0-\u05EA])/g, '$1 ADHD ')
     .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}(?:איי|אי)[\s.\-]*בי[\s.\-]*איי(?![\u05D0-\u05EA])/g, '$1 ABA ')
     .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}אם[\s.\-]*בי[\s.\-]*אס[\s.\-]*אר(?![\u05D0-\u05EA])/g, '$1 MBSR ')
+    .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}(?:אן|אנ)[\s.\-]*סי[\s.\-]*אס(?![\u05D0-\u05EA])/g, '$1 NCS ')
     .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}פוטושופ(?![\u05D0-\u05EA])/g, '$1 photoshop ')
     .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}וורדפרס(?![\u05D0-\u05EA])/g, '$1 wordpress ')
     .replace(/(^|[^\u05D0-\u05EA])[בלמכהוש]{0,2}וויקס(?![\u05D0-\u05EA])/g, '$1 wix ')
@@ -1808,6 +1809,20 @@ function lookupInstitution(message) {
     }
 
     return { found: true, ...data.institutions[key], matchedKey: key };
+  }
+
+  // ── שם-מותג לטיני כמילה הראשונה במפתח ("NCS תזונה", "Stylish תפירה", "Avital פיסול") ──
+  // נצפה בפרודקשן: הודעה "NCS" בלבד לא זוהתה כמוסד, כי המפתח ב-Institutions.json הוא
+  // "NCS תזונה" (שם + תחום) ואין מפתח בסיסי "NCS". שם-המותג הלטיני הוא בדרך כלל השם
+  // הייחודי של המוסד, ולכן מזהים אותו גם לבדו (כמילה שלמה), כל עוד אין מפתח בסיסי משלו.
+  // המפתחות הארוכים בודקים קודם, כך שהתאמה מלאה ("NCS תזונה") עדיין מנצחת.
+  for (const key of keys) {
+    const first = key.split(/\s+/)[0];
+    if (key === first || !/^[A-Za-z]{3,}$/.test(first)) continue;
+    if (data.institutions[first]) continue; // יש מפתח בסיסי משלו — כבר טופל למעלה
+    if (wordBoundaryIncludes(msgL, first.toLowerCase())) {
+      return { found: true, ...data.institutions[key], matchedKey: key };
+    }
   }
   return null; // לא מנחש — מסתמך על ה-zero-results fallback הכללי
 }
