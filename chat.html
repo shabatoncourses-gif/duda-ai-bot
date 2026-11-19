@@ -272,6 +272,53 @@ a:focus-visible, button:focus-visible, .topic:focus-visible { outline: 3px solid
     site: 'shabaton'
   };
 
+  // ── שגיאות כתיב: אם הבוט לא מצא כלום, מנסים שוב בכתיב אחר של המילים (למשל "נומירולוגיה" → "נומרולוגיה") ──
+  // רק כשהתשובה היא "לא מצאתי מידע ספציפי", רק בחיפוש קצר (עד 3 מילים), ולכל היותר 5 ניסיונות נוספים.
+  var NOT_FOUND = /לא מצאתי מידע ספציפי/;
+  function spellVariants(msg) {
+    var words = msg.split(/\s+/);
+    if (words.length > 3) return [];   // רק חיפוש קצר (שם של קורס / נושא) – לא שאלות ארוכות
+    var out = [], seen = {};
+    function push(i, w) { var m = words.slice(); m[i] = w; var s = m.join(' '); if (!seen[s] && s !== msg) { seen[s] = 1; out.push({ msg: s, word: w }); } }
+    var SWAP = { 'ט': 'ת', 'ת': 'ט', 'כ': 'ק', 'ק': 'כ', 'ס': 'ש', 'ש': 'ס', 'א': 'ע', 'ע': 'א' };
+    var STOP = /^(קורס|קורסים|לימודי|לימודים|שבתון|מורים|מורה|תואר|השתלמות|השתלמויות|איפה|מתי|כמה|יש|על|של|את|עם|בשבתון)$/;
+    var cand = [];
+    words.forEach(function (w, i) {
+      var m = w.match(/^([^א-ת]*)([א-ת"'׳״]+)([^א-ת]*)$/); if (!m || m[2].length < 4 || STOP.test(m[2])) return;
+      cand.push({ i: i, pre: m[1], core: m[2], post: m[3] });
+    });
+    cand.sort(function (a, b) { return b.core.length - a.core.length; });   // קודם המילה הארוכה (בדרך כלל שם הקורס)
+    [0, 1, 2].forEach(function (pass) {
+      cand.forEach(function (c) {
+        var core = c.core, k;
+        if (pass === 0) for (k = 1; k < core.length - 1; k++) if (core[k] === 'י' || core[k] === 'ו') push(c.i, c.pre + core.slice(0, k) + core.slice(k + 1) + c.post);   // אות יתרה: י / ו
+        if (pass === 1) for (k = 0; k < core.length; k++) if (SWAP[core[k]]) push(c.i, c.pre + core.slice(0, k) + SWAP[core[k]] + core.slice(k + 1) + c.post);   // ט/ת, כ/ק, ס/ש, א/ע
+        if (pass === 2) for (k = 1; k < core.length - 1; k++) if (!/[יו]/.test(core[k] + core[k + 1] + core[k - 1])) push(c.i, c.pre + core.slice(0, k + 1) + 'י' + core.slice(k + 1) + c.post);   // י חסרה
+      });
+    });
+    return out.slice(0, 5);
+  }
+  function askBot(msg, hist) {
+    function call(m) {
+      return fetch(CONFIG.apiUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ message: m, history: hist, site: CONFIG.site }) })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+    }
+    return call(msg).then(function (d) {
+      if (!d || !NOT_FOUND.test(d.reply || '')) return d;
+      var vars = spellVariants(msg), i = 0;
+      function next() {
+        if (i >= vars.length) return d;   // אף כתיב לא עזר – התשובה המקורית
+        var v = vars[i++];
+        return call(v.msg).then(function (d2) {
+          if (d2 && d2.reply && !NOT_FOUND.test(d2.reply)) { d2.reply = 'חיפשתי גם בכתיב: **' + v.msg + '**\n\n' + d2.reply; return d2; }
+          return next();
+        }, next);
+      }
+      return next();
+    });
+  }
+
   console.log('[SHABI] chat.html loaded');
   var app       = document.getElementById('app');
   var messages  = document.getElementById('shabaton-chat-messages');
@@ -402,11 +449,7 @@ a:focus-visible, button:focus-visible, .topic:focus-visible { outline: 3px solid
     history.push({ role: 'user', content: msg });
     var typingEl = addTyping();
     isBusy = true;
-    fetch(CONFIG.apiUrl, {
-      method: 'POST', headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ message: msg, history: history.slice(-6), site: CONFIG.site })
-    })
-    .then(function(r){ if (!r.ok) throw new Error(r.status); return r.json(); })
+    askBot(msg, history.slice(-6))   // כולל ניסיון חוזר בכתיב אחר כשלא נמצא כלום
     .then(function(d){
       typingEl.remove();
       var reply = d.reply || 'מצטערים, אירעה שגיאה.';
