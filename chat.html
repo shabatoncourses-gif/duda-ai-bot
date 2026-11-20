@@ -1,510 +1,1581 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>שבתון-בוט — עוזר שבתון AI</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-<style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --blue: #0770a3; --blue-dark: #065e8a; --blue-deep: #055a85; --blue-light: #e8f4fb; --cyan: #0874ae; /* נגישות: גוונים כהים יותר – ניגודיות AA עם טקסט לבן */
-  --orange: #C2500A; --orange-soft: #B84A06;
-  --bg: #f0f6fb; --surface: #ffffff;
-  --text: #1a2a3a; --text-muted: #546575; --border: #d4e6f4;
-  --radius: 20px; --shadow: 0 6px 28px rgba(9,130,188,0.13);
-  --maxw: 1080px;
-  --gutter: max(16px, calc((100% - var(--maxw)) / 2));
-  --font: 'Heebo', Arial, sans-serif;
-}
-html, body { height: 100%; margin: 0; font-family: var(--font); background: var(--bg); color: var(--text); direction: rtl; overflow: hidden; }
-button { font-family: var(--font); }
-
-/* ───────── מעטפת ───────── */
-.app { position: relative; display: flex; flex-direction: column; height: 100%; height: 100dvh; overflow: hidden;
-  background:
-    radial-gradient(520px 380px at 8% 78%, rgba(9,130,188,0.09), transparent 70%),
-    radial-gradient(460px 340px at 94% 62%, rgba(232,99,10,0.07), transparent 70%),
-    var(--bg); }
-@supports not (height: 100dvh) { .app { height: 100%; } }
-
-/* ───────── Hero ───────── */
-.hero { position: relative; flex-shrink: 0; color: #fff; z-index: 3;
-  background: linear-gradient(125deg, var(--blue-deep) 0%, var(--blue) 52%, var(--cyan) 100%);
-  padding: 26px var(--gutter) 58px; transition: padding .35s ease; }
-.hero .deco { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.hero .wave { position: absolute; bottom: -1px; right: 0; left: 0; width: 100%; height: 38px; display: block; pointer-events: none; transition: height .35s ease; }
-.hero-inner { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.brand { display: flex; align-items: center; gap: 18px; min-width: 0; }
-.header-avatar { position: relative; width: 72px; height: 72px; flex-shrink: 0; border-radius: 22px; display: flex; align-items: center; justify-content: center; font-size: 40px;
-  background: rgba(255,255,255,0.97); box-shadow: 0 8px 24px rgba(3,50,80,0.35), 0 0 0 6px rgba(255,255,255,0.22); transition: all .35s ease; }
-.header-avatar::after { content: ''; position: absolute; bottom: -4px; left: -4px; width: 16px; height: 16px; border-radius: 50%; background: #2ecc71; border: 3px solid #fff; }
-.header-text h1 { display: flex; align-items: center; gap: 10px; font-size: 34px; font-weight: 900; line-height: 1.1; letter-spacing: -0.3px; text-shadow: 0 2px 12px rgba(3,50,80,0.25); transition: font-size .35s ease; }
-.header-badge { background: var(--orange); color: #fff; font-size: 12px; font-weight: 800; padding: 3px 11px; border-radius: 20px; letter-spacing: .5px; text-shadow: none; box-shadow: 0 3px 10px rgba(232,99,10,0.45); }
-.header-text p { font-size: 16px; font-weight: 400; opacity: 1; margin-top: 6px; max-height: 40px; overflow: hidden; transition: all .3s ease; }
-.hero-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.pill { display: inline-flex; align-items: center; gap: 7px; background: rgba(255,255,255,0.16); color: #fff; border: 1.5px solid rgba(255,255,255,0.38); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  padding: 9px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; transition: all .2s; white-space: nowrap; }
-.pill:hover { background: #fff; color: var(--blue-dark); border-color: #fff; }
-
-/* מצב שיחה — ה-hero מתכווץ כדי לפנות מקום להודעות */
-.app.chatting .hero { padding-top: 12px; padding-bottom: 40px; }
-.app.chatting .composer { margin-top: -28px; }
-.app.chatting .hero .wave { height: 22px; }
-.app.chatting .header-avatar { width: 44px; height: 44px; font-size: 24px; border-radius: 14px; box-shadow: 0 4px 14px rgba(3,50,80,0.3), 0 0 0 3px rgba(255,255,255,0.22); }
-.app.chatting .header-avatar::after { width: 12px; height: 12px; border-width: 2px; }
-.app.chatting .brand { gap: 12px; }
-.app.chatting .header-text h1 { font-size: 22px; }
-.app.chatting .header-text p { max-height: 0; margin-top: 0; opacity: 0; }
-
-/* ───────── אזור ההודעות ───────── */
-#shabaton-chat-messages { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; -webkit-overflow-scrolling: touch;
-  padding: 10px var(--gutter) 18px; position: relative; z-index: 2; }
-#shabaton-chat-messages::-webkit-scrollbar { width: 8px; }
-#shabaton-chat-messages::-webkit-scrollbar-track { background: transparent; }
-#shabaton-chat-messages::-webkit-scrollbar-thumb { background: rgba(9,130,188,0.45); border-radius: 4px; }
-#shabaton-chat-messages::-webkit-scrollbar-thumb:hover { background: var(--blue-dark); }
-
-/* ───────── ברוכים הבאים + נושאים ───────── */
-.welcome-box { background: var(--surface); border-radius: 26px; padding: 30px 34px 26px; box-shadow: var(--shadow); border: 1.5px solid var(--border); margin: 0 0 20px; position: relative; overflow: hidden; }
-.welcome-box::before { content: ''; position: absolute; top: 0; right: 0; left: 0; height: 5px; background: linear-gradient(90deg, var(--blue) 0%, var(--cyan) 60%, var(--orange) 100%); }
-.welcome-title { font-size: 28px; font-weight: 800; color: var(--blue-deep); line-height: 1.2; }
-.welcome-title em { font-style: normal; color: var(--orange); }
-.welcome-sub { font-size: 16px; line-height: 1.7; color: var(--text-muted); margin-top: 6px; }
-.topics-label { font-size: 13px; font-weight: 700; color: var(--text-muted); letter-spacing: .3px; margin: 22px 0 10px; display: flex; align-items: center; gap: 10px; }
-.topics-label::after { content: ''; flex: 1; border-top: 1.5px dashed var(--border); }
-.topics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.topic { display: flex; align-items: center; gap: 13px; text-align: right; text-decoration: none; color: var(--text); background: #fff; border: 1.5px solid var(--border); border-radius: 18px; padding: 14px 16px; cursor: pointer; transition: transform .2s, box-shadow .2s, border-color .2s; }
-.topic:hover { transform: translateY(-3px); border-color: var(--c, var(--blue)); box-shadow: 0 10px 24px color-mix(in srgb, var(--c, #0982bc) 22%, transparent); }
-.topic:active { transform: translateY(0); }
-.t-ico { width: 48px; height: 48px; flex-shrink: 0; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 25px; background: color-mix(in srgb, var(--c, #0982bc) 14%, #fff); }
-.t-body { display: flex; flex-direction: column; min-width: 0; }
-.t-body b { font-size: 16px; font-weight: 700; line-height: 1.25; color: var(--text); }
-.t-body small { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; line-height: 1.3; }
-.topic.faq { --c: #7a5cf0; background: linear-gradient(135deg, #faf8ff, #fff); }
-.warn { display: flex; gap: 10px; align-items: flex-start; background: #fff8e1; border: 1.5px solid #ffd966; border-radius: 14px; padding: 11px 15px; margin-top: 18px; font-size: 14px; color: #7a5c00; line-height: 1.6; }
-.warn a { color: var(--blue-dark); font-weight: 700; }
-
-/* מצב שיחה: אחרי השאלה הראשונה מפנים מקום לתשובה */
-.app.chatting .welcome-box { display: none; }
-
-/* ───────── הודעות ───────── */
-.shabaton-message { margin-bottom: 18px; animation: fadeUp .3s ease; }
-@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-.shabaton-message-bot { display: flex; gap: 12px; align-items: flex-start; }
-.shabaton-message-user { display: flex; justify-content: flex-end; }
-.shabaton-bot-avatar { width: 40px; height: 40px; border-radius: 13px; background: linear-gradient(135deg, var(--blue) 0%, var(--cyan) 100%); display: flex; align-items: center; justify-content: center; font-size: 21px; flex-shrink: 0; box-shadow: 0 4px 12px rgba(9,130,188,0.32); }
-.shabaton-message-content { background: #fff; padding: 15px 20px; border-radius: 6px 22px 22px 22px; max-width: min(82%, 780px); border: 1px solid var(--border); box-shadow: 0 3px 14px rgba(9,130,188,0.08); line-height: 1.55; font-size: 15.5px; color: var(--text); direction: rtl; text-align: right; overflow-wrap: anywhere; }
-.shabaton-message-content h3 { font-size: 15.5px; font-weight: 700; margin: 6px 0 2px; }
-.shabaton-message-content h3 a { color: var(--blue); text-decoration: underline; font-weight: 700; }
-.shabaton-message-content p, .shabaton-message-content li { margin: 2px 0; line-height: 1.55; }
-.shabaton-h3 { font-weight: 700; }
-.shabaton-h3 a { color: var(--blue-dark); text-decoration: none; border-bottom: 1.5px solid rgba(9,130,188,0.35); }
-.shabaton-h3 a:hover { border-bottom-color: var(--blue-dark); }
-.shabaton-message-user .shabaton-message-content { background: linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%); color: #fff; border: none; border-radius: 22px 22px 22px 6px; font-weight: 500; box-shadow: 0 5px 16px rgba(9,130,188,0.32); }
-.shabaton-typing { display: flex; gap: 5px; padding: 16px 20px; background: #fff; border: 1px solid var(--border); border-radius: 6px 22px 22px 22px; box-shadow: 0 3px 14px rgba(9,130,188,0.08); }
-.shabaton-typing span { width: 10px; height: 10px; border-radius: 50%; background: var(--blue); animation: typingBounce 1.2s ease-in-out infinite; display: inline-block; }
-.shabaton-typing span:nth-child(2) { animation-delay: .2s; }
-.shabaton-typing span:nth-child(3) { animation-delay: .4s; }
-@keyframes typingBounce { 0%,60%,100% { transform: translateY(0); opacity: .4; } 30% { transform: translateY(-9px); opacity: 1; } }
-
-/* ───────── שורת הקלט — בראש הדף, מתחת לכותרת (תמיד גלויה, גם אם ה-iframe גבוה מהמסך) ───────── */
-.composer { flex-shrink: 0; position: relative; z-index: 5; padding: 0 var(--gutter); margin-top: -34px; }
-.input-wrapper { display: flex; align-items: center; gap: 10px; background: #fff; border: 2.5px solid var(--border); border-radius: 60px; padding: 8px 24px 8px 8px; box-shadow: 0 10px 34px rgba(9,130,188,0.18); transition: border-color .25s, box-shadow .25s; }
-.input-wrapper:focus-within { border-color: var(--blue); box-shadow: 0 0 0 5px rgba(9,130,188,0.12), 0 10px 34px rgba(9,130,188,0.18); }
-#shabaton-chat-input { flex: 1; border: none; outline: none; font-size: 18px; font-family: var(--font); font-weight: 500; color: var(--text); background: transparent; direction: rtl; text-align: right; min-width: 0; padding: 8px 0; }
-#shabaton-chat-input::placeholder { color: #5a6b7c; font-weight: 400; opacity: 1; }
-#shabaton-chat-send { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, var(--orange) 0%, var(--orange-soft) 100%); border: none; color: #fff; font-size: 21px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 5px 16px rgba(232,99,10,0.45); transition: all .2s; }
-#shabaton-chat-send:hover:not(:disabled) { transform: scale(1.08) rotate(-6deg); }
-#shabaton-chat-send:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
-.disclaimer { text-align: center; font-size: 12px; color: #546575; padding: 8px 0 2px; line-height: 1.5; }
-.disclaimer b { color: #8a4f00; font-weight: 700; }
-.disclaimer a { color: var(--blue-dark); font-weight: 600; }
-
-/* ───────── טאבלט ───────── */
-@media (max-width: 900px) {
-  .topics { grid-template-columns: repeat(2, 1fr); }
-  .header-text h1 { font-size: 28px; }
-}
-
-/* ───────── סלולר ───────── */
-@media (max-width: 640px) {
-  .hero { padding: 14px 16px 46px; }
-  .hero .wave { height: 26px; }
-  .hero-inner { gap: 10px; }
-  .brand { gap: 12px; }
-  .header-avatar { width: 54px; height: 54px; font-size: 30px; border-radius: 17px; box-shadow: 0 6px 18px rgba(3,50,80,0.35), 0 0 0 4px rgba(255,255,255,0.22); }
-  .header-text h1 { font-size: 23px; gap: 8px; }
-  .header-badge { font-size: 10.5px; padding: 2px 8px; }
-  .header-text p { font-size: 13px; margin-top: 3px; }
-  .pill.faq-pill { display: none; }
-  .pill { padding: 8px 11px; background: rgba(255,255,255,0.24); }
-  .pill .lbl { display: none; }
-  .app.chatting .hero { padding: 9px 16px 34px; }
-  .app.chatting .header-text h1 { font-size: 18px; }
-  .app.chatting .header-avatar { width: 38px; height: 38px; font-size: 21px; border-radius: 12px; }
-
-  #shabaton-chat-messages { padding: 8px 12px 14px; }
-  .welcome-box { padding: 22px 16px 16px; border-radius: 22px; }
-  .welcome-title { font-size: 22px; }
-  .welcome-sub { font-size: 14px; }
-  .topics-label { margin-top: 16px; }
-  .topics { grid-template-columns: 1fr 1fr; gap: 9px; }
-  .topic { gap: 9px; padding: 10px; border-radius: 15px; }
-  .t-ico { width: 38px; height: 38px; font-size: 20px; border-radius: 12px; }
-  .t-body b { font-size: 14px; }
-  .t-body small { display: none; }
-  .hero .d-sun, .hero .d-cap { display: none; }
-  .warn { font-size: 12.5px; padding: 9px 12px; }
-
-  .shabaton-message-content { max-width: calc(100% - 52px); padding: 12px 15px; font-size: 15px; border-radius: 6px 18px 18px 18px; }
-  .shabaton-message-user .shabaton-message-content { max-width: 88%; border-radius: 18px 18px 18px 6px; }
-  .shabaton-bot-avatar { width: 34px; height: 34px; font-size: 18px; border-radius: 11px; }
-  .shabaton-message-bot { gap: 9px; }
-
-  .composer { padding: 0 12px; margin-top: -30px; }
-  .app.chatting .composer { margin-top: -24px; }
-  .input-wrapper { padding: 6px 18px 6px 6px; border-width: 2px; }
-  #shabaton-chat-input { font-size: 16px; }
-  #shabaton-chat-send { width: 46px; height: 46px; font-size: 19px; }
-  .disclaimer { font-size: 10.5px; padding: 6px 0 0; }
-}
-@media (max-width: 360px) { .topics { grid-template-columns: 1fr; } }
-
-/* נמוך (מסך לרוחב בסלולר / iframe קצר) */
-@media (max-height: 560px) { .hero { padding-top: 10px; padding-bottom: 34px; } .header-text p { display: none; } .header-avatar { width: 44px; height: 44px; font-size: 24px; } .header-text h1 { font-size: 22px; } }
-
-@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
-.shabaton-consult-btn { margin-top: 10px; }
-/* ───────── נגישות ───────── */
-.sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
-a:focus-visible, button:focus-visible, .topic:focus-visible { outline: 3px solid #0E3A5C; outline-offset: 3px; }
-.hero a:focus-visible, .hero button:focus-visible { outline-color: #FFB27A; }
-#shabaton-chat-messages:focus-visible { outline: 3px solid #0E3A5C; outline-offset: -3px; }
-#shabaton-chat-send:focus-visible { outline: 3px solid #0E3A5C; outline-offset: 3px; }
-/* צבעים שמגיעים מתוך התשובות (style בתוך הטקסט) – גוונים נגישים */
-.shabaton-message-content a[style*="#e8630a"] { background: #C2500A !important; }
-.shabaton-message-content a[style*="color:#0982bc"], .shabaton-message-content strong[style*="#0982bc"] { color: #0770a3 !important; }
-.warn a, .disclaimer a { text-decoration: underline; }
-</style>
-</head>
-<body>
-<div class="app" id="app">
-
-  <header class="hero">
-    <svg class="deco" viewBox="0 0 1200 260" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
-      <defs>
-        <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.6" fill="#fff" fill-opacity=".24"/></pattern>
-        <radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-        <linearGradient id="fade" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset=".7" stop-color="#fff" stop-opacity=".05"/></linearGradient>
-        <mask id="dotmask"><rect width="1200" height="260" fill="url(#fade)"/></mask>
-      </defs>
-      <rect width="1200" height="260" fill="url(#dots)" mask="url(#dotmask)"/>
-      <circle cx="640" cy="40" r="230" fill="url(#glow)"/>
-      <g fill="none" stroke="#fff" stroke-opacity=".17" stroke-width="2">
-        <circle cx="80" cy="250" r="110"/><circle cx="80" cy="250" r="170"/><circle cx="80" cy="250" r="230"/>
-      </g>
-      <!-- כובע בוגר -->
-      <g class="d-cap" transform="translate(610 128) rotate(-8) scale(1.5)" fill="#fff" fill-opacity=".1" stroke="#fff" stroke-opacity=".42" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
-        <path d="M0 -40 L82 -8 L0 24 L-82 -8 Z"/>
-        <path d="M-46 8 V38 C-46 58 46 58 46 38 V8"/>
-        <path d="M82 -8 V30" /><circle cx="82" cy="34" r="5" fill="#e8630a" fill-opacity=".9" stroke="none"/>
-      </g>
-      <g class="d-sun"><circle cx="470" cy="70" r="30" fill="#e8630a" fill-opacity=".92"/>
-      <circle cx="470" cy="70" r="50" fill="none" stroke="#e8630a" stroke-opacity=".5" stroke-width="3"/></g>
-      <circle cx="820" cy="200" r="9" fill="#fff" fill-opacity=".55"/>
-      <circle cx="40" cy="150" r="6" fill="#fff" fill-opacity=".5"/>
-    </svg>
-    <div class="hero-inner">
-      <div class="brand">
-        <div class="header-avatar" aria-hidden="true">🤖</div>
-        <div class="header-text">
-          <h1>שַׁבָּתוֹן-בּוֹט <span class="header-badge">AI</span></h1>
-          <p>עוזר שבתון חכם — שאלו, וקבלו תשובה!</p>
-        </div>
-      </div>
-      <div class="hero-actions">
-        <a class="pill faq-pill" href="https://www.shabaton.online/shabaton-qa" target="_blank"><span aria-hidden="true">❓</span> <span class="lbl">שאלות נפוצות</span></a>
-        <button class="pill" id="shabaton-clear-chat" aria-label="ניקוי השיחה"><span aria-hidden="true">🗑️</span> <span class="lbl">נקה</span></button>
-      </div>
-    </div>
-    <svg class="wave" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-      <path d="M0 22 C 220 48 460 -4 720 18 S 1200 46 1440 14 V40 H0 Z" fill="#f0f6fb"/>
-    </svg>
-  </header>
-
-  <section class="composer" aria-label="כתיבת שאלה לשבתון-בוט">
-    <div class="input-wrapper">
-      <label for="shabaton-chat-input" class="sr-only">כתבו שאלה לשבתון-בוט</label>
-      <input type="text" id="shabaton-chat-input" placeholder="שאלו אותי על קורסים, שנת שבתון, מענקים..." autocomplete="off" enterkeyhint="send">
-      <button id="shabaton-chat-send" aria-label="שליחת השאלה" disabled><span aria-hidden="true">➤</span></button>
-    </div>
-    <div class="disclaimer">הצ'אט מבוסס AI ומספק מידע כללי בלבד. אין לראות בתשובות תחליף לייעוץ מקצועי. · <b>בוט בהרצה</b> — יש לבדוק את התשובות.</div>
-  </section>
-
-  <div id="sb-live" class="sr-only" role="status" aria-live="polite"></div>
-  <main id="shabaton-chat-messages" tabindex="0" aria-label="השיחה עם שבתון-בוט">
-    <section class="welcome-box" style="direction:rtl;text-align:right">
-      <h2 class="welcome-title">שלום! אני שַׁבָּתוֹן-בּוֹט <em aria-hidden="true">👋</em></h2>
-      <p class="welcome-sub">העוזר הוירטואלי שלכם לשנת השבתון. אעזור לכם למצוא קורסים ומידע חשוב על שנת השבתון.</p>
-
-      <div class="topics-label">במה אפשר לעזור?</div>
-      <div class="topics">
-        <button class="suggestion-chip topic" data-q="קורסי טיולים" style="--c:#16a34a"><span class="t-ico" aria-hidden="true">🥾</span><span class="t-body"><b>קורסי טיולים</b><small>קורסים לפי תחום ואזור</small></span></button>
-        <button class="suggestion-chip topic" data-q="כמה מענק חודשי?" style="--c:#e8630a"><span class="t-ico" aria-hidden="true">💰</span><span class="t-body"><b>כמה מענק חודשי?</b><small>המענק במהלך השבתון</small></span></button>
-        <button class="suggestion-chip topic" data-q="קורסי הדרכת הורים" style="--c:#db2777"><span class="t-ico" aria-hidden="true">👨‍👩‍👧</span><span class="t-body"><b>קורסי הדרכת הורים</b><small>קורסים והסמכות</small></span></button>
-        <button class="suggestion-chip topic" data-q="ביטוח לאומי בשבתון" style="--c:#0982bc"><span class="t-ico" aria-hidden="true">🛡️</span><span class="t-body"><b>ביטוח לאומי בשבתון</b><small>זכויות במהלך השבתון</small></span></button>
-        <button class="suggestion-chip topic" data-q="קורס הנחיית קבוצות" style="--c:#0d9488"><span class="t-ico" aria-hidden="true">🧑‍🤝‍🧑</span><span class="t-body"><b>הנחיית קבוצות</b><small>קורסים ומוסדות</small></span></button>
-        <a class="topic faq" href="https://www.shabaton.online/shabaton-qa" target="_blank"><span class="t-ico" aria-hidden="true">❓</span><span class="t-body"><b>שאלות נפוצות</b><small>כל התשובות במקום אחד</small></span></a>
-      </div>
-
-      <div class="warn"><span aria-hidden="true">⚠️</span><span><strong>בוט בהרצה</strong> - יש לבדוק את תשובות הבוט.<br>
-      לייעוץ נוסף במידת הצורך <a href="https://chat.whatsapp.com/Hrc27GwXmDkBcRF2bWSyCs?s=cl&p=i&mlu=4&ilr=4" target="_blank">פנו לקבוצת הווטסאפ שלנו</a></span></div>
-    </section>
-  </main>
-
-</div>
-<script>
-(function() {
-  var CONFIG = {
-    apiUrl: 'https://duda-ai-bot.vercel.app/api/ai_chat_v2',
-    site: 'shabaton'
-  };
-
-  // ── שגיאות כתיב: אם הבוט לא מצא כלום, מנסים שוב בכתיב אחר של המילים (למשל "נומירולוגיה" → "נומרולוגיה") ──
-  // רק כשהתשובה היא "לא מצאתי מידע ספציפי", רק בחיפוש קצר (עד 3 מילים), ולכל היותר 5 ניסיונות נוספים.
-  var NOT_FOUND = /לא מצאתי מידע ספציפי/;
-  function spellVariants(msg) {
-    var words = msg.split(/\s+/);
-    if (words.length > 3) return [];   // רק חיפוש קצר (שם של קורס / נושא) – לא שאלות ארוכות
-    var out = [], seen = {};
-    function push(i, w) { var m = words.slice(); m[i] = w; var s = m.join(' '); if (!seen[s] && s !== msg) { seen[s] = 1; out.push({ msg: s, word: w }); } }
-    var SWAP = { 'ט': 'ת', 'ת': 'ט', 'כ': 'ק', 'ק': 'כ', 'ס': 'ש', 'ש': 'ס', 'א': 'ע', 'ע': 'א' };
-    var STOP = /^(קורס|קורסים|לימודי|לימודים|שבתון|מורים|מורה|תואר|השתלמות|השתלמויות|איפה|מתי|כמה|יש|על|של|את|עם|בשבתון)$/;
-    var cand = [];
-    words.forEach(function (w, i) {
-      var m = w.match(/^([^א-ת]*)([א-ת"'׳״]+)([^א-ת]*)$/); if (!m || m[2].length < 4 || STOP.test(m[2])) return;
-      cand.push({ i: i, pre: m[1], core: m[2], post: m[3] });
-    });
-    cand.sort(function (a, b) { return b.core.length - a.core.length; });   // קודם המילה הארוכה (בדרך כלל שם הקורס)
-    [0, 1, 2].forEach(function (pass) {
-      cand.forEach(function (c) {
-        var core = c.core, k;
-        if (pass === 0) for (k = 1; k < core.length - 1; k++) if (core[k] === 'י' || core[k] === 'ו') push(c.i, c.pre + core.slice(0, k) + core.slice(k + 1) + c.post);   // אות יתרה: י / ו
-        if (pass === 1) for (k = 0; k < core.length; k++) if (SWAP[core[k]]) push(c.i, c.pre + core.slice(0, k) + SWAP[core[k]] + core.slice(k + 1) + c.post);   // ט/ת, כ/ק, ס/ש, א/ע
-        if (pass === 2) for (k = 1; k < core.length - 1; k++) if (!/[יו]/.test(core[k] + core[k + 1] + core[k - 1])) push(c.i, c.pre + core.slice(0, k + 1) + 'י' + core.slice(k + 1) + c.post);   // י חסרה
-      });
-    });
-    return out.slice(0, 5);
-  }
-  function askBot(msg, hist) {
-    function call(m) {
-      return fetch(CONFIG.apiUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ message: m, history: hist, site: CONFIG.site }) })
-        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+{
+  "keywords": [
+    "קורס",
+    "קורסים",
+    "לימודים",
+    "הכרה",
+    "מוכר",
+    "מאושר",
+    "תכנון",
+    "שבתון",
+    "רשות",
+    "חובה",
+    "מוסד",
+    "מכללה",
+    "אישור",
+    "קרן השתלמות",
+    "תכנית לימודים",
+    "תוכנית לימודים",
+    "מורכבת",
+    "מבנה",
+    "דרישות",
+    "שש",
+    "שעות",
+    "כמה שעות",
+    "לוח זמנים",
+    "שינוי קורס",
+    "ביטול קורס",
+    "הגדרה",
+    "מוסד לא עונה",
+    "לא עונים",
+    "אין תגובה ממוסד",
+    "סמינר מרוכז",
+    "סמינרים מרוכזים",
+    "חצי שבתון",
+    "עובדים פחות",
+    "תלונה",
+    "בעיה עם מוסד",
+    "חוברת שבתון",
+    "חוברת קורסים"
+  ],
+  "categories": [
+    {
+      "name": "בדיקת הכרה בקורסים",
+      "icon": "✅",
+      "description": "כיצד לבדוק אם קורס מוכר לשבתון",
+      "questions": [
+        {
+          "id": "recognition_1",
+          "question": "האם הקורס מוכר לשבתון?",
+          "variations": [
+            "האם הקורס של ___ מוכר לשבתון?",
+            "אמרו לי במכללה שהקורס מאושר – זה נכון?",
+            "אני לא מוצאת את הקורס בפורטל, מה זה אומר?",
+            "הקורס היה מוכר בעבר / לחברות שלי – זה תקף גם לי?"
+          ],
+          "answer": "אם הקורס מופיע בפורטל שבתון ללא ציון הסתייגות אפשר לדעת שהוא אכן מוכר לשבתון.\n\nאם הוא לא מופיע באתר שבתון, יש לבדוק מול המוסד עצמו ולוודא מול קרן ההשתלמות.",
+          "keywords": [
+            "מוכר",
+            "הכרה בקורס",
+            "הכרה בלימודים",
+            "פורטל",
+            "מאושר"
+          ],
+          "relatedLinks": [
+            {
+              "text": "חיפוש קורסים באתר",
+              "url": "https://www.shabaton.online"
+            }
+          ]
+        },
+        {
+          "id": "where_to_send_program_1",
+          "question": "איפה שולחים לקרן ההשתלמות את התוכנית לאישור?",
+          "variations": [
+            "לאן שולחים את תוכנית הלימודים לאישור?",
+            "איך מגישים את התוכנית לקרן ההשתלמות?",
+            "למי שולחים את תוכנית הלימודים?",
+            "איך מאשרים את התוכנית מול קרן ההשתלמות?"
+          ],
+          "priority": true,
+          "answer": "את תוכנית הלימודים שולחים ישירות **לקרן ההשתלמות** שלך (לא דרך פורטל שבתון) — היא זו שנותנת את האישור הסופי.\n\nלפרטים המלאים על אופן ההגשה ובניית התוכנית, מומלץ לעיין בדף תוכנית הלימודים בשבתון.",
+          "keywords": [
+            "איפה שולחים את התוכנית",
+            "לאן שולחים את תוכנית הלימודים",
+            "איך מגישים את התוכנית",
+            "למי שולחים את תוכנית הלימודים",
+            "שולחים לקרן ההשתלמות",
+            "התוכנית לאישור"
+          ],
+          "relatedLinks": [
+            {
+              "text": "תוכנית הלימודים בשבתון",
+              "url": "https://www.shabaton.online/learning_programs_shabaton"
+            }
+          ]
+        },
+        {
+          "id": "general_course_guidance_1",
+          "question": "איפה אפשר לראות מספר קורסים לצורך רישום לתוכנית שבתון?",
+          "variations": [
+            "איפה אפשר לראות מספר קורסים למען רישום לתוכנית שבתון",
+            "אני רוצה לראות קורסים כדי לרשום לתוכנית הלימודים",
+            "רוצה עזרה למצוא קורסים לתוכנית שבתון",
+            "אילו קורסים יש בכלל שאפשר לרשום לתוכנית"
+          ],
+          "priority": true,
+          "answer": "אפשר למצוא קורסים לפי כמה קטגוריות ראשיות, בהתאם למה שמתאים לך:\n\n📘 [אופק חדש / עוז לתמורה](https://www.shabaton.online/results-all/%D7%90%D7%95%D7%A4%D7%A7%20%D7%97%D7%93%D7%A9%20-%20%D7%A2%D7%95%D7%96%20%D7%9C%D7%AA%D7%9E%D7%95%D7%A8%D7%94)\n🎓 [פיתוח מקצועי למורים](https://www.shabaton.online/results-all/%D7%A4%D7%99%D7%AA%D7%95%D7%97%20%D7%9E%D7%A7%D7%A6%D7%95%D7%A2%D7%99%20%D7%9C%D7%9E%D7%95%D7%A8%D7%99%D7%9D)\n🎨 [העשרה ופנאי](https://www.morim.boutique/)\n🔎 [חיפוש קורסים לפי תחום לימוד](https://www.shabaton.online/search-courses)\n\nאם תגיד/י לי איזה תחום או נושא מעניין אותך במיוחד, אשמח להציע קורסים ומוסדות ספציפיים.",
+          "keywords": [
+            "רישום לתוכנית שבתון",
+            "רישום לתוכנית הלימודים",
+            "לרשום לתוכנית הלימודים",
+            "עזרה למצוא קורסים לתוכנית",
+            "קורסים לתוכנית שבתון",
+            "מספר קורסים לצורך רישום"
+          ],
+          "relatedLinks": [
+            {
+              "text": "חיפוש קורסים לפי תחום לימוד",
+              "url": "https://www.shabaton.online/search-courses"
+            }
+          ]
+        },
+        {
+          "id": "already_registered_cant_find_course_1",
+          "question": "נרשמתי לקורס בשבתון וכבר לא יודע/ת איך למצוא אותו או לגשת אליו",
+          "variations": [
+            "נרשמתי לקורס אבל לא מוצא אותו",
+            "נרשמתי לקורסים בשבתון ולא יודעת איפה הם",
+            "איך אני מוצא את הקורס שנרשמתי אליו",
+            "נרשמתי כבר לקורס, איך אני ניגש אליו",
+            "לא מוצא את הקורס שנרשמתי אליו בשבתון",
+            "כבר נרשמתי לקורס ולא יודעת איך להגיע אליו"
+          ],
+          "priority": true,
+          "answer": "אשמח לעזור לאתר את זה! כדי לכוון אותך נכון — לאיזה מוסד או קורס נרשמת (השם שלו, גם בערך מספיק)? אשלח לך ישירות לדף המוסד עם פרטי ההתקשרות.\n\nאם קשה לזכור את השם המדויק, אפשר גם [לחפש לפי תחום לימוד](https://www.shabaton.online/search-courses) ולזהות אותו מהרשימה.",
+          "keywords": [
+            "נרשמתי לקורס ולא",
+            "נרשמתי לקורסים ולא",
+            "נרשמתי אבל לא מוצא",
+            "נרשמתי אבל לא יודע",
+            "נרשמתי אבל לא יודעת",
+            "לא מוצא את הקורס שנרשמתי",
+            "איך מוצאים את הקורס שנרשמתי",
+            "איפה הקורס שנרשמתי",
+            "היכן הקורס שנרשמתי",
+            "נרשמתי ולא יודע איפה",
+            "נרשמתי ולא יודעת איפה",
+            "נרשמתי ולא מוצא",
+            "כבר נרשמתי ולא יודע",
+            "כבר נרשמתי ולא יודעת",
+            "נרשמתי לקורסים בשבתון"
+          ]
+        },
+        {
+          "id": "application_exception_request_safe_1",
+          "question": "איפה מגישים בקשה ליציאה לשנת שבתון או בקשת חריגה",
+          "variations": [
+            "איפה מגישים בקשה לשנת שבתון",
+            "איך מגישים בקשת חריגה לשבתון",
+            "איפה מגישים בקשה לצאת לשבתון",
+            "איך מגישים בקשה לשבתון",
+            "איפה מגישים בקשה ליציאה לשבתון"
+          ],
+          "priority": true,
+          "answer": "זה נושא שבאמת מבלבל הרבה מורים, ובצדק — ההליך המדויק (כולל בקשות חריגה) תלוי בקרן ההשתלמות הספציפית שלך, ולכן אני מעדיף להפנות אותך למקורות הרשמיים והמעודכנים ביותר במקום לנחש:\n\n📋 [חשוב לדעת בשבתון](https://www.shabaton.online/learning_programs_shabaton) — ההליך המלא, שלב-אחר-שלב.\n📚 [שאלות ותשובות נפוצות](https://www.shabaton.online/shabaton-qa) — עוד הרבה שאלות נפוצות בנושא.\n\nלבקשה אישית או חריגה ספציפית — הגורם המוסמך לאשר אותה הוא תמיד קרן ההשתלמות שלך.",
+          "keywords": [
+            "בקשה ליציאה לשנת שבתון",
+            "בקשה לצאת לשנת שבתון",
+            "בקשת חריגה לשבתון",
+            "בקשה חריגה לשבתון",
+            "מגישים בקשה לשבתון",
+            "מגישים בקשה לשנת שבתון",
+            "איך מגישים בקשה"
+          ]
+        },
+        {
+          "id": "unlisted_course_professional_development_1",
+          "question": "האם ניתן להגיש בקשה ללימודים שאינם רשומים בפיתוח המקצועי",
+          "variations": [
+            "קורס שלא מופיע בקטגוריית פיתוח מקצועי אפשר לקחת אותו",
+            "האם רק קורסים בפיתוח מקצועי מוכרים לשבתון",
+            "קורס לא רשום בפיתוח המקצועי אפשר לקחת",
+            "האם צריך שהקורס יהיה רשום בפיתוח מקצועי כדי שיוכר",
+            "איך יודעים אם קורס מוכר לשבתון"
+          ],
+          "priority": true,
+          "answer": "בפורטל שבתון מוצג מגוון תחומי-לימוד שניתן ללמוד בשנת השבתון — \"פיתוח מקצועי למורים\" הוא רק אחד מהם. ניתן לבחור קורסים מכל התחומים בפורטל, לא רק מהקטגוריה הזו.\n\nיש לוודא מול כל מוסד אילו מהקורסים שלו הם קורסי רשות ואילו חובה, ולבנות את תוכנית הלימודים בהתאם.\n\nאם אתם מחפשים בעיקר קורסי חובה, רוב הקורסים האלה נמצאים בקטגוריות הבאות:\n\n🎓 [פיתוח מקצועי למורים](https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%D7%9D%20%D7%9C%D7%A4%D7%99%D7%AA%D7%95%D7%97%20%D7%9E%D7%A7%D7%A6%D7%95%D7%A2%D7%99%20%D7%9C%D7%9E%D7%95%D7%A8%D7%99%D7%9D)\n📘 [חינוך והוראה](https://www.shabaton.online/results-all/%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%94%D7%95%D7%A8%D7%90%D7%94)\n📗 [אופק חדש - עוז לתמורה](https://www.shabaton.online/results-all/%D7%90%D7%95%D7%A4%D7%A7%20%D7%97%D7%93%D7%A9%20-%20%D7%A2%D7%95%D7%96%20%D7%9C%D7%AA%D7%9E%D7%95%D7%A8%D7%94)\n\nאבל מוזמנים לפנות למוסדות המציעים קורסים בכל הקטגוריות הקיימות בפורטל — לא רק באלה.",
+          "keywords": [
+            "שאינם רשומים בפיתוח המקצועי",
+            "שאינה רשומה בפיתוח המקצועי",
+            "לא רשום בפיתוח המקצועי",
+            "לא רשומים בפיתוח המקצועי",
+            "קורס שלא רשום בפיתוח",
+            "רק קורסים בפיתוח מקצועי מוכרים",
+            "האם כל הקורסים בפורטל מוכרים",
+            "לימודים שאינם רשומים"
+          ]
+        },
+        {
+          "id": "masters_degree_completion_hours_1",
+          "question": "אם לומדים תואר שני, כמה שעות לימודי השלמה אפשר ללמוד בנוסף על חשבון קרן ההשתלמות",
+          "variations": [
+            "תואר שני וגם לימודי השלמה אפשר",
+            "כמה שעות השלמה מותר עם תואר שני",
+            "אפשר לשלב תואר שני עם קורסי השלמה",
+            "לימודי השלמה בנוסף לתואר שני",
+            "כמה קורסים נוספים צריך עם תואר שני",
+            "כמה קורסים נוספים לעשות עם תואר שני"
+          ],
+          "priority": true,
+          "answer": "לימודי התואר השני מכסים את כל שעות הלימוד הנדרשות בשנת השבתון — שנת לימודי תואר שני שקולה ל-16 ש\"ש, שזו המכסה המלאה. **אין צורך בקורסים נוספים**, ואין אפשרות ללמוד לימודי השלמה בנוסף.\n\nכדאי לוודא את הפרטים המדויקים החלים עליך מול קרן ההשתלמות שלך, שכן תנאים עשויים להשתנות בין קרנות.",
+          "keywords": []
+        },
+        {
+          "id": "general_enrichment_courses_hub_1",
+          "question": "קורסי העשרה - איפה מוצאים אותם",
+          "variations": [
+            "קורסי העשרה לפי תחום",
+            "תחומי העשרה בשבתון",
+            "קורס העשרה ופנאי",
+            "איזה קורסי העשרה יש",
+            "קורסי העשרה באזור מסוים"
+          ],
+          "priority": true,
+          "answer": "קורסי העשרה ופנאי (קורסי רשות בהיקפים שונים) מרוכזים לפי תחום באתר הייעודי הזה:\n\n📚 [אמנות ואמנויות](https://www.morim.boutique/art)\n💪 [העצמה אישית](https://www.morim.boutique/empowering)\n🧘 [בריאות, גוף ונפש](https://www.morim.boutique/health)\n👗 [סטיילינג ואופנה](https://www.morim.boutique/fashion)\n🍳 [בישול וקונדיטוריה](https://www.morim.boutique/cooking)\n🎵 [מוסיקה, נגינה ופיתוח קול](https://www.morim.boutique/empowering#music)\n🚌 [טיולים וסמינרים](https://www.morim.boutique/trips)\n💍 [תכשיטנות וצורפות](https://www.morim.boutique/courses-jewelry)\n\n💡 בכל אחת מהקטגוריות אפשר גם לסנן לפי האזור שנוח לך — פשוט ציינו את שם היישוב או האזור בעת החיפוש באתר.\n\n**⏱️ איך מחשבים שעות?**\n• שעה אקדמית = **45 דקות** (לא 60).\n• **1 ש\"ש = בדיוק 28 שעות אקדמיות** — כלומר 21 שעות שעון (28 × 45 דקות).\n• כדי לדעת כמה ש\"ש קורס שווה: מחלקים את מספר השעות **האקדמיות** שלו ב-28.\n• אם ההיקף מפורסם בשעות שעון — כדי לקבל שעות אקדמיות מכפילים ב-4 ומחלקים ב-3.\n\n**דוגמה — קורס של 15 שעות:**\n• 15 שעות אקדמיות = 11 שעות ו-15 דקות שעון, ופחות מ-1 ש\"ש.\n• 15 שעות שעון = 20 שעות אקדמיות, וגם זה פחות מ-28.\n• לכן קורס בהיקף כזה לא מגיע ל-1 ש\"ש. **אי אפשר לצבור כמה קורסים קצרים ל-1 ש\"ש** — חייב להיות קורס אחד שמוגדר בבירור כ-1 ש\"ש.\n\n💡 לפני ההרשמה כדאי לברר מול המוסד אם ההיקף שמוצג הוא בשעות אקדמיות או בשעות שעון. ההכרה בקורס נקבעת בסופו של דבר מול קרן ההשתלמות.\n\nמומלץ לוודא מול כל מוסד אילו קורסים ספציפיים פתוחים כרגע וכמה בדיוק ש\"ש כל קורס שווה.",
+          "keywords": [
+            "קורסי העשרה",
+            "קורס העשרה",
+            "תחומי העשרה",
+            "העשרה ופנאי",
+            "קורסי פנאי",
+            "השתלמות 15 שעות",
+            "השתלמות של 15 שעות",
+            "קורס 15 שעות",
+            "קורס של 15 שעות",
+            "השתלמות של 10 שעות",
+            "קורס של 10 שעות",
+            "השתלמות של 20 שעות",
+            "קורס של 20 שעות",
+            "השתלמות של 30 שעות",
+            "קורס של 30 שעות",
+            "15 שעות אקדמיות",
+            "20 שעות אקדמיות",
+            "30 שעות אקדמיות",
+            "השתלמות קצרה",
+            "השתלמויות קצרות"
+          ]
+        },
+        {
+          "id": "accumulate_short_courses_one_shash_1",
+          "keywords": [
+            "לצבור קורסים קצרים",
+            "לצרף קורסים קצרים",
+            "לחבר קורסים קצרים",
+            "לאחד קורסים קצרים",
+            "לצבור כמה קורסים",
+            "לצרף כמה קורסים",
+            "לחבר כמה קורסים",
+            "לאחד כמה קורסים",
+            "לצבור שעות מכמה קורסים",
+            "צבירת שעות מכמה קורסים",
+            "לצבור קורסים קטנים",
+            "לצרף קורסים קטנים",
+            "כמה קורסים קצרים לשעה שנתית",
+            "כמה קורסים קצרים ל-1 ש\"ש",
+            "כמה קורסים קטנים ל-1 ש\"ש"
+          ],
+          "answer": "לא — אי אפשר לצבור כמה קורסים קצרים ל-1 ש\"ש.\n\nכדי שהיקף יחשב 1 ש\"ש, חייב להיות **קורס אחד** שמוגדר בבירור כ-1 ש\"ש — בהיקף של 28 שעות אקדמיות (21 שעות שעון; שעה אקדמית = 45 דקות).\n\nלדוגמה, שני קורסים של 15 שעות אקדמיות כל אחד לא נחשבים יחד כ-1 ש\"ש.\n\n💡 לפני ההרשמה כדאי לוודא מול המוסד שהקורס מוגדר כ-1 ש\"ש, ומול קרן ההשתלמות שהוא מאושר.",
+          "question": "אפשר לצבור כמה קורסים קצרים ל-1 ש\"ש?"
+        },
+        {
+          "id": "shash_hours_definition_1",
+          "question": "כמה שעות זה 1 ש\"ש?",
+          "keywords": [
+            "כמה שעות זה 1 ש\"ש",
+            "כמה שעות זה ש\"ש",
+            "כמה שעות הוא 1 ש\"ש",
+            "כמה שעות שווה 1 ש\"ש",
+            "כמה שעות שווה ש\"ש",
+            "כמה שעות בש\"ש",
+            "כמה שעות ב-1 ש\"ש",
+            "כמה שעות ב1 ש\"ש",
+            "כמה שעות יש בש\"ש",
+            "כמה שעות יש ב-1 ש\"ש",
+            "כמה שעות יש ב1 ש\"ש",
+            "כמה שעות אקדמיות זה 1 ש\"ש",
+            "כמה שעות אקדמיות ב-1 ש\"ש",
+            "כמה שעות בקורס של 1 ש\"ש",
+            "כמה שעות בקורס של ש\"ש",
+            "כמה שעות נחשב 1 ש\"ש",
+            "כמה שעות נדרשות ל-1 ש\"ש",
+            "כמה שעות צריך ל-1 ש\"ש",
+            "כמה שעות זה שעה שבועית",
+            "1 ש\"ש כמה שעות",
+            "1 ש\"ש זה כמה שעות",
+            "ש\"ש זה כמה שעות",
+            "ל-1 ש\"ש כמה שעות",
+            "מה ההיקף של 1 ש\"ש",
+            "מה היקף 1 ש\"ש",
+            "מה ההיקף של ש\"ש",
+            "כמה שעות זה שעה שנתית",
+            "כמה שעות אקדמיות יש ב-1 ש\"ש"
+          ],
+          "answer": "**1 ש\"ש = 28 שעות אקדמיות** — שהן **21 שעות שעון** (שעה אקדמית = 45 דקות).\n\nש\"ש = שעה שבועית: קורס שנתי שנפגשים בו שעה אקדמית אחת בשבוע לאורך שנת הלימודים, ובסך הכול בדיוק 28 שעות אקדמיות.\n\n⏱️ **איך מחשבים:**\n• שעות אקדמיות ÷ 28 = מספר ה-ש\"ש\n• שעות שעון ÷ 21 = מספר ה-ש\"ש\n• 2 ש\"ש = 56 שעות אקדמיות (42 שעות שעון)\n\n⚠️ אי אפשר לצבור כמה קורסים קצרים ל-1 ש\"ש — חייב להיות קורס אחד שמוגדר בבירור כ-1 ש\"ש. לכן קורס של 15 שעות, למשל, לא מגיע ל-1 ש\"ש.\n\n💡 לפני ההרשמה כדאי לוודא מול המוסד כמה ש\"ש הקורס שווה לצורך השבתון."
+        },
+        {
+          "id": "general_contact_who_to_ask_1",
+          "question": "אם יש לי שאלות בעניין שנת שבתון, למי אני צריכה לפנות",
+          "variations": [
+            "למי אני צריכה לפנות",
+            "למי לפנות עם שאלות על שבתון",
+            "עם מי לדבר על שבתון",
+            "מי יכול לעזור לי עם שבתון",
+            "למי מפנים שאלות על שבתון"
+          ],
+          "priority": true,
+          "answer": "שאלה טובה — תלוי באיזה סוג שאלה מדובר:\n\n**לתכנון תוכנית הלימודים ולהבנת כללי החובה/רשות:**\n📋 [חשוב לדעת בשבתון](https://www.shabaton.online/important) — כל המידע המרכזי במקום אחד.\n🧮 [טבלת עזר לתכנון תוכנית הלימודים](https://www.shabaton.online/shabaton-plan)\n\n**לשאלות נפוצות שכבר נענו:**\n📚 [שאלות ותשובות נפוצות בשבתון](https://www.shabaton.online/shabaton-qa)\n\n**לשאלה אישית שנוגעת ספציפית לזכויות/תנאים שלך (חובה מול רשות, אישורים, החזרים):**\nהגוף המוסמך היחיד הוא **קרן ההשתלמות שלך**.\n\n**לשאלה על קורס או מוסד ספציפי:**\nמומלץ לפנות ישירות למוסד.\n\nואם עדיין לא מצאת תשובה — אפשר גם לשאול בקבוצות שבתון, יכול להיות שמורים אחרים כבר עברו נושא דומה.",
+          "keywords": [
+            "למי אני צריכה לפנות",
+            "למי אני צריך לפנות",
+            "למי לפנות",
+            "עם מי לדבר",
+            "מי יכול לעזור"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "קורס שלא מופיע בפורטל",
+      "icon": "🔍",
+      "description": "מה לעשות כשקורס לא מופיע במאגר",
+      "questions": [
+        {
+          "id": "not_in_portal_1",
+          "question": "הקורס לא מופיע במאגר – מה עושים?",
+          "variations": [
+            "הקורס לא מופיע במאגר – מה עושים?",
+            "יכול להיות שקורס מוכר גם אם לא רואים אותו?"
+          ],
+          "answer": "כאשר קורס אינו מופיע במאגר הקורסים בפורטל שבתון, אין אפשרות לקבוע בשלב זה שהוא מוכר.\n\nבמקרים כאלה יש לפנות ולברר מול הגורמים הרלוונטיים, ולא להניח מראש שהקורס מאושר. הבדיקה נעשית על בסיס המידע הקיים במערכת.",
+          "keywords": [
+            "לא מופיע",
+            "אין במאגר",
+            "לא נמצא",
+            "מוכר גם אם לא רואים"
+          ],
+          "relatedLinks": [
+            {
+              "text": "חיפוש קורסים באתר",
+              "url": "https://www.shabaton.online"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "הסתמכות על הבטחות מוסדות",
+      "icon": "⚠️",
+      "description": "האם אפשר לסמוך על הבטחות של מוסדות לימוד",
+      "questions": [
+        {
+          "id": "promises_1",
+          "question": "המוסד התחייב שהקורס מוכר לשבתון – האם זה מספיק?",
+          "variations": [
+            "המוסד התחייב שהקורס מוכר לשבתון",
+            "כתוב בפרסום 'מוכר לשבתון' – זה מספיק?"
+          ],
+          "answer": "האישור הסופי תמיד יהיה מול קרן ההשתלמות, במסגרת התכנית שמגישים לקרן לאישור.\n\nחשוב לא להסתמך רק על הבטחות המוסד, אלא לקבל אישור רשמי מקרן ההשתלמות.",
+          "keywords": [
+            "הבטחה",
+            "המוסד התחייב",
+            "המוסד הבטיח",
+            "המוסד פרסם",
+            "כתוב בפרסום",
+            "לפי הפרסום",
+            "התחייבות",
+            "קרן השתלמות"
+          ],
+          "relatedLinks": [
+            {
+              "text": "חיפוש קורסים באתר",
+              "url": "https://www.shabaton.online"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "קורסים שהיו מוכרים בעבר",
+      "icon": "📅",
+      "description": "האם הכרה בעבר מבטיחה הכרה כעת",
+      "questions": [
+        {
+          "id": "past_recognition_1",
+          "question": "הקורס היה מוכר בשנה קודמת – האם זה בתוקף?",
+          "variations": [
+            "הקורס היה מוכר בשנה קודמת",
+            "חברה שלי למדה את אותו קורס וקיבלה הכרה"
+          ],
+          "answer": "הכרה בקורסים יכולה להשתנות משנה לשנה.\n\nעובדה שקורס הוכר בעבר או אצל מורה אחרת אינה מבטיחה הכרה בשנת שבתון אחרת. יש לבדוק כל קורס לפי הנתונים המעודכנים לשנה הרלוונטית.",
+          "keywords": [
+            "היה מוכר בעבר",
+            "מוכר בעבר",
+            "בשנה קודמת",
+            "חברה שלי למדה",
+            "מורה אחרת",
+            "היסטוריה"
+          ],
+          "relatedLinks": [
+            {
+              "text": "חיפוש קורסים באתר",
+              "url": "https://www.shabaton.online"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "חובת בדיקה לפני הרשמה",
+      "icon": "🚨",
+      "description": "מתי צריך לבדוק את הכרת הקורס",
+      "questions": [
+        {
+          "id": "check_before_1",
+          "question": "מתי צריך לבדוק את הכרת הקורס?",
+          "variations": [
+            "נרשמתי כבר – מה עכשיו?",
+            "שילמתי מקדמה לפני שבדקתי"
+          ],
+          "answer": "האחריות לבדוק את הכרת הקורס היא **לפני ההרשמה**.\n\nבדיקות בדיעבד אינן משנות את אופן בחינת ההכרה בקורס. חשוב מאוד לוודא את ההכרה לפני ההרשמה ותשלום כלשהו.",
+          "keywords": [
+            "הרשמה",
+            "מקדמה",
+            "לפני שבדקתי",
+            "לפני הרשמה",
+            "בדקתי לפני",
+            "בדיעבד"
+          ],
+          "relatedLinks": [
+            {
+              "text": "חיפוש קורסים באתר",
+              "url": "https://www.shabaton.online"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ריבוי קורסים ומסלולים",
+      "icon": "📚",
+      "description": "כיצד בודקים כמה קורסים במקביל",
+      "questions": [
+        {
+          "id": "multiple_1",
+          "question": "אני לומדת כמה קורסים – איך בודקים?",
+          "variations": [
+            "אני לומדת כמה קורסים – איך בודקים?",
+            "קורס אחד מוכר והשני לא – מה המשמעות?"
+          ],
+          "answer": "כל קורס נבחן בנפרד לפי היקף השעות והנתונים שלו.\n\nאין להסיק מהכרה בקורס אחד על הכרה בקורס אחר, גם אם הם נלמדים באותו מוסד. כל קורס דורש בדיקה נפרדת.",
+          "keywords": [
+            "כמה קורסים",
+            "כמה קורסים במקביל",
+            "לומדת כמה קורסים",
+            "לומד כמה קורסים",
+            "מסלולים",
+            "מקביל",
+            "שני קורסים"
+          ],
+          "relatedLinks": [
+            {
+              "text": "חיפוש קורסים באתר",
+              "url": "https://www.shabaton.online"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "מבנה תוכנית הלימודים",
+      "icon": "📋",
+      "description": "ממה מורכבת תוכנית לימודים בשבתון",
+      "questions": [
+        {
+          "id": "program_structure_1",
+          "question": "ממה מורכבת תוכנית הלימודים בשבתון?",
+          "variations": [
+            "ממה מורכבת תוכנית הלימודים?",
+            "מה צריך ללמוד בשבתון?",
+            "מה הדרישות ללימודים?",
+            "מה המבנה של תוכנית הלימודים?",
+            "כמה שעות צריך ללמוד?",
+            "מה זה ש\"ש?",
+            "מה המושג שש?",
+            "מה אני חייבת ללמוד בשבתון?",
+            "מה אני חייב ללמוד בשבתון?",
+            "מה חובה ללמוד בשבתון?"
+          ],
+          "answer": "תוכנית הלימודים בשבתון מורכבת ממספר רכיבים:\n\n**📚 לימודי חובה:**\n• קורס 1 ש\"ש (שעה שבועית) לפחות\n• אפשרויות: תואר שני, תעודה, קורס מוכר\n\n**📖 לימודי רשות:**\n• קורסים נוספים לפי בחירתך\n• בכל תחום שמעניין אותך\n\n**✅ חשוב לדעת:**\n• בעלי תואר שני זכאים לחלוקה של 50% חובה ו-50% רשות\n• מי שלומד/ת **לתואר שני בפועל** בשנת השבתון — כל לימודיו נחשבים חובה\n• האישור הסופי הוא מקרן ההשתלמות\n• יש לבדוק הכרת הקורסים **לפני ההרשמה**\n• כל קורס נבדק בנפרד\n\n💡 מומלץ לתכנן את התוכנית מראש ולקבל אישור! לפירוט המלא והמדויק לפי המצב האישי שלך, מומלץ לעיין בדף תוכנית הלימודים המלא.",
+          "priority": true,
+          "keywords": [
+            "ממה מורכבת תוכנית הלימודים",
+            "מה המבנה של תוכנית הלימודים",
+            "מבנה תוכנית הלימודים",
+            "מה צריך ללמוד בשבתון",
+            "מה זה ש\"ש",
+            "מה המושג שש",
+            "מה אני חייבת ללמוד",
+            "מה אני חייב ללמוד",
+            "מה חובה ללמוד בשבתון"
+          ],
+          "relatedLinks": [
+            {
+              "text": "מדריך מלא על תוכנית לימודים",
+              "url": "https://www.shabaton.online/learning_programs_shabaton"
+            },
+            {
+              "text": "חיפוש קורסים באתר",
+              "url": "https://www.shabaton.online"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "הגדרות: רשות וחובה",
+      "icon": "📖",
+      "description": "הבדלים בין לימודי רשות וחובה",
+      "questions": [
+        {
+          "id": "definitions_1",
+          "question": "מה זה קורס רשות?",
+          "variations": [
+            "מה זה קורס רשות?",
+            "מה זה לימודי רשות?",
+            "מה ההבדל בין רשות לחובה?"
+          ],
+          "answer": "**קורס רשות** הוא קורס שאת בוחרת ללמוד מתוך עניין אישי, אבל הוא לא חובה.\n\n**מאפיינים:**\n• ✅ בחירה חופשית לפי התחומים שמעניינים אותך\n• ✅ אפשר ללמוד כמה שרוצים (אין מינימום)\n• ✅ לא חובה לקבל הכרה מקרן ההשתלמות\n• ✅ יכול להיות בכל תחום\n\n**לעומת זאת:**\nלימודי חובה (1 ש\"ש) - חייבים לקבל אישור מראש מקרן ההשתלמות.",
+          "keywords": [
+            "מה זה קורס רשות",
+            "מה זה לימודי רשות",
+            "מה ההבדל בין רשות לחובה",
+            "מה ההבדל בין חובה לרשות",
+            "מה הכוונה בקורס רשות"
+          ],
+          "relatedLinks": [
+            {
+              "text": "מדריך תוכנית לימודים",
+              "url": "https://www.shabaton.online/learning_programs_shabaton"
+            }
+          ]
+        },
+        {
+          "id": "definitions_2",
+          "question": "מה זה קורס חובה?",
+          "variations": [
+            "מה זה קורס חובה?",
+            "מה זה לימודי חובה?",
+            "מה חייבים ללמוד?"
+          ],
+          "answer": "**קורס חובה** הוא קורס של 1 ש\"ש (שעה שבועית) לפחות שחובה ללמוד במהלך שנת השבתון.\n\n**דרישות:**\n• 📌 מינימום 1 ש\"ש (שעה שבועית)\n• 📌 חייב לקבל אישור מקרן ההשתלמות **לפני ההרשמה**\n• 📌 חייב להיות מוכר במערכת\n\n**אפשרויות לקורס חובה:**\n• תואר שני\n• תעודה מוכרת\n• קורס 1 ש\"ש מאושר\n• קורסי השתלמות מוכרים",
+          "keywords": [
+            "מה זה קורס חובה",
+            "מה זה לימודי חובה",
+            "מה חייבים ללמוד",
+            "מה נחשב קורס חובה",
+            "מה הכוונה בקורס חובה"
+          ],
+          "relatedLinks": [
+            {
+              "text": "מדריך תוכנית לימודים",
+              "url": "https://www.shabaton.online/learning_programs_shabaton"
+            }
+          ]
+        },
+        {
+          "id": "definitions_3",
+          "question": "כמה שעות רשות וחובה צריכים?",
+          "variations": [
+            "כמה שעות רשות צריכים?",
+            "כמה שעות חובה צריכים?",
+            "כמה ש\"ש צריך?",
+            "מה הדרישות בשעות?"
+          ],
+          "answer": "**דרישות שעות בשבתון:**\n\n**📌 לימודי חובה:**\n• **מינימום 1 ש\"ש** (שעה שבועית)\n• חובה לקבל אישור מקרן ההשתלמות\n\n**📖 לימודי רשות:**\n• **אין מינימום או מקסימום**\n• אפשר ללמוד כמה שרוצים\n• לא חובה לקבל אישור\n\n**💡 הסבר:**\n\"ש\"ש\" = שעה שבועית = קורס שנמשך שנה אקדמית שלמה (שעה אחת בשבוע).\n\nלדוגמה: קורס שנתי עם מפגש אחד בשבוע = 1 ש\"ש",
+          "keywords": [
+            "כמה שעות רשות צריך",
+            "כמה שעות חובה צריך",
+            "כמה שעות רשות צריכים",
+            "כמה שעות חובה צריכים",
+            "כמה ש\"ש צריך",
+            "מה הדרישות בשעות",
+            "מה המינימום שעות",
+            "מה המינימום ש\"ש"
+          ],
+          "relatedLinks": [
+            {
+              "text": "מדריך מלא על תוכנית לימודים",
+              "url": "https://www.shabaton.online/learning_programs_shabaton"
+            }
+          ]
+        },
+        {
+          "id": "max_shah_not_required",
+          "question": "האם חובה ללמוד את מקסימום השעות (16 ש\"ש)?",
+          "variations": [
+            "חייב 16 ש\"ש?",
+            "האם חייבים ללמוד 16 ש\"ש?",
+            "חייבים להגיע למקסימום השעות?",
+            "האם חובה למצות את כל השעות?",
+            "אפשר ללמוד פחות מ-16 ש\"ש?",
+            "חייב ללמוד שבתון מלא?",
+            "מוכרחים 16 ש\"ש?"
+          ],
+          "priority": true,
+          "answer": "לא, בהחלט לא חייבים 16 ש\"ש!\n\n**שבתון מלא הוא 8 עד 16 ש\"ש** — זה טווח, לא חובה להגיע לגובה המקסימלי.\n\nאפשר ללמוד פחות, בהתאם לצרכים, לתקציב ולמטרות שלכם — כל עוד עומדים במינימום הנדרש של לימודי חובה.",
+          "keywords": [
+            "חייב 16 ש\"ש",
+            "חייבים ללמוד 16 ש\"ש",
+            "חייבים להגיע למקסימום השעות",
+            "חובה למצות את כל השעות",
+            "פחות מ-16 ש\"ש",
+            "חייב ללמוד שבתון מלא",
+            "מוכרחים 16 ש\"ש",
+            "חובה 16 ש\"ש"
+          ],
+          "relatedLinks": [
+            {
+              "text": "מדריך מלא על תוכנית לימודים",
+              "url": "https://www.shabaton.online/learning_programs_shabaton"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "מצבים מיוחדים ותלונות",
+      "icon": "🚨",
+      "description": "מצבים חריגים שדורשים תשומת לב מיוחדת",
+      "questions": [
+        {
+          "id": "institution_not_responding",
+          "question": "המוסד לא עונה לי - מה עושים?",
+          "variations": [
+            "המוסד לא עונה לי",
+            "פניתי למוסד ואין תגובה",
+            "לא מצליחה ליצור קשר עם המוסד"
+          ],
+          "priority": true,
+          "answer": "נא רשמו את שמכם, מספר טלפון וכתובת אימייל, ואנו נפנה את בקשתכם למוסד הלימודים.\n\nכמו כן, נא רשמו את שם המוסד ואת שם הקורס בו אתם מעוניינים.",
+          "keywords": [
+            "מוסד לא עונה",
+            "אין תגובה",
+            "לא עונים",
+            "לא מצליחה ליצור קשר"
+          ],
+          "relatedLinks": [
+            {
+              "text": "קבוצת הוואטסאפ של שבתון",
+              "url": "https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME"
+            }
+          ]
+        },
+        {
+          "id": "commercial_gym_recognition",
+          "question": "האם מנוי למכון כושר/חדר כושר או סטודיו פרטי מוכר כלימודי ספורט בשבתון?",
+          "variations": [
+            "אני רוצה לבדוק האם אוכל ללמוד ספורט דרך מכון כושר",
+            "האם מנוי לחדר כושר מוכר לשבתון",
+            "אפשר להירשם לחדר כושר כקורס ספורט בשבתון",
+            "מכון כושר מוכר לשבתון",
+            "האם סטודיו כושר מוכר לשבתון",
+            "אני מתאמנת בסטודיו ורוצה שזה יוכר לשבתון"
+          ],
+          "priority": false,
+          "answer": "מנוי רגיל למכון כושר, חדר כושר או סטודיו פרטי (ללא מסגרת קורס מוגדרת) **אינו** מוכר כלימודי ספורט בשבתון — גם אם המקום עצמו לא מופיע בפורטל.\n\nכדי שקורס ספורט יוכר, הוא צריך להיות **קורס מוגדר**: תוכן לימודי, מסגרת שעות ברורה, ואישור/תעודה מהמוסד — לא סתם מנוי לאימונים חופשיים.\n\n**מה כדאי לעשות:**\n- לבדוק ישירות מול הסטודיו/מכון הכושר הספציפי (גם אם הוא לא ברשימה שלנו) אם הם מציעים **קורס** מוגדר (לדוגמה: קורס פילאטיס) — לא רק מנוי אימונים רגיל.\n- לוודא מול קרן ההשתלמות שכללי ההכרה של קורסי ספורט בשבתון חלים על הקורס הספציפי שמצאתם.\n\nלרשימת מוסדות ספורט מוכרים בפורטל שכן ניתן לפנות אליהם ישירות:",
+          "keywords": [
+            "ללמוד ספורט דרך מכון כושר",
+            "מנוי לחדר כושר מוכר",
+            "מנוי למכון כושר מוכר",
+            "חדר כושר מוכר לשבתון",
+            "מכון כושר מוכר לשבתון",
+            "סטודיו כושר מוכר לשבתון",
+            "ללמוד ספורט דרך",
+            "חדר כושר",
+            "חדרי כושר",
+            "מכון כושר",
+            "מכוני כושר",
+            "סטודיו כושר"
+          ],
+          "relatedLinks": [
+            {
+              "text": "קורסי ספורט, מחול ותנועה",
+              "url": "https://www.shabaton.online/results-all/%D7%A1%D7%A4%D7%95%D7%A8%D7%98%2C%20%D7%9E%D7%97%D7%95%D7%9C%20%D7%95%D7%AA%D7%A0%D7%95%D7%A2%D7%94"
+            }
+          ]
+        },
+        {
+          "id": "not_a_teacher_eligibility",
+          "question": "אינני מורה/עובד/ת הוראה - האם אני יכול/ה להשתתף בקורסים?",
+          "variations": [
+            "שלום אינני מורה, האם אני יכולה להשתתף בקורסים",
+            "אני לא מורה, אפשר ללמוד קורס בכל זאת?",
+            "לא עובדת הוראה, מותר לי להירשם לקורס?",
+            "האם צריך להיות מורה כדי להשתתף בקורסים בפורטל?",
+            "אינני עובד הוראה, האם מותר לי להשתתף?",
+            "אני לא בתחום החינוך, אפשר בכל זאת?"
+          ],
+          "priority": true,
+          "answer": "מרבית הקורסים בפורטל פתוחים **לקהל הרחב**, ולאו דווקא רק לעובדי הוראה.\n\nמומלץ לפנות ישירות למוסדות בתחומי הלימוד שמתאימים לך, ולברר מולם את תנאי ההשתתפות המדויקים.",
+          "keywords": [
+            "אינני מורה",
+            "אני לא מורה",
+            "לא עובדת הוראה",
+            "לא עובד הוראה",
+            "אינני עובד הוראה",
+            "אינני עובדת הוראה",
+            "צריך להיות מורה כדי",
+            "לא מורה האם",
+            "אני לא בהוראה",
+            "לא בתחום החינוך",
+            "לא איש חינוך",
+            "לא אשת חינוך",
+            "אני לא מלמד",
+            "אני לא מלמדת",
+            "לא מהוראה"
+          ],
+          "relatedLinks": [
+            {
+              "text": "חיפוש קורסים לפי תחום",
+              "url": "https://www.shabaton.online"
+            }
+          ]
+        },
+        {
+          "id": "intensive_seminars",
+          "question": "האם סמינרים מרוכזים מוכרים לשבתון?",
+          "variations": [
+            "סמינר מרוכז - האם זה מוכר?",
+            "קורס דחוס בכמה ימים - נחשב?"
+          ],
+          "priority": true,
+          "answer": "יש לוודא ישירות מול המוסד שמציע את הסמינר, ולקבל אישור מקרן ההשתלמות על הסמינר במסגרת תוכנית הלימודים שמגישים לקרן.",
+          "keywords": [
+            "סמינר מרוכז מוכר",
+            "סמינרים מרוכזים מוכרים",
+            "האם סמינר מרוכז מוכר",
+            "סמינר מרוכז נחשב",
+            "מרוכז - האם",
+            "מרוכז נחשב",
+            "קורס דחוס"
+          ],
+          "relatedLinks": [
+            {
+              "text": "חיפוש קורסים באתר",
+              "url": "https://www.shabaton.online"
+            }
+          ]
+        },
+        {
+          "id": "cinema_city_entertainment_center",
+          "question": "יש קורסים בסינמה סיטי?",
+          "variations": [
+            "יש קורסים בסינמה סיטי?",
+            "מה יש בסינמה סיטי לשבתון?",
+            "האם סינמה סיטי מוכר לשבתון?"
+          ],
+          "priority": true,
+          "answer": "אין לנו מידע על קורסים בסינמה סיטי.\n\nמומלץ לעיין במגוון קורסי ההעשרה והפנאי הרחב יותר שבפורטל.",
+          "keywords": [
+            "cinema city",
+            "סינמה סיטי",
+            "מרכז בילוי"
+          ],
+          "relatedLinks": [
+            {
+              "text": "מגוון קורסי העשרה ופנאי",
+              "url": "https://www.morim.boutique/"
+            }
+          ]
+        },
+        {
+          "id": "half_shabaton_work_less",
+          "question": "בחצי שבתון עובדים פחות?",
+          "variations": [
+            "מה ההבדל בין שבתון מלא לחצי שבתון מבחינת שעות עבודה?",
+            "בחצי שבתון כמה עובדים?"
+          ],
+          "priority": true,
+          "answer": "מומלץ לעיין בדף ההשוואה בין שבתון מלא לחצי שבתון לפרטים המלאים.",
+          "keywords": [
+            "חצי שבתון",
+            "עובדים פחות בחצי שבתון",
+            "כמה עובדים בחצי שבתון",
+            "ההבדל בין שבתון מלא לחצי",
+            "השוואה בין שבתון מלא לחצי",
+            "שבתון מלא או חצי שבתון",
+            "חצי שבתון או שבתון מלא",
+            "כמה שעות עובדים בחצי שבתון"
+          ],
+          "relatedLinks": [
+            {
+              "text": "שבתון מלא או חצי שבתון",
+              "url": "https://www.shabaton.online/halforfull_shabaton"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "חוברת קורסים לשבתון",
+      "icon": "📘",
+      "description": "חוברת מרוכזת של כל הקורסים לשבתון",
+      "questions": [
+        {
+          "id": "course_booklet_1",
+          "question": "יש חוברת של כל הקורסים לשבתון?",
+          "variations": [
+            "חוברת שבתון",
+            "חוברת קורסים לשבתון",
+            "איפה אפשר למצוא חוברת עם כל הקורסים?",
+            "יש קובץ עם כל הקורסים לשבתון?",
+            "חוברת מרוכזת של הקורסים"
+          ],
+          "priority": true,
+          "answer": "📘 את חוברת הקורסים לשבתון ניתן למצוא כאן:\nhttps://www.shabaton.online/hoveret_shabaton\n\nאפשר גם לחפש קורסים ישירות בפורטל שבתון:\nhttps://www.shabaton.online/search-courses",
+          "keywords": [
+            "חוברת שבתון",
+            "חוברת קורסים",
+            "חוברת",
+            "חוברת מרוכזת"
+          ],
+          "relatedLinks": [
+            {
+              "text": "חוברת הקורסים לשבתון",
+              "url": "https://www.shabaton.online/hoveret_shabaton"
+            },
+            {
+              "text": "חיפוש קורסים בפורטל שבתון",
+              "url": "https://www.shabaton.online/search-courses"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ניצול תקציב הלימודים",
+      "icon": "💰",
+      "description": "מה קורה לכסף שהוקצה ללימודים ולא נוצל",
+      "questions": [
+        {
+          "id": "unused_study_budget_1",
+          "question": "אם לומדים פחות ש\"ש ממה שמגיע, מה קורה עם שאר הכסף?",
+          "variations": [
+            "אם בוחרים ללמוד רק 8 ש\"ש, האם שאר הכסף נשאר בחיסכון ואוכל לפדות אותו בפנסיה?",
+            "אני מתכוונת ללמוד רק 8 ש\"ש, מה יקרה עם שאר הכסף שלא ניצלתי ונשאר בקרן?",
+            "מה קורה עם הכסף שלא ניצלתי ללימודים?",
+            "אפשר לפדות את הכסף שלא נוצל ללימודים?"
+          ],
+          "priority": true,
+          "answer": "אנו ממליצים מאוד לנצל את מלוא הכסף המוקצה ללימודים.\n\nכסף שלא מנוצל **יורד לטמיון — לא ניתן לפדות אותו**.\n\nזהו כסף שמיועד לשכר לימוד בלבד. הוא **אינו חלק מהחיסכון או מכספי ההפקדות שלכם לקרן**, ולכן אי אפשר לקבל אותו בחזרה כפנסיה או בכל צורה אחרת.",
+          "keywords": [
+            "שאר הכסף",
+            "כסף שלא נוצל",
+            "לפדות את הכסף",
+            "כסף שנשאר בקרן",
+            "ללמוד פחות ש\"ש",
+            "כסף לא מנוצל",
+            "לפדות אותו בפנסיה",
+            "כסף שלא ניצלתי"
+          ],
+          "relatedLinks": [
+            {
+              "text": "תוכניות הלימודים בשבתון",
+              "url": "https://www.shabaton.online/learning_programs_shabaton"
+            }
+          ]
+        },
+        {
+          "id": "tuition_reimbursement_rate",
+          "question": "כמה מקבלים חזרה על שכר לימוד?",
+          "variations": [
+            "כמה מקבלים חזרה על שכר לימוד?",
+            "כמה מחזירים על שכר לימוד?",
+            "מה גובה ההחזר על שכר לימוד?",
+            "כמה כסף מקבלים על החזר שכר לימוד?",
+            "כמה מקבלים על כל ש\"ש?",
+            "כמה שקלים מקבלים על ש\"ש?",
+            "מה ההחזר הכספי לקורס?"
+          ],
+          "priority": true,
+          "answer": "על כל 1 ש\"ש מקבלים כ-1,000 ש\"ח החזר שכר לימוד.\n\nההחזר ניתן עד לגובה שכר לימוד של שנה אוניברסיטאית אחת.\n\nחשוב: זהו החזר על שכר הלימוד ששולם, ולא המענק החודשי (שהוא רכיב נפרד המחושב לפי שיעור המשרה ושיעור ההשתלמות). לפרטים המלאים והמדויקים יש לבדוק מול קרן ההשתלמות.",
+          "keywords": [
+            "כמה מקבלים חזרה על שכר לימוד",
+            "כמה מחזירים על שכר לימוד",
+            "גובה ההחזר על שכר לימוד",
+            "כמה מקבלים על כל ש\"ש",
+            "כמה כסף מקבלים על החזר",
+            "החזר שכר לימוד לכל ש\"ש",
+            "כמה שקלים מקבלים על ש\"ש",
+            "ההחזר הכספי",
+            "החזר כספי לקורס",
+            "החזר כספי"
+          ],
+          "relatedLinks": [
+            {
+              "text": "החזר שכר לימוד",
+              "url": "https://www.shabaton.online/tuition_reimbursement"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ייעוץ פרישה",
+      "icon": "🧭",
+      "description": "ייעוץ פנסיוני אישי לקראת פרישה (לא קורסים)",
+      "questions": [
+        {
+          "id": "retirement_counseling_1",
+          "question": "לאן פונים לייעוץ פרישה?",
+          "variations": [
+            "ייעוץ פרישה",
+            "ייעוץ לפרישה",
+            "ייעוץ פנסיוני לקראת פרישה",
+            "מי יכול לייעץ לי על פרישה",
+            "זקוקה לייעוץ פרישה למי לפנות",
+            "יעוץ לקראת פרישה"
+          ],
+          "priority": true,
+          "answer": "בנושא ייעוץ לקראת פרישה מומלץ לפנות לגורמים המקצועיים המתאימים לייעוץ פנסיוני, בהתאם לנתונים האישיים שלכם כעובדי הוראה (יועץ פנסיוני מוסמך, קרן ההשתלמות, או הגורמים הרלוונטיים בהסתדרות המורים) — זהו נושא שדורש בדיקה אישית ומקצועית, ולא ניתן לתת עליו מענה כללי.\n\nלבירור נוסף מומלץ לפנות לקבוצת הוואטסאפ של שבתון.",
+          "keywords": [
+            "ייעוץ פרישה",
+            "ייעוץ לפרישה",
+            "ייעוץ פנסיוני",
+            "יועץ פרישה",
+            "יעוץ לקראת פרישה",
+            "מתכנן פרישה",
+            "מתכננת פרישה"
+          ],
+          "relatedLinks": [
+            {
+              "text": "קבוצת הוואטסאפ של שבתון",
+              "url": "https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "משרות ודרושים בהוראה",
+      "icon": "📋",
+      "description": "פרסום וחיפוש משרות הוראה בלוח הדרושים של שבתון",
+      "questions": [
+        {
+          "id": "teaching_jobs_board_1",
+          "question": "איך מפרסמים או מחפשים משרת הוראה?",
+          "variations": [
+            "פרסמתי מודעת דרושים מתי יראו אותה?",
+            "רוצה לפרסם משרת הוראה בשרון",
+            "איך מפרסמים דרושים למשרת הוראה?",
+            "איפה מחפשים משרות הוראה?",
+            "רוצה לפרסם שאני מחפש משרת הוראה",
+            "יש לוח דרושים למורים?"
+          ],
+          "priority": true,
+          "answer": "מודעות דרושים של **משרות הוראה בלבד** מתפרסמות בלוח הדרושים, בהתאם לאזור המשרה.\n\nניתן:\n• לפרסם משרת הוראה (עבור מעסיקים)\n• לפרסם חיפוש משרה (עבור עובדי הוראה המחפשים עבודה)\n\n⏳ שימו לב: הפרסום עולה ללוח הדרושים **רק לאחר אישור צוות הפורטל**, כך שייתכן עיכוב קצר עד שהמודעה תוצג.\n\n[משרות הוראה על פי אזורים](https://www.shabaton.online/%D7%9E%D7%A9%D7%A8%D7%95%D7%AA-%D7%94%D7%95%D7%A8%D7%90%D7%94)\n[פרסום משרות הוראה על ידי מעסיקים](https://www.shabaton.online/%D7%94%D7%95%D7%A1%D7%A4%D7%AA-%D7%9E%D7%95%D7%93%D7%A2%D7%94-%D7%9C%D7%9E%D7%91%D7%A7%D7%A9%D7%99-%D7%9E%D7%A9%D7%A8%D7%AA-%D7%94%D7%95%D7%A8%D7%90%D7%94)\n[מורים המבקשים משרות הוראה](https://www.shabaton.online/%D7%9E%D7%97%D7%A4%D7%A9%D7%99%D7%9D-%D7%9E%D7%A9%D7%A8%D7%95%D7%AA-%D7%94%D7%95%D7%A8%D7%90%D7%94)",
+          "keywords": [
+            "דרושים",
+            "מודעת דרושים",
+            "לוח דרושים",
+            "משרת הוראה",
+            "משרות הוראה",
+            "לפרסם משרה",
+            "לפרסם משרת הוראה",
+            "מחפש משרת הוראה",
+            "מחפשת משרת הוראה",
+            "דרוש מורה",
+            "דרושה מורה",
+            "לפרסם מודעת דרושים",
+            "רוצה לפרסם משרה"
+          ],
+          "relatedLinks": [
+            {
+              "text": "משרות הוראה על פי אזורים",
+              "url": "https://www.shabaton.online/%D7%9E%D7%A9%D7%A8%D7%95%D7%AA-%D7%94%D7%95%D7%A8%D7%90%D7%94"
+            },
+            {
+              "text": "פרסום משרות הוראה על ידי מעסיקים",
+              "url": "https://www.shabaton.online/%D7%94%D7%95%D7%A1%D7%A4%D7%AA-%D7%9E%D7%95%D7%93%D7%A2%D7%94-%D7%9C%D7%9E%D7%91%D7%A7%D7%A9%D7%99-%D7%9E%D7%A9%D7%A8%D7%AA-%D7%94%D7%95%D7%A8%D7%90%D7%94"
+            },
+            {
+              "text": "מורים המבקשים משרות הוראה",
+              "url": "https://www.shabaton.online/%D7%9E%D7%97%D7%A4%D7%A9%D7%99%D7%9D-%D7%9E%D7%A9%D7%A8%D7%95%D7%AA-%D7%94%D7%95%D7%A8%D7%90%D7%94"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "השלמת שעות קצרה ומקוונת",
+      "icon": "💻",
+      "description": "המלצת מוסדות לקורס רשות קצר/קל ומקוון (1-2 ש\"ש), עם או בלי תעודה",
+      "questions": [
+        {
+          "id": "short_online_completion_institutions",
+          "question": "אילו מוסדות מציעים קורסים מקוונים קצרים (כ-1 ש\"ש) להשלמה, עם או בלי תעודה?",
+          "variations": [
+            "נשאר לי 1 ש\"ש להשלמה, יש קורס רשות מקוון?",
+            "מחפשת קורס רשות קצר ומקוון",
+            "קורסים מקוונים קטנים עם או בלי תעודה",
+            "השלמה של 1 ש\"ש מקוון",
+            "קורס קצר מקוון להשלמת שעות",
+            "קורס מקוון קטן לשעת השלמה",
+            "איזה מוסד מציע קורס מקוון קצר",
+            "קורסי רשות קלים בזום",
+            "קורס רשות קל בזום",
+            "יש מוסדות עם קורסים קלים של 1 או 2 ש\"ש?",
+            "רעיונות לקורסי רשות מומלצים בזום"
+          ],
+          "priority": true,
+          "answer": "לימודי השלמה קצרים ומקוונים אפשר למצוא במוסדות הבאים:\n\n**[נתיבי ידע - קורסים מתוקשבים](https://www.shabaton.online/e-yeda)**\n[פנו למידע ולייעוץ אישי](https://www.shabaton.online/e-yeda)\n\n**[חמדת - המכללה האקדמית](https://www.shabaton.online/hemdat)**\n[פנו למידע ולייעוץ אישי](https://www.shabaton.online/hemdat)\n\n**[גבעת וושינגטון - לימודי תעודה](https://www.shabaton.online/washington-morim)**\n[פנו למידע ולייעוץ אישי](https://www.shabaton.online/washington-morim)\n\n**[תלפיות - המרכז לפיתוח פרופסיונלי](https://www.shabaton.online/talpiot_edu)**\n[פנו למידע ולייעוץ אישי](https://www.shabaton.online/talpiot_edu)\n\n**[איגוד ערים לאיכות הסביבה נפת אשקלון](https://www.shabaton.online/igud_arim)**\n[פנו למידע ולייעוץ אישי](https://www.shabaton.online/igud_arim)\n\n**[עתיד ירוק](https://www.morim.boutique/atid-yarok)**\nקורסים בלמידה מרחוק - א-סינכרוניים, במגוון נושאים.\n[פנו למידע ולייעוץ אישי](https://www.morim.boutique/atid-yarok)\n\n**[אוניברסיטת בר אילן - הפקולטה לחינוך](https://www.shabaton.online/educationbiu)**\nקורסים בלמידה מרחוק א-סינכרונית וגם קורסים בזום.\n[פנו למידע ולייעוץ אישי](https://www.shabaton.online/educationbiu)\n\n**[ד'ר יפית מורדוף - המרכז לאסטרטגיות הוראה ולמידה](https://www.shabaton.online/yafitm)**\nלימודי תעודה בלמידה מרחוק.\n[פנו למידע ולייעוץ אישי](https://www.shabaton.online/yafitm)\n\n**[מכון אסיף, לקידום הכתיבה והעריכה](https://www.shabaton.online/assif-pub)**\nקורסים מקוונים, א-סינכרוניים.\n[פנו למידע ולייעוץ אישי](https://www.shabaton.online/assif-pub)\n\n**[המכללה האקדמית לחינוך ע\"ש דוד ילין](https://www.shabaton.online/dyellin)**\nקורסים מקוונים, כולל אפשרויות סינכרוני/א-סינכרוני.\n[פנו למידע ולייעוץ אישי](https://www.shabaton.online/dyellin)\n\nכדאי לבדוק גם את מדור קורסי ההעשרה והפנאי — יש שם עוד הרבה קורסי רשות בהיקפים שונים, לפי תחום:\n\n📚 [אמנות ואמנויות](https://www.morim.boutique/art)\n💪 [העצמה אישית](https://www.morim.boutique/empowering)\n🧘 [בריאות, גוף ונפש](https://www.morim.boutique/health)\n👗 [סטיילינג ואופנה](https://www.morim.boutique/fashion)\n🍳 [בישול וקונדיטוריה](https://www.morim.boutique/cooking)\n🎵 [מוסיקה, נגינה ופיתוח קול](https://www.morim.boutique/empowering#music)\n🚌 [טיולים וסמינרים](https://www.morim.boutique/trips)\n💍 [תכשיטנות וצורפות](https://www.morim.boutique/courses-jewelry)\n\nמומלץ לוודא מול כל מוסד אילו קורסים ספציפיים פתוחים כרגע, **וכמה בדיוק ש\"ש כל קורס שווה** — המוסדות ברשימה מציעים בדרך כלל קורסים קצרים, אבל היקף השעות משתנה בין קורס לקורס באותו מוסד (חלק 1 ש\"ש, חלק 2 ש\"ש ומעלה) — הרשימה היא לא הבטחה שכל קורס שם הוא בדיוק ההיקף שביקשת.\n\n💡 בכל אחת מהקטגוריות אפשר גם לסנן לפי האזור שנוח לך — פשוט ציינו את שם היישוב או האזור בעת החיפוש.\n\n⏱️ לחישוב ההיקף: שעה אקדמית = 45 דקות, ו-1 ש\"ש = בדיוק 28 שעות אקדמיות (21 שעות שעון). אי אפשר לצבור כמה קורסים קצרים ל-1 ש\"ש — חייב להיות קורס אחד שמוגדר כ-1 ש\"ש.",
+          "keywords": [
+            "קורסים מקוונים קטנים",
+            "1 ש\"ש למימוש",
+            "קורס רשות מקוון",
+            "רשות מקוון",
+            "מקוון קטן",
+            "קטן מקוון",
+            "מקוון קצר",
+            "קצר מקוון",
+            "מרחוק קטן",
+            "קטן מרחוק",
+            "מרחוק קצר",
+            "קצר מרחוק",
+            "השלמה מקוון",
+            "1 ש\"ש מקוון",
+            "1 ש\"ש מרחוק",
+            "מקוון להשלמה",
+            "מרחוק להשלמה",
+            "קורסים מקוונים קצרים",
+            "קורס מקוון קטן",
+            "קורס מקוון להשלמה",
+            "1 ש\"ש להשלים",
+            "רשות קצר",
+            "קצר ומקוון",
+            "רשות קלים",
+            "רשות קל",
+            "קלים בזום",
+            "קל בזום",
+            "קורס קל בזום",
+            "קורסים קלים בזום",
+            "קורס רשות קל",
+            "קורסי רשות קלים",
+            "1 או 2 ש\"ש",
+            "2 ש\"ש מקוון",
+            "2 ש\"ש בזום",
+            "1 ש\"ש בזום",
+            "קלים ומקוונים",
+            "רשות מומלצים",
+            "קורסי רשות מומלצים",
+            "רעיונות לקורסי רשות",
+            "רעיונות לקורס רשות",
+            "רשות מומלצים בזום",
+            "קורס רשות מומלץ",
+            "רעיונות לרשות בזום",
+            "המלצה לקורס רשות",
+            "קורסים לשבתון כקורסי רשות",
+            "קורסי רשות לשבתון",
+            "קורסים כקורסי רשות",
+            "קורסי רשות ב",
+            "קורסי רשות באזור",
+            "קורסי בחירה",
+            "קורס בחירה",
+            "פנאי לבחירה",
+            "קורסי פנאי לבחירה",
+            "אסינכרוני",
+            "א-סינכרוני",
+            "קורס אסינכרוני",
+            "1 ש\"ש אסינכרוני",
+            "קליל",
+            "קורס קליל",
+            "רשות קליל",
+            "קליל ומקוון",
+            "קליל בזום",
+            "קל וקליל",
+            "קלילים",
+            "קורסים קלילים",
+            "קורסים קצרים",
+            "קורס קצר",
+            "קורסים של 1 ש\"ש",
+            "קורס של 1 ש\"ש",
+            "קורסים קצרים קלילים",
+            "1 שש",
+            "2 שש",
+            "קורס 1 שש",
+            "קורסים 1 שש",
+            "כל הקורסים 1 שש",
+            "קורסים שהם 1 שש"
+          ],
+          "relatedLinks": [
+            {
+              "text": "חיפוש קורסים באתר",
+              "url": "https://www.shabaton.online"
+            },
+            {
+              "text": "קורסי אומנות ואומנויות, העצמה אישית, גוף-נפש, טיולים ועוד מגוון קורסים",
+              "url": "https://www.morim.boutique/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "סמינרים מרוכזים בבתי מלון",
+      "icon": "🏨",
+      "description": "מוסדות שמציעים סמינרים מרוכזים (עם לינה ונופש) בבתי מלון/אתרי נופש, לצד הקורסים הרגילים שלהם",
+      "questions": [
+        {
+          "id": "hotel_concentrated_seminars_1",
+          "question": "איפה אפשר למצוא השתלמויות/סמינרים מרוכזים בבתי מלון?",
+          "variations": [
+            "איפה אני יכול למצוא את השתלמויות בבתי מלון",
+            "יש השתלמויות עם לינה במלון?",
+            "מחפש סמינר מרוכז עם לינה ונופש",
+            "יש קורסים שמתקיימים בבית מלון?",
+            "רוצה סמינר עם נופש ולינה",
+            "יש לכם סמינרים מרוכזים באילת או בים המלח?"
+          ],
+          "priority": true,
+          "answer": "סמינרים מרוכזים בבתי מלון/אתרי נופש (לינה + נופש + למידה, לא יום לימוד רגיל) מוצעים כרגע דרך שלושה מוסדות:\n\n**[עתיד ירוק](https://www.morim.boutique/atid-yarok)**\nסמינרים מרוכזים באילת והערבה, בית בגליל, ים המלח, ירושלים של זהב וכנרת שלי.\n[פנו למידע ולייעוץ אישי](https://www.morim.boutique/atid-yarok)\n\n**[האקדמית חמדת - לימודי חוץ](https://www.shabaton.online/hemdat)**\nסמינרים מרוכזים בירושלים, אילת, ים המלח וכנרת — לצד מגוון קורסים מקוונים נוספים.\n[פנו למידע ולייעוץ אישי](https://www.shabaton.online/hemdat)\n\n**[איגוד ערים לאיכות הסביבה נפת אשקלון](https://www.shabaton.online/igud_arim)**\nסמינרים באילת (מלון המלך שלמה / לאונרדו ריזורט), בירושלים (רמת רחל/המלכים) ובים המלח (דניאל ENJOY).\n[פנו למידע ולייעוץ אישי](https://www.shabaton.online/igud_arim)\n\nמומלץ לפנות ישירות לכל מוסד כדי לבדוק תאריכים, זמינות ומחיר עדכניים.\n\n🚌 כדאי לבדוק גם את קטגוריית [טיולים וסמינרים](https://www.morim.boutique/trips) — יש שם עוד סמינרים וסיורים נוספים.",
+          "keywords": [
+            "בתי מלון",
+            "בית מלון",
+            "סמינר במלון",
+            "סמינר עם לינה",
+            "בונוס מלון",
+            "סמינר מרוכז",
+            "סמינרים מרוכזים",
+            "לינה במלון",
+            "עם לינה ונופש",
+            "השתלמות במלון",
+            "השתלמויות במלון",
+            "סמינרים",
+            "סמינר"
+          ],
+          "relatedLinks": [
+            {
+              "text": "עתיד ירוק",
+              "url": "https://www.morim.boutique/atid-yarok"
+            },
+            {
+              "text": "האקדמית חמדת - לימודי חוץ",
+              "url": "https://www.shabaton.online/hemdat"
+            },
+            {
+              "text": "איגוד ערים לאיכות הסביבה נפת אשקלון",
+              "url": "https://www.shabaton.online/igud_arim"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "חלוקת שעות חובה והשלמה",
+      "icon": "🧮",
+      "description": "כמה שעות לימוד צריך בשבתון, וכיצד מתחלקות בין חובה להשלמה — שאלה מבנית-כללית, לא תלוית-מוסד או תחום-לימוד",
+      "questions": [
+        {
+          "id": "hours_allocation_quota_1",
+          "question": "כמה שעות קורסים עליי לקחת בשנת שבתון, וכיצד מתחלקות בין חובה להשלמה?",
+          "variations": [
+            "אני מבקש לדעת כמה שעות קורסים עלי לקחת",
+            "מה חלוקת השעות בין חובה להשלמה?",
+            "כמה חובה וכמה השלמה מותר לי ללמוד?",
+            "אני בן 45 ומעלה עם תואר שני, כמה שעות עליי ללמוד?",
+            "מה מכסת השעות בשבתון?",
+            "כמה שעות רשות מותר לי בשבתון?",
+            "כמה ש\"ש עליי ללמוד בשבתון?"
+          ],
+          "priority": true,
+          "answer": "מכסת השעות בשנת שבתון זהה לכולם — לא תלויה בתחום הלימוד, בתפקיד או במקצוע שלך:\n\n**שבתון מלא:** 8 עד 16 ש\"ש (1 ש\"ש = 28 שעות אקדמיות; שעה אקדמית = 45 דקות).\n**חצי שבתון:** 4 עד 8 ש\"ש.\n\n**חלוקה בין לימודי חובה ולימודי השלמה:**\n- **בני 45 ומעלה, או בעלי תואר שני/שלישי** — זכאים לחלוקה שווה: מחצית חובה, מחצית השלמה.\n- **מתחת לגיל 45 וללא תואר שני** — לפחות 3/4 מהלימודים צריכים להיות לימודי חובה, ועד 1/4 לימודי השלמה.\n- אפשר תמיד ללמוד את כל המכסה כלימודי חובה בלבד, ללא הגבלה.\n\nכל תכנית לימודים חייבת אישור מראש ובכתב מיועצת הקרן (אזורית או ארצית) — וכן כל שינוי בתכנית לאורך השנה.",
+          "keywords": [
+            "כמה שעות קורסים",
+            "כמה שעות עליי",
+            "כמה שעות עלי",
+            "חלוקת שעות",
+            "חלוקת השעות",
+            "כמה חובה וכמה השלמה",
+            "כמה חובה כמה השלמה",
+            "מכסת השעות",
+            "מכסת שעות",
+            "כמה שעות ללמוד",
+            "כמה שעות מותר",
+            "כמה ש\"ש עליי",
+            "כמה ש\"ש עלי",
+            "מה חלוקת השעות",
+            "כמה שעות רשות מותר",
+            "כמה שעות חובה מותר",
+            "כמה השתלמויות",
+            "כמה השתלמויות אני חייבת",
+            "כמה השתלמויות אני חייב",
+            "כמה השתלמויות צריך",
+            "כמה השתלמויות חייבים",
+            "כמה קורסים אני חייבת",
+            "כמה קורסים אני חייב",
+            "כמה קורסים צריך לעשות",
+            "כמה קורסים חייבים",
+            "שבתון מלא כמה השתלמויות"
+          ],
+          "relatedLinks": [
+            {
+              "text": "מידע נוסף בפורטל שבתון",
+              "url": "https://www.shabaton.online/learning_programs_shabaton"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "התמצאות לקראת שבתון ראשונה",
+      "icon": "🧭",
+      "description": "שאלות פתיחה רחבות ממי שיוצא/ת לשנת שבתון בפעם הראשונה — צריך הכוונה למדורי המידע הכלליים, לא רשימת מוסדות מפורטת",
+      "questions": [
+        {
+          "id": "first_time_sabbatical_orientation_1",
+          "question": "זו שנת השבתון הראשונה שלי, מה עליי לעשות שלב אחר שלב?",
+          "variations": [
+            "יוצאת לשנת שבתון ראשונה, מה עליי לעשות?",
+            "יוצא לשבתון לראשונה, איך מתחילים?",
+            "מה זאת בכלל שנת שבתון?",
+            "מה זה שבתון ואיך זה עובד?",
+            "זו הפעם הראשונה שלי בשבתון, מאיפה מתחילים?",
+            "אני צריך הסבר שלב אחר שלב על שנת השבתון"
+          ],
+          "priority": true,
+          "answer": "מזל טוב על שנת השבתון! הנה לאן כדאי לפנות כדי להתחיל:\n\n🎥 **סרטוני הדרכה** — הסבר מצולם וקצר על שנת השבתון ועל בניית תוכנית הלימודים:\n[סרטוני הדרכה לשבתון](https://www.shabaton.online/shabaton-video)\n\n📋 **מה זו שנת שבתון, וההליך שלב-אחר-שלב** — כל המידע המסודר נמצא במדור \"חשוב לדעת בשבתון\":\n[חשוב לדעת בשבתון](https://www.shabaton.online/learning_programs_shabaton)\n\n📅 **לוח זמנים ומועדים** — מתי להגיש בקשה, מתי להירשם ומתי לשנות תוכנית לימודים:\n[לוח הזמנים בשבתון](https://www.shabaton.online/luz_shabaton)\n\n🎓 **מחפש/ת תואר שני?** — כל האפשרויות (כולל מקוונות) נמצאות כאן:\n[תואר שני בחינוך ובהוראה](https://www.shabaton.online/results-all/%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99%20%D7%91%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%91%D7%94%D7%95%D7%A8%D7%90%D7%94)\n\n💻 **מחפש/ת קורס מקוון/למידה מרחוק?** — כל האפשרויות נמצאות כאן:\n[קורסי למידה מרחוק](https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%D7%9D%20%D7%91%D7%9C%D7%9E%D7%99%D7%93%D7%94%20%D7%9E%D7%A8%D7%97%D7%95%D7%A7)\n\nמומלץ להתחיל מהמדור הראשון כדי להבין את התהליך המלא, ולפנות לגורם רלוונטי בקרן ההשתלמות שלך לכל שאלה אישית.\n\n📚 יש גם מדור [שאלות ותשובות נפוצות](https://www.shabaton.online/shabaton-qa) שיכול לענות על עוד הרבה שאלות כלליות.",
+          "keywords": [
+            "שנת שבתון ראשונה",
+            "שנה ראשונה שבתון",
+            "מה זאת שנת שבתון",
+            "מה זה שנת שבתון",
+            "מה זה שבתון",
+            "שלב אחר שלב",
+            "שלב אחרי שלב",
+            "יוצא לשבתון לראשונה",
+            "יוצאת לשבתון לראשונה",
+            "שבתון ראשון",
+            "הפעם הראשונה בשבתון",
+            "מתכנן שבתון",
+            "מתכננת שבתון",
+            "איך מתנהלים בשבתון",
+            "איך מתנהלים בשנת שבתון"
+          ],
+          "relatedLinks": [
+            {
+              "text": "סרטוני הדרכה לשבתון",
+              "url": "https://www.shabaton.online/shabaton-video"
+            },
+            {
+              "text": "חשוב לדעת בשבתון",
+              "url": "https://www.shabaton.online/learning_programs_shabaton"
+            },
+            {
+              "text": "לוח הזמנים בשבתון",
+              "url": "https://www.shabaton.online/luz_shabaton"
+            },
+            {
+              "text": "תואר שני בחינוך ובהוראה",
+              "url": "https://www.shabaton.online/results-all/%D7%9C%D7%99%D7%9E%D7%95%D7%93%D7%99%20%D7%AA%D7%95%D7%90%D7%A8%20%D7%A9%D7%A0%D7%99%20%D7%91%D7%97%D7%99%D7%A0%D7%95%D7%9A%20%D7%95%D7%91%D7%94%D7%95%D7%A8%D7%90%D7%94"
+            },
+            {
+              "text": "קורסי למידה מרחוק",
+              "url": "https://www.shabaton.online/results-all/%D7%A7%D7%95%D7%A8%D7%A1%D7%99%D7%9D%20%D7%91%D7%9C%D7%9E%D7%99%D7%93%D7%94%20%D7%9E%D7%A8%D7%97%D7%95%D7%A7"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "חיפוש מעורפל / רגשי-אישי (נשמה, רוח)",
+      "icon": "🌿",
+      "description": "שאלות בניסוח רגשי-כללי (נשמה, רוח, התחברות לעצמי) בלי תחום לימוד ספציפי — צריך להציע את קטגוריות ההעשרה והפנאי, לא לנסות לנחש שדה",
+      "questions": [
+        {
+          "id": "vague_spiritual_wellbeing_1",
+          "question": "מחפשת קורסים לנשמה, לרוח",
+          "variations": [
+            "קורסים לנשמה",
+            "קורסים לרוח",
+            "משהו לנשמה",
+            "קורס לרוח ולנשמה",
+            "קורס להתחברות לעצמי",
+            "קורסים לרוח ולנשמה",
+            "לימודים לנשמה"
+          ],
+          "priority": true,
+          "answer": "אין תחום-לימוד ספציפי בשם \"נשמה\" או \"רוח\" בפורטל, אבל יש כמה קטגוריות של קורסי העשרה ופנאי שכנראה יתאימו למה שאת מחפשת:\n\n🧘 **[בריאות, גוף ונפש](https://www.morim.boutique/health)**\n💪 **[העצמה והתפתחות אישית](https://www.morim.boutique/empowering)**\n🎨 **[אמנות ואמנויות](https://www.morim.boutique/art)**\n🎵 **[מוסיקה, נגינה ופיתוח קול](https://www.morim.boutique/empowering#music)**\n🚌 **[טיולים וסמינרים](https://www.morim.boutique/trips)**\n👗 **[עיצוב אופנה וסטיילינג](https://www.morim.boutique/fashion)**\n🍳 **[בישול וקונדיטוריה](https://www.morim.boutique/cooking)**\n💍 **[תכשיטנות וצורפות](https://www.morim.boutique/courses-jewelry)**\n\nכדאי לדפדף בקטגוריות שנשמעות הכי קרובות למה שאת מחפשת — יש שם מגוון רחב של קורסים. אם עדיין קשה לבחור, אפשר גם [לפנות ליועצי לימודים](https://www.shabaton.online/consult) להתאמה אישית.",
+          "keywords": [
+            "קורסים לנשמה",
+            "קורס לנשמה",
+            "לנשמה ולרוח",
+            "לרוח ולנשמה",
+            "משהו לנשמה",
+            "קורס לרוח",
+            "קורסים לרוח",
+            "להתחברות לעצמי"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "פרויקט אישי בשבתון",
+      "icon": "📝",
+      "description": "פרויקט אישי הוא אפשרות רשמית בתוכנית הלימודים (כתיבת ספרים/תכניות לימודים/מחקר וכו') — לא בקשת-קורס, לא צריך חיפוש מוסדות יצירה/פנאי",
+      "questions": [
+        {
+          "id": "personal_project_1",
+          "question": "אני רוצה לעשות פרויקט אישי בשבתון",
+          "variations": [
+            "מה זה פרויקט אישי בשבתון",
+            "רוצה לבצע פרויקט אישי",
+            "פרויקט אישי כחלק מתכנית הלימודים",
+            "איך עושים פרויקט אישי בשבתון",
+            "פרוייקט אישי בשנת שבתון",
+            "אילו נושאים מותרים לפרויקט אישי"
+          ],
+          "priority": true,
+          "answer": "פרויקט אישי הוא אחת האפשרויות בתוכנית הלימודים בשנת שבתון:\n\n📋 מידע מלא בדף: [פרויקט אישי בשבתון](https://www.shabaton.online/learning_programs_shabaton#1032627034)\n\n**עיקרי הכללים:**\n- ניתן לבצע בהיקף של עד 224 שעות שנתיות (8 ש\"ש) בשנת השתלמות מלאה.\n- מאושר לעו\"ה בעלי תואר ראשון לפחות.\n\n**נושאים אפשריים לפרויקט אישי:**\n- השתתפות בפרויקט חינוכי / לימודי ביוזמת מנהלי המחוזות במשרד החינוך\n- כתיבת תכניות לימודים מוזמנות ע\"י הפיקוח או הנהלת ביה\"ס\n- כתיבת חוברות עבודה לתלמידים ו/או חוברות הדרכה למורים, בהמלצת הפיקוח או הנהלת ביה\"ס\n- כתיבת ספרי לימוד, בהמלצת הפיקוח או הנהלת ביה\"ס\n- כתיבת ספרי ילדים, לפי תכנון מראש\n- כתיבת ספרות דידקטית, משחקים חינוכיים וכיו\"ב, לפי תכנון מראש\n- כתיבת ספרות בנושאי פולקלור, תרבות וכיו\"ב, לפי תכנון מראש\n- כתיבת מחקר מדעי במוסד להשכלה גבוהה\n\n**מוסדות מאושרים לביצוע הפרויקט:**\n- מוסדות ישראליים להשכלה גבוהה\n- מכללות אקדמאיות לחינוך\n- מרכזי פסג\"ה\n- מכון מופ\"ת - רשות המחקר (לעובדי הוראה בעלי תואר שני לפחות)\n\nמומלץ לוודא מול קרן ההשתלמות שהפרויקט הספציפי שלך עומד בתנאים.",
+          "keywords": [
+            "פרויקט אישי",
+            "פרוייקט אישי",
+            "פרויקט אישי בשבתון",
+            "פרוייקט אישי בשבתון",
+            "פרויקט אישי כחלק מתכנית",
+            "לבצע פרויקט אישי"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "פרסום קורסים למורים (מוסדות/מרצים)",
+      "icon": "📢",
+      "description": "פונה שהוא ספק/מרצה/מוסד שרוצה להציע את הקורסים שלו בפורטל — לא מורה שמחפש קורס לקחת. יש להפנות לעמוד ההגשה, לא לחפש קורסים עבורו",
+      "questions": [
+        {
+          "id": "list_your_courses_1",
+          "question": "אני רוצה להציע את עצמי עם קורסים והדרכות למורים, איך אני עושה את זה?",
+          "variations": [
+            "איך מפרסמים קורס בפורטל שבתון",
+            "אני מעביר קורסים למורים, איך אני נרשם לאתר",
+            "רוצה לפרסם את הקורס שלי למורים",
+            "איך מוסיפים מוסד לפורטל שבתון",
+            "אני מרצה, איך אני מצטרף לרשימת המוסדות",
+            "רוצה להציע הדרכות למורים באתר",
+            "איך מפרסמים מוסד או קורס באתר שלכם",
+            "אני בעל מוסד לימוד ורוצה להצטרף"
+          ],
+          "priority": true,
+          "answer": "בשמחה! אם אתם מעוניינים לפרסם קורסים או הדרכות למורים בפורטל שבתון, יש לכם עמוד ייעודי להגשת הצעה:\n\n📢 [פרסום בפורטל שבתון](https://www.morim.boutique/about)\n\nבדף תמצאו את אפשרויות הפרסום בפורטל, ושם תוכלו להשאיר פרטים ולקבל הצעת מחיר. צוות שבתון ייצור איתכם קשר.",
+          "keywords": [
+            "להציע את עצמי עם קורסים",
+            "להציע את עצמי",
+            "לפרסם קורס",
+            "לפרסם את הקורס שלי",
+            "לפרסם הדרכה",
+            "איך מפרסמים קורס",
+            "איך מוסיפים מוסד",
+            "להצטרף לרשימת המוסדות",
+            "רוצה לפרסם מוסד",
+            "מציע קורסים והדרכות",
+            "להציע קורסים והדרכות",
+            "פרסום קורסים באתר",
+            "פירסום קורסים באתר",
+            "פירסום קורסים",
+            "לגבי פירסום קורסים",
+            "לפרסם קורס",
+            "לפירסם קורס",
+            "פרסום קורסים",
+            "לגבי פרסום קורסים",
+            "לדבר עם מישהו לגבי פרסום",
+            "לפרסם קורסים באתר שלכם",
+            "הצעת מחיר לפרסום",
+            "הצעת מחיר לפירסום",
+            "הצעת מחיר פרסום",
+            "מחיר לפרסום",
+            "עלות פרסום",
+            "עלות הפרסום",
+            "כמה עולה לפרסם",
+            "כמה עולה פרסום",
+            "מחירון פרסום",
+            "אפשרויות פרסום",
+            "לפרסם באתר",
+            "לפרסם אצלכם",
+            "לפרסם בשבתון",
+            "לפרסם בפורטל",
+            "פרסום בשבתון",
+            "פרסום בפורטל",
+            "לפרסם עסק",
+            "פרסום עסק",
+            "לפרסם את הקורס",
+            "לפרסם את הקורסים",
+            "פרסום באתר",
+            "פרסום באתרכם"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "כללי הכרה כלליים לקורסי ספורט",
+      "icon": "🏅",
+      "description": "כללי ההכרה הכלליים לקורסי ספורט בשבתון (מכסת שעות, רישום נוכחות וכו') — לא רק שאלת מנוי-חדר-כושר הספציפית, גם שאלה כללית על 'קורס בתחום הספורט'",
+      "questions": [
+        {
+          "id": "sport_recognition_general_1",
+          "question": "מחפשת קורס רשות המקנה 4 ש\"ש בתחום הספורט",
+          "variations": [
+            "מה כללי ההכרה לקורסי ספורט בשבתון?",
+            "כמה ש\"ש מוכרים בתחום הספורט?",
+            "קורס רשות בתחום הספורט",
+            "שיעורי ספורט מוכרים לשבתון",
+            "כמה שעות ספורט מותר בשבתון?",
+            "קורס ספורט 4 ש\"ש"
+          ],
+          "priority": false,
+          "answer": "בתחום הספורט יש כללי הכרה ספציפיים (מהדף הרשמי [ספורט בשבתון](https://www.shabaton.online/sport)):\n\n- מאושרים **עד 4 ש\"ש** שיעורי ספורט בשנת השתלמות מלאה.\n- מתוכם, **עד 2 ש\"ש** יכולים להיות שיעורי שחיה / פעילויות במים.\n- **אין** מאשרים פעילויות במועדון ספורט / קאנטרי קלאב / מכון כושר שאינם מקיימים רישום נוכחות.\n- לא יוחזרו דמי מנוי למועדון/קאנטרי/מכון — רק שכר לימוד לקורסים המתקיימים בו.\n- יש לצרף טופס פרטי קורס לתכנית הלימודים שמוגשת לקרן ההשתלמות לאישור, ובתום הקורס לשלוח טופס דיווח נוכחות.\n- ההחזר מקרן ההשתלמות הוא לפי קבלות, בהתאם למספר הש\"ש שאושרו בתכנית הלימודים.\n\nלרשימת מוסדות ספורט מוכרים בפורטל שכן ניתן לפנות אליהם ישירות:",
+          "keywords": [
+            "בתחום הספורט",
+            "קורס ספורט",
+            "קורסי ספורט",
+            "שיעורי ספורט",
+            "קורס רשות בספורט",
+            "כמה ש\"ש בספורט",
+            "כמה שעות ספורט",
+            "כללי הכרה לספורט",
+            "ספורט מוכר לשבתון"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "מה עושים בתום שנת שבתון",
+      "icon": "📋",
+      "description": "רשימת המשימות המנהליות בסיום שנת השבתון (קבלות, אישורי סיום, טופס 101, ביטוח לאומי, ותק, גמולים, מענק יובל) — מידע מובנה מהדף הרשמי, לא דף-מדיניות גולמי לא-מעובד",
+      "questions": [
+        {
+          "id": "end_of_sabbatical_checklist_1",
+          "question": "מה עושים בסוף שנת שבתון?",
+          "variations": [
+            "מה נותר לי לעשות בסוף שבתון",
+            "אני לקראת חזרה משבתון, מה עליי לעשות",
+            "מה עושים בתום שנת השבתון",
+            "רשימת משימות לסיום שבתון",
+            "חוזרים לעבודה אחרי שבתון, מה צריך לעשות",
+            "מה עושים כשחוזרים משבתון",
+            "טופס 101 בסוף שבתון",
+            "משלוח קבלות בסוף שבתון"
+          ],
+          "priority": true,
+          "answer": "הנה רשימת המשימות בתום שנת השבתון, לפי סדר הזמנים (מקור: [לוח הזמנים בשבתון](https://www.shabaton.online/luz_shabaton#third)):\n\n**📄 עד 15.8 — הגשת קבלות לקרן ההשתלמות (החזר שכר לימוד)**\n- [קרן הסתדרות המורים](https://kabalot.kranoth.org.il/) — בנושא הפנייה: \"החזר שכר לימוד לזכאים\"\n- [קרן ארגון המורים](https://kabalot.kereni.co.il/) — בנושא הפנייה: \"החזר שכר לימוד וביטוח לאומי\"\n\n**📄 עד 31.8 — הגשת אישורי סיום לימודים**\n- לקרן ההשתלמות (גם לימודי חובה וגם השלמה, לצורך אישור שנת ותק): [קרן הסתדרות המורים](https://ishurvetek.kranoth.org.il/) | [קרן ארגון המורים](https://ishurvetek.kereni.co.il/)\n- למשרד החינוך (לקורסים שמוכרים לגמול/אופק/תואר): פנייה מקוונת בפורטל עו\"ה\n\n**📝 סוף אוגוסט–תחילת ספטמבר — טופס 101** אצל המעסיק (עובדי משרד החינוך: מקוון בפורטל עו\"ה)\n\n**💳 סוף אוגוסט — ביטוח לאומי:** אם שילמת בהוראת קבע, יש להודיע על חזרה לעבודה כדי לבטל אותה. אם עוד לא קיבלת החזר — לשלוח קבלות (אפשר עד 31.1 בשנה שאחרי, אבל עדיף מוקדם):\n[קרן הסתדרות המורים](https://kabalot.kranoth.org.il/) (בנושא: \"החזר ביטוח לאומי לזכאים\") | [קרן ארגון המורים](https://kabalot.kereni.co.il/) (בנושא: \"החזר שכר לימוד וביטוח לאומי\")\n\n**💰 אוקטובר — לבדוק בתלוש ספטמבר** שחודשה ההפרשה לקרן ההשתלמות ולקרן הפנסיה.\n\n**🎖️ אוקטובר–נובמבר — הוספת שנת ותק:** לשלוח את אישור הוותק (מקרן ההשתלמות) למעסיק. עובדי משרד החינוך: פורטל עו\"ה / מרחב מינהלי / פרטי העסקה / ותק.\n\n**🎓 נובמבר — גמולי השתלמות:** לבדוק שקיבלת אישורים ושנוספו נקודות הגמול בתלוש. אם לא — לפנות למפקח על ההשתלמויות במשרד החינוך.\n\n**🎁 דצמבר–ינואר — מענק יובל** (לזכאים בלבד) — על המעסיק להעביר, לכל המאוחר במשכורת דצמבר.\n\nמומלץ גם לעיין ב[רשימת המשימות המלאה לקראת שבתון](https://www.shabaton.online/shabaton_checklist).",
+          "keywords": [
+            "בסוף שבתון",
+            "סיום שבתון",
+            "לקראת חזרה",
+            "חוזרים לעבודה",
+            "מה נותר לי לעשות",
+            "מה עושים בסוף",
+            "לקראת סוף",
+            "בתום שנת השבתון",
+            "בתום השבתון",
+            "משלוח קבלות",
+            "טופס 101",
+            "מענק יובל",
+            "גמולי השתלמות",
+            "הוספת שנת ותק"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "מענק חודשי בשבתון",
+      "icon": "💰",
+      "description": "חישוב גובה המענק החודשי בשנת שבתון — לא להתבלבל עם החזר שכר לימוד (תשלום שונה לגמרי, ראה SYSTEM_PROMPT)",
+      "questions": [
+        {
+          "id": "monthly_grant_1",
+          "question": "כמה מענק חודשי מקבלים בשבתון?",
+          "variations": [
+            "איך מחשבים את המענק החודשי בשבתון",
+            "כמה כסף מקבלים בשנת שבתון",
+            "גובה המענק החודשי בשבתון",
+            "כמה מרוויחים בשנת שבתון",
+            "לפי מה מחושב המענק החודשי",
+            "אחוז מהשכר בשבתון"
+          ],
+          "priority": true,
+          "answer": "המענק החודשי בשבתון מחושב לפי:\n- שיעור ההשתלמות (66%)\n- היקף המשרה הממוצעת בשנות החיסכון\n- השכר האחרון שקיבלת לפני השבתון (אילו עבדת משרה מלאה) — רכיבים פנסיוניים בלבד\n\n**באומדן גס, המענק החודשי בשבתון יהיה כ-66% מהשכר שלך.**\n\n🎥 סרטון הסבר מפורט: [מענק שבתון](https://www.shabaton.online/shabaton-maanak)\n\n🧮 אפשר גם להיעזר ב[מחשבון של קרן ההשתלמות](https://calc.kranoth.org.il/) להערכת גובה המענק החודשי שלך.",
+          "keywords": [
+            "מענק חודשי",
+            "מענק החודשי",
+            "המענק החודשי",
+            "גובה מענק",
+            "גובה המענק",
+            "חישוב מענק",
+            "כמה מענק",
+            "כמה מרוויחים",
+            "אחוז מהשכר בשבתון",
+            "כמה כסף מקבלים בשבתון"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "לידה במהלך או בתום שנת שבתון",
+      "icon": "👶",
+      "description": "מענק לידה, דמי לידה וזכויות-ותק ליולדת במהלך/אחרי שנת שבתון — מידע מובנה מהדף הרשמי, לא דף-מדיניות גולמי",
+      "questions": [
+        {
+          "id": "birth_during_sabbatical_1",
+          "question": "האם יש מידע על לידה בשנת שבתון?",
+          "variations": [
+            "מה קורה עם דמי לידה בשבתון",
+            "האם מגיע לי מענק לידה בשבתון",
+            "ילדתי בשנת שבתון, מה עליי לעשות",
+            "חופשת לידה אחרי שבתון",
+            "האם שנת שבתון נחשבת ותק אם ילדתי",
+            "זכאות לדמי לידה בזמן שבתון"
+          ],
+          "priority": true,
+          "answer": "מידע על מענק לידה, דמי לידה וחופשת לידה במהלך או בתום שנת שבתון (מקור: [לידה בשנת שבתון](https://www.shabaton.online/birth_shabatgon)):\n\n**🏥 מענק לידה** — משולם ע\"י ביטוח לאומי ליולדת שילדה/אושפזה בבית חולים, בהתאם לתנאי תושבות/העסקה הרגילים.\n\n**💰 דמי לידה — נקודה חשובה למי שיולדת בשבתון:**\nעובדת הוראה שיוצאת לחופשת לידה **אחרי** שנת שבתון בדרך כלל **אינה זכאית** לדמי לידה מביטוח לאומי (כי לא עבדה 10 חודשים מתוך 14 לפני הלידה) — **אבל** בדרך כלל **כן זכאית** לקבל את דמי הלידה **מקרן ההשתלמות** במקום.\n\n**📝 ילדת בזמן השבתון? לקבלת דמי לידה מהקרן:**\n1. למלאי את פרטייך בטופס 355 של ביטוח לאומי\n2. שלחי להמשך מילוי בפנייה מקוונת בפורטל עו\"ה\n3. משרד החינוך ישלח לך את הטופס חתום ומלא\n4. שלחי את הטופס החתום לביטוח הלאומי\n\n[טופס 355 להורדה](https://www.btl.gov.il/%D7%98%D7%A4%D7%A1%D7%99%D7%9D%20%D7%95%D7%90%D7%99%D7%A9%D7%95%D7%A8%D7%99%D7%9D/forms/maternity_forms/Pages/355%20-%20%20%D7%AA%D7%91%D7%99%D7%A2%D7%94%20%D7%9C%D7%93%D7%9E%D7%99%20%D7%9C%D7%99%D7%93%D7%94%20%D7%90%D7%95%20%D7%9C%D7%93%D7%9E%D7%99%20%D7%97%D7%95%D7%A4%D7%A9%D7%94%20%D7%9C%D7%90%D7%9D%20%D7%9E%D7%90%D7%9E%D7%A6%D7%AA.aspx)\n\n**⚖️ חשוב לגבי ותק ושכר:**\n- מי שילדה במהלך/בתום שנת השבתון — שנת השבתון עדיין נחשבת שנת עבודה לכל דבר ועניין.\n- חופשת לידה שמתחילה אחרי שנת שבתון נחשבת תקופת עבודה לצורך תשלום משכורת הקיץ.\n\nהמידע כללי — לפרטים לפי המצב האישי שלך מומלץ לפנות ישירות לקרן ההשתלמות.",
+          "keywords": [
+            "לידה",
+            "דמי לידה",
+            "חופשת לידה",
+            "מענק לידה",
+            "הריון בשבתון",
+            "ילד בשבתון",
+            "ילדה בשבתון",
+            "לידה בשבתון",
+            "לידה בשנת שבתון"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "איך נרשמים לקורסים ואיפה נמצאים",
+      "icon": "📝",
+      "description": "הסבר כללי על תהליך ההרשמה לקורסים דרך הפורטל ועל מהות הפורטל וכתובתו",
+      "questions": [
+        {
+          "id": "how_to_register_where_are_we_1",
+          "question": "איך נרשמים לקורסים ואיפה אתם נמצאים?",
+          "variations": [
+            "איך נרשמים לקורסים",
+            "איך מתבצעת ההרשמה לקורסים",
+            "איך להירשם לקורסים בשבתון",
+            "איפה אתם נמצאים",
+            "מאיפה אתם",
+            "איך עובד הפורטל"
+          ],
+          "priority": true,
+          "answer": "שלום! אני שַׁבִּיבּוֹט, העוזר החכם של שבתון.\n\n## איך נרשמים לקורסים\n\n**בפורטל שבתון:**\n1. חפשו קורס בחיפוש החופשי או בחרו תחום לימודים שמעניין אתכם\n2. תקבלו רשימה של מוסדות לימוד מתאימים על פי בחירתכם\n3. בכל מוסד תוכלו ללחוץ על הכפתור **\"פנו למידע ולייעוץ אישי\"** — זה יפנה ישירות למוסד המציע את הקורס\n4. בדף המוסד תמצאו את כל הפרטים על הקורסים ותוכלו ליצור קשר ישיר עם המוסד\n\n**איפה אנחנו נמצאים:**\nשבתון הוא פורטל מקוון המקשר בין מורים בשנת השתלמות למוסדות לימוד המציעים קורסים ברחבי הארץ.\nכתובת האתר: [www.shabaton.online](https://www.shabaton.online)\n\n🔎 [חיפוש קורסי שבתון](https://www.shabaton.online/search-courses)",
+          "keywords": [
+            "איך נרשמים לקורסים",
+            "איך נרשמים לקורסים בשבתון",
+            "איך מתבצעת ההרשמה לקורסים",
+            "איך מתבצעת הרשמה לקורסים",
+            "איך להירשם לקורסים",
+            "איך אני נרשמת לקורסים",
+            "איך אני נרשם לקורסים"
+          ]
+        }
+      ]
     }
-    return call(msg).then(function (d) {
-      if (!d || !NOT_FOUND.test(d.reply || '')) return d;
-      var vars = spellVariants(msg), i = 0;
-      function next() {
-        if (i >= vars.length) return d;   // אף כתיב לא עזר – התשובה המקורית
-        var v = vars[i++];
-        return call(v.msg).then(function (d2) {
-          if (d2 && d2.reply && !NOT_FOUND.test(d2.reply)) { d2.reply = 'חיפשתי גם בכתיב: **' + v.msg + '**\n\n' + d2.reply; return d2; }
-          return next();
-        }, next);
-      }
-      return next();
-    });
-  }
-
-  console.log('[SHABI] chat.html loaded');
-  var app       = document.getElementById('app');
-  var messages  = document.getElementById('shabaton-chat-messages');
-  var chatInput = document.getElementById('shabaton-chat-input');
-  var chatSend  = document.getElementById('shabaton-chat-send');
-  var clearBtn  = document.getElementById('shabaton-clear-chat');
-
-  var isBusy = false, history = [];
-
-  // ── נגישות: הכרזה לקורא מסך, קישוטים מוסתרים, קישורים לכרטיסייה חדשה ──
-  var live = document.getElementById('sb-live');
-  function announce(txt) { if (!live) return; live.textContent = ''; setTimeout(function(){ live.textContent = txt; }, 60); }
-  function tidy(root) {
-    root.querySelectorAll('.shabaton-bot-avatar').forEach(function(e){ e.setAttribute('aria-hidden', 'true'); });
-    root.querySelectorAll('a[target="_blank"]').forEach(function(a){
-      if (a.querySelector('.sr-only')) return;
-      var s = document.createElement('span'); s.className = 'sr-only'; s.textContent = ' (נפתח בכרטיסייה חדשה)'; a.appendChild(s);
-      if (!a.getAttribute('rel')) a.setAttribute('rel', 'noopener');
-    });
-  }
-  tidy(document);
-
-  // renderMarkdown — כולל SHABTITLE_N_END approach
-  function renderMarkdown(text) {
-    if (!text) return '';
-    try {
-      var links = [];
-      var t = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, function(m, label, url) {
-        links.push({ url: url, label: label }); return '\x01' + (links.length-1) + '\x01';
-      });
-      t = t.replace(/(https?:\/\/[^\s<>"'\[\]]+)/g, function(m, url) {
-        links.push({ url: url, label: url, isRaw: true }); return '\x01' + (links.length-1) + '\x01';
-      });
-      var tableMap = {}, tableIdx = 0;
-      t = t.replace(/((?:^\|.+\|\s*$\n?)+)/gm, function(block) {
-        var rows = block.trim().split('\n');
-        var htmlRows = rows.map(function(row, ri) {
-          var cells = row.split('|').slice(1, -1);
-          if (cells.every(function(c){ return /^[-:\s]+$/.test(c.trim()); })) return null;
-          var ct = ri===0?'th':'td', cs = ri===0?'padding:7px 12px;border:1px solid #b8cfe8;background:#deeaf8;font-weight:700;text-align:right':'padding:6px 12px;border:1px solid #dde8f5;text-align:right;font-size:13px';
-          return '<tr>'+cells.map(function(c){ return '<'+ct+' style="'+cs+'">'+c.trim()+'</'+ct+'>'; }).join('')+'</tr>';
-        }).filter(Boolean);
-        var key = '||TABLE'+(tableIdx++)+'||';
-        tableMap[key] = '<table style="border-collapse:collapse;width:100%;direction:rtl;margin:8px 0">'+htmlRows.join('')+'</table>';
-        return key;
-      });
-      t = t.replace(/\*\*(\x01(\d+)\x01)\*\*/g, function(m, ph, idx) { return 'SHABTITLE_'+idx+'_END'; });
-      t = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      Object.keys(tableMap).forEach(function(k){ t = t.replace(k, tableMap[k]); });
-      t = t.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#0982bc;font-weight:700">$1</strong>');
-      t = t.replace(/(?<!\*)\*(?!\*)/g, '');
-      t = t.replace(/--+/g, '');
-      t = t.replace(/\n/g, '<br>');
-      var seenH3Urls = {};
-      t = t.replace(/SHABTITLE_(\d+)_END/g, function(m, idx2) {
-        var link = links[parseInt(idx2)];
-        if (!link) return m;
-        if (seenH3Urls[link.url]) return '';
-        seenH3Urls[link.url] = true;
-        return '<span class="shabaton-h3">🏫 <a href="'+link.url+'" target="_blank">'+link.label+'</a></span>';
-      });
-      t = t.replace(/(<span class="shabaton-h3">[\s\S]*?<\/span>)<br>/g, '$1<br>');
-      var footerKw = ['כל קורסי','כל הקורסים','הרשם','קבוצת הוואטסאפ','עלון שבתון','אפשר לשאול','לשאול בקבוצת'];
-      t = t.replace(/\x01(\d+)\x01/g, function(m, i) {
-        var link = links[parseInt(i, 10)];
-        if (!link) return '';
-        var url = link.url;
-        try { url = new URL(url).href; } catch(e2) {}
-        if (link.isRaw) return '<a href="'+url+'" target="_blank" style="color:#0982bc">'+url+'</a>';
-        var ll = link.label.toLowerCase();
-        var ctaLabels = ['לחצו כאן', 'לחץ כאן', 'לחצי כאן', 'לרשימה המסוננת', 'לרשימת המוסדות'];
-        if (ctaLabels.some(function(w){ return ll.indexOf(w)!==-1; }))
-          return '<a href="'+url+'" target="_blank" style="display:inline-block;background:#e8630a;color:#fff;padding:7px 18px;border-radius:24px;font-weight:700;text-decoration:none;margin:6px 0">'+link.label+'</a>';
-        if (footerKw.some(function(w){ return ll.indexOf(w.toLowerCase())!==-1; }))
-          return '<span style="display:inline-flex;align-items:center;gap:3px;margin:2px 4px"><a href="'+url+'" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline">'+link.label+'</a></span>';
-        if (ll.indexOf('פייסבוק')!==-1 || ll.indexOf('הצטרפ')!==-1)
-          return '<a href="'+url+'" target="_blank" style="color:#0982bc;text-decoration:underline">'+link.label+'</a>';
-        if (url.indexOf('/results-')!==-1)
-          return '<a href="'+url+'" target="_blank" style="color:#0982bc;font-weight:600;text-decoration:underline">'+link.label+'</a>';
-        return '<a href="'+url+'" target="_blank" style="display:inline-block;background:#e8630a;color:#fff;padding:7px 18px;border-radius:24px;font-weight:700;text-decoration:none;margin:6px 0">'+link.label+'</a>';
-      });
-      t = t.replace(/<strong[^>]*>(<a [^>]+>([^<]+)<\/a>)<\/strong>/g, function(m, aTag, label) {
-        var lbl = label.toLowerCase();
-        if (lbl.indexOf('שאול')!==-1||lbl.indexOf('הרשם')!==-1||lbl.indexOf('פייסבוק')!==-1||lbl.indexOf('הצטרפ')!==-1||lbl.indexOf('פנו')!==-1||lbl.indexOf('לפירוט')!==-1) return m;
-        return '<span class="shabaton-h3">🏫 '+aTag+'</span>';
-      });
-      t = t.replace(/^#{1,3}\s+(.+)$/mg, '<span class="shabaton-h3">$1</span>');
-      return t;
-    } catch(e) { return text; }
-  }
-
-  function addMessage(text, who) {
-    var wrap = document.createElement('div');
-    wrap.className = 'shabaton-message';
-    if (who === 'bot') {
-      wrap.innerHTML = '<div class="shabaton-message-bot"><div class="shabaton-bot-avatar">&#129302;</div><div class="shabaton-message-content">' + renderMarkdown(text) + '</div></div>';
-    } else {
-      wrap.innerHTML = '<div class="shabaton-message-user"><div class="shabaton-message-content">' + text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') + '</div></div>';
-    }
-    messages.appendChild(wrap);
-    messages.scrollTop = messages.scrollHeight;
-    if (who === 'bot') { var c = wrap.querySelector('.shabaton-message-content'); announce('שבתון-בוט: ' + (c ? c.textContent.replace(/🏫/g, '').replace(/\s+/g, ' ').trim() : '')); }
-    tidy(wrap);
-    return wrap;
-  }
-  // מגלגל כך שההודעה (השאלה) תהיה בראש אזור השיחה – והתשובה מתחילה מיד מתחתיה
-  function scrollToMessage(el) {
-    if (!el) return;
-    messages.scrollTop += el.getBoundingClientRect().top - messages.getBoundingClientRect().top - 8;
-  }
-
-  function addTyping() {
-    var wrap = document.createElement('div');
-    wrap.className = 'shabaton-message shabaton-typing-wrap';
-    wrap.innerHTML = '<div class="shabaton-message-bot"><div class="shabaton-bot-avatar" aria-hidden="true">&#129302;</div><div class="shabaton-typing" aria-hidden="true"><span></span><span></span><span></span></div></div>';
-    messages.appendChild(wrap);
-    announce('שבתון-בוט מקליד תשובה…');
-    messages.scrollTop = messages.scrollHeight;
-    return wrap;
-  }
-
-  function sendMessage() {
-    var msg = chatInput.value.trim();
-    if (!msg || isBusy) return;
-    chatInput.value = ''; chatSend.disabled = true;
-    app.classList.add('chatting');   // עיצוב: ה-hero מתכווץ וממסך הברכה גולל למעלה
-    var questionEl = addMessage(msg, 'user');
-    history.push({ role: 'user', content: msg });
-    var typingEl = addTyping();
-    isBusy = true;
-    askBot(msg, history.slice(-6))   // כולל ניסיון חוזר בכתיב אחר כשלא נמצא כלום
-    .then(function(d){
-      typingEl.remove();
-      var reply = d.reply || 'מצטערים, אירעה שגיאה.';
-      addMessage(reply, 'bot');
-      scrollToMessage(questionEl);
-      history.push({ role: 'assistant', content: reply });
-    })
-    .catch(function(){
-      typingEl.remove();
-      addMessage('מצטערים, יש תקלה.', 'bot');
-    })
-    .finally(function(){ isBusy = false; });
-  }
-
-  chatSend.addEventListener('click', sendMessage);
-  chatInput.addEventListener('keypress', function(e){ if (e.key==='Enter'){ e.preventDefault(); sendMessage(); } });
-  chatInput.addEventListener('input', function(){ chatSend.disabled = !chatInput.value.trim(); });
-  // suggestion chips — הטקסט שנשלח הוא data-q (אם קיים), אחרת תוכן הכפתור
-  document.querySelectorAll('.suggestion-chip').forEach(function(chip) {
-    chip.addEventListener('click', function() {
-      chatInput.value = (chip.getAttribute('data-q') || chip.textContent).trim();
-      chatSend.disabled = false;
-      sendMessage();
-    });
-  });
-
-  if (clearBtn) clearBtn.addEventListener('click', function(){
-    history = [];
-    messages.querySelectorAll('.shabaton-message').forEach(function(el){ el.remove(); });
-    app.classList.remove('chatting');
-    messages.scrollTop = 0;
-    announce('השיחה נוקתה');
-    chatInput.focus();
-  });
-
-  // שאלה שהועברה מבוט חיפוש הקורסים (shabaton-bot?q=...) – נשלחת אוטומטית
-  (function autoAsk(){
-    function fromSearch(s){ try { return new URLSearchParams(s).get('q') || ''; } catch(e){ return ''; } }
-    var q = fromSearch(window.location.search);
-    if (!q) { try { q = fromSearch(window.top.location.search); } catch(e){} }   // אם הבוט בתוך iframe באותו דומיין
-    q = (q || '').trim().slice(0, 500);
-    if (!q) return;
-    // מנקים את q מהכתובת כדי שרענון הדף לא ישלח שוב את השאלה
-    try {
-      var w = window.location.search.indexOf('q=') > -1 ? window : window.top;
-      var u = new URL(w.location.href); u.searchParams.delete('q');
-      w.history.replaceState(null, '', u.pathname + u.search + u.hash);
-    } catch(e){}
-    chatInput.value = q;
-    chatSend.disabled = false;
-    sendMessage();
-  })();
-
-})();
-
-</script>
-</body>
-</html>
+  ],
+  "generalInfo": {
+    "title": "מידע כללי על הכרת קורסים בשבתון",
+    "content": "בשנת שבתון חשוב לוודא שהקורסים שבחרת מוכרים על ידי קרן ההשתלמות.\n\nכל קורס צריך להיבדק בנפרד, והכרה בעבר לא מבטיחה הכרה כיום.\n\nהאישור הסופי הוא תמיד מול קרן ההשתלמות."
+  },
+  "fallbackMessage": "לשאלות נוספות על הכרת קורסים, מומלץ לפנות לקרן ההשתלמות או לרפרנט שלך.\n\n[שאל בקבוצת WhatsApp](https://chat.whatsapp.com/FFak5hIoCHtKnPMEAwOlME)"
+}
