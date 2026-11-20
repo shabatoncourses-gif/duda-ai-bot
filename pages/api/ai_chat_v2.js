@@ -393,6 +393,10 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
     'שש','חובה','רשות','נקודות','שעות','ש"ש',
     // מילות פעולה לימודיות כלליות — לא נושא
     'ללמוד','למוד','ולמוד','ללמד','ולמד','להכשיר','לרכוש','לפתח','לרכוש',
+    // שמות-אזור, ניסוחי-בקשה ותיאור-הפונה — לא נושא לימוד (נצפה: "גמלאי... חוג רישום או ציור
+    // באיזור תל אביב והמרכז" → המונח "המרכז" התאים ל"המרכז לאמנויות העץ" וכד')
+    'מרכז','המרכז','צפון','הצפון','דרום','הדרום','שרון','השרון','שפלה','השפלה',
+    'גמלאי','גמלאים','גמלאית','חוג','חוגים','להצטרף','הצטרף','מחפש','מחפשת','מחפשים','רוצה','ורוצה','רוצים','מעוניין','מעוניינת',
     // סוג/רמת תואר — לא נושא לימוד ("תואר שני ב-X" — הנושא הוא X)
     'תואר','תארים',
     // מילות אזור/מיקום — לא נושא לימוד
@@ -473,6 +477,7 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
   if (orParts.length > 1) {
     const seenUrls = new Set();
     const orMatched = [];
+    const orHitTerms = new Set();
     for (const part of orParts) {
       const partWords = (part.match(/[\u05D0-\u05EA]{2,}|[a-zA-Z]{2,}/g) || [])
         .filter(w => w.length >= 2 && !isStop(w.toLowerCase())).map(stripPrefix);
@@ -482,16 +487,20 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
       for (const ki of institutions) {
         if (seenUrls.has(ki.url)) continue;
         const text = ((ki.title||'') + ' ' + (ki.description||'')).toLowerCase();
-        const matched = allPartTerms.some(term => term.length >= 2 && text.includes(term));
-        if (matched) {
+        const hitTerms = allPartTerms.filter(term => term.length >= 2 && text.includes(term));
+        if (hitTerms.length > 0) {
           orMatched.push(ki);
           seenUrls.add(ki.url);
+          hitTerms.forEach(t => orHitTerms.add(t));
         }
       }
     }
     if (orMatched.length > 0 && orMatched.length < institutions.length) {
       console.log('OR FILTER:', orParts.map(p=>p.trim()).join(' | '), '→', orMatched.length, '/', institutions.length);
-      return { result: orMatched, noMatchForSpecificTerm: false };
+      // matchedTerm נדרש לניסוח הודעות ("לא מצאנו קורס X באזור Y") — בלי זה הופיע "undefined".
+      // מציגים עד שני המונחים הארוכים ביותר שנמצאו בפועל בתיאורים.
+      const orLabel = [...orHitTerms].filter(t => t.length >= 4).sort((x, y) => y.length - x.length).slice(0, 2).join(' / ');
+      return { result: orMatched, noMatchForSpecificTerm: false, matchedTerm: orLabel };
     }
   }
 
@@ -3745,7 +3754,7 @@ export default async function handler(req, res) {
         // בארץ, אבל אף אחד מהם לא בירושלים. חייבים לפתוח בכנות שלא נמצא
         // התאמה מקומית ל-topicOverrodeCity.city, לפני שמציגים את הרשימה
         // הארצית — אחרת המשתמש חושב בטעות שאלה מוסדות מקומיים.
-        intro = `לא מצאנו קורס ${topicOverrodeCity.term} ספציפית באזור ${topicOverrodeCity.city} — הנה קורסי ${fieldName} רלוונטיים באזורים אחרים בארץ:`;
+        intro = `לא מצאנו קורס ${topicOverrodeCity.term ? topicOverrodeCity.term + ' ' : ''}ספציפית באזור ${topicOverrodeCity.city} — הנה קורסי ${fieldName} רלוונטיים באזורים אחרים בארץ:`;
       } else if (fieldName && regionName) {
         // אזור מאומת — דף האזור האמיתי נמצא והרשימה באמת מסוננת אליו
         intro = `פה תוכלו למצוא מידע על ${fieldName} באזור ${regionName} ובלמידה מרחוק, ולפנות ישירות למוסדות לשאלות ולייעוץ אישי:`;
