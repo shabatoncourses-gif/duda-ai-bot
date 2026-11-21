@@ -3779,8 +3779,12 @@ export default async function handler(req, res) {
       } else if (fieldName && categoryUrl && !categoryUrl.includes('results-all') && courseCount > 0) {
         // categoryUrl אזורי (results-jerusalem, results-Zafon וכו') — מוסדות מסוננים לפי אזור
         // גם אם requestedRegionName לא הגיע, הURL מעיד על סינון אזורי
-        const regionLabel = requestedRegionName || (categoryUrl.match(/results-([^/]+)\//) || [])[1] || '';
-        const regionDisplay = regionLabel ? ` באזור ${regionLabel.replace(/results-/i,'').replace(/-/g,' ')}` : '';
+        // שם האזור בעברית מתוך regions.json (לפי ה-slug שב-URL). נצפה בפרודקשן:
+        // "באזור merkaz" — כי נלקח ה-slug הלטיני מה-URL ישירות. אם אין התאמה, מושמט במקום להציג אנגלית.
+        const regionsData = (loadJSON('regions.json') || {}).regions || [];
+        const regionFromUrl = regionsData.find(r => r.slug && categoryUrl.includes('/' + r.slug + '/'));
+        const regionLabel = requestedRegionName || (regionFromUrl && regionFromUrl.name) || '';
+        const regionDisplay = regionLabel ? ` באזור ${regionLabel}` : '';
         intro = `פה תוכלו למצוא מוסדות ${fieldName}${regionDisplay}, ולפנות ישירות לשאלות ולייעוץ אישי:`;
       } else if (/ספורט|מחול|תנועה|פילאטיס|יוגה|שחייה|אירובי|כושר/.test(fieldName || '') && fieldName) {
         // שדה ספורט — מוסיפים טיפ על קורסי ספורט קרוב לבית + קישור לדף כללי הספורט
