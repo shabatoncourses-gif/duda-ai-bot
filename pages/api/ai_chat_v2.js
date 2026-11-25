@@ -340,7 +340,7 @@ function detectRegion(q) {
 // כשתחום שלם (לדוגמה "תרפיה וטיפול") מתאים לשאלה ספציפית יותר (לדוגמה
 // "הידרותרפיה"), אין להציג את כל המוסדות בתחום — רק את אלו שבאמת
 // מזכירים את המונח הספציפי בתיאור שלהם.
-function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeywords) {
+function _filterInstitutionsBySpecificTermCore(institutions, message, fieldOwnKeywords) {
   // "מיומנויות חברתיות" / "כישורים חברתיים" / "מיומנויות וכישורים חברתיים" — הנושא הוא "חברתי";
   // המילים "מיומנויות/כישורים" כלליות מדי כדי לשמש מונח מצמצם (ואז נשארו רק מוסדות שכתבו בדיוק את הצירוף).
   message = message.replace(/(?:מיומנויות|כישורים|כישורי)(?:\s+(?:ו?כישורים|ו?מיומנויות))?\s+(חברתי[\u05D0-\u05EA]*)/g, '$1');
@@ -538,6 +538,39 @@ function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeyword
   // כנראה נושא-משנה שלא קיים במאגר (כמו "ארומתרפיה"). מסמנים את זה לקורא,
   // כדי שיוכל להציע מוסד-ברירת-מחדל לתחום במקום רשימה לא-קשורה.
   return { result: institutions, noMatchForSpecificTerm: true };
+}
+
+// ── כוונת "לימוד שפה" (ולא הוראת-שפה/תרגום) ──
+// נצפה בפרודקשן (נובמבר 2026): "קורס לימוד אנגלית" הציג הוראה מתקנת באנגלית, תרגום
+// אנגלית-עברית ותארי M.Ed — כי תחום "שפות" כולל גם הוראה ותרגום. כשהגולשת מבקשת במפורש
+// ללמוד שפה (לימוד/ללמוד/שיעורי X) ולא מזכירה הוראה/תרגום/תואר, משאירים רק מוסדות
+// שיש להם שורת-קורס על אותה שפה שאינה הוראה/תרגום/תואר, ומציגים רק את אותן שורות.
+// אם אין אף מוסד כזה — לא נוגעים בתוצאה (עדיף רשימה רחבה מאשר ריקה).
+const LEARN_LANGUAGES = ['אנגלית','ערבית','ספרדית','צרפתית','רוסית','גרמנית','איטלקית','סינית','יפנית','פורטוגזית','יידיש','אמהרית','עברית'];
+const LANG_TEACH_OR_TRANSLATE_RE = /הוראה|הוראת|מורים|מורה|תרגום|מתרגמ|פרשנות|tutor|teach|remedial|tefl|tesol|translat|interpret|m\.?ed|תואר|מתקנת|מותאמת|דידקטי|פדגוגי/i;
+function detectLanguageLearningIntent(message) {
+  const m = String(message || '').toLowerCase();
+  if (LANG_TEACH_OR_TRANSLATE_RE.test(m)) return null;
+  for (const lang of LEARN_LANGUAGES) {
+    const re = new RegExp('(?:^|[^\\u05D0-\\u05EA])(?:ל?ימוד|ללמוד|למידת|שיעורי|לדבר|דיבור|שיחה)\\s+(?:ב|ה|ל)?' + lang);
+    if (re.test(m) || new RegExp('(?:^|[^\\u05D0-\\u05EA])' + lang + '\\s+(?:מדוברת|לדוברי|לדוברות|למתחילים|לבוגרים)').test(m)) return lang;
+  }
+  return null;
+}
+function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeywords) {
+  const core = _filterInstitutionsBySpecificTermCore(institutions, message, fieldOwnKeywords);
+  const lang = detectLanguageLearningIntent(message);
+  if (!lang || !core || !core.result) return core;
+  const langRe = new RegExp(lang === 'אנגלית' ? 'אנגלית|english' : lang, 'i');
+  const refined = [];
+  for (const ki of core.result) {
+    const lines = String(ki.description || '').split('\n').map(l => l.trim()).filter(Boolean);
+    const good = lines.filter(l => langRe.test(l) && !LANG_TEACH_OR_TRANSLATE_RE.test(l));
+    if (good.length > 0) refined.push(Object.assign({}, ki, { description: good.join('\n') }));
+  }
+  if (refined.length === 0) return core;
+  console.log('LANGUAGE-LEARNING INTENT:', lang, '→', refined.length, '/', core.result.length, 'institutions (teaching/translation excluded)');
+  return Object.assign({}, core, { result: refined, noMatchForSpecificTerm: false, matchedTerm: core.matchedTerm || lang });
 }
 
 // מסיר תיאורי-תנאי-קדם ("לבעלי תעודת הוראה ותואר שני") מהודעה לפני התאמת תחום —
