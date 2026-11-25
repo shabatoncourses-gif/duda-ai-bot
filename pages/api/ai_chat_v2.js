@@ -558,7 +558,35 @@ function detectLanguageLearningIntent(message) {
   return null;
 }
 function filterInstitutionsBySpecificTerm(institutions, message, fieldOwnKeywords) {
-  const core = _filterInstitutionsBySpecificTermCore(institutions, message, fieldOwnKeywords);
+  let core = _filterInstitutionsBySpecificTermCore(institutions, message, fieldOwnKeywords);
+  // ── שני נושאים מחוברים ב"ו"/"וגם" ("תפירה ונגרות") — איחוד, לא "הצר ביותר מנצח" ──
+  // נצפה בפרודקשן (נובמבר 2026): "קורס תפירה ונגרות" הציג רק נגרות (או רק תפירה), כי
+  // הסינון בוחר את המונח הצר ביותר ומתעלם מהשני. כאן מסננים כל חלק בנפרד ומאחדים,
+  // אבל רק כשלפחות שני חלקים הניבו צמצום אמיתי (אחרת — ההתנהגות הקיימת, ללא שינוי).
+  try {
+    const splitParts = String(message || '').split(/\s+(?:וגם|וכן)\s+|\s+ו(?=[\u05D0-\u05EA]{4,})/).map(x => x.trim()).filter(Boolean);
+    if (splitParts.length >= 2 && splitParts.length <= 3) {
+      const hits = [];
+      for (const part of splitParts) {
+        const r = _filterInstitutionsBySpecificTermCore(institutions, part, fieldOwnKeywords);
+        // מונח "אמיתי": מופיע בחלק ההודעה כמילה שלמה (לא שארית אחרי הסרת תחילית — "ריאות" מתוך "בריאות",
+        // "וראה" מתוך "הוראה"), וצר מספיק כדי להיות נושא ספציפי ולא שם-תחום כללי.
+        const termIsReal = r && r.matchedTerm && r.matchedTerm.length >= 4 &&
+          new RegExp('(^|[^\\u05D0-\\u05EA])' + r.matchedTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test(part.toLowerCase());
+        if (r && termIsReal && !r.noMatchForSpecificTerm && r.result.length > 0 && r.result.length <= 9 && r.result.length < institutions.length) hits.push(r);
+      }
+      const distinctTerms = new Set(hits.map(h => h.matchedTerm));
+      const wholeIsPhrase = core && core.matchedTerm && /\s/.test(core.matchedTerm) && !core.noMatchForSpecificTerm;
+      if (hits.length >= 2 && distinctTerms.size >= 2 && !wholeIsPhrase) {
+        const seenU = new Set(); const unionRes = [];
+        for (const h of hits) for (const ki of h.result) if (!seenU.has(ki.url)) { seenU.add(ki.url); unionRes.push(ki); }
+        if (unionRes.length < institutions.length) {
+          console.log('MULTI-TOPIC UNION:', [...distinctTerms].join(' + '), '→', unionRes.length, '/', institutions.length);
+          core = { result: unionRes, noMatchForSpecificTerm: false, matchedTerm: [...distinctTerms].join(' / '), isUnion: true };
+        }
+      }
+    }
+  } catch (e) { /* נשארים עם התוצאה הרגילה */ }
   const lang = detectLanguageLearningIntent(message);
   if (!lang || !core || !core.result) return core;
   const langRe = new RegExp(lang === 'אנגלית' ? 'אנגלית|english' : lang, 'i');
@@ -1782,6 +1810,10 @@ function applySemanticMappings(message) {
 
 function fixTypos(msg) {
   return msg
+    // "ראשון" לבדו (באזור ראשון / בראשון) = ראשון לציון. לא נוגעים ב"יום ראשון"/"ימי ראשון"
+    // (יום בשבוע) וגם לא ב"ראשון לציון" המלא.
+    .replace(/((?:^|\s)(?:ב|ל|מ)?(?:אזור|איזור|סביבת|סביבות)\s+|(?:^|\s)ליד\s+)ראשון(?![א-ת])(?!(?:\s|-)*ל?ציון)/g, '$1ראשון לציון')
+    .replace(/(^|\s)(ב|ל|מ)ראשון(?![א-ת])(?!(?:\s|-)*ל?ציון)/g, (m, sp, pre) => sp + pre + 'ראשון לציון')
     // פסיק/נקודה צמודים בלי רווח ("קורס,קרמיקה") — מפרידים כדי שהמונח לא יידבק למילה הקודמת
     .replace(/([א-תA-Za-z]),(?=[א-תA-Za-z])/g, '$1, ')
     .replace(/בישור/g, 'בישול')
@@ -2461,9 +2493,11 @@ async function buildContext(message, history, precomputedQA, apiKey) {
   // גם "בלימודי חובה X בלימודי רשות Y" (או "ל"-מתחיל) נחשב חיבור-משתמע בין
   // שני נושאים — דרך נפוצה לבקש נושא אחד לשעות-חובה ונושא שני לשעות-רשות,
   // בלי מילת-חיבור מפורשת כמו "וגם".
-  const MULTI_FIELD_CONNECTOR = /וגם|וכן|\sאו\s|[בל]לימודי חובה|[בל]לימודי רשות/;
+  // "X וY" (ו' החיבור צמודה למילה השנייה: "תפירה ונגרות") — גם זה חיבור בין שני נושאים.
+  // החלוקה למילים-נושא מוגנת: החלק יצורף רק אם הוא מתאים בבירור לשדה *אחר* (ראו bestExtraLen).
+  const MULTI_FIELD_CONNECTOR = /וגם|וכן|\sאו\s|[בל]לימודי חובה|[בל]לימודי רשות|\s\S+\sו[\u05D0-\u05EA]{4,}/;
   if (knownOnly && sfForKI && matchedFieldObj && MULTI_FIELD_CONNECTOR.test(' ' + msgForFieldMatch + ' ')) {
-    const connParts = msgForFieldMatch.split(/\s+(?:וגם|וכן|או)\s+|[בל]לימודי חובה\s*|[בל]לימודי רשות\s*/);
+    const connParts = msgForFieldMatch.split(/\s+(?:וגם|וכן|או)\s+|[בל]לימודי חובה\s*|[בל]לימודי רשות\s*|\s+ו(?=[\u05D0-\u05EA]{4,})/);
     for (const part of connParts) {
       const partL = part.toLowerCase().trim();
       let bestExtraLen = 0, bestExtraField = null;
@@ -2662,6 +2696,21 @@ async function buildContext(message, history, precomputedQA, apiKey) {
     // (ג) אין לו בכלל מידע location (המצב הנפוץ במוסדות מהשדות המשלימים) —
     // בלי מידע, לא פוסלים. כך גם מכבדים בקשת אזור מפורשת, וגם לא הורסים
     // את השילוב הרב-נושאי שהמשתמשת ביקשה.
+    if (knownOnly && wasCombined) {
+      // שם העיר/אזור אינו נושא — מסירים אותו לפני חיפוש המונחים (אחרת "ראשון" מתפרש כנושא).
+      let msgNarrowC = msgForNarrowing;
+      try {
+        const rgC = loadJSON('regions.json');
+        const lowC = normHe(msgForFieldMatch);
+        const cityC = rgC && rgC.regions.flatMap(r => r.cities || []).find(c => c.length >= 4 && wordBoundaryIncludes(lowC, normHe(c)));
+        if (cityC) msgNarrowC = stripCityFromTopic(msgNarrowC, cityC);
+      } catch (e) {}
+      const unionTopicC = filterInstitutionsBySpecificTerm(knownOnly, msgNarrowC, matchedFieldKeywords);
+      if (unionTopicC.isUnion && unionTopicC.result.length > 0 && unionTopicC.result.length < knownOnly.length) {
+        console.log('COMBINED: narrowing to multi-topic union:', unionTopicC.matchedTerm, '→', unionTopicC.result.length);
+        knownOnly = unionTopicC.result;
+      }
+    }
     if (knownOnly && wasCombined) {
       const sfRegionsC = loadJSON('regions.json');
       const msgLowerC = msgForFieldMatch.toLowerCase();
