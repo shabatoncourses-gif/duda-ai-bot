@@ -1580,6 +1580,7 @@ function getCourseDates(message, filterUrls) {
     const summerMonths = [curYear + '-06', curYear + '-07', curYear + '-08'];
     const summerResults = [];
     for (const c of data.courses) {
+      if (filterUrls && filterUrls.length > 0 && !filterUrls.includes(c.url)) continue;
       const matching = c.openings.filter(o => summerMonths.includes(o.month));
       if (matching.length > 0) {
         summerResults.push({ title: c.title, url: c.url, openings: matching });
@@ -1628,6 +1629,7 @@ function getCourseDates(message, filterUrls) {
     const yr = targetYear || '2026';
     const key = yr + '-' + targetMonth;
     for (const c of data.courses) {
+      if (filterUrls && filterUrls.length > 0 && !filterUrls.includes(c.url)) continue;
       const matching = c.openings.filter(o => o.month === key);
       if (matching.length > 0) {
         results.push({ title: c.title, url: c.url, openings: matching });
@@ -1648,7 +1650,7 @@ function getCourseDates(message, filterUrls) {
   }
 
   // חפש לפי שם מוסד/קורס — מעדיף התאמת כותרת על פני תוכן פתיחות
-  const stopW = new Set(['מתי','קורס','קורסים','נפתח','נפתחים','מועד','פתיחה','של','את','יש','מה']);
+  const stopW = new Set(['מתי','קורס','קורסים','נפתח','נפתחים','מועד','פתיחה','של','את','יש','מה','התחילו','התחיל','מתחיל','מתחילים','נפתחו','לימודי','לימודים','הלימודים','ללמוד']);
   const stripPfx = (w) => {
     if (w.length < 5) return w;
     const rest = w.slice(1);
@@ -1668,7 +1670,13 @@ function getCourseDates(message, filterUrls) {
     const titleL = c.title.toLowerCase();
     const openingText = c.openings.map(o => (o.course_name || '') + ' ' + (o.date_text || '')).join(' ').toLowerCase();
     // התאמת כותרת: ≥2 מילים מהשאלה מופיעות בכותרת המוסד — התאמה חזקה
-    const titleMatches = qWords.filter(w => titleL.includes(w)).length;
+    // סופרים מילים *שונות* מהשאלה: qWords מכיל גם את הצורה המקורית וגם את הצורה ללא
+    // תחילית (למשל "לימודי"+"ימודי"), ובלי הדה-דופליקציה מילה אחת נספרה פעמיים והספיקה
+    // כ"התאמת כותרת חזקה" — נצפה בפרודקשן: "מתי התחילו לימודי פסיכותרפיה ברמת גן" הציג
+    // מועדי פתיחה של "גבעת ושינגטון - לימודי תעודה" שאינם קשורים (נובמבר 2026).
+    const titleMatchedRoots = new Set();
+    for (const w of qWords) { if (titleL.includes(w)) titleMatchedRoots.add(stripPfx(w)); }
+    const titleMatches = titleMatchedRoots.size;
     if (titleMatches >= 2) return true;
     // כל המילות הספציפיות חייבות להיות בכותרת או בתיאור.
     // בודק כותרת תחילה (התאמה חזקה) ואחר כך תיאור — מאפשר "AI" בתיאורים.
@@ -3014,7 +3022,7 @@ async function buildContext(message, history, precomputedQA, apiKey) {
     const finalNote = [
       (!END_OF_SABBATICAL_RE.test(message) && ((/מתי|מועד|נפתח|פתיחה|תאריך|חודש|מאיזה|בקרוב/.test(message)) ||
        (/(^|\s)[בלמכ]?(יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר|ינואר|פברואר|מרץ|אפריל|מאי|יוני)(\s|$|\?)/.test(message)) ||
-       isSummerQuery(message))) ? getCourseDates(message) : null,
+       isSummerQuery(message))) ? getCourseDates(message, validKI.map(ki => ki.url)) : null,
       combinedNote,
       summerNote
     ].filter(Boolean).join('\n\n') || null;
@@ -3798,7 +3806,7 @@ export default async function handler(req, res) {
       }
       const courseListText = shuffled.join('\n\n') + (combinedNote ? '\n\n' + combinedNote : '');
       let intro;
-      if (!END_OF_SABBATICAL_RE.test(message) && getCourseDates(message) && courseCount <= 3 &&
+      if (!END_OF_SABBATICAL_RE.test(message) && /===\s*(?:מועדי פתיחה|קורסים הנפתחים|קורסי קיץ)/.test(combinedNote || '') && courseCount <= 3 &&
           (/מתי|מועד|נפתח|פתיחה|תאריך|חודש|מאיזה|בקרוב/.test(message) ||
            /(^|\s)[בלמכ]?(יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר|ינואר|פברואר|מרץ|אפריל|מאי|יוני)(\s|$|\?)/.test(message) ||
            isSummerQuery(message))) {
