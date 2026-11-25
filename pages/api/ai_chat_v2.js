@@ -1741,6 +1741,8 @@ function applySemanticMappings(message) {
 
 function fixTypos(msg) {
   return msg
+    // פסיק/נקודה צמודים בלי רווח ("קורס,קרמיקה") — מפרידים כדי שהמונח לא יידבק למילה הקודמת
+    .replace(/([א-תA-Za-z]),(?=[א-תA-Za-z])/g, '$1, ')
     .replace(/בישור/g, 'בישול')
     .replace(/בבליותרפיה/g, 'ביבליותרפיה')
     .replace(/ביבליותרפיה/g, 'ביבליותרפיה')  // normalize
@@ -2575,7 +2577,31 @@ async function buildContext(message, history, precomputedQA, apiKey) {
               const rgFiltered = knownOnly.filter(ki =>
                 (ki.locations || []).some(loc => rgCities.some(c => c.length >= 4 && normLoc(loc).includes(c)))
               );
-              if (rgFiltered.length > 0 && rgFiltered.length < knownOnly.length) {
+              // ── מודעות למונח-ספציפי גם בסינון-אזור (כמו בסינון-עיר למעלה) ──
+              // נצפה בפרודקשן (נובמבר 2026): "קורס קרמיקה באזור השרון" הציג את *כל* מוסדות
+              // האמנות באזור (פסיפס, עץ, בישול...) כי סינון-האזור לא התחשב בנושא. עכשיו:
+              // אם יש התאמה-נושאית אמיתית — חיתוך עם האזור; אם יש התאמה אבל לא באזור — מציגים
+              // אותה ארצית עם הודעה כנה ("לא מצאנו קורס X באזור Y").
+              let regionTopicApplied = false;
+              if (rgFiltered.length > 0) {
+                const topicPreviewR = filterInstitutionsBySpecificTerm(knownOnly, msgForNarrowing, matchedFieldKeywords);
+                const genuineR = !topicPreviewR.noMatchForSpecificTerm && topicPreviewR.result.length < knownOnly.length;
+                if (genuineR) {
+                  const tUrlsR = new Set(topicPreviewR.result.map(k => k.url));
+                  const interR = rgFiltered.filter(k => tUrlsR.has(k.url));
+                  if (interR.length > 0) {
+                    console.log(`REGION KEYWORD FILTER (+topic "${topicPreviewR.matchedTerm}"): "${kwMatch}" (${rg.name}) → ${interR.length}/${knownOnly.length}`);
+                    knownOnly = interR;
+                  } else {
+                    console.log(`REGION FILTER SKIPPED: topic "${topicPreviewR.matchedTerm}" has 0 institutions in ${rg.name} — showing topic match nationally`);
+                    knownOnly = topicPreviewR.result;
+                    topicOverrodeCityFlag = { city: rg.name, term: topicPreviewR.matchedTerm };
+                  }
+                  knownOnly._cityFilterApplied = kwMatch;
+                  regionTopicApplied = true;
+                }
+              }
+              if (!regionTopicApplied && rgFiltered.length > 0 && rgFiltered.length < knownOnly.length) {
                 console.log(`REGION KEYWORD FILTER: "${kwMatch}" (${rg.name}) → ${rgFiltered.length}/${knownOnly.length}`);
                 knownOnly = rgFiltered;
                 knownOnly._cityFilterApplied = kwMatch;
